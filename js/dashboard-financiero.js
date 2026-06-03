@@ -13,7 +13,7 @@ const DashboardFinancieroModule = {
         historico: []
     },
 
-    // Inicializar el módulo
+
     init() {
         this.setupEventListeners();
         this.loadData();
@@ -129,7 +129,7 @@ const DashboardFinancieroModule = {
         if (!canvas) return;
 
         const ctx = canvas.getContext('2d');
-        if (window.incomeExpenseChart) {
+        if (window.incomeExpenseChart && typeof window.incomeExpenseChart.destroy === 'function') {
             window.incomeExpenseChart.destroy();
         }
 
@@ -171,7 +171,7 @@ const DashboardFinancieroModule = {
         if (!canvas) return;
 
         const ctx = canvas.getContext('2d');
-        if (window.cashFlowChart) {
+        if (window.cashFlowChart && typeof window.cashFlowChart.destroy === 'function') {
             window.cashFlowChart.destroy();
         }
 
@@ -212,7 +212,7 @@ const DashboardFinancieroModule = {
         if (!canvas) return;
 
         const ctx = canvas.getContext('2d');
-        if (window.marginChart) {
+        if (window.marginChart && typeof window.marginChart.destroy === 'function') {
             window.marginChart.destroy();
         }
 
@@ -264,7 +264,7 @@ const DashboardFinancieroModule = {
         container.appendChild(canvas);
 
         const ctx = canvas.getContext('2d');
-        if (window.expenseCategoryChart) {
+        if (window.expenseCategoryChart && typeof window.expenseCategoryChart.destroy === 'function') {
             window.expenseCategoryChart.destroy();
         }
 
@@ -318,7 +318,7 @@ const DashboardFinancieroModule = {
         container.appendChild(canvas);
 
         const ctx = canvas.getContext('2d');
-        if (window.incomeCategoryChart) {
+        if (window.incomeCategoryChart && typeof window.incomeCategoryChart.destroy === 'function') {
             window.incomeCategoryChart.destroy();
         }
 

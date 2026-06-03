@@ -19,10 +19,10 @@ const CONFIG = {
     // ============================================
     API: {
         // Cambiar a true cuando se implemente el backend
-        useAPI: false,
+        useAPI: true,
         
         // URL base del servidor (ajustar cuando tengas backend)
-        baseURL: 'http://localhost:3000/api',
+        baseURL: 'http://178.128.72.110:3011/api',
         
         // Endpoints de la API
         endpoints: {
