@@ -1,0 +1,503 @@
+// ============================================
+// MÓDULO DE CÓDIGOS DE ARTÍCULOS
+// ============================================
+// Sistema dual: Código de venta (interno) + Código de compra (externo)
+// Búsqueda por sección, familia, subfamilia y concepto
+
+const CodigosArticulosModule = {
+    state: {
+        articulos: [],
+        secciones: [],
+        familias: [],
+        subfamilias: [],
+        searchTerm: '',
+        filterSeccion: 'todos',
+        filterFamilia: 'todos',
+        selectedArticulo: null
+    },
+
+    // Inicializar
+    init() {
+        this.setupEventListeners();
+        this.loadData();
+        this.renderSecciones();
+        console.log('Módulo de Códigos de Artículos inicializado');
+    },
+
+    // Setup event listeners
+    setupEventListeners() {
+        const searchInput = document.getElementById('searchArticulos');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                this.searchTerm = e.target.value.toLowerCase();
+                this.renderArticulos();
+            });
+        }
+
+        const seccionFilter = document.getElementById('filterSeccion');
+        if (seccionFilter) {
+            seccionFilter.addEventListener('change', (e) => {
+                this.filterSeccion = e.target.value;
+                this.renderFamilias();
+                this.renderArticulos();
+            });
+        }
+
+        const familiaFilter = document.getElementById('filterFamilia');
+        if (familiaFilter) {
+            familiaFilter.addEventListener('change', (e) => {
+                this.filterFamilia = e.target.value;
+                this.renderArticulos();
+            });
+        }
+
+        const addArticuloBtn = document.getElementById('addArticuloBtn');
+        if (addArticuloBtn) {
+            addArticuloBtn.addEventListener('click', () => this.openArticuloModal());
+        }
+
+        const saveArticuloBtn = document.getElementById('saveArticuloBtn');
+        if (saveArticuloBtn) {
+            saveArticuloBtn.addEventListener('click', () => this.saveArticulo());
+        }
+
+        const closeModal = document.querySelector('#articuloModal .close-btn');
+        if (closeModal) {
+            closeModal.addEventListener('click', () => this.closeArticuloModal());
+        }
+    },
+
+    // Cargar datos
+    loadData() {
+        const demoData = window.DemoData || {};
+        this.state.articulos = JSON.parse(JSON.stringify(demoData.articulos || []));
+        this.state.secciones = JSON.parse(JSON.stringify(demoData.secciones || this.getDefaultSecciones()));
+        this.state.familias = JSON.parse(JSON.stringify(demoData.familias || this.getDefaultFamilias()));
+        this.state.subfamilias = JSON.parse(JSON.stringify(demoData.subfamilias || this.getDefaultSubfamilias()));
+    },
+
+    // Secciones por defecto
+    getDefaultSecciones() {
+        return [
+            { id: 'SEC-001', nombre: 'Medicamentos', descripcion: 'Fármacos y medicinas' },
+            { id: 'SEC-002', nombre: 'Instrumental', descripcion: 'Equipos e instrumental médico' },
+            { id: 'SEC-003', nombre: 'Consumibles', descripcion: 'Suministros y consumibles' },
+            { id: 'SEC-004', nombre: 'Servicios', descripcion: 'Servicios profesionales' }
+        ];
+    },
+
+    // Familias por defecto
+    getDefaultFamilias() {
+        return [
+            { id: 'FAM-001', seccionId: 'SEC-001', nombre: 'Analgésicos', descripcion: 'Medicamentos para dolor' },
+            { id: 'FAM-002', seccionId: 'SEC-001', nombre: 'Antibióticos', descripcion: 'Medicamentos antibacterianos' },
+            { id: 'FAM-003', seccionId: 'SEC-001', nombre: 'Antiinflamatorios', descripcion: 'Medicamentos antiinflamatorios' },
+            { id: 'FAM-004', seccionId: 'SEC-002', nombre: 'Equipos Diagnóstico', descripcion: 'Equipos para diagnóstico' },
+            { id: 'FAM-005', seccionId: 'SEC-003', nombre: 'Insumos Hospital', descripcion: 'Insumos hospitalarios' }
+        ];
+    },
+
+    // Subfamilias por defecto
+    getDefaultSubfamilias() {
+        return [
+            { id: 'SUBFAM-001', familiaId: 'FAM-001', nombre: 'Acetaminofén', descripcion: 'Paracetamol' },
+            { id: 'SUBFAM-002', familiaId: 'FAM-001', nombre: 'Ibuprofeno', descripcion: 'Anti-inflamatorio' },
+            { id: 'SUBFAM-003', familiaId: 'FAM-002', nombre: 'Penicilinas', descripcion: 'Beta-lactámicos' },
+            { id: 'SUBFAM-004', familiaId: 'FAM-002', nombre: 'Cefalosporinas', descripcion: 'Antibióticos' }
+        ];
+    },
+
+    // Renderizar secciones en filtro
+    renderSecciones() {
+        const select = document.getElementById('filterSeccion');
+        if (!select) return;
+
+        select.innerHTML = '<option value="todos">-- Todas las Secciones --</option>' +
+            this.state.secciones.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
+    },
+
+    // Renderizar familias según sección
+    renderFamilias() {
+        const select = document.getElementById('filterFamilia');
+        if (!select) return;
+
+        const familiasFiltradas = this.filterSeccion === 'todos'
+            ? this.state.familias
+            : this.state.familias.filter(f => f.seccionId === this.filterSeccion);
+
+        select.innerHTML = '<option value="todos">-- Todas las Familias --</option>' +
+            familiasFiltradas.map(f => `<option value="${f.id}">${f.nombre}</option>`).join('');
+    },
+
+    // Renderizar artículos
+    renderArticulos() {
+        const container = document.getElementById('articulosTableContainer');
+        if (!container) return;
+
+        let filtered = [...this.state.articulos];
+
+        // Filtro por sección
+        if (this.filterSeccion !== 'todos') {
+            filtered = filtered.filter(a => a.seccionId === this.filterSeccion);
+        }
+
+        // Filtro por familia
+        if (this.filterFamilia !== 'todos') {
+            filtered = filtered.filter(a => a.familiaId === this.filterFamilia);
+        }
+
+        // Búsqueda
+        if (this.searchTerm) {
+            filtered = filtered.filter(a =>
+                a.nombre.toLowerCase().includes(this.searchTerm) ||
+                a.concepto.toLowerCase().includes(this.searchTerm) ||
+                a.codigoVenta.toLowerCase().includes(this.searchTerm) ||
+                a.codigoCompra.toLowerCase().includes(this.searchTerm)
+            );
+        }
+
+        if (filtered.length === 0) {
+            container.innerHTML = '<div class="empty-state"><p>No hay artículos registrados</p></div>';
+            return;
+        }
+
+        container.innerHTML = `
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Concepto</th>
+                            <th>Código de Venta (Interno)</th>
+                            <th>Código de Compra (Externo)</th>
+                            <th>Familia</th>
+                            <th>Precio Compra</th>
+                            <th>Precio Venta</th>
+                            <th>Margen</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filtered.map(art => this.renderArticuloRow(art)).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    },
+
+    // Renderizar fila de artículo
+    renderArticuloRow(articulo) {
+        const familia = this.state.familias.find(f => f.id === articulo.familiaId);
+        const margen = familia ? ((articulo.precioVenta - articulo.precioCompra) / articulo.precioCompra * 100).toFixed(1) : '-';
+        const estadoBadge = articulo.estado === 'activo'
+            ? '<span class="badge badge-success">Activo</span>'
+            : '<span class="badge badge-secondary">Inactivo</span>';
+
+        return `
+            <tr>
+                <td><strong>${articulo.concepto}</strong></td>
+                <td><code class="codigo-venta">${articulo.codigoVenta}</code></td>
+                <td><code class="codigo-compra">${articulo.codigoCompra}</code></td>
+                <td>${familia ? familia.nombre : '-'}</td>
+                <td>$${articulo.precioCompra.toFixed(2)}</td>
+                <td>$${articulo.precioVenta.toFixed(2)}</td>
+                <td><span class="badge badge-info">${margen}%</span></td>
+                <td>${estadoBadge}</td>
+                <td class="actions">
+                    <button class="btn-icon btn-view" title="Ver Detalles" onclick="CodigosArticulosModule.viewArticuloDetails('${articulo.id}')">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn-icon btn-edit" title="Editar" onclick="CodigosArticulosModule.editArticulo('${articulo.id}')">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-icon btn-delete" title="Eliminar" onclick="CodigosArticulosModule.deleteArticulo('${articulo.id}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    },
+
+    // Ver detalles
+    viewArticuloDetails(articuloId) {
+        const articulo = this.state.articulos.find(a => a.id === articuloId);
+        if (!articulo) return;
+
+        const familia = this.state.familias.find(f => f.id === articulo.familiaId);
+        const subfamilia = this.state.subfamilias.find(s => s.id === articulo.subfamiliaId);
+        const seccion = this.state.secciones.find(s => s.id === articulo.seccionId);
+
+        const margen = ((articulo.precioVenta - articulo.precioCompra) / articulo.precioCompra * 100).toFixed(2);
+        const margenPeso = (articulo.precioVenta - articulo.precioCompra).toFixed(2);
+
+        const detailsHTML = `
+            <div class="codigo-details-card">
+                <div class="header-section">
+                    <div>
+                        <h3>${articulo.concepto}</h3>
+                        <p class="subtitle">${articulo.nombre}</p>
+                    </div>
+                    <span class="badge badge-${articulo.estado === 'activo' ? 'success' : 'secondary'}">
+                        ${articulo.estado.toUpperCase()}
+                    </span>
+                </div>
+
+                <div class="coding-section">
+                    <div class="code-box codigo-venta">
+                        <label>Código de Venta (Sistema Interno)</label>
+                        <code>${articulo.codigoVenta}</code>
+                        <small>Código para facturas y ventas locales</small>
+                    </div>
+                    <div class="code-box codigo-compra">
+                        <label>Código de Compra (Sistema Externo)</label>
+                        <code>${articulo.codigoCompra}</code>
+                        <small>Código del proveedor/externa</small>
+                    </div>
+                </div>
+
+                <div class="classification-section">
+                    <div class="class-item">
+                        <label>Sección:</label>
+                        <p>${seccion ? seccion.nombre : '-'}</p>
+                    </div>
+                    <div class="class-item">
+                        <label>Familia:</label>
+                        <p>${familia ? familia.nombre : '-'}</p>
+                    </div>
+                    <div class="class-item">
+                        <label>Subfamilia:</label>
+                        <p>${subfamilia ? subfamilia.nombre : '-'}</p>
+                    </div>
+                </div>
+
+                <div class="pricing-section">
+                    <div class="price-item">
+                        <label>Precio de Compra</label>
+                        <p class="price">$${articulo.precioCompra.toFixed(2)}</p>
+                    </div>
+                    <div class="price-item">
+                        <label>Precio de Venta</label>
+                        <p class="price">$${articulo.precioVenta.toFixed(2)}</p>
+                    </div>
+                    <div class="price-item">
+                        <label>Margen</label>
+                        <p class="price">${margen}% | $${margenPeso}</p>
+                    </div>
+                </div>
+
+                ${articulo.descripcion ? `
+                    <div class="description-section">
+                        <label>Descripción</label>
+                        <p>${articulo.descripcion}</p>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+
+        this.showDetailsModal('Detalles del Artículo', detailsHTML);
+    },
+
+    // Mostrar modal de detalles
+    showDetailsModal(title, content) {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal-dialog">
+                <div class="modal-header">
+                    <h2>${title}</h2>
+                    <button class="close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    ${content}
+                </div>
+            </div>
+        `;
+
+        overlay.querySelector('.close-btn').addEventListener('click', () => {
+            overlay.remove();
+            document.body.style.overflow = 'auto';
+        });
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                overlay.remove();
+                document.body.style.overflow = 'auto';
+            }
+        });
+
+        document.body.appendChild(overlay);
+        document.body.style.overflow = 'hidden';
+    },
+
+    // Editar artículo
+    editArticulo(articuloId) {
+        const articulo = this.state.articulos.find(a => a.id === articuloId);
+        if (!articulo) return;
+
+        this.state.selectedArticulo = articulo;
+        this.openArticuloModal(articulo);
+    },
+
+    // Abrir modal
+    openArticuloModal(articulo = null) {
+        const modal = document.getElementById('articuloModal');
+        const form = document.getElementById('editArticuloForm');
+        if (!modal || !form) return;
+
+        form.reset();
+
+        if (articulo) {
+            document.getElementById('articuloId').value = articulo.id;
+            document.getElementById('articuloNombre').value = articulo.nombre;
+            document.getElementById('articuloConcepto').value = articulo.concepto;
+            document.getElementById('codigoVenta').value = articulo.codigoVenta;
+            document.getElementById('codigoCompra').value = articulo.codigoCompra;
+            document.getElementById('articuloSeccion').value = articulo.seccionId;
+            this.renderFamiliasForModal();
+            document.getElementById('articuloFamilia').value = articulo.familiaId;
+            document.getElementById('precioCompra').value = articulo.precioCompra;
+            document.getElementById('precioVenta').value = articulo.precioVenta;
+            document.getElementById('articuloEstado').value = articulo.estado;
+            document.getElementById('articuloDescripcion').value = articulo.descripcion || '';
+        }
+
+        this.renderFamiliasForModal();
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    },
+
+    // Renderizar familias en modal
+    renderFamiliasForModal() {
+        const seccionId = document.getElementById('articuloSeccion').value;
+        const select = document.getElementById('articuloFamilia');
+
+        const familiasFiltradas = seccionId === ''
+            ? this.state.familias
+            : this.state.familias.filter(f => f.seccionId === seccionId);
+
+        select.innerHTML = '<option value="">-- Selecciona familia --</option>' +
+            familiasFiltradas.map(f => `<option value="${f.id}">${f.nombre}</option>`).join('');
+    },
+
+    // Cerrar modal
+    closeArticuloModal() {
+        const modal = document.getElementById('articuloModal');
+        if (modal) {
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            this.state.selectedArticulo = null;
+        }
+    },
+
+    // Guardar artículo
+    saveArticulo() {
+        const id = document.getElementById('articuloId').value;
+        const nombre = document.getElementById('articuloNombre').value.trim();
+        const concepto = document.getElementById('articuloConcepto').value.trim();
+        const codigoVenta = document.getElementById('codigoVenta').value.trim();
+        const codigoCompra = document.getElementById('codigoCompra').value.trim();
+        const seccionId = document.getElementById('articuloSeccion').value;
+        const familiaId = document.getElementById('articuloFamilia').value;
+        const precioCompra = parseFloat(document.getElementById('precioCompra').value) || 0;
+        const precioVenta = parseFloat(document.getElementById('precioVenta').value) || 0;
+        const estado = document.getElementById('articuloEstado').value;
+        const descripcion = document.getElementById('articuloDescripcion').value.trim();
+
+        if (!nombre || !concepto || !codigoVenta || !codigoCompra || !seccionId || !familiaId || precioCompra <= 0 || precioVenta <= 0) {
+            this.showNotification('⚠️ Por favor completa todos los campos requeridos', 'warning');
+            return;
+        }
+
+        // Validar códigos únicos
+        const codeExists = this.state.articulos.some(a =>
+            (a.codigoVenta === codigoVenta || a.codigoCompra === codigoCompra) &&
+            a.id !== id
+        );
+
+        if (codeExists) {
+            this.showNotification('❌ Los códigos deben ser únicos', 'error');
+            return;
+        }
+
+        if (id) {
+            // Editar
+            const articulo = this.state.articulos.find(a => a.id === id);
+            if (articulo) {
+                articulo.nombre = nombre;
+                articulo.concepto = concepto;
+                articulo.codigoVenta = codigoVenta;
+                articulo.codigoCompra = codigoCompra;
+                articulo.seccionId = seccionId;
+                articulo.familiaId = familiaId;
+                articulo.precioCompra = precioCompra;
+                articulo.precioVenta = precioVenta;
+                articulo.estado = estado;
+                articulo.descripcion = descripcion;
+                this.showNotification('✅ Artículo actualizado', 'success');
+            }
+        } else {
+            // Crear
+            const nuevoArticulo = {
+                id: this.generateId('ART'),
+                nombre,
+                concepto,
+                codigoVenta,
+                codigoCompra,
+                seccionId,
+                familiaId,
+                precioCompra,
+                precioVenta,
+                estado,
+                descripcion,
+                fechaCreacion: new Date().toLocaleDateString()
+            };
+            this.state.articulos.push(nuevoArticulo);
+            this.showNotification('✅ Artículo creado exitosamente', 'success');
+        }
+
+        this.saveToDB();
+        this.closeArticuloModal();
+        this.renderArticulos();
+    },
+
+    // Eliminar artículo
+    deleteArticulo(articuloId) {
+        if (!confirm('¿Estás seguro de que deseas eliminar este artículo?')) return;
+
+        this.state.articulos = this.state.articulos.filter(a => a.id !== articuloId);
+        this.showNotification('✅ Artículo eliminado', 'success');
+        this.saveToDB();
+        this.renderArticulos();
+    },
+
+    // Generar ID
+    generateId(prefix) {
+        const timestamp = Date.now().toString(36);
+        return `${prefix}-${timestamp}`;
+    },
+
+    // Guardar en DB
+    saveToDB() {
+        localStorage.setItem('articulos', JSON.stringify(this.state.articulos));
+        localStorage.setItem('secciones', JSON.stringify(this.state.secciones));
+        localStorage.setItem('familias', JSON.stringify(this.state.familias));
+        localStorage.setItem('subfamilias', JSON.stringify(this.state.subfamilias));
+    },
+
+    // Notificación
+    showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+            notification.classList.add('show');
+        }, 10);
+
+        setTimeout(() => {
+            notification.classList.remove('show');
+            setTimeout(() => notification.remove(), 300);
+        }, 3000);
+    }
+};

@@ -1,0 +1,2718 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zentra MED</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container-fluid">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo-container">
+                <img src="img/zentra-logo.png" alt="Zentra MED Logo" class="logo-image">
+            </div>
+            <nav class="nav-menu">
+                <a href="#" class="nav-item active" data-page="dashboard">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Dashboard</span>
+                </a>
+
+                <!-- MÓDULO MÉDICO -->
+                <div class="nav-section-title">MÓDULO MÉDICO</div>
+                <a href="#" class="nav-item" data-page="pacientes">
+                    <i class="fas fa-users"></i>
+                    <span>Pacientes</span>
+                </a>
+                <a href="#" class="nav-item" data-page="medicinas">
+                    <i class="fas fa-pills"></i>
+                    <span>Medicinas</span>
+                </a>
+                <a href="#" class="nav-item" data-page="historia-clinica">
+                    <i class="fas fa-file-medical-alt"></i>
+                    <span>Historia Clínica</span>
+                </a>
+                <a href="#" class="nav-item" data-page="saldo-paciente">
+                    <i class="fas fa-wallet"></i>
+                    <span>Saldo Paciente</span>
+                </a>
+                <a href="#" class="nav-item" data-page="hospitalizaciones">
+                    <i class="fas fa-hospital-user"></i>
+                    <span>Hospitalizaciones</span>
+                </a>
+
+                <!-- MÓDULO CONTABLE -->
+                <div class="nav-section-title">MÓDULO CONTABLE</div>
+                <a href="#" class="nav-item" data-page="codigos-articulos">
+                    <i class="fas fa-barcode"></i>
+                    <span>Códigos Artículos</span>
+                </a>
+                <a href="#" class="nav-item" data-page="caja-integrada">
+                    <i class="fas fa-cash-register"></i>
+                    <span>Caja Integrada</span>
+                </a>
+                <a href="#" class="nav-item" data-page="compras">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span>Compras</span>
+                </a>
+                <a href="#" class="nav-item" data-page="ventas">
+                    <i class="fas fa-receipt"></i>
+                    <span>Ventas</span>
+                </a>
+                <a href="#" class="nav-item" data-page="caja">
+                    <i class="fas fa-cash-register"></i>
+                    <span>Caja</span>
+                </a>
+                <a href="#" class="nav-item" data-page="cuentas-por-cobrar">
+                    <i class="fas fa-handshake"></i>
+                    <span>Cuentas por Cobrar</span>
+                </a>
+                <a href="#" class="nav-item" data-page="estados-de-cuenta">
+                    <i class="fas fa-file-invoice"></i>
+                    <span>Estados de Cuenta</span>
+                </a>
+                <a href="#" class="nav-item" data-page="dashboard-financiero">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>Dashboard Financiero</span>
+                </a>
+                <a href="#" class="nav-item" data-page="gastos-servicios">
+                    <i class="fas fa-receipt"></i>
+                    <span>Gastos y Servicios</span>
+                </a>
+
+                <!-- MÓDULO ADMINISTRATIVO -->
+                <div class="nav-section-title">MÓDULO ADMINISTRATIVO</div>
+                <a href="#" class="nav-item" data-page="inventory">
+                    <i class="fas fa-boxes"></i>
+                    <span>Inventario</span>
+                </a>
+
+                <!-- FINANZAS -->
+                <div class="nav-section-title">FINANZAS</div>
+                <a href="#" class="nav-item" data-page="transactions">
+                    <i class="fas fa-exchange-alt"></i>
+                    <span>Transacciones</span>
+                </a>
+                <a href="#" class="nav-item" data-page="reports">
+                    <i class="fas fa-file-chart-bar"></i>
+                    <span>Reportes</span>
+                </a>
+
+                <!-- MÓDULO AGENDA -->
+                <div class="nav-section-title">AGENDA MÉDICA</div>
+                <a href="#" class="nav-item" data-page="agenda">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>Agenda</span>
+                </a>
+                <a href="#" class="nav-item" data-page="reservas-web">
+                    <i class="fas fa-calendar-check"></i>
+                    <span>Reservas Web</span>
+                </a>
+                <a href="#" class="nav-item" data-page="confirmaciones">
+                    <i class="fas fa-bell"></i>
+                    <span>Confirmaciones</span>
+                </a>
+                <a href="#" class="nav-item" data-page="google-calendar">
+                    <i class="fab fa-google"></i>
+                    <span>Google Calendar</span>
+                </a>
+
+                <!-- CONFIGURACIÓN -->
+                <div class="nav-section-title">SISTEMA</div>
+                <a href="#" class="nav-item" data-page="settings">
+                    <i class="fas fa-cog"></i>
+                    <span>Configuración</span>
+                </a>
+            </nav>
+            <div class="user-info">
+                <div class="user-avatar"><i class="fas fa-user-circle"></i></div>
+                <div class="user-details">
+                    <p class="user-name">Admin User</p>
+                    <p class="user-status">En línea</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-left">
+                    <button class="btn-menu" id="toggleSidebar">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h2 class="page-title" id="pageTitle">Dashboard</h2>
+                </div>
+                <div class="header-right">
+                    <button class="btn-icon" title="Notificaciones">
+                        <i class="fas fa-bell"></i>
+                        <span class="badge">3</span>
+                    </button>
+                    <button class="btn-icon" title="Mensajes">
+                        <i class="fas fa-envelope"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Pages Container -->
+            <div class="pages-container">
+
+                <!-- Dashboard Page -->
+                <div id="page-dashboard" class="page active">
+                    <div class="page-header">
+                        <h1>Dashboard</h1>
+                        <p class="date-info"><i class="fas fa-calendar-alt"></i> <span id="currentDate"></span></p>
+                    </div>
+
+                    <!-- KPI Cards -->
+                    <div class="kpi-grid">
+                        <div class="kpi-card kpi-revenue">
+                            <div class="kpi-header">
+                                <h3>Ingresos Totales</h3>
+                                <i class="fas fa-dollar-sign"></i>
+                            </div>
+                            <div class="kpi-value">Q. 378,300</div>
+                            <div class="kpi-change positive">
+                                <i class="fas fa-arrow-up"></i> 12.5% este mes
+                            </div>
+                        </div>
+
+                        <div class="kpi-card kpi-expenses">
+                            <div class="kpi-header">
+                                <h3>Gastos Totales</h3>
+                                <i class="fas fa-shopping-cart"></i>
+                            </div>
+                            <div class="kpi-value">Q. 173,940</div>
+                            <div class="kpi-change positive">
+                                <i class="fas fa-arrow-down"></i> 8.2% este mes
+                            </div>
+                        </div>
+
+                        <div class="kpi-card kpi-inventory">
+                            <div class="kpi-header">
+                                <h3>Valor Inventario</h3>
+                                <i class="fas fa-boxes"></i>
+                            </div>
+                            <div class="kpi-value">Q. 975,000</div>
+                            <div class="kpi-change positive">
+                                <i class="fas fa-arrow-up"></i> 5.3% este mes
+                            </div>
+                        </div>
+
+                        <div class="kpi-card kpi-margin">
+                            <div class="kpi-header">
+                                <h3>Margen Neto</h3>
+                                <i class="fas fa-percentage"></i>
+                            </div>
+                            <div class="kpi-value">45.9%</div>
+                            <div class="kpi-change positive">
+                                <i class="fas fa-arrow-up"></i> 2.1% este mes
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Section -->
+                    <div class="charts-section">
+                        <div class="chart-card">
+                            <h3>Ventas Últimos 7 Días</h3>
+                            <canvas id="salesChart"></canvas>
+                        </div>
+                        <div class="chart-card">
+                            <h3>Distribución de Inventario</h3>
+                            <canvas id="inventoryChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Recent Transactions -->
+                    <div class="recent-section">
+                        <h3><i class="fas fa-history"></i> Transacciones Recientes</h3>
+                        <div class="transactions-table">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Descripción</th>
+                                        <th>Tipo</th>
+                                        <th>Monto</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recentTransactions">
+                                    <!-- Populated by JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pacientes Page -->
+                <div id="page-pacientes" class="page">
+                    <div class="page-header">
+                        <h1>Gestión de Pacientes</h1>
+                        <button class="btn btn-primary" id="addPacientBtn">
+                            <i class="fas fa-user-plus"></i> Nuevo Paciente
+                        </button>
+                    </div>
+
+                    <div class="pacients-filters">
+                        <input type="text" id="searchPacient" class="form-input" placeholder="Buscar por nombre, cédula o email...">
+                        <select id="filterPacient" class="form-input">
+                            <option value="todos">Todos los Pacientes</option>
+                            <option value="cliente">Solo Clientes</option>
+                            <option value="no-cliente">No Clientes</option>
+                        </select>
+                    </div>
+
+                    <div id="pacientesTableContainer" class="table-responsive">
+                        <!-- Poblada por JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Historia Clínica Page -->
+                <div id="page-historia-clinica" class="page">
+                    <div class="page-header">
+                        <h1>Historia Clínica del Paciente</h1>
+                        <div style="display: flex; gap: 10px; margin-top: 15px; border-bottom: 2px solid #ddd;">
+                            <button class="btn btn-sm tab-vista-historia active" onclick="HistoriaClinicaModule.switchVistaHistoria('paciente')" style="border: none; background: none; padding: 10px 20px; cursor: pointer; font-weight: bold; color: #1e3a8a; border-bottom: 3px solid #1e3a8a; margin-bottom: -2px;">
+                                <i class="fas fa-user-md"></i> Pacientes
+                            </button>
+                            <button class="btn btn-sm tab-vista-historia" onclick="HistoriaClinicaModule.switchVistaHistoria('agenda')" style="border: none; background: none; padding: 10px 20px; cursor: pointer; font-weight: bold; color: #666; border-bottom: 3px solid transparent; margin-bottom: -2px;">
+                                <i class="fas fa-calendar-alt"></i> Agenda General
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="historia-layout" id="vistaPaciente" style="display: flex;">
+                        <!-- Sidebar con lista de pacientes -->
+                        <aside class="historia-sidebar">
+                            <div class="sidebar-header">
+                                <h3>Selecciona Paciente</h3>
+                            </div>
+
+                            <div class="sidebar-filters">
+                                <input type="text" id="searchPacientHistoria" class="form-input" placeholder="Buscar paciente...">
+                                <select id="filterEstadoHistoria" class="form-input">
+                                    <option value="activos">Pacientes Activos</option>
+                                    <option value="todos">Todos los Pacientes</option>
+                                </select>
+                            </div>
+
+                            <div id="pacientesHistoriaList" class="pacientes-list-container">
+                                <!-- Poblada por JavaScript -->
+                            </div>
+                        </aside>
+
+                        <!-- Contenido de historia clínica -->
+                        <main class="historia-main">
+                            <div id="historiaClinicaContent" class="historia-content">
+                                <div class="empty-state">
+                                    <p><i class="fas fa-pointer"></i> Selecciona un paciente para ver su historia clínica</p>
+                                </div>
+                            </div>
+
+                            <div class="historia-button-bar" id="historiaButtonBar" style="display: none;">
+                                <button class="btn btn-primary" id="addNoteBtn">
+                                    <i class="fas fa-plus"></i> Agregar Nota
+                                </button>
+                            </div>
+                        </main>
+                    </div>
+
+                    <!-- VISTA AGENDA GENERAL -->
+                    <div id="vistaAgendaGeneral" style="display: none; padding: 20px;">
+                        <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center;">
+                            <button type="button" class="btn btn-sm btn-info" onclick="HistoriaClinicaModule.previousWeekGeneral()">
+                                <i class="fas fa-chevron-left"></i> Semana Anterior
+                            </button>
+                            <span id="weekDisplayGeneral" style="font-weight: bold; flex: 1; text-align: center;">Semana del 25 al 31 de mayo 2026</span>
+                            <button type="button" class="btn btn-sm btn-info" onclick="HistoriaClinicaModule.nextWeekGeneral()">
+                                Semana Siguiente <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                        <div id="agendaWeeklyGeneral" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px;">
+                            <!-- Los días de la semana se renderizan aquí -->
+                        </div>
+                        <div style="margin-top: 20px;">
+                            <h3 style="margin-bottom: 10px;"><i class="fas fa-pills"></i> Resumen de Medicinas</h3>
+                            <div id="agendaSummaryGeneral" style="background: #f9f9f9; padding: 15px; border-radius: 5px; max-height: 250px; overflow-y: auto;">
+                                <!-- Resumen de medicinas se renderiza aquí -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Saldo del Paciente Page -->
+                <div id="page-saldo-paciente" class="page">
+                    <div class="page-header">
+                        <h1>Saldo del Paciente</h1>
+                        <div class="button-group">
+                            <button class="btn btn-primary" id="addPaymentBtn">
+                                <i class="fas fa-money-bill-wave"></i> Registrar Pago
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="saldo-filters">
+                        <input type="text" id="searchSaldoPaciente" class="form-input" placeholder="Buscar por nombre o cédula...">
+                        <select id="filterEstadoSaldo" class="form-input">
+                            <option value="todos">Todos</option>
+                            <option value="deudores">Con Saldo Pendiente</option>
+                            <option value="pagados">Sin Deuda</option>
+                        </select>
+                    </div>
+
+                    <div id="saldosPacientesTableContainer" class="table-responsive">
+                        <!-- Poblada por JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Hospitalizaciones Page -->
+                <div id="page-hospitalizaciones" class="page">
+                    <div class="page-header">
+                        <h1>Gestión de Hospitalizaciones</h1>
+                        <div class="button-group">
+                            <button class="btn btn-primary" id="addHospitalizacionBtn">
+                                <i class="fas fa-plus"></i> Nuevo Ingreso
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="hospitalizaciones-filters">
+                        <select id="filterPiso" class="form-input">
+                            <option value="">-- Todos los Pisos --</option>
+                            <option value="1">Piso 1</option>
+                            <option value="2">Piso 2</option>
+                            <option value="3">Piso 3</option>
+                        </select>
+                        <select id="filterEstadoHosp" class="form-input">
+                            <option value="activos">Hospitalizados</option>
+                            <option value="todos">Todos</option>
+                        </select>
+                    </div>
+
+                    <!-- Layout visual de habitaciones -->
+                    <div id="habitacionesContainer" class="habitaciones-grid">
+                        <!-- Poblada por JavaScript -->
+                    </div>
+
+                    <!-- Lista de hospitalizados -->
+                    <div style="margin-top: 30px;">
+                        <h2>Lista de Pacientes Hospitalizados</h2>
+                        <div id="hospTableContainer" class="table-responsive">
+                            <!-- Poblada por JavaScript -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Prescripciones Médicas Page -->
+                <!-- Códigos de Artículos Page -->
+                <div id="page-codigos-articulos" class="page">
+                    <div class="page-header">
+                        <h1>Sistema de Códigos de Artículos</h1>
+                        <div class="button-group">
+                            <button class="btn btn-primary" id="addArticuloBtn">
+                                <i class="fas fa-plus"></i> Nuevo Artículo
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="articulos-filters">
+                        <input type="text" id="searchArticulos" class="form-input" placeholder="Buscar por nombre, concepto o código...">
+                        <select id="filterSeccion" class="form-input">
+                            <option value="todos">-- Todas las Secciones --</option>
+                        </select>
+                        <select id="filterFamilia" class="form-input">
+                            <option value="todos">-- Todas las Familias --</option>
+                        </select>
+                    </div>
+
+                    <div id="articulosTableContainer" class="table-responsive">
+                        <!-- Poblada por JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Caja Integrada Page -->
+                <div id="page-caja-integrada" class="page">
+                    <div class="page-header">
+                        <h1>Caja Integrada</h1>
+                        <div class="button-group">
+                            <button class="btn btn-primary" id="addMovimientoCajaBtn">
+                                <i class="fas fa-plus"></i> Nuevo Movimiento
+                            </button>
+                            <button class="btn btn-success" id="addMicrofacturaBtn">
+                                <i class="fas fa-receipt"></i> Generar Microfactura
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="resumenCajaContainer" class="resumen-container">
+                        <!-- Poblada por JavaScript -->
+                    </div>
+
+                    <div class="caja-filters">
+                        <input type="text" id="searchCaja" class="form-input" placeholder="Buscar movimiento...">
+                        <select id="filterTipoCaja" class="form-input">
+                            <option value="todos">Todos los Movimientos</option>
+                            <option value="Ingreso por Cobro">Ingreso por Cobro</option>
+                            <option value="Egreso">Egresos</option>
+                            <option value="Microfactura">Microfacturas</option>
+                            <option value="Devolución">Devoluciones</option>
+                        </select>
+                    </div>
+
+                    <div id="movimientosCajaTableContainer" class="table-responsive">
+                        <!-- Poblada por JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Medicinas Page -->
+                <div id="page-medicinas" class="page">
+                    <div class="page-header">
+                        <h1>Gestión de Medicinas</h1>
+                        <div class="button-group">
+                            <button class="btn btn-primary" id="addMedicineBtn">
+                                <i class="fas fa-plus"></i> Nueva Medicina
+                            </button>
+                            <button class="btn btn-secondary" id="assignMedicineBtn">
+                                <i class="fas fa-hand-holding-medical"></i> Asignar a Paciente
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="medicines-filters">
+                        <input type="text" id="searchMedicine" class="form-input" placeholder="Buscar por nombre, código o principio activo...">
+                        <select id="filterMedicine" class="form-input">
+                            <option value="todas">Todas las Medicinas</option>
+                            <option value="disponibles">Con Stock Disponible</option>
+                            <option value="agotadas">Sin Stock / Agotadas</option>
+                        </select>
+                    </div>
+
+                    <div id="medicinesTableContainer" class="table-responsive">
+                        <!-- Poblada por JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Inventory Page -->
+                <div id="page-inventory" class="page">
+                    <div class="page-header">
+                        <h1>Gestión de Inventario</h1>
+                        <button class="btn btn-primary" id="addProductBtn">
+                            <i class="fas fa-plus"></i> Agregar Producto
+                        </button>
+                    </div>
+
+                    <div class="inventory-filters">
+                        <input type="text" id="searchProduct" placeholder="Buscar producto...">
+                        <select id="categoryFilter">
+                            <option value="">Todas las categorías</option>
+                            <option value="Electrónica">Electrónica</option>
+                            <option value="Ropa">Ropa</option>
+                            <option value="Alimentos">Alimentos</option>
+                            <option value="Herramientas">Herramientas</option>
+                        </select>
+                    </div>
+
+                    <div class="inventory-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Producto</th>
+                                    <th>Categoría</th>
+                                    <th>Stock</th>
+                                    <th>Precio Unitario</th>
+                                    <th>Valor Total</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inventoryTable">
+                                <!-- Populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Transactions Page -->
+                <div id="page-transactions" class="page">
+                    <div class="page-header">
+                        <h1>Transacciones</h1>
+                        <div class="button-group">
+                            <button class="btn btn-primary" id="addTransactionBtn">
+                                <i class="fas fa-plus"></i> Nueva Transacción
+                            </button>
+                            <button class="btn btn-secondary" id="bulkTransactionBtn">
+                                <i class="fas fa-upload"></i> Carga Masiva
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="transactions-filters">
+                        <select id="typeFilter">
+                            <option value="">Todos los tipos</option>
+                            <option value="Venta">Venta</option>
+                            <option value="Compra">Compra</option>
+                            <option value="Devolución">Devolución</option>
+                        </select>
+                        <input type="date" id="dateFromFilter">
+                        <input type="date" id="dateToFilter">
+                    </div>
+
+                    <div class="transactions-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID Transacción</th>
+                                    <th>Fecha</th>
+                                    <th>Tipo</th>
+                                    <th>Descripción</th>
+                                    <th>Cantidad</th>
+                                    <th>Monto</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transactionsTable">
+                                <!-- Populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Reports Page -->
+                <div id="page-reports" class="page">
+                    <div class="page-header">
+                        <h1>Reportes Consolidados</h1>
+                        <p class="subtitle">Análisis integrado de gastos, costos y ventas</p>
+                    </div>
+
+                    <div class="report-filters-card">
+                        <div class="filters-row-main">
+                            <div class="filter-group compact">
+                                <label><i class="fas fa-calendar-alt"></i> Período</label>
+                                <select id="reportPeriod" class="form-input">
+                                    <option value="día">📅 Hoy</option>
+                                    <option value="semana">📊 Última semana</option>
+                                    <option value="mes" selected>📈 Este mes</option>
+                                    <option value="año">📉 Este año</option>
+                                    <option value="personalizado">🗓️ Personalizado</option>
+                                </select>
+                            </div>
+
+                            <div class="filter-group compact">
+                                <label><i class="fas fa-list"></i> Concepto</label>
+                                <select id="conceptFilter" class="form-input">
+                                    <option value="todos" selected>📋 Todos</option>
+                                    <option value="compras">🛒 Compras</option>
+                                    <option value="ventas">💳 Ventas</option>
+                                    <option value="medicinas">💊 Medicinas</option>
+                                    <option value="servicios">🏥 Servicios</option>
+                                </select>
+                            </div>
+
+                            <button id="generateReportBtn" class="btn btn-primary btn-generate-report">
+                                <i class="fas fa-play-circle"></i> <span class="btn-text">Generar Reporte</span>
+                                <span class="btn-spinner" style="display: none;">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                </span>
+                            </button>
+                        </div>
+
+                        <div class="filters-row-custom" id="customDateRange" style="display: none;">
+                            <div class="filter-group compact">
+                                <label><i class="fas fa-sign-in-alt"></i> Desde</label>
+                                <input type="date" id="reportStartDate" class="form-input">
+                            </div>
+                            <div class="filter-group compact">
+                                <label><i class="fas fa-sign-out-alt"></i> Hasta</label>
+                                <input type="date" id="reportEndDate" class="form-input">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="report-actions">
+                        <button id="exportExcelBtn" class="btn btn-secondary" title="Descargar reporte en Excel">
+                            <i class="fas fa-file-excel"></i> <span>Exportar Excel</span>
+                        </button>
+                        <button id="exportPdfBtn" class="btn btn-secondary" title="Descargar reporte en PDF">
+                            <i class="fas fa-file-pdf"></i> <span>Exportar PDF</span>
+                        </button>
+                        <button id="refreshReportBtn" class="btn btn-outline" title="Actualizar reporte">
+                            <i class="fas fa-sync-alt"></i> <span>Actualizar</span>
+                        </button>
+                    </div>
+
+                    <div id="reportResultContainer"></div>
+                </div>
+
+                <!-- Settings Page -->
+                <div id="page-settings" class="page">
+                    <div class="page-header">
+                        <h1>Configuración</h1>
+                    </div>
+
+                    <div class="settings-container">
+                        <div class="settings-section">
+                            <h3><i class="fas fa-building"></i> Información de la Empresa</h3>
+                            <div class="settings-form">
+                                <div class="form-group">
+                                    <label>Nombre de la Empresa</label>
+                                    <input type="text" value="Mi Empresa" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label>RIF/NIT</label>
+                                    <input type="text" value="J-12345678-9" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label>Teléfono</label>
+                                    <input type="tel" value="+58 XXX XXX XXXX" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label>Email</label>
+                                    <input type="email" value="info@empresa.com" class="form-input">
+                                </div>
+                                <button class="btn btn-primary">Guardar Cambios</button>
+                            </div>
+                        </div>
+
+                        <div class="settings-section">
+                            <h3><i class="fas fa-user"></i> Cuenta de Usuario</h3>
+                            <div class="settings-form">
+                                <div class="form-group">
+                                    <label>Nombre de Usuario</label>
+                                    <input type="text" value="admin_user" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label>Email</label>
+                                    <input type="email" value="admin@empresa.com" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label>Contraseña Actual</label>
+                                    <input type="password" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label>Nueva Contraseña</label>
+                                    <input type="password" class="form-input">
+                                </div>
+                                <button class="btn btn-primary">Actualizar Contraseña</button>
+                            </div>
+                        </div>
+
+                        <div class="settings-section">
+                            <h3><i class="fas fa-cogs"></i> Preferencias del Sistema</h3>
+                            <div class="settings-form">
+                                <div class="checkbox-group">
+                                    <label>
+                                        <input type="checkbox" checked>
+                                        <span>Notificaciones por email</span>
+                                    </label>
+                                </div>
+                                <div class="checkbox-group">
+                                    <label>
+                                        <input type="checkbox" checked>
+                                        <span>Modo oscuro</span>
+                                    </label>
+                                </div>
+                                <div class="select-group">
+                                    <label>Idioma</label>
+                                    <select class="form-input">
+                                        <option>Español</option>
+                                        <option>English</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Compras Page -->
+                <div id="page-compras" class="page">
+                    <div class="page-header">
+                        <h1>Gestión de Compras</h1>
+                        <button class="btn btn-primary" id="addPurchaseBtn">
+                            <i class="fas fa-plus"></i> Nueva Compra
+                        </button>
+                    </div>
+                    <div class="table-container">
+                        <table id="comprasTable">
+                            <thead>
+                                <tr>
+                                    <th>Orden</th>
+                                    <th>Fecha</th>
+                                    <th>Proveedor</th>
+                                    <th>Total</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Ventas Page -->
+                <div id="page-ventas" class="page">
+                    <div class="page-header">
+                        <h1>Gestión de Ventas</h1>
+                        <button class="btn btn-primary" id="addSaleBtn">
+                            <i class="fas fa-plus"></i> Nueva Venta
+                        </button>
+                    </div>
+                    <div class="table-container">
+                        <table id="ventasTable">
+                            <thead>
+                                <tr>
+                                    <th>ID Venta</th>
+                                    <th>Fecha</th>
+                                    <th>Cliente</th>
+                                    <th>Total</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Caja Page -->
+                <div id="page-caja" class="page">
+                    <div class="page-header">
+                        <h1>Gestión de Caja</h1>
+                    </div>
+                    <div id="cashStatus" class="cash-status-container"></div>
+                    <div class="cash-content">
+                        <div class="form-group">
+                            <label>Saldo Inicial</label>
+                            <input type="number" id="saldoInicial" class="form-input" placeholder="0.00" step="0.01">
+                        </div>
+                        <table id="movementsTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Fecha</th>
+                                    <th>Descripción</th>
+                                    <th>Tipo</th>
+                                    <th>Monto</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Cuentas por Cobrar Page -->
+                <div id="page-cuentas-por-cobrar" class="page">
+                    <div class="page-header">
+                        <h1>Cuentas por Cobrar</h1>
+                        <button class="btn btn-primary" id="addDebtBtn">
+                            <i class="fas fa-plus"></i> Registrar Deuda
+                        </button>
+                    </div>
+                    <div class="table-container">
+                        <table id="debutsTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Cliente</th>
+                                    <th>Monto</th>
+                                    <th>Fecha Vencimiento</th>
+                                    <th>Estado</th>
+                                    <th>Días Vencida</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Estados de Cuenta Page -->
+                <div id="page-estados-de-cuenta" class="page">
+                    <div class="page-header">
+                        <h1>Estados de Cuenta</h1>
+                    </div>
+                    <div class="filters-row">
+                        <select id="accountFilter" class="form-input">
+                            <option value="">Selecciona una cuenta...</option>
+                        </select>
+                        <select id="periodFilter" class="form-input">
+                            <option value="">Todos los períodos</option>
+                        </select>
+                        <button class="btn btn-secondary" id="generateStatementBtn">
+                            <i class="fas fa-download"></i> Generar
+                        </button>
+                        <button class="btn btn-secondary" id="exportStatementBtn">
+                            <i class="fas fa-file-download"></i> Exportar
+                        </button>
+                    </div>
+                    <div id="statementContent" class="statement-container"></div>
+                </div>
+
+                <!-- Dashboard Financiero Page -->
+                <div id="page-dashboard-financiero" class="page">
+                    <div class="page-header">
+                        <h1>Dashboard Financiero</h1>
+                        <button class="btn btn-secondary" id="refreshFinancialBtn">
+                            <i class="fas fa-sync"></i> Actualizar
+                        </button>
+                        <button class="btn btn-secondary" id="exportFinancialBtn">
+                            <i class="fas fa-download"></i> Exportar
+                        </button>
+                    </div>
+                    <div id="financialKPIs" class="kpi-grid"></div>
+                    <div class="charts-section">
+                        <div class="chart-card">
+                            <h3>Ingresos vs Egresos</h3>
+                            <canvas id="incomeExpenseChart"></canvas>
+                        </div>
+                        <div class="chart-card">
+                            <h3>Flujo de Caja</h3>
+                            <canvas id="cashFlowChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Distribución de Ganancia</h3>
+                        <canvas id="marginChart" style="max-height: 300px;"></canvas>
+                    </div>
+                    <div class="charts-section">
+                        <div class="chart-card">
+                            <h3>Gastos por Categoría</h3>
+                            <div id="gastosCategoriaChart"></div>
+                        </div>
+                        <div class="chart-card">
+                            <h3>Ingresos por Categoría</h3>
+                            <div id="ingresoCategoriaChart"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Agenda Page -->
+                <div id="page-agenda" class="page">
+                    <div class="page-header">
+                        <h1>Agenda Médica</h1>
+                        <button class="btn btn-primary" id="addAppointmentBtn">
+                            <i class="fas fa-plus"></i> Nueva Cita
+                        </button>
+                    </div>
+                    
+                    <div class="calendar-controls">
+                        <button class="btn btn-secondary" id="prevMonthBtn">
+                            <i class="fas fa-chevron-left"></i> Anterior
+                        </button>
+                        <h2 id="currentMonthYear" class="month-year"></h2>
+                        <button class="btn btn-secondary" id="nextMonthBtn">
+                            Siguiente <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+
+                    <div class="filters-row">
+                        <select id="doctorFilter" class="form-input">
+                            <option value="">Todos los doctores</option>
+                        </select>
+                        <select id="specialtyFilter" class="form-input">
+                            <option value="">Todas las especialidades</option>
+                        </select>
+                    </div>
+
+                    <div class="calendar-container">
+                        <div class="calendar-grid">
+                            <div class="calendar-weekdays">
+                                <div class="weekday">Lun</div>
+                                <div class="weekday">Mar</div>
+                                <div class="weekday">Mié</div>
+                                <div class="weekday">Jue</div>
+                                <div class="weekday">Vie</div>
+                                <div class="weekday">Sáb</div>
+                                <div class="weekday">Dom</div>
+                            </div>
+                            <div id="calendarDays" class="calendar-days">
+                                <!-- Generated by JavaScript -->
+                            </div>
+                        </div>
+                        
+                        <div class="appointment-sidebar">
+                            <h3>Citas Seleccionadas</h3>
+                            <div id="selectedDayAppointments" class="appointments-list">
+                                <p class="empty-message">Selecciona un día para ver las citas</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reservas Web Page -->
+                <div id="page-reservas-web" class="page">
+                    <div class="page-header">
+                        <h1>Reservas desde Web</h1>
+                    </div>
+                    <div class="reservas-content">
+                        <h3>Formulario de Reserva en Línea</h3>
+                        <form id="bookingForm" class="booking-form">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Nombre Completo *</label>
+                                    <input type="text" id="bookingName" class="form-input" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Email *</label>
+                                    <input type="email" id="bookingEmail" class="form-input" required>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Teléfono *</label>
+                                    <input type="tel" id="bookingPhone" class="form-input" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Doctor *</label>
+                                    <select id="bookingDoctor" class="form-input" required></select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Fecha *</label>
+                                    <input type="date" id="bookingDate" class="form-input" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Hora *</label>
+                                    <select id="bookingHour" class="form-input" required></select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Motivo de la Cita</label>
+                                <textarea id="bookingReason" class="form-input" rows="3" placeholder="Describe brevemente el motivo de tu consulta"></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-calendar-check"></i> Reservar Cita
+                            </button>
+                        </form>
+                        <div id="confirmationMessage" style="display:none;"></div>
+                    </div>
+                </div>
+
+                <!-- Confirmaciones Page -->
+                <div id="page-confirmaciones" class="page">
+                    <div class="page-header">
+                        <h1>Confirmaciones Automáticas</h1>
+                    </div>
+                    <div class="confirmations-config">
+                        <h3>Configurar Canales de Confirmación</h3>
+                        <div class="checkbox-group">
+                            <label>
+                                <input type="checkbox" id="toggleEmailConfirmation" checked>
+                                <span><i class="fas fa-envelope"></i> Confirmación por Email</span>
+                            </label>
+                        </div>
+                        <div class="checkbox-group">
+                            <label>
+                                <input type="checkbox" id="toggleSmsConfirmation" checked>
+                                <span><i class="fas fa-sms"></i> Confirmación por SMS</span>
+                            </label>
+                        </div>
+                        <div class="checkbox-group">
+                            <label>
+                                <input type="checkbox" id="toggleWhatsappConfirmation" checked>
+                                <span><i class="fab fa-whatsapp"></i> Confirmación por WhatsApp</span>
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>Horario de Envío de Recordatorios</label>
+                            <div style="display: flex; gap: 10px;">
+                                <input type="time" id="reminderStartTime" class="form-input" value="08:00">
+                                <input type="time" id="reminderEndTime" class="form-input" value="20:00">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Google Calendar Page -->
+                <div id="page-google-calendar" class="page">
+                    <div class="page-header">
+                        <h1>Integración Google Calendar</h1>
+                    </div>
+                    <div id="googleCalendarStatus" class="google-calendar-status"></div>
+                    <div class="google-calendar-content">
+                        <h3>Sincronización de Calendario</h3>
+                        <button class="btn btn-secondary" id="syncCalendarBtn">
+                            <i class="fas fa-sync"></i> Sincronizar Ahora
+                        </button>
+                        <div id="agendaCalendar" class="agenda-calendar-container"></div>
+                    </div>
+                </div>
+
+                <!-- Página: Gastos y Servicios -->
+                <div id="page-gastos-servicios" class="page">
+                    <div class="page-header">
+                        <h1><i class="fas fa-receipt"></i> Gestión de Gastos y Servicios</h1>
+                    </div>
+
+                    <!-- Tabs de navegación -->
+                    <div class="tabs-container">
+                        <button class="tab-button active" onclick="switchGastosTab('pagos')">
+                            <i class="fas fa-coins"></i> Pagos
+                        </button>
+                        <button class="tab-button" onclick="switchGastosTab('proveedores')">
+                            <i class="fas fa-building"></i> Proveedores
+                        </button>
+                        <button class="tab-button" onclick="switchGastosTab('reportes')">
+                            <i class="fas fa-chart-bar"></i> Reportes
+                        </button>
+                    </div>
+
+                    <!-- Tab: Registrar Pago -->
+                    <div id="tab-pagos" class="tab-content active">
+                        <div class="form-container">
+                            <h2><i class="fas fa-credit-card"></i> Registrar Nuevo Pago</h2>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Concepto *</label>
+                                    <select id="selectConcepto" required></select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Proveedor *</label>
+                                    <select id="selectProveedor" required></select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Monto (Q.) *</label>
+                                    <input type="number" id="inputMonto" placeholder="0.00" step="0.01" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Fecha *</label>
+                                    <input type="date" id="inputFecha" required>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Referencia</label>
+                                    <input type="text" id="inputReferencia" placeholder="Ref. o comprobante">
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" onclick="agregarPago()">
+                                <i class="fas fa-save"></i> Registrar Pago
+                            </button>
+                        </div>
+
+                        <!-- Filtro por período -->
+                        <div class="filtro-container">
+                            <h3>Filtrar por Período</h3>
+                            <div class="periodo-buttons">
+                                <button class="btn btn-secondary" onclick="setGastosPeriodo('diario')">
+                                    <i class="fas fa-calendar-day"></i> Diario
+                                </button>
+                                <button class="btn btn-secondary active" onclick="setGastosPeriodo('semanal')">
+                                    <i class="fas fa-calendar-week"></i> Semanal
+                                </button>
+                                <button class="btn btn-secondary" onclick="setGastosPeriodo('mensual')">
+                                    <i class="fas fa-calendar-alt"></i> Mensual
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Listado de Pagos -->
+                        <div class="listado-container">
+                            <h3>Pagos Registrados</h3>
+                            <div id="listadoPagos"></div>
+                        </div>
+                    </div>
+
+                    <!-- Tab: Proveedores -->
+                    <div id="tab-proveedores" class="tab-content">
+                        <div class="form-container">
+                            <h2><i class="fas fa-plus"></i> Agregar Nuevo Proveedor</h2>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Nombre del Proveedor *</label>
+                                    <input type="text" id="inputProveedorNombre" placeholder="Ej: EEGSA" required>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Referencia</label>
+                                    <input type="text" id="inputProveedorReferencia" placeholder="Descripción o detalle">
+                                </div>
+                                <div class="form-group">
+                                    <label>Teléfono</label>
+                                    <input type="tel" id="inputProveedorTelefono" placeholder="Contacto">
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" onclick="agregarProveedor()">
+                                <i class="fas fa-save"></i> Guardar Proveedor
+                            </button>
+                        </div>
+
+                        <!-- Listado de Proveedores -->
+                        <div class="listado-container">
+                            <h3>Proveedores Registrados</h3>
+                            <div id="listadoProveedores"></div>
+                        </div>
+                    </div>
+
+                    <!-- Tab: Reportes -->
+                    <div id="tab-reportes" class="tab-content">
+                        <div class="reportes-header">
+                            <button class="btn btn-success" onclick="gastosModule.exportHTML('Gastos')">
+                                <i class="fas fa-download"></i> Descargar Reporte de Gastos
+                            </button>
+                            <button class="btn btn-success" onclick="gastosModule.exportHTML('Comparativo')">
+                                <i class="fas fa-download"></i> Descargar Reporte Comparativo
+                            </button>
+                        </div>
+
+                        <!-- Reporte de Gastos -->
+                        <div id="reporteGastos" class="reporte-contenedor"></div>
+
+                        <!-- Reporte Comparativo -->
+                        <div id="reporteComparativo" class="reporte-contenedor"></div>
+                    </div>
+                </div>
+
+
+    <!-- Modal for managing pacients -->
+    <div id="pacientModal" class="modal">
+        <div class="modal-content modal-content-lg" style="max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-md"></i> Ficha del Paciente</h2>
+                <button class="close-btn" onclick="PacientesModule.closePacientModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="editPacientForm">
+                    <input type="hidden" id="pacientId">
+                    
+                    <!-- TABS -->
+                    <div class="tabs-container" style="margin-bottom: 20px;">
+                        <button type="button" class="tab-button active" onclick="switchPacientTab('datosPersonales')">📋 Datos Personales</button>
+                        <button type="button" class="tab-button" onclick="switchPacientTab('lugarTrabajo')">💼 Lugar de Trabajo</button>
+                        <button type="button" class="tab-button" onclick="switchPacientTab('emergencia')">🆘 Emergencia</button>
+                        <button type="button" class="tab-button" onclick="switchPacientTab('historialMedico')">🏥 Historial Médico</button>
+                        <button type="button" class="tab-button" onclick="switchPacientTab('datosFamiliares')">👨‍👩‍👧 Familiares</button>
+                        <button type="button" class="tab-button" onclick="switchPacientTab('responsable')">👤 Responsable</button>
+                        <button type="button" class="tab-button" onclick="switchPacientTab('fotografias')">📷 Fotografías</button>
+                    </div>
+
+                    <!-- TAB 1: DATOS PERSONALES -->
+                    <div id="tab-datosPersonales" class="tab-content active">
+                        <!-- FOTOGRAFÍA DEL PACIENTE -->
+                        <div style="background: #f9f9f9; border: 2px dashed #3498db; border-radius: 8px; padding: 20px; margin-bottom: 25px; text-align: center;">
+                            <h4 style="margin-top: 0; color: #3498db;"><i class="fas fa-camera"></i> Fotografía del Paciente</h4>
+                            
+                            <div id="pacientFotoPreview" style="width: 120px; height: 120px; background: #e8e8e8; border-radius: 50%; margin: 0 auto 15px; overflow: hidden; border: 3px solid #ddd; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-user" style="font-size: 60px; color: #999;"></i>
+                            </div>
+                            
+                            <input type="hidden" id="pacientFoto">
+                            <input type="file" id="pacientFotoInput" accept="image/*" style="display: none;">
+                            <input type="file" id="pacientCameraInput" accept="image/*" capture="environment" style="display: none;">
+                            
+                            <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                                <button type="button" class="btn btn-sm" style="background: #3498db; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;" onclick="PacientesModule.triggerFileUpload()">
+                                    <i class="fas fa-file-upload"></i> Cargar Archivo
+                                </button>
+                                <button type="button" class="btn btn-sm" style="background: #27ae60; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;" onclick="PacientesModule.triggerCameraCapture()">
+                                    <i class="fas fa-camera"></i> Usar Cámara
+                                </button>
+                                <button type="button" class="btn btn-sm" style="background: #e74c3c; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; display: none;" id="pacientFotoRemoveBtn" onclick="PacientesModule.removePacientPhoto()">
+                                    <i class="fas fa-trash"></i> Eliminar
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="form-section-title">Datos de Consulta</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Fecha de Primer Consulta</label>
+                                <input type="date" id="fechaPrimerConsulta" class="form-input">
+                            </div>
+                            <div class="form-group">
+                                <label>Motivo de Consulta</label>
+                                <input type="text" id="motivoConsulta" class="form-input" placeholder="Motivo de la consulta">
+                            </div>
+                            <div class="form-group">
+                                <label>Referencia</label>
+                                <input type="text" id="referencia" class="form-input" placeholder="¿De quién/qué fue referido?">
+                            </div>
+                        </div>
+
+                        <div class="form-section-title">Identificación Personal</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Nombre <span class="required">*</span></label>
+                                <input type="text" id="pacientNombre" class="form-input" placeholder="Nombre" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Apellido Paterno <span class="required">*</span></label>
+                                <input type="text" id="pacientApellidoPaterno" class="form-input" placeholder="Apellido paterno" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Apellido Materno</label>
+                                <input type="text" id="pacientApellidoMaterno" class="form-input" placeholder="Apellido materno">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Edad</label>
+                                <input type="number" id="pacientEdad" class="form-input" placeholder="Edad" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label>Fecha de Nacimiento</label>
+                                <input type="date" id="pacientFechaNacimiento" class="form-input">
+                            </div>
+                            <div class="form-group">
+                                <label>Nacionalidad</label>
+                                <input type="text" id="nacionalidad" class="form-input" placeholder="Nacionalidad">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Sexo</label>
+                                <select id="pacientGenero" class="form-input">
+                                    <option value="">Selecciona</option>
+                                    <option value="M">Masculino</option>
+                                    <option value="F">Femenino</option>
+                                    <option value="O">Otro</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>DPI</label>
+                                <input type="text" id="dpi" class="form-input" placeholder="Número de DPI">
+                            </div>
+                            <div class="form-group">
+                                <label>Pasaporte</label>
+                                <input type="text" id="pasaporte" class="form-input" placeholder="Número de pasaporte">
+                            </div>
+                        </div>
+
+                        <div class="form-section-title">Dirección</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Dirección <span class="required">*</span></label>
+                                <input type="text" id="pacientDireccion" class="form-input" placeholder="Calle y número" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Colonia</label>
+                                <input type="text" id="colonia" class="form-input" placeholder="Colonia">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Zona</label>
+                                <input type="text" id="zona" class="form-input" placeholder="Zona">
+                            </div>
+                            <div class="form-group">
+                                <label>Municipio</label>
+                                <input type="text" id="municipio" class="form-input" placeholder="Municipio">
+                            </div>
+                            <div class="form-group">
+                                <label>Departamento</label>
+                                <input type="text" id="departamento" class="form-input" placeholder="Departamento">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Originario de</label>
+                                <input type="text" id="originarioDe" class="form-input" placeholder="Lugar de origen">
+                            </div>
+                        </div>
+
+                        <div class="form-section-title">Contacto e Información Social</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Teléfono(s) <span class="required">*</span></label>
+                                <input type="tel" id="pacientTelefono" class="form-input" placeholder="+502 XXXX-XXXX" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Correo Electrónico <span class="required">*</span></label>
+                                <input type="email" id="pacientEmail" class="form-input" placeholder="email@example.com" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Vive con</label>
+                                <input type="text" id="vivecon" class="form-input" placeholder="¿Con quién vive?">
+                            </div>
+                            <div class="form-group">
+                                <label>Tiene hijos</label>
+                                <select id="tieneHijos" class="form-input">
+                                    <option value="">Selecciona</option>
+                                    <option value="si">Sí</option>
+                                    <option value="no">No</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-section-title">Información Laboral y Educativa</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Estado Civil</label>
+                                <select id="estadoCivil" class="form-input">
+                                    <option value="">Selecciona</option>
+                                    <option value="soltero">Soltero(a)</option>
+                                    <option value="casado">Casado(a)</option>
+                                    <option value="divorciado">Divorciado(a)</option>
+                                    <option value="viudo">Viudo(a)</option>
+                                    <option value="union">Unión Estable</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Profesión</label>
+                                <input type="text" id="profesion" class="form-input" placeholder="Profesión">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Grado Académico</label>
+                                <select id="gradoAcademico" class="form-input">
+                                    <option value="">Selecciona</option>
+                                    <option value="primaria">Primaria</option>
+                                    <option value="secundaria">Secundaria</option>
+                                    <option value="preparatoria">Preparatoria</option>
+                                    <option value="tecnico">Técnico</option>
+                                    <option value="licenciatura">Licenciatura</option>
+                                    <option value="postgrado">Postgrado</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Ocupación</label>
+                                <input type="text" id="ocupacion" class="form-input" placeholder="Ocupación actual">
+                            </div>
+                        </div>
+
+                        <div class="form-section-title">Tipo de Servicio</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Tipo de Servicio <span class="required">*</span></label>
+                                <select id="pacientTipoServicio" class="form-input" onchange="toggleClasificacionPaciente()" required>
+                                    <option value="">Seleccionar...</option>
+                                    <option value="agudo">Paciente Agudo</option>
+                                    <option value="cronico">Paciente Crónico</option>
+                                    <option value="coex">Adicciones COEX</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="clasificacionAguoCronicoGroup" style="display:none;">
+                                <label>Clasificación Adicional <span class="required">*</span></label>
+                                <select id="pacientClasificacion" class="form-input">
+                                    <option value="">Seleccionar...</option>
+                                    <option value="adicto">Adicto</option>
+                                    <option value="psiquiatrico">Psiquiátrico</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="coexSegmentoGroup" style="display:none;">
+                                <label>Segmento COEX <span class="required">*</span></label>
+                                <select id="pacientCOEXSegmento" class="form-input">
+                                    <option value="">Seleccionar...</option>
+                                    <option value="psiquiatrico">Psiquiátrico</option>
+                                    <option value="psicologico">Psicológico</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: LUGAR DE TRABAJO -->
+                    <div id="tab-lugarTrabajo" class="tab-content">
+                        <div class="form-section-title">Información del Lugar de Trabajo</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Empresa</label>
+                                <input type="text" id="empresaNombre" class="form-input" placeholder="Nombre de la empresa">
+                            </div>
+                            <div class="form-group">
+                                <label>Teléfono de Empresa</label>
+                                <input type="tel" id="empresaTelefono" class="form-input" placeholder="Teléfono">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Dirección de Empresa</label>
+                                <input type="text" id="empresaDireccion" class="form-input" placeholder="Dirección">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: CONTACTO DE EMERGENCIA -->
+                    <div id="tab-emergencia" class="tab-content">
+                        <div class="form-section-title">Contacto de Emergencia</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Nombre</label>
+                                <input type="text" id="emergenciaNombre" class="form-input" placeholder="Nombre">
+                            </div>
+                            <div class="form-group">
+                                <label>Teléfono</label>
+                                <input type="tel" id="emergenciaTelefono" class="form-input" placeholder="Teléfono">
+                            </div>
+                            <div class="form-group">
+                                <label>Parentesco</label>
+                                <input type="text" id="emergenciaParentesco" class="form-input" placeholder="Parentesco">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 4: HISTORIAL MÉDICO -->
+                    <div id="tab-historialMedico" class="tab-content">
+                        <div class="form-section-title">Antecedentes de Salud</div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="padeceCronica"> Padece alguna enfermedad crónica
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <input type="text" id="especificacionCronica" class="form-input" placeholder="Especificar enfermedad" style="display:none;">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="tomaMedicamento"> Toma algún medicamento
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <input type="text" id="especificacionMedicamento" class="form-input" placeholder="Especificar medicamentos" style="display:none;">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="padaceAlergia"> Padece alguna alergia
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <input type="text" id="especificacionAlergia" class="form-input" placeholder="Especificar alergias" style="display:none;">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="utilizaProtesis"> Utiliza alguna prótesis
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <input type="text" id="especificacionProtesis" class="form-input" placeholder="Especificar prótesis" style="display:none;">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="haConvulsionado"> Ha convulsionado alguna vez
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <input type="text" id="especificacionConvulsion" class="form-input" placeholder="Especificar convulsiones" style="display:none;">
+                            </div>
+                        </div>
+
+                        <div class="form-section-title">Procedimientos y Exámenes</div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Último Procedimiento Quirúrgico</label>
+                                <input type="text" id="ultimoProcedimiento" class="form-input" placeholder="Tipo de procedimiento">
+                            </div>
+                            <div class="form-group">
+                                <label>Fecha del Procedimiento</label>
+                                <input type="date" id="fechaProcedimiento" class="form-input">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Exámenes de Laboratorio o Radiológicos</label>
+                                <input type="text" id="examenesLab" class="form-input" placeholder="Tipo de exámenes realizados">
+                            </div>
+                            <div class="form-group">
+                                <label>Fecha de Exámenes</label>
+                                <input type="date" id="fechaExamenes" class="form-input">
+                            </div>
+                        </div>
+
+                        <div class="form-section-title">Información Ginecológica (si aplica)</div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Fecha de Último Período Menstrual</label>
+                                <input type="date" id="ultimoPeriodo" class="form-input">
+                            </div>
+                            <div class="form-group">
+                                <label>Edad de Primera Menstruación</label>
+                                <input type="number" id="edadPrimeraMenstruacion" class="form-input" placeholder="Edad" min="0">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Cantidad de Gestas (embarazos)</label>
+                                <input type="number" id="cantidadGestas" class="form-input" placeholder="Número" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label>Cantidad de Partos</label>
+                                <input type="number" id="cantidadPartos" class="form-input" placeholder="Número" min="0">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="tratamientoPsiquiatrico"> Ha recibido tratamiento psiquiátrico o psicológico previamente
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 5: DATOS FAMILIARES -->
+                    <div id="tab-datosFamiliares" class="tab-content">
+                        <div class="form-section-title">Información Familiar</div>
+                        
+                        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Padre - Nombre</label>
+                                    <input type="text" id="padreNombre" class="form-input" placeholder="Nombre">
+                                </div>
+                                <div class="form-group">
+                                    <label>Padre - Teléfono</label>
+                                    <input type="tel" id="padreTelefono" class="form-input" placeholder="Teléfono">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Padre - Ocupación</label>
+                                    <input type="text" id="padreOcupacion" class="form-input" placeholder="Ocupación">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Madre - Nombre</label>
+                                    <input type="text" id="madreNombre" class="form-input" placeholder="Nombre">
+                                </div>
+                                <div class="form-group">
+                                    <label>Madre - Teléfono</label>
+                                    <input type="tel" id="madreTelefono" class="form-input" placeholder="Teléfono">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Madre - Ocupación</label>
+                                    <input type="text" id="madreOcupacion" class="form-input" placeholder="Ocupación">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Pareja - Nombre</label>
+                                    <input type="text" id="parejaNombre" class="form-input" placeholder="Nombre">
+                                </div>
+                                <div class="form-group">
+                                    <label>Pareja - Teléfono</label>
+                                    <input type="tel" id="parejaTelefono" class="form-input" placeholder="Teléfono">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Pareja - Ocupación</label>
+                                    <input type="text" id="parejaOcupacion" class="form-input" placeholder="Ocupación">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Hermanos - Número</label>
+                                    <input type="number" id="hermanosNumero" class="form-input" placeholder="Cantidad" min="0">
+                                </div>
+                                <div class="form-group">
+                                    <label>Hermanos - Observaciones</label>
+                                    <input type="text" id="hermanosObservaciones" class="form-input" placeholder="Información adicional">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Hijos - Número</label>
+                                    <input type="number" id="hijosNumero" class="form-input" placeholder="Cantidad" min="0">
+                                </div>
+                                <div class="form-group">
+                                    <label>Hijos - Observaciones</label>
+                                    <input type="text" id="hijosObservaciones" class="form-input" placeholder="Información adicional">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 6: RESPONSABLE DEL PACIENTE (NO OBLIGATORIO) -->
+                    <div id="tab-responsable" class="tab-content">
+                        <div class="form-section-title">Información del Responsable (Opcional)</div>
+                        <p style="color: #666; margin-bottom: 15px;"><i class="fas fa-info-circle"></i> Esta sección es opcional y se utiliza para registrar el contacto de un responsable diferente al paciente</p>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Nombre del Responsable</label>
+                                <input type="text" id="responsableNombre" class="form-input" placeholder="Nombre del responsable">
+                            </div>
+                            <div class="form-group">
+                                <label>Relación</label>
+                                <select id="responsableRelacion" class="form-input">
+                                    <option value="">Seleccionar...</option>
+                                    <option value="padre">Padre</option>
+                                    <option value="madre">Madre</option>
+                                    <option value="tutor">Tutor</option>
+                                    <option value="familiar">Familiar</option>
+                                    <option value="conyuge">Cónyuge</option>
+                                    <option value="otro">Otro</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Teléfono del Responsable</label>
+                                <input type="tel" id="responsableTelefono" class="form-input" placeholder="Teléfono">
+                            </div>
+                            <div class="form-group">
+                                <label>Email del Responsable</label>
+                                <input type="email" id="responsableEmail" class="form-input" placeholder="Correo electrónico">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 7: FOTOGRAFÍAS Y DOCUMENTOS -->
+                    <div id="tab-fotografias" class="tab-content">
+                        <div class="form-section-title">Carga de Fotografías y Documentos</div>
+                        <p style="color: #666; margin-bottom: 20px;"><i class="fas fa-info-circle"></i> Carga fotografías de documentos importantes (DPI, Pasaporte, etc.)</p>
+                        
+                        <!-- Input hidden para archivos -->
+                        <input type="file" id="pacientDocFileInput" accept="image/*" style="display: none;" multiple>
+                        
+                        <!-- Botón para agregar fotos -->
+                        <div style="margin-bottom: 20px;">
+                            <button type="button" class="btn btn-primary" style="width: 100%; padding: 12px; border-radius: 4px; border: none; background: #3498db; color: white; cursor: pointer; font-weight: bold;" onclick="PacientesModule.triggerDocumentUpload()">
+                                <i class="fas fa-cloud-upload-alt"></i> Agregar Fotografías
+                            </button>
+                        </div>
+
+                        <!-- Categorías de documentos -->
+                        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 10px; font-weight: bold;">Categoría del Documento:</label>
+                            <select id="pacientDocCategory" class="form-input" style="width: 100%;">
+                                <option value="">Selecciona una categoría...</option>
+                                <option value="DPI_Paciente">📄 DPI del Paciente</option>
+                                <option value="Pasaporte_Paciente">🛂 Pasaporte del Paciente</option>
+                                <option value="DPI_Responsable">📄 DPI del Responsable</option>
+                                <option value="Pasaporte_Responsable">🛂 Pasaporte del Responsable</option>
+                                <option value="Foto_Perfil_Responsable">📸 Foto Perfil Responsable</option>
+                                <option value="Documentos_Medicos">🏥 Documentos Médicos</option>
+                                <option value="Otros">📎 Otros</option>
+                            </select>
+                        </div>
+
+                        <!-- Galería de documentos cargados -->
+                        <div class="form-section-title" style="margin-top: 25px;">Documentos Cargados</div>
+                        <div id="pacientDocumentsGallery" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px;">
+                            <p style="grid-column: 1/-1; text-align: center; color: #999;">No hay documentos cargados</p>
+                        </div>
+                    </div>
+
+                    <!-- INFORMACIÓN ADICIONAL -->
+                    <div style="margin-top: 20px;">
+                        <div class="form-section-title">Información Adicional</div>
+                        <div class="form-group full-width">
+                            <label>Notas</label>
+                            <textarea id="pacientNotas" class="form-input" rows="3" placeholder="Notas adicionales sobre el paciente..."></textarea>
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label>
+                                <input type="checkbox" id="pacientIsCliente">
+                                <span>Este paciente también es cliente (vinculado a facturación)</span>
+                            </label>
+                        </div>
+
+                        <div id="clienteSelectionDiv" style="display: none;">
+                            <div class="form-group full-width">
+                                <label>Selecciona Cliente Existente</label>
+                                <select id="clienteSelect" class="form-input">
+                                    <!-- Poblado por JavaScript -->
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+                        <button type="button" class="btn btn-secondary" onclick="PacientesModule.closePacientModal()">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" onclick="PacientesModule.savePacient()">Guardar Paciente</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for patient details -->
+    <div id="pacientDetailsModal" class="modal">
+        <div class="modal-content modal-content-lg">
+            <div class="modal-header">
+                <h2><i class="fas fa-file-medical"></i> Detalles del Paciente</h2>
+                <button class="modal-close" onclick="PacientesModule.closeDetailsModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="pacientDetailsContent">
+                    <!-- Poblado por JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="PacientesModule.closeDetailsModal()">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for payment/abono -->
+    <div id="paymentModal" class="modal">
+        <div class="modal-content modal-content-xl">
+            <div class="modal-header">
+                <h2><i class="fas fa-money-bill-wave"></i> Registrar Pago / Abono</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="editPaymentForm">
+                    <input type="hidden" id="paymentPacienteId">
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Paciente <span class="required">*</span></label>
+                            <select id="paymentPacienteSelect" class="form-input" required>
+                                <option value="">-- Selecciona un paciente --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Tipo de Movimiento <span class="required">*</span></label>
+                            <select id="paymentTipo" class="form-input" required>
+                                <option value="Abono">Abono (Pago)</option>
+                                <option value="Cargo">Cargo (Adicional)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="saldoInfo" class="info-box"></div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Monto <span class="required">*</span></label>
+                            <input type="number" id="paymentMonto" class="form-input" step="0.01" min="0.01" placeholder="0.00" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Fecha <span class="required">*</span></label>
+                            <input type="date" id="paymentFecha" class="form-input" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Descripción</label>
+                        <textarea id="paymentDescripcion" class="form-input" rows="3" placeholder="Detalle del pago..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="SaldoPacienteModule.closePaymentModal()">Cancelar</button>
+                <button class="btn btn-primary" id="savePaymentBtn">
+                    <i class="fas fa-save"></i> Registrar Pago
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for saldo details -->
+    <div id="saldoDetailsModal" class="modal">
+        <div class="modal-content modal-content-xl">
+            <div class="modal-header">
+                <h2><i class="fas fa-file-invoice"></i> Detalles de Saldo</h2>
+                <button class="close-btn" onclick="SaldoPacienteModule.closeSaldoDetailsModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="saldoDetailsContent">
+                    <!-- Poblada por JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for article management -->
+    <div id="articuloModal" class="modal">
+        <div class="modal-content modal-content-xl">
+            <div class="modal-header">
+                <h2><i class="fas fa-cube"></i> Gestión de Artículo</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="editArticuloForm">
+                    <input type="hidden" id="articuloId">
+
+                    <div class="form-section-title">Información Básica</div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Nombre <span class="required">*</span></label>
+                            <input type="text" id="articuloNombre" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Concepto <span class="required">*</span></label>
+                            <input type="text" id="articuloConcepto" class="form-input" required>
+                        </div>
+                    </div>
+
+                    <div class="form-section-title">Sistema de Códigos Dual</div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Código de Venta (Sistema Interno) <span class="required">*</span></label>
+                            <input type="text" id="codigoVenta" class="form-input" placeholder="Ej: PAR-0001" required>
+                            <small>Utilizado en facturas y sistema de ventas local</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Código de Compra (Sistema Externo) <span class="required">*</span></label>
+                            <input type="text" id="codigoCompra" class="form-input" placeholder="Ej: LAB-BAYER-001" required>
+                            <small>Código del proveedor o sistema externo</small>
+                        </div>
+                    </div>
+
+                    <div class="form-section-title">Clasificación</div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Sección <span class="required">*</span></label>
+                            <select id="articuloSeccion" class="form-input" onchange="CodigosArticulosModule.renderFamiliasForModal()" required>
+                                <option value="">-- Selecciona sección --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Familia <span class="required">*</span></label>
+                            <select id="articuloFamilia" class="form-input" required>
+                                <option value="">-- Selecciona familia --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-section-title">Precios</div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Precio de Compra <span class="required">*</span></label>
+                            <input type="number" id="precioCompra" class="form-input" step="0.01" min="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Precio de Venta <span class="required">*</span></label>
+                            <input type="number" id="precioVenta" class="form-input" step="0.01" min="0.01" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Estado</label>
+                            <select id="articuloEstado" class="form-input">
+                                <option value="activo">Activo</option>
+                                <option value="inactivo">Inactivo</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Descripción</label>
+                        <textarea id="articuloDescripcion" class="form-input" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="CodigosArticulosModule.closeArticuloModal()">Cancelar</button>
+                <button class="btn btn-primary" id="saveArticuloBtn">
+                    <i class="fas fa-save"></i> Guardar Artículo
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for cash movement -->
+    <div id="movimientoCajaModal" class="modal">
+        <div class="modal-content modal-content-xl">
+            <div class="modal-header">
+                <h2><i class="fas fa-exchange-alt"></i> Nuevo Movimiento de Caja</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="editMovimientoCajaForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Tipo de Movimiento <span class="required">*</span></label>
+                            <select id="movimientoCajaType" class="form-input" required>
+                                <option value="">-- Selecciona tipo --</option>
+                                <option value="Ingreso por Cobro">Ingreso por Cobro</option>
+                                <option value="Egreso">Egreso</option>
+                                <option value="Devolución">Devolución</option>
+                                <option value="Transferencia">Transferencia</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Paciente (Opcional)</label>
+                            <select id="movimientoPacienteId" class="form-input">
+                                <option value="">-- Paciente (opcional) --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Monto <span class="required">*</span></label>
+                            <input type="number" id="movimientoCajaMonto" class="form-input" step="0.01" min="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Fecha <span class="required">*</span></label>
+                            <input type="date" id="movimientoCajaFecha" class="form-input" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Descripción <span class="required">*</span></label>
+                        <textarea id="movimientoCajaDesc" class="form-input" rows="3" placeholder="Detalle del movimiento..." required></textarea>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Referencia (Número de factura, cheque, etc.)</label>
+                        <input type="text" id="movimientoCajaRef" class="form-input" placeholder="Referencia opcional">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="CajaIntegradaModule.closeMovimientoModal()">Cancelar</button>
+                <button class="btn btn-primary" id="saveMovimientoCajaBtn">
+                    <i class="fas fa-save"></i> Registrar Movimiento
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for microfactura -->
+    <div id="microfacturaModal" class="modal">
+        <div class="modal-content modal-content-xl">
+            <div class="modal-header">
+                <h2><i class="fas fa-receipt"></i> Generar Microfactura</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="editMicrofacturaForm">
+                    <p class="info-text">
+                        <i class="fas fa-info-circle"></i> 
+                        Las microfacturas permiten cobros parciales sin cerrar la cuenta del paciente
+                    </p>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Paciente <span class="required">*</span></label>
+                            <select id="microfacturaPacienteSelect" class="form-input" required>
+                                <option value="">-- Selecciona paciente --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Monto <span class="required">*</span></label>
+                            <input type="number" id="microfacturaMonto" class="form-input" step="0.01" min="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Fecha <span class="required">*</span></label>
+                            <input type="date" id="microfacturaFecha" class="form-input" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Descripción / Concepto</label>
+                        <textarea id="microfacturaDesc" class="form-input" rows="3" placeholder="Detalle de servicios/productos incluidos en esta microfactura..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="CajaIntegradaModule.closeMicrofacturaModal()">Cancelar</button>
+                <button class="btn btn-primary" id="saveMicrofacturaBtn">
+                    <i class="fas fa-receipt"></i> Generar Microfactura
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for medical notes and prescriptions -->
+    <div id="noteModal" class="modal">
+        <div class="modal-content modal-content-xl">
+            <div class="modal-header">
+                <h2><i class="fas fa-pen-medical"></i> Historia Clínica</h2>
+                <button class="close-btn" onclick="HistoriaClinicaModule.closeNoteModal()">&times;</button>
+            </div>
+            <div style="display: flex; gap: 0; border-bottom: 2px solid #ddd; margin-bottom: 20px;">
+                <button class="tab-btn-historia active" onclick="HistoriaClinicaModule.switchTab('nota')" style="padding: 12px 20px; border: none; background: none; cursor: pointer; font-weight: bold; color: #1e3a8a; border-bottom: 3px solid #1e3a8a; flex: 1; text-align: left;">
+                    <i class="fas fa-pen"></i> Nota Médica
+                </button>
+                <button class="tab-btn-historia" onclick="HistoriaClinicaModule.switchTab('prescripcion')" style="padding: 12px 20px; border: none; background: none; cursor: pointer; font-weight: bold; color: #666; border-bottom: 3px solid transparent; flex: 1; text-align: left;">
+                    <i class="fas fa-prescription-bottle"></i> Prescripción
+                </button>
+                <button class="tab-btn-historia" onclick="HistoriaClinicaModule.switchTab('agenda')" style="padding: 12px 20px; border: none; background: none; cursor: pointer; font-weight: bold; color: #666; border-bottom: 3px solid transparent; flex: 1; text-align: left;">
+                    <i class="fas fa-calendar-alt"></i> Agenda Semanal
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- TAB: Nota Médica -->
+                <form id="editNoteForm" class="tab-content-historia" style="display: block;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Tipo de Nota <span class="required">*</span></label>
+                            <select id="noteTipo" class="form-input" required>
+                                <option value="Observación">Observación</option>
+                                <option value="Diagnóstico">Diagnóstico</option>
+                                <option value="Seguimiento">Seguimiento</option>
+                                <option value="Control">Control</option>
+                                <option value="Indicaciones">Indicaciones</option>
+                                <option value="Evaluación">Evaluación</option>
+                                <option value="Contraindicación">Contraindicación</option>
+                                <option value="Procedimiento">Procedimiento</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Fecha <span class="required">*</span></label>
+                            <input type="date" id="noteFecha" class="form-input" required>
+                        </div>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Contenido de la Nota <span class="required">*</span></label>
+                        <textarea id="noteContenido" class="form-input" rows="6" placeholder="Describe la observación médica, diagnóstico, seguimiento, etc..." required></textarea>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Médico que Registra</label>
+                        <input type="text" id="noteMedico" class="form-input" placeholder="Nombre del médico o profesional">
+                    </div>
+                </form>
+
+                <!-- TAB: Prescripción -->
+                <form id="prescripcionForm" class="tab-content-historia" style="display: none;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Médico <span class="required">*</span></label>
+                            <select id="prescMedico" class="form-input" required>
+                                <option value="">-- Seleccionar médico --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Fecha <span class="required">*</span></label>
+                            <input type="date" id="prescFecha" class="form-input" required>
+                        </div>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Diagnóstico <span class="required">*</span></label>
+                        <input type="text" id="prescDiagnostico" class="form-input" placeholder="Ej: Infección respiratoria viral" required>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Medicinas Prescritas</label>
+                        <div style="overflow-x: auto; margin-bottom: 10px;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                                <thead>
+                                    <tr style="background: #f5f5f5;">
+                                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Medicina</th>
+                                        <th style="border: 1px solid #ddd; padding: 8px; text-align: center; width: 70px;">Cant.</th>
+                                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left; width: 90px;">Dosis</th>
+                                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left; width: 100px;">Frecuencia</th>
+                                        <th style="border: 1px solid #ddd; padding: 8px; text-align: center; width: 70px;">Duración</th>
+                                        <th style="border: 1px solid #ddd; padding: 8px; text-align: center; width: 50px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="prescMedicinesTable">
+                                </tbody>
+                            </table>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-info" onclick="HistoriaClinicaModule.addMedicineRow()">
+                            <i class="fas fa-plus"></i> Agregar Medicina
+                        </button>
+                    </div>
+                </form>
+
+                <!-- TAB: Agenda Semanal -->
+                <div id="agendaContent" class="tab-content-historia" style="display: none;">
+                    <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center;">
+                        <button type="button" class="btn btn-sm btn-info" onclick="HistoriaClinicaModule.previousWeek()">
+                            <i class="fas fa-chevron-left"></i> Semana Anterior
+                        </button>
+                        <span id="weekDisplay" style="font-weight: bold; flex: 1; text-align: center;">Semana del 25 al 31 de mayo 2026</span>
+                        <button type="button" class="btn btn-sm btn-info" onclick="HistoriaClinicaModule.nextWeek()">
+                            Semana Siguiente <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                    <div id="agendaWeekly" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px;">
+                        <!-- Los días de la semana se renderizan aquí -->
+                    </div>
+                    <div style="margin-top: 20px;">
+                        <h3 style="margin-bottom: 10px;"><i class="fas fa-pills"></i> Resumen de Medicinas</h3>
+                        <div id="agendaSummary" style="background: #f9f9f9; padding: 15px; border-radius: 5px; max-height: 200px; overflow-y: auto;">
+                            <!-- Resumen de medicinas se renderiza aquí -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="HistoriaClinicaModule.closeNoteModal()">Cancelar</button>
+                <button class="btn btn-primary" id="saveNoteBtn" onclick="HistoriaClinicaModule.saveNote()" style="display: block;">
+                    <i class="fas fa-save"></i> Guardar Nota
+                </button>
+                <button class="btn btn-primary" id="savePrescBtn" onclick="HistoriaClinicaModule.savePrescripcion()" style="display: none;">
+                    <i class="fas fa-save"></i> Guardar Prescripción
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for managing medicines -->
+    <div id="medicineModal" class="modal">
+        <div class="modal-content modal-content-xl">
+            <div class="modal-header">
+                <h2><i class="fas fa-pills"></i> Gestión de Medicinas</h2>
+                <button class="close-btn" onclick="MedicinasModule.closeMedicineModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="editMedicineForm">
+                    <input type="hidden" id="medicineId">
+                    
+                    <div class="form-section-title">Información Básica</div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Código de Barra <span class="required">*</span></label>
+                            <input type="text" id="medicineCodigoBarra" class="form-input" placeholder="Ej: 7501001234567" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Nombre <span class="required">*</span></label>
+                            <input type="text" id="medicineName" class="form-input" placeholder="Nombre de la medicina" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Familia <span class="required">*</span></label>
+                            <input type="text" id="medicineFamily" class="form-input" placeholder="Ej: Analgésicos" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Subfamilia</label>
+                            <input type="text" id="medicineSubfamily" class="form-input" placeholder="Ej: Monoterápicos">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Presentación <span class="required">*</span></label>
+                            <select id="medicinePresentacion" class="form-input" required>
+                                <option value="">Selecciona</option>
+                                <option value="Tabletas">Tabletas</option>
+                                <option value="Cápsulas">Cápsulas</option>
+                                <option value="Solución Oral">Solución Oral</option>
+                                <option value="Inyectable">Inyectable</option>
+                                <option value="Crema">Crema</option>
+                                <option value="Polvo">Polvo</option>
+                                <option value="Jarabe">Jarabe</option>
+                                <option value="Grageas">Grageas</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Principio Activo <span class="required">*</span></label>
+                            <input type="text" id="medicinePrincipioActivo" class="form-input" placeholder="Ej: Paracetamol" required>
+                        </div>
+                    </div>
+
+                    <div class="form-section-title">Dosis y Presentación</div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Dosis <span class="required">*</span></label>
+                            <input type="text" id="medicineDosis" class="form-input" placeholder="Ej: 500" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Unidad de Dosis <span class="required">*</span></label>
+                            <select id="medicineUnidadDosis" class="form-input" required>
+                                <option value="">Selecciona</option>
+                                <option value="mg">Miligramos (mg)</option>
+                                <option value="g">Gramos (g)</option>
+                                <option value="mcg">Microgramos (mcg)</option>
+                                <option value="ml">Mililitros (ml)</option>
+                                <option value="UI">Unidades Internacionales (UI)</option>
+                                <option value="mEq">Miliequivalentes (mEq)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Lote</label>
+                            <input type="text" id="medicineLote" class="form-input" placeholder="Lote del producto">
+                        </div>
+                        <div class="form-group">
+                            <label>Fecha Vencimiento</label>
+                            <input type="date" id="medicineFechaVencimiento" class="form-input">
+                        </div>
+                    </div>
+
+                    <div class="form-section-title">Inventario</div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Cantidad En Stock</label>
+                            <input type="number" id="medicineCantidad" class="form-input" placeholder="0" min="0" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Cantidad Mínima Alerta</label>
+                            <input type="number" id="medicineCantidadMinima" class="form-input" placeholder="0" min="0" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Precio Unitario ($)</label>
+                            <input type="number" id="medicinePrecioUnitario" class="form-input" placeholder="0.00" step="0.01" min="0">
+                        </div>
+                    </div>
+
+                    <div class="form-section-title">Información Farmacológica</div>
+
+                    <div class="form-group full-width">
+                        <label>Contraindicaciones</label>
+                        <textarea id="medicineContraindicaciones" class="form-input" rows="2" placeholder="Indicar contraindicaciones conocidas..."></textarea>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Efectos Secundarios</label>
+                        <textarea id="medicineEfectosSecundarios" class="form-input" rows="2" placeholder="Listar efectos secundarios conocidos..."></textarea>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Proveedor</label>
+                            <input type="text" id="medicineProveedor" class="form-input" placeholder="Nombre del proveedor">
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="medicineActiva" checked>
+                                <span>Medicina Active para asignar</span>
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="MedicinasModule.closeMedicineModal()">Cancelar</button>
+                <button class="btn btn-primary" id="saveMedicineBtn" onclick="MedicinasModule.saveMedicine()">
+                    <i class="fas fa-save"></i> Guardar Medicina
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for medicine details -->
+    <div id="medicineDetailsModal" class="modal">
+        <div class="modal-content modal-content-lg">
+            <div class="modal-header">
+                <h2><i class="fas fa-info-circle"></i> Detalles de la Medicina</h2>
+                <button class="modal-close" onclick="MedicinasModule.closeMedicineDetailsModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="medicineDetailsContent">
+                    <!-- Poblado por JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="MedicinasModule.closeMedicineDetailsModal()">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for assigning medicines to patients -->
+    <div id="assignMedicineModal" class="modal">
+        <div class="modal-content modal-content-lg">
+            <div class="modal-header">
+                <h2><i class="fas fa-hand-holding-medical"></i> Asignar Medicina a Paciente</h2>
+                <button class="close-btn" onclick="MedicinasModule.closeAssignModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="assignMedicineForm">
+                    <input type="hidden" id="assignMedicineId">
+
+                    <div class="form-section-title">Seleccionar Paciente</div>
+
+                    <div class="form-group full-width">
+                        <label>Paciente <span class="required">*</span></label>
+                        <select id="assignPacienteSelect" class="form-input" required>
+                            <!-- Poblado por JavaScript -->
+                        </select>
+                    </div>
+
+                    <div class="form-section-title">Seleccionar Medicina</div>
+
+                    <div class="form-group full-width">
+                        <label>Medicina <span class="required">*</span></label>
+                        <select id="assignMedicineSelect" class="form-input" required>
+                            <!-- Poblado por JavaScript -->
+                        </select>
+                    </div>
+
+                    <div class="form-section-title">Instrucciones de Tratamiento</div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Cantidad a Asignar <span class="required">*</span></label>
+                            <input type="number" id="assignCantidad" class="form-input" placeholder="Unidades" min="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Dosis Prescrita <span class="required">*</span></label>
+                            <input type="text" id="assignDosis" class="form-input" placeholder="Ej: 1 tableta cada 8 horas" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Frecuencia <span class="required">*</span></label>
+                            <select id="assignFrecuencia" class="form-input" required>
+                                <option value="">Selecciona</option>
+                                <option value="Una vez al día">Una vez al día</option>
+                                <option value="Cada 8 horas">Cada 8 horas</option>
+                                <option value="Cada 12 horas">Cada 12 horas</option>
+                                <option value="Cada 6 horas">Cada 6 horas</option>
+                                <option value="Cada 4 horas">Cada 4 horas</option>
+                                <option value="Cada 24 horas">Cada 24 horas</option>
+                                <option value="Cada 3 días">Cada 3 días</option>
+                                <option value="Semanalmente">Semanalmente</option>
+                                <option value="Según sea necesario">Según sea necesario</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Fecha Inicio <span class="required">*</span></label>
+                            <input type="date" id="assignFechaInicio" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Fecha Fin (Opcional)</label>
+                            <input type="date" id="assignFechaFin" class="form-input">
+                        </div>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Notas Médicas</label>
+                        <textarea id="assignNotas" class="form-input" rows="3" placeholder="Indicaciones especiales, advertencias, etc..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="MedicinasModule.closeAssignModal()">Cancelar</button>
+                <button class="btn btn-success" id="saveMedicineAssignBtn" onclick="MedicinasModule.saveMedicineAssignment()">
+                    <i class="fas fa-check"></i> Asignar Medicina
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="productModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Agregar Nuevo Producto</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Nombre del Producto</label>
+                    <input type="text" id="productName" class="form-input" placeholder="Ej: Laptop Dell XPS">
+                </div>
+                <div class="form-group">
+                    <label>Categoría</label>
+                    <select id="productCategory" class="form-input">
+                        <option value="Electrónica">Electrónica</option>
+                        <option value="Ropa">Ropa</option>
+                        <option value="Alimentos">Alimentos</option>
+                        <option value="Herramientas">Herramientas</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Precio Unitario ($)</label>
+                    <input type="number" id="productPrice" class="form-input" step="0.01" placeholder="0.00" min="0">
+                </div>
+                <div class="form-group">
+                    <label>Stock Inicial</label>
+                    <input type="number" id="productStock" class="form-input" placeholder="0" min="0">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary modal-close-btn">Cancelar</button>
+                <button class="btn btn-primary" id="saveProductBtn">Guardar Producto</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for adding transactions -->
+    <div id="transactionModal" class="modal">
+        <div class="modal-content modal-content-lg">
+            <div class="modal-header">
+                <h2><i class="fas fa-exchange-alt"></i> Nueva Transacción</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tipo de Transacción <span class="required">*</span></label>
+                        <select id="transactionType" class="form-input" required>
+                            <option value="">Selecciona un tipo...</option>
+                            <option value="Venta">Venta</option>
+                            <option value="Compra">Compra</option>
+                            <option value="Devolución">Devolución</option>
+                            <option value="Ajuste">Ajuste</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Producto <span class="required">*</span></label>
+                        <select id="transactionProduct" class="form-input" required>
+                            <option value="">Selecciona un producto...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Cantidad <span class="required">*</span></label>
+                        <input type="number" id="transactionQuantity" class="form-input" placeholder="0" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Precio Unitario ($)</label>
+                        <input type="number" id="transactionUnitPrice" class="form-input" placeholder="0.00" step="0.01" min="0" readonly>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Monto Total ($) <span class="required">*</span></label>
+                        <input type="number" id="transactionAmount" class="form-input" placeholder="0.00" step="0.01" min="0" readonly>
+                        <small class="form-hint">Se calcula automáticamente</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha <span class="required">*</span></label>
+                        <input type="date" id="transactionDate" class="form-input" required>
+                    </div>
+                </div>
+
+                <div class="form-group full-width">
+                    <label>Descripción <span class="required">*</span></label>
+                    <textarea id="transactionDescription" class="form-input" rows="3" placeholder="Ej: Venta a cliente Juan García" required></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Estado</label>
+                        <select id="transactionStatus" class="form-input">
+                            <option value="Completada">Completada</option>
+                            <option value="Pendiente">Pendiente</option>
+                            <option value="Cancelada">Cancelada</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Número de Referencia</label>
+                        <input type="text" id="transactionReference" class="form-input" placeholder="Ej: FAC-001" maxlength="100">
+                    </div>
+                </div>
+
+                <!-- Price breakdown summary -->
+                <div class="price-summary">
+                    <div class="summary-item">
+                        <span>Precio Unitario:</span>
+                        <strong id="summaryUnitPrice">Q. 0.00</strong>
+                    </div>
+                    <div class="summary-item">
+                        <span>Cantidad:</span>
+                        <strong id="summaryQuantity">0 unidades</strong>
+                    </div>
+                    <div class="summary-item total">
+                        <span>Total:</span>
+                        <strong id="summaryTotal">Q. 0.00</strong>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary modal-close-btn">Cancelar</button>
+                <button class="btn btn-primary" id="saveTransactionBtn">
+                    <i class="fas fa-save"></i> Guardar Transacción
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for bulk transactions -->
+    <div id="bulkTransactionModal" class="modal">
+        <div class="modal-content modal-content-xl">
+            <div class="modal-header">
+                <h2><i class="fas fa-table"></i> Carga Masiva de Transacciones</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body bulk-modal-body">
+                <!-- Instructions -->
+                <div class="bulk-instructions">
+                    <p><i class="fas fa-info-circle"></i> Completa los datos en la tabla. Los campos marcados con <span class="required">*</span> son obligatorios.</p>
+                </div>
+
+                <!-- Bulk table -->
+                <div class="bulk-table-wrapper">
+                    <table id="bulkTransactionTable" class="bulk-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;">
+                                    <input type="checkbox" id="selectAllBulk" title="Seleccionar todo">
+                                </th>
+                                <th>Tipo*</th>
+                                <th>Producto*</th>
+                                <th>Cantidad*</th>
+                                <th>Precio Unit.</th>
+                                <th>Total*</th>
+                                <th>Fecha*</th>
+                                <th>Descripción*</th>
+                                <th>Estado</th>
+                                <th style="width: 50px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="bulkTableBody">                        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+                            <!-- Rows will be added here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Summary -->
+                <div class="bulk-summary">
+                    <div class="summary-stat">
+                        <label>Filas a procesar:</label>
+                        <span id="bulkRowCount">0</span>
+                    </div>
+                    <div class="summary-stat">
+                        <label>Monto total:</label>
+                        <span id="bulkTotalAmount">$0.00</span>
+                    </div>
+                    <div class="summary-stat">
+                        <label>Estado:</label>
+                        <span id="bulkStatus" class="status-info">Listo para procesar</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="addRowBtn">
+                    <i class="fas fa-plus"></i> Agregar Fila
+                </button>
+                <div style="flex: 1;"></div>
+                <button class="btn btn-secondary modal-close-btn">Cancelar</button>
+                <button class="btn btn-success" id="processBulkBtn">
+                    <i class="fas fa-check"></i> Procesar Todas
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for appointments -->
+    <div id="appointmentModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-calendar-plus"></i> Nueva Cita</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Nombre del Paciente <span class="required">*</span></label>
+                        <input type="text" id="patientName" class="form-input" placeholder="Nombre completo" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email <span class="required">*</span></label>
+                        <input type="email" id="patientEmail" class="form-input" placeholder="email@example.com" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Teléfono <span class="required">*</span></label>
+                        <input type="tel" id="patientPhone" class="form-input" placeholder="Número de teléfono" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Doctor <span class="required">*</span></label>
+                        <select id="appointmentDoctor" class="form-input" required>
+                            <option value="">Selecciona un doctor...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Fecha <span class="required">*</span></label>
+                        <input type="date" id="appointmentDate" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Hora <span class="required">*</span></label>
+                        <input type="time" id="appointmentTime" class="form-input" required>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary modal-close-btn">Cancelar</button>
+                <button class="btn btn-primary" id="saveAppointmentBtn" onclick="AgendaModule.saveAppointment()">
+                    <i class="fas fa-save"></i> Guardar Cita
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script imports -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/file-utils.js"></script>
+    <script src="data/demo-data.js"></script>
+    
+    <!-- Módulos Administrativos -->
+    <script src="js/pacientes.js"></script>
+    <script src="js/pacientes-file-manager.js"></script>
+    <script src="js/medicinas.js"></script>
+    <script src="js/historia-clinica.js"></script>
+    <script src="js/saldo-paciente.js"></script>
+    <script src="js/hospitalizaciones.js"></script>
+    <script src="js/codigos-articulos.js"></script>
+    <script src="js/caja-integrada.js"></script>
+    <script src="js/compras.js"></script>
+    <script src="js/ventas.js"></script>
+    <script src="js/caja.js"></script>
+    <script src="js/cuentas-por-cobrar.js"></script>
+    <script src="js/estados-de-cuenta.js"></script>
+    <script src="js/dashboard-financiero.js"></script>
+    <script src="js/reports.js"></script>
+    
+    <!-- Módulos Agenda -->
+    <script src="js/agenda.js"></script>
+    <script src="js/reservas-web.js"></script>
+    <script src="js/confirmaciones.js"></script>
+    <script src="js/google-calendar.js"></script>
+    <script src="js/agenda-api.js"></script>
+    <script src="js/gastos-servicios.js"></script>
+    
+    <!-- App Principal -->
+    <script src="js/app.js"></script>
+</body>
+</html>
