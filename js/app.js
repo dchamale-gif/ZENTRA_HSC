@@ -1341,6 +1341,10 @@ function toggleClasificacionPaciente() {
     const coexGroup = document.getElementById('coexSegmentoGroup');
     const clasificacionSelect = document.getElementById('pacientClasificacion');
     const coexSegmento = document.getElementById('pacientCOEXSegmento');
+    
+    // Elementos condicionales del historial médico
+    const seccionAguoCronico = document.getElementById('seccionAguoCronico');
+    const seccionCOEX = document.getElementById('seccionCOEX');
 
     // Mostrar u ocultar campo de clasificación para Agudo/Crónico
     if (['agudo', 'cronico'].includes(tipoServicio)) {
@@ -1349,6 +1353,10 @@ function toggleClasificacionPaciente() {
         coexGroup.style.display = 'none';
         coexSegmento.required = false;
         coexSegmento.value = '';
+        
+        // Mostrar sección de Agudo/Crónico, ocultar COEX
+        if (seccionAguoCronico) seccionAguoCronico.style.display = 'block';
+        if (seccionCOEX) seccionCOEX.style.display = 'none';
     }
     // Mostrar u ocultar campo de segmento para COEX
     else if (tipoServicio === 'coex') {
@@ -1357,6 +1365,10 @@ function toggleClasificacionPaciente() {
         clasificacionGroup.style.display = 'none';
         clasificacionSelect.required = false;
         clasificacionSelect.value = '';
+        
+        // Mostrar sección de COEX, ocultar Agudo/Crónico
+        if (seccionAguoCronico) seccionAguoCronico.style.display = 'none';
+        if (seccionCOEX) seccionCOEX.style.display = 'block';
     }
     // Ocultar ambos si no hay selección
     else {
@@ -1366,6 +1378,10 @@ function toggleClasificacionPaciente() {
         coexSegmento.required = false;
         clasificacionSelect.value = '';
         coexSegmento.value = '';
+        
+        // Ocultar ambas secciones
+        if (seccionAguoCronico) seccionAguoCronico.style.display = 'none';
+        if (seccionCOEX) seccionCOEX.style.display = 'none';
     }
 }
 
@@ -1403,6 +1419,20 @@ document.addEventListener('DOMContentLoaded', function() {
     if (document.getElementById('haConvulsionado')) {
         document.getElementById('haConvulsionado').addEventListener('change', function() {
             document.getElementById('especificacionConvulsion').style.display = this.checked ? 'block' : 'none';
+        });
+    }
+    
+    // Comorbilidad (COEX)
+    if (document.getElementById('comorbilidad')) {
+        document.getElementById('comorbilidad').addEventListener('change', function() {
+            document.getElementById('especificacionComorbilidad').style.display = this.checked ? 'block' : 'none';
+        });
+    }
+    
+    // Antecedentes legales (COEX)
+    if (document.getElementById('antecedentesLegales')) {
+        document.getElementById('antecedentesLegales').addEventListener('change', function() {
+            document.getElementById('especificacionLegales').style.display = this.checked ? 'block' : 'none';
         });
     }
 });

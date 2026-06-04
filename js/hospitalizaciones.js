@@ -28,14 +28,6 @@ const HospitalizacionesModule = {
             addBtn.addEventListener('click', () => this.openAddModal());
         }
 
-        const filterPiso = document.getElementById('filterPiso');
-        if (filterPiso) {
-            filterPiso.addEventListener('change', (e) => {
-                this.state.filtros.piso = e.target.value;
-                this.render();
-            });
-        }
-
         const filterEstado = document.getElementById('filterEstadoHosp');
         if (filterEstado) {
             filterEstado.addEventListener('change', (e) => {
@@ -73,72 +65,98 @@ const HospitalizacionesModule = {
         this.renderTable();
     },
 
-    // Renderizar layout visual de habitaciones
+    // Renderizar layout visual de habitaciones - UN ÚNICO NIVEL
     renderHabitaciones() {
         const container = document.getElementById('habitacionesContainer');
         if (!container) return;
 
-        // Definir layout de habitaciones
-        const pisos = {
-            '1': {
-                nombre: 'Piso 1',
-                habitaciones: Array.from({length: 8}, (_, i) => ({
-                    id: `1-${i+1}`,
-                    numero: i + 1,
-                    camas: 2,
-                    piso: '1'
-                }))
-            },
-            '2': {
-                nombre: 'Piso 2',
-                habitaciones: Array.from({length: 8}, (_, i) => ({
-                    id: `2-${i+1}`,
-                    numero: i + 1,
-                    camas: 2,
-                    piso: '2'
-                }))
-            },
-            '3': {
-                nombre: 'Piso 3',
-                habitaciones: Array.from({length: 6}, (_, i) => ({
-                    id: `3-${i+1}`,
-                    numero: i + 1,
-                    camas: 2,
-                    piso: '3'
-                }))
-            }
-        };
-
-        let html = '';
-        const pisoFiltro = this.state.filtros.piso;
-
-        // Determinar qué pisos mostrar
-        const pisosAMostrar = pisoFiltro ? [pisoFiltro] : ['1', '2', '3'];
-
-        pisosAMostrar.forEach(numeroPiso => {
-            const piso = pisos[numeroPiso];
-            html += `
-                <div style="margin-bottom: 40px;">
-                    <h3 style="color: #1e3a8a; margin-bottom: 20px; padding: 10px; background: #f0f4f8; border-radius: 5px;">
-                        <i class="fas fa-building"></i> ${piso.nombre}
-                    </h3>
-                    <div class="habitaciones-flex">
-            `;
-
-            piso.habitaciones.forEach(habitacion => {
-                html += this.renderHabitacion(habitacion);
-            });
-
-            html += `
-                    </div>
+        let html = `
+            <div>
+                <h2 style="color: #1e3a8a; margin-bottom: 20px; padding: 10px; background: #f0f4f8; border-radius: 5px;">
+                    <i class="fas fa-building"></i> DISTRIBUCIÓN DE HABITACIONES
+                </h2>
+                <div style="display: grid; gap: 20px;">
+                    ${this.renderPlanoLayout()}
                 </div>
-            `;
-        });
-
+            </div>
+        `;
         container.innerHTML = html;
         
         // Agregar event listeners para drag and drop
         this.setupDragAndDrop();
+    },
+
+    // Renderizar plano único tal como está en la foto
+    renderPlanoLayout() {
+        let html = `
+            <!-- FILA SUPERIOR: Sección COEX y Sala Común -->
+            <div style="display: grid; grid-template-columns: 150px 1fr 150px; gap: 12px;">
+                <!-- Izquierda: COEX -->
+                <div style="display: grid; grid-template-rows: 1fr 1fr; gap: 12px;">
+                    ${this.renderHabitacion({ id: 'hab-1', numero: 2, camas: 2, piso: 'Plano', label: 'COEX' })}
+                    ${this.renderHabitacion({ id: 'hab-2', numero: 4, camas: 1, piso: 'Plano', label: 'COEX' })}
+                </div>
+                
+                <!-- Centro: Sala Común - 4 habitaciones en grid 2x2 -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+                    ${this.renderHabitacion({ id: 'hab-3', numero: 2, camas: 1, piso: 'Plano', label: 'Sala Común' })}
+                    ${this.renderHabitacion({ id: 'hab-4', numero: 9, camas: 1, piso: 'Plano', label: 'Sala Común' })}
+                    ${this.renderHabitacion({ id: 'hab-5', numero: 5, camas: 1, piso: 'Plano', label: 'Sala Común' })}
+                    ${this.renderHabitacion({ id: 'hab-6', numero: 4, camas: 1, piso: 'Plano', label: 'Sala Común' })}
+                </div>
+                
+                <!-- Derecha: Área vacía para emergencias/servicios -->
+                <div style="display: grid; grid-template-rows: 1fr 1fr; gap: 12px;">
+                    <div style="background: #e3f2fd; border: 2px dashed #1976d2; border-radius: 5px; padding: 10px; display: flex; align-items: center; justify-content: center;">
+                        <small style="color: #1976d2; font-weight: bold;">Servicios</small>
+                    </div>
+                    <div style="background: #e3f2fd; border: 2px dashed #1976d2; border-radius: 5px; padding: 10px; display: flex; align-items: center; justify-content: center;">
+                        <small style="color: #1976d2; font-weight: bold;">Servicios</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DIVISOR: Col. Mujeres -->
+            <div style="background: #d4edda; padding: 8px; border-radius: 5px; text-align: center;">
+                <strong style="color: #155724;">↓ COLUMNA DE MUJERES ↓</strong>
+            </div>
+
+            <!-- FILA INTERMEDIA: Habitación izquierda y área central -->
+            <div style="display: grid; grid-template-columns: 150px 1fr 150px; gap: 12px;">
+                <!-- Izquierda: Habitación aislada -->
+                <div>
+                    ${this.renderHabitacion({ id: 'hab-7', numero: 2, camas: 1, piso: 'Plano' })}
+                </div>
+                
+                <!-- Centro: Dos habitaciones lado a lado -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    ${this.renderHabitacion({ id: 'hab-8', numero: 1, camas: 1, piso: 'Plano' })}
+                    ${this.renderHabitacion({ id: 'hab-9', numero: 2, camas: 1, piso: 'Plano' })}
+                </div>
+                
+                <!-- Derecha: Vacío -->
+                <div></div>
+            </div>
+
+            <!-- FILA INFERIOR: Área grande central y derecha -->
+            <div style="display: grid; grid-template-columns: 150px 1fr 150px; gap: 12px;">
+                <!-- Izquierda: Vacío -->
+                <div></div>
+                
+                <!-- Centro: Dos habitaciones grandes -->
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+                    ${this.renderHabitacion({ id: 'hab-10', numero: 2, camas: 2, piso: 'Plano' })}
+                    ${this.renderHabitacion({ id: 'hab-11', numero: 9, camas: 1, piso: 'Plano' })}
+                    <div style="background: #f5f5f5; border-radius: 5px;"></div>
+                </div>
+                
+                <!-- Derecha: Habitación -->
+                <div>
+                    ${this.renderHabitacion({ id: 'hab-12', numero: 3, camas: 1, piso: 'Plano' })}
+                </div>
+            </div>
+        `;
+        return html;
     },
 
     // Configurar event listeners para drag and drop
@@ -343,10 +361,22 @@ const HospitalizacionesModule = {
             h.habitacion === habitacion.id && h.estado === 'activa'
         );
 
+        let headerStyle = '';
+        if (habitacion.label === 'COEX') {
+            headerStyle = 'background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);';
+        } else if (habitacion.label === 'Sala Común') {
+            headerStyle = 'background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);';
+        } else if (habitacion.label === 'Privada') {
+            headerStyle = 'background: linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%);';
+        }
+
         let html = `
             <div class="habitacion-card">
-                <div class="habitacion-header">
-                    <h4>Habitación ${habitacion.numero}</h4>
+                <div class="habitacion-header" style="${headerStyle}">
+                    <h4>
+                        ${habitacion.label ? `<span style="font-size: 11px; opacity: 0.9;">[${habitacion.label}]</span> ` : ''}
+                        Hab. ${habitacion.numero}
+                    </h4>
                     <span class="ocupacion-badge">${hospitalizacionesEnHabitacion.length}/${habitacion.camas}</span>
                 </div>
                 <div class="camas-container">
@@ -524,33 +554,39 @@ const HospitalizacionesModule = {
         document.body.appendChild(modal);
     },
 
-    // Renderizar habitaciones seleccionables
+    // Renderizar habitaciones seleccionables - UN ÚNICO NIVEL
     renderHabitacionesSelectable() {
-        const pisos = [
-            { piso: '1', habitaciones: 8 },
-            { piso: '2', habitaciones: 8 },
-            { piso: '3', habitaciones: 6 }
+        const habitaciones = [
+            { id: 'hab-1', numero: 2, camas: 2 },
+            { id: 'hab-2', numero: 4, camas: 1 },
+            { id: 'hab-3', numero: 2, camas: 1 },
+            { id: 'hab-4', numero: 9, camas: 1 },
+            { id: 'hab-5', numero: 5, camas: 1 },
+            { id: 'hab-6', numero: 4, camas: 1 },
+            { id: 'hab-7', numero: 2, camas: 1 },
+            { id: 'hab-8', numero: 1, camas: 1 },
+            { id: 'hab-9', numero: 2, camas: 1 },
+            { id: 'hab-10', numero: 2, camas: 2 },
+            { id: 'hab-11', numero: 9, camas: 1 },
+            { id: 'hab-12', numero: 3, camas: 1 }
         ];
 
         let html = '';
-        pisos.forEach(piso => {
-            for (let i = 1; i <= piso.habitaciones; i++) {
-                const habId = `${piso.piso}-${i}`;
-                const ocupadas = this.state.hospitalizaciones.filter(h => 
-                    h.habitacion === habId && h.estado === 'activa'
-                ).length;
-                
-                html += `
-                    <div style="border: 2px solid #ddd; padding: 10px; border-radius: 5px; text-align: center; cursor: pointer; transition: all 0.2s;" 
-                         onclick="HospitalizacionesModule.openHabitacionModal('${habId}')"
-                         onmouseover="this.style.borderColor='#2196F3'; this.style.background='#f0f8ff';"
-                         onmouseout="this.style.borderColor='#ddd'; this.style.background='white';">
-                        <strong>Piso ${piso.piso}</strong><br>
-                        Hab. ${i}<br>
-                        <small>${ocupadas}/2 camas</small>
-                    </div>
-                `;
-            }
+        habitaciones.forEach(hab => {
+            const habId = hab.id;
+            const ocupadas = this.state.hospitalizaciones.filter(h => 
+                h.habitacion === habId && h.estado === 'activa'
+            ).length;
+            
+            html += `
+                <div style="border: 2px solid #ddd; padding: 10px; border-radius: 5px; text-align: center; cursor: pointer; transition: all 0.2s;" 
+                     onclick="HospitalizacionesModule.openHabitacionModal('${habId}')"
+                     onmouseover="this.style.borderColor='#2196F3'; this.style.background='#f0f8ff';"
+                     onmouseout="this.style.borderColor='#ddd'; this.style.background='white';">
+                    <strong>Hab. ${hab.numero}</strong><br>
+                    <small>${ocupadas}/${hab.camas} camas</small>
+                </div>
+            `;
         });
         return html;
     },

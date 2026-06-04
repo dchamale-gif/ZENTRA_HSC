@@ -3292,64 +3292,73 @@ textarea.form-input {
 .habitacion-card {
     background: white;
     border: 2px solid #e0e0e0;
-    border-radius: 10px;
+    border-radius: 8px;
     overflow: hidden;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     transition: all 0.3s ease;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
 }
 
 .habitacion-card:hover {
     box-shadow: 0 4px 16px rgba(0,0,0,0.15);
     border-color: #2196F3;
+    transform: translateY(-2px);
 }
 
 .habitacion-header {
     background: linear-gradient(135deg, #1e3a8a 0%, #0891b2 100%);
     color: white;
-    padding: 12px 15px;
+    padding: 10px 12px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-shrink: 0;
 }
 
 .habitacion-header h4 {
     margin: 0;
-    font-size: 16px;
+    font-size: 14px;
+    font-weight: bold;
 }
 
 .ocupacion-badge {
     background: rgba(255,255,255,0.3);
-    padding: 4px 10px;
+    padding: 3px 8px;
     border-radius: 12px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: bold;
 }
 
 .camas-container {
-    padding: 12px;
+    padding: 10px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
+    flex: 1;
+    overflow-y: auto;
 }
 
 .cama-ocupada,
 .cama-libre {
-    border: 2px solid #ddd;
-    border-radius: 8px;
-    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 10px;
     transition: all 0.2s ease;
+    font-size: 13px;
 }
 
 .cama-ocupada {
-    background: #f9f9f9;
+    background: #fffbf0;
     border-color: #ff9800;
-    border-left: 4px solid #ff9800;
+    border-left: 3px solid #ff9800;
 }
 
 .cama-libre {
     background: #f0f8f4;
     border-color: #4CAF50;
-    border-left: 4px solid #4CAF50;
+    border-left: 3px solid #4CAF50;
 }
 
 .cama-numero {

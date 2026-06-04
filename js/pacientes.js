@@ -73,6 +73,24 @@ const PacientesModule = {
         if (docFileInput) {
             docFileInput.addEventListener('change', (e) => this.handleDocumentUpload(e));
         }
+
+        // Drag & Drop para foto del paciente
+        const fotoDragZone = document.getElementById('pacientFotoDragZone');
+        if (fotoDragZone) {
+            fotoDragZone.addEventListener('dragover', (e) => this.handleDragOver(e));
+            fotoDragZone.addEventListener('dragenter', (e) => this.handleDragEnter(e, fotoDragZone));
+            fotoDragZone.addEventListener('dragleave', (e) => this.handleDragLeave(e, fotoDragZone));
+            fotoDragZone.addEventListener('drop', (e) => this.handleFotoDrop(e));
+        }
+
+        // Drag & Drop para documentos
+        const docDragZone = document.getElementById('pacientDocDragZone');
+        if (docDragZone) {
+            docDragZone.addEventListener('dragover', (e) => this.handleDragOver(e));
+            docDragZone.addEventListener('dragenter', (e) => this.handleDragEnter(e, docDragZone));
+            docDragZone.addEventListener('dragleave', (e) => this.handleDragLeave(e, docDragZone));
+            docDragZone.addEventListener('drop', (e) => this.handleDocumentDrop(e));
+        }
     },
 
     // Cargar datos
@@ -177,6 +195,101 @@ const PacientesModule = {
         document.getElementById('pacientFotoRemoveBtn').style.display = 'none';
     },
 
+    // Manejo de Drag & Drop
+    handleDragOver(event) {
+        event.preventDefault();
+        event.stopPropagation();
+    },
+
+    handleDragEnter(event, zone) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (zone) {
+            zone.style.backgroundColor = '#e3f2fd';
+            zone.style.borderColor = '#1976d2';
+            zone.style.boxShadow = '0 0 10px rgba(25, 118, 210, 0.3)';
+        }
+    },
+
+    handleDragLeave(event, zone) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (zone && event.target === zone) {
+            zone.style.backgroundColor = '';
+            zone.style.borderColor = '';
+            zone.style.boxShadow = '';
+        }
+    },
+
+    handleFotoDrop(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        
+        const zone = document.getElementById('pacientFotoDragZone');
+        if (zone) {
+            zone.style.backgroundColor = '';
+            zone.style.borderColor = '';
+            zone.style.boxShadow = '';
+        }
+
+        const files = Array.from(event.dataTransfer.files);
+        const imageFiles = files.filter(file => file.type.startsWith('image/'));
+        
+        if (imageFiles.length === 0) {
+            this.showNotification('⚠️ Por favor arrastra solo imágenes', 'warning');
+            return;
+        }
+
+        // Procesar solo la primera imagen para la foto del paciente
+        if (imageFiles[0]) {
+            this.convertFileToBase64(imageFiles[0]);
+        }
+    },
+
+    handleDocumentDrop(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        
+        const zone = document.getElementById('pacientDocDragZone');
+        if (zone) {
+            zone.style.backgroundColor = '';
+            zone.style.borderColor = '';
+            zone.style.boxShadow = '';
+        }
+
+        const category = document.getElementById('pacientDocCategory').value;
+        if (!category) {
+            this.showNotification('⚠️ Por favor selecciona una categoría de documento primero', 'warning');
+            return;
+        }
+
+        const files = Array.from(event.dataTransfer.files);
+        const imageFiles = files.filter(file => file.type.startsWith('image/'));
+        
+        if (imageFiles.length === 0) {
+            this.showNotification('⚠️ Por favor arrastra solo imágenes', 'warning');
+            return;
+        }
+
+        const currentId = document.getElementById('pacientId').value;
+        if (!currentId) {
+            this.showNotification('⚠️ Primero debes crear el paciente', 'warning');
+            return;
+        }
+
+        // Procesar múltiples imágenes
+        imageFiles.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const base64 = e.target.result;
+                this.addDocumentToGallery(currentId, category, base64, file.name);
+            };
+            reader.readAsDataURL(file);
+        });
+
+        this.showNotification(`✅ ${imageFiles.length} imagen(es) agregada(s)`, 'success');
+    },
+
     // Manejo de documentos (fotografías)
     triggerDocumentUpload() {
         const category = document.getElementById('pacientDocCategory').value;
@@ -246,9 +359,9 @@ const PacientesModule = {
 
         const categoryLabels = {
             'DPI_Paciente': '📄 DPI Paciente',
-            'Pasaporte_Paciente': '🛂 Pasaporte',
+            'DocumentoId_Paciente': '📄 Documento de Identificación',
             'DPI_Responsable': '📄 DPI Responsable',
-            'Pasaporte_Responsable': '🛂 Pasaporte Resp.',
+            'DocumentoId_Responsable': '📄 Documento de Identificación Resp.',
             'Foto_Perfil_Responsable': '📸 Foto Responsable',
             'Documentos_Medicos': '🏥 Médicos',
             'Otros': '📎 Otros'
@@ -316,7 +429,7 @@ const PacientesModule = {
             nacionalidad: document.getElementById('nacionalidad').value.trim(),
             genero: document.getElementById('pacientGenero').value,
             dpi: document.getElementById('dpi').value.trim(),
-            pasaporte: document.getElementById('pasaporte').value.trim(),
+            documentoIdentificacion: document.getElementById('documentoIdentificacion').value.trim(),
             // Dirección
             direccion: document.getElementById('pacientDireccion').value.trim(),
             colonia: document.getElementById('colonia').value.trim(),
@@ -374,7 +487,21 @@ const PacientesModule = {
                 edadPrimeraMenstruacion: document.getElementById('edadPrimeraMenstruacion').value,
                 cantidadGestas: document.getElementById('cantidadGestas').value,
                 cantidadPartos: document.getElementById('cantidadPartos').value,
-                tratamientoPsiquiatrico: document.getElementById('tratamientoPsiquiatrico').checked
+                tratamientoPsiquiatrico: document.getElementById('tratamientoPsiquiatrico').checked,
+                // Información específica para COEX
+                coex: {
+                    tipoSustancia: document.getElementById('tipoSustancia')?.value.trim() || '',
+                    tiempoConsumo: document.getElementById('tiempoConsumo')?.value.trim() || '',
+                    frecuenciaConsumo: document.getElementById('frecuenciaConsumo')?.value || '',
+                    viaAdministracion: document.getElementById('viaAdministracion')?.value.trim() || '',
+                    intentosRehabilitacion: document.getElementById('intentosRehabilitacion')?.value || 0,
+                    ultimoTratamiento: document.getElementById('ultimoTratamiento')?.value || '',
+                    motivacionTratamiento: document.getElementById('motivacionTratamiento')?.value.trim() || '',
+                    comorbilidad: document.getElementById('comorbilidad')?.checked || false,
+                    especificacionComorbilidad: document.getElementById('especificacionComorbilidad')?.value.trim() || '',
+                    antecedentesLegales: document.getElementById('antecedentesLegales')?.checked || false,
+                    especificacionLegales: document.getElementById('especificacionLegales')?.value.trim() || ''
+                }
             },
             // Datos familiares
             familia: {
@@ -467,7 +594,7 @@ const PacientesModule = {
         document.getElementById('nacionalidad').value = pacient.nacionalidad || '';
         document.getElementById('pacientGenero').value = pacient.genero || '';
         document.getElementById('dpi').value = pacient.dpi || '';
-        document.getElementById('pasaporte').value = pacient.pasaporte || '';
+        document.getElementById('documentoIdentificacion').value = pacient.documentoIdentificacion || '';
         
         // Dirección
         document.getElementById('pacientDireccion').value = pacient.direccion || '';
@@ -529,6 +656,22 @@ const PacientesModule = {
             document.getElementById('cantidadGestas').value = pacient.historialMedico.cantidadGestas || '';
             document.getElementById('cantidadPartos').value = pacient.historialMedico.cantidadPartos || '';
             document.getElementById('tratamientoPsiquiatrico').checked = pacient.historialMedico.tratamientoPsiquiatrico || false;
+            
+            // Cargar campos COEX si existen
+            if (pacient.historialMedico.coex) {
+                const coex = pacient.historialMedico.coex;
+                document.getElementById('tipoSustancia').value = coex.tipoSustancia || '';
+                document.getElementById('tiempoConsumo').value = coex.tiempoConsumo || '';
+                document.getElementById('frecuenciaConsumo').value = coex.frecuenciaConsumo || '';
+                document.getElementById('viaAdministracion').value = coex.viaAdministracion || '';
+                document.getElementById('intentosRehabilitacion').value = coex.intentosRehabilitacion || 0;
+                document.getElementById('ultimoTratamiento').value = coex.ultimoTratamiento || '';
+                document.getElementById('motivacionTratamiento').value = coex.motivacionTratamiento || '';
+                document.getElementById('comorbilidad').checked = coex.comorbilidad || false;
+                document.getElementById('especificacionComorbilidad').value = coex.especificacionComorbilidad || '';
+                document.getElementById('antecedentesLegales').checked = coex.antecedentesLegales || false;
+                document.getElementById('especificacionLegales').value = coex.especificacionLegales || '';
+            }
         }
         
         // Datos familiares
@@ -799,8 +942,8 @@ const PacientesModule = {
                         <p>${pacient.dpi || 'No especificado'}</p>
                     </div>
                     <div class="detail-group">
-                        <label>Pasaporte</label>
-                        <p>${pacient.pasaporte || 'No especificado'}</p>
+                        <label>Documento de Identificación</label>
+                        <p>${pacient.documentoIdentificacion || 'No especificado'}</p>
                     </div>
                     <div class="detail-group">
                         <label>Edad</label>
@@ -1067,9 +1210,9 @@ const PacientesModule = {
                             ${pacient.documentos.map((doc, idx) => {
                                 const categoryLabels = {
                                     'DPI_Paciente': '📄 DPI Paciente',
-                                    'Pasaporte_Paciente': '🛂 Pasaporte',
+                                    'DocumentoId_Paciente': '📄 Documento de Identificación',
                                     'DPI_Responsable': '📄 DPI Responsable',
-                                    'Pasaporte_Responsable': '🛂 Pasaporte Resp.',
+                                    'DocumentoId_Responsable': '📄 Documento de Identificación Resp.',
                                     'Foto_Perfil_Responsable': '📸 Foto Responsable',
                                     'Documentos_Medicos': '🏥 Médicos',
                                     'Otros': '📎 Otros'

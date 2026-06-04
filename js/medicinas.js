@@ -13,7 +13,8 @@ const MedicinasModule = {
         filtroActivo: 'todas', // todas, disponibles, agotadas
         searchTerm: '',
         familiasDisponibles: [],
-        presentaciones: ['Tabletas', 'Cápsulas', 'Solución Oral', 'Inyectable', 'Crema', 'Polvo', 'Jarabe', 'Grageas']
+        presentaciones: ['Tabletas', 'Cápsulas', 'Solución Oral', 'Inyectable', 'Crema', 'Polvo', 'Jarabe', 'Grageas'],
+        medicinasSeleccionadas: [] // Medicinas temporales para asignación múltiple
     },
 
     // Inicializar el módulo
@@ -454,8 +455,10 @@ const MedicinasModule = {
 
         form.reset();
         document.getElementById('assignMedicineId').value = '';
+        this.state.medicinasSeleccionadas = []; // Reiniciar lista de medicinas
         this.updatePacienteSelect();
         this.updateMedicineSelectForAssign();
+        this.displaySelectedMedicines();
 
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
@@ -468,6 +471,7 @@ const MedicinasModule = {
             modal.style.display = 'none';
             document.body.style.overflow = 'auto';
         }
+        this.state.medicinasSeleccionadas = [];
     },
 
     // Actualizar select de pacientes
@@ -492,48 +496,173 @@ const MedicinasModule = {
                 .join('');
     },
 
-    // Guardar asignación de medicina
-    saveMedicineAssignment() {
-        const pacienteId = document.getElementById('assignPacienteSelect').value;
+    // Agregar medicina a la lista de asignación
+    addMedicineToList() {
         const medicineId = document.getElementById('assignMedicineSelect').value;
-        const cantidad = parseInt(document.getElementById('assignCantidad').value) || 0;
-        const dosis = document.getElementById('assignDosis').value.trim();
-        const frecuencia = document.getElementById('assignFrecuencia').value;
-        const fechaInicio = document.getElementById('assignFechaInicio').value;
-        const fechaFin = document.getElementById('assignFechaFin').value;
+        
+        if (!medicineId) {
+            this.showNotification('⚠️ Por favor selecciona una medicina', 'warning');
+            return;
+        }
 
-        if (!pacienteId || !medicineId || !cantidad || !dosis || !frecuencia || !fechaInicio) {
-            this.showNotification('⚠️ Por favor completa todos los campos requeridos', 'warning');
+        // Verificar si ya está en la lista
+        if (this.state.medicinasSeleccionadas.some(m => m.medicineId === medicineId)) {
+            this.showNotification('⚠️ Esta medicina ya ha sido agregada', 'warning');
             return;
         }
 
         const medicine = this.state.medicinas.find(m => m.id === medicineId);
-        if (!medicine || medicine.cantidad < cantidad) {
-            this.showNotification('❌ No hay suficiente stock disponible', 'error');
+        if (!medicine) return;
+
+        // Agregar a la lista temporal con valores por defecto
+        this.state.medicinasSeleccionadas.push({
+            medicineId: medicineId,
+            medicineName: medicine.nombre,
+            cantidad: 1,
+            dosis: '',
+            frecuencia: ''
+        });
+
+        this.displaySelectedMedicines();
+        document.getElementById('assignMedicineSelect').value = '';
+        this.showNotification('✅ Medicina agregada a la lista', 'success');
+    },
+
+    // Quitar medicina de la lista de asignación
+    removeMedicineFromList(medicineId) {
+        this.state.medicinasSeleccionadas = this.state.medicinasSeleccionadas.filter(m => m.medicineId !== medicineId);
+        this.displaySelectedMedicines();
+        this.showNotification('✅ Medicina removida de la lista', 'success');
+    },
+
+    // Actualizar una medicina en la lista
+    updateMedicineInList(medicineId, field, value) {
+        const medicina = this.state.medicinasSeleccionadas.find(m => m.medicineId === medicineId);
+        if (medicina) {
+            medicina[field] = value;
+        }
+    },
+
+    // Mostrar medicinas seleccionadas
+    displaySelectedMedicines() {
+        const container = document.getElementById('assignedMedicinesList');
+        if (!container) return;
+
+        if (this.state.medicinasSeleccionadas.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: #999; margin: 0;">No hay medicinas seleccionadas aún</p>';
             return;
         }
 
-        const assignmentData = {
-            id: this.generateId('ASG'),
-            pacienteId: pacienteId,
-            medicineId: medicineId,
-            cantidad: cantidad,
-            dosis: dosis,
-            frecuencia: frecuencia,
-            fechaInicio: fechaInicio,
-            fechaFin: fechaFin || null,
-            estado: 'activo', // activo, pausado, finalizado
-            notas: document.getElementById('assignNotas').value.trim(),
-            fechaAsignacion: new Date().toISOString().split('T')[0]
-        };
+        const frecuenciaOptions = [
+            'Una vez al día',
+            'Cada 8 horas',
+            'Cada 12 horas',
+            'Cada 6 horas',
+            'Cada 4 horas',
+            'Cada 24 horas',
+            'Cada 3 días',
+            'Semanalmente',
+            'Según sea necesario'
+        ];
 
-        // Reducir stock
-        medicine.cantidad -= cantidad;
+        container.innerHTML = this.state.medicinasSeleccionadas.map((med, idx) => `
+            <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 15px; margin-bottom: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h4 style="margin: 0; color: #333;">${med.medicineName}</h4>
+                    <button type="button" class="btn-icon btn-delete" style="background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 18px;" onclick="MedicinasModule.removeMedicineFromList('${med.medicineId}')" title="Eliminar">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label style="font-size: 12px; color: #666;">Cantidad <span style="color: red;">*</span></label>
+                        <input type="number" value="${med.cantidad}" min="1" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;" 
+                            onchange="MedicinasModule.updateMedicineInList('${med.medicineId}', 'cantidad', this.value)">
+                    </div>
+                    <div>
+                        <label style="font-size: 12px; color: #666;">Dosis <span style="color: red;">*</span></label>
+                        <input type="text" value="${med.dosis}" placeholder="Ej: 1 tableta" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;" 
+                            onchange="MedicinasModule.updateMedicineInList('${med.medicineId}', 'dosis', this.value)">
+                    </div>
+                    <div style="grid-column: 1 / -1;">
+                        <label style="font-size: 12px; color: #666;">Frecuencia <span style="color: red;">*</span></label>
+                        <select style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;" 
+                            onchange="MedicinasModule.updateMedicineInList('${med.medicineId}', 'frecuencia', this.value)">
+                            <option value="">Selecciona frecuencia</option>
+                            ${frecuenciaOptions.map(f => `<option value="${f}" ${med.frecuencia === f ? 'selected' : ''}>${f}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    },
 
-        // Agregar asignación
-        this.state.medicamentosAsignados.push(assignmentData);
+    // Guardar asignación múltiple de medicinas
+    saveMedicineAssignment() {
+        const pacienteId = document.getElementById('assignPacienteSelect').value;
+        const fechaInicio = document.getElementById('assignFechaInicio').value;
+        const fechaFin = document.getElementById('assignFechaFin').value;
+        const notas = document.getElementById('assignNotas').value.trim();
 
-        this.showNotification('✅ Medicina asignada al paciente correctamente', 'success');
+        if (!pacienteId || !fechaInicio) {
+            this.showNotification('⚠️ Por favor selecciona un paciente y fecha de inicio', 'warning');
+            return;
+        }
+
+        if (this.state.medicinasSeleccionadas.length === 0) {
+            this.showNotification('⚠️ Por favor agrega al menos una medicina', 'warning');
+            return;
+        }
+
+        // Validar que todas las medicinas tengan dosis y frecuencia
+        for (let med of this.state.medicinasSeleccionadas) {
+            if (!med.dosis || !med.frecuencia) {
+                this.showNotification(`⚠️ ${med.medicineName} requiere dosis y frecuencia`, 'warning');
+                return;
+            }
+        }
+
+        // Verificar stock disponible para todas las medicinas
+        let totalExitoso = 0;
+        for (let med of this.state.medicinasSeleccionadas) {
+            const medicine = this.state.medicinas.find(m => m.id === med.medicineId);
+            const cantidad = parseInt(med.cantidad) || 0;
+            
+            if (!medicine) {
+                this.showNotification(`❌ No se encontró la medicina ${med.medicineName}`, 'error');
+                return;
+            }
+
+            if (medicine.cantidad < cantidad) {
+                this.showNotification(`❌ Stock insuficiente para ${med.medicineName} (disponible: ${medicine.cantidad})`, 'error');
+                return;
+            }
+
+            // Crear asignación
+            const assignmentData = {
+                id: this.generateId('ASG'),
+                pacienteId: pacienteId,
+                medicineId: med.medicineId,
+                cantidad: cantidad,
+                dosis: med.dosis,
+                frecuencia: med.frecuencia,
+                fechaInicio: fechaInicio,
+                fechaFin: fechaFin || null,
+                estado: 'activo',
+                notas: notas,
+                fechaAsignacion: new Date().toISOString().split('T')[0]
+            };
+
+            // Reducir stock
+            medicine.cantidad -= cantidad;
+
+            // Agregar asignación
+            this.state.medicamentosAsignados.push(assignmentData);
+            totalExitoso++;
+        }
+
+        this.showNotification(`✅ ${totalExitoso} medicina(s) asignada(s) al paciente correctamente`, 'success');
         this.saveToDB();
         this.closeAssignModal();
         this.renderMedicines();

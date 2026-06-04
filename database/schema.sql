@@ -107,7 +107,9 @@ CREATE TABLE pacientes (
     segmento_coex VARCHAR(100),
     
     -- Información adicional
-    foto TEXT, -- Base64 encoded image
+    cd /opt/stack/ZentraHSC
+    pm2 start "npx http-server -p 5500" --name "zentra-frontend"
+    pm2 save    http-server /opt/stack/ZentraHSC -p 5501 -c-1    foto TEXT, -- Base64 encoded image
     is_cliente BOOLEAN DEFAULT false,
     cliente_id VARCHAR(50),
     fecha_registro DATE NOT NULL DEFAULT CURRENT_DATE,

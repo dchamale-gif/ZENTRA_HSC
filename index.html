@@ -1197,8 +1197,9 @@
                     <!-- TAB 1: DATOS PERSONALES -->
                     <div id="tab-datosPersonales" class="tab-content active">
                         <!-- FOTOGRAFÍA DEL PACIENTE -->
-                        <div style="background: #f9f9f9; border: 2px dashed #3498db; border-radius: 8px; padding: 20px; margin-bottom: 25px; text-align: center;">
+                        <div id="pacientFotoDragZone" style="background: #f9f9f9; border: 2px dashed #3498db; border-radius: 8px; padding: 20px; margin-bottom: 25px; text-align: center; cursor: pointer; transition: all 0.3s ease;">
                             <h4 style="margin-top: 0; color: #3498db;"><i class="fas fa-camera"></i> Fotografía del Paciente</h4>
+                            <p style="color: #666; font-size: 12px; margin-bottom: 15px;">Arrastra una imagen aquí o usa los botones de abajo</p>
                             
                             <div id="pacientFotoPreview" style="width: 120px; height: 120px; background: #e8e8e8; border-radius: 50%; margin: 0 auto 15px; overflow: hidden; border: 3px solid #ddd; display: flex; align-items: center; justify-content: center;">
                                 <i class="fas fa-user" style="font-size: 60px; color: #999;"></i>
@@ -1283,8 +1284,8 @@
                                 <input type="text" id="dpi" class="form-input" placeholder="Número de DPI">
                             </div>
                             <div class="form-group">
-                                <label>Pasaporte</label>
-                                <input type="text" id="pasaporte" class="form-input" placeholder="Número de pasaporte">
+                                <label>Documento de Identificación</label>
+                                <input type="text" id="documentoIdentificacion" class="form-input" placeholder="Número de documento">
                             </div>
                         </div>
 
@@ -1459,119 +1460,193 @@
 
                     <!-- TAB 4: HISTORIAL MÉDICO -->
                     <div id="tab-historialMedico" class="tab-content">
-                        <div class="form-section-title">Antecedentes de Salud</div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>
-                                    <input type="checkbox" id="padeceCronica"> Padece alguna enfermedad crónica
-                                </label>
+                        <!-- Información para Agudos/Crónicos -->
+                        <div id="seccionAguoCronico" style="display: none;">
+                            <div class="form-section-title">Antecedentes de Salud (Pacientes Agudo/Crónico)</div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>
+                                        <input type="checkbox" id="padeceCronica"> Padece alguna enfermedad crónica
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <input type="text" id="especificacionCronica" class="form-input" placeholder="Especificar enfermedad" style="display:none;">
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <input type="text" id="especificacionCronica" class="form-input" placeholder="Especificar enfermedad" style="display:none;">
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>
+                                        <input type="checkbox" id="tomaMedicamento"> Toma algún medicamento
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <input type="text" id="especificacionMedicamento" class="form-input" placeholder="Especificar medicamentos" style="display:none;">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>
+                                        <input type="checkbox" id="padaceAlergia"> Padece alguna alergia
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <input type="text" id="especificacionAlergia" class="form-input" placeholder="Especificar alergias" style="display:none;">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>
+                                        <input type="checkbox" id="utilizaProtesis"> Utiliza alguna prótesis
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <input type="text" id="especificacionProtesis" class="form-input" placeholder="Especificar prótesis" style="display:none;">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>
+                                        <input type="checkbox" id="haConvulsionado"> Ha convulsionado alguna vez
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <input type="text" id="especificacionConvulsion" class="form-input" placeholder="Especificar convulsiones" style="display:none;">
+                                </div>
+                            </div>
+
+                            <div class="form-section-title">Procedimientos y Exámenes</div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Último Procedimiento Quirúrgico</label>
+                                    <input type="text" id="ultimoProcedimiento" class="form-input" placeholder="Tipo de procedimiento">
+                                </div>
+                                <div class="form-group">
+                                    <label>Fecha del Procedimiento</label>
+                                    <input type="date" id="fechaProcedimiento" class="form-input">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Exámenes de Laboratorio o Radiológicos</label>
+                                    <input type="text" id="examenesLab" class="form-input" placeholder="Tipo de exámenes realizados">
+                                </div>
+                                <div class="form-group">
+                                    <label>Fecha de Exámenes</label>
+                                    <input type="date" id="fechaExamenes" class="form-input">
+                                </div>
+                            </div>
+
+                            <div class="form-section-title">Información Ginecológica (si aplica)</div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Fecha de Último Período Menstrual</label>
+                                    <input type="date" id="ultimoPeriodo" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label>Edad de Primera Menstruación</label>
+                                    <input type="number" id="edadPrimeraMenstruacion" class="form-input" placeholder="Edad" min="0">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Cantidad de Gestas (embarazos)</label>
+                                    <input type="number" id="cantidadGestas" class="form-input" placeholder="Número" min="0">
+                                </div>
+                                <div class="form-group">
+                                    <label>Cantidad de Partos</label>
+                                    <input type="number" id="cantidadPartos" class="form-input" placeholder="Número" min="0">
+                                </div>
                             </div>
                         </div>
 
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>
-                                    <input type="checkbox" id="tomaMedicamento"> Toma algún medicamento
-                                </label>
+                        <!-- Información para COEX -->
+                        <div id="seccionCOEX" style="display: none;">
+                            <div class="form-section-title">Información de Adicciones (COEX)</div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>
+                                        <input type="checkbox" id="tratamientoPsiquiatrico"> Ha recibido tratamiento psiquiátrico o psicológico previamente
+                                    </label>
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <input type="text" id="especificacionMedicamento" class="form-input" placeholder="Especificar medicamentos" style="display:none;">
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Tipo(s) de Sustancia(s)</label>
+                                    <input type="text" id="tipoSustancia" class="form-input" placeholder="Ej: Alcohol, Cocaína, Marihuana">
+                                </div>
+                                <div class="form-group">
+                                    <label>Tiempo de Consumo</label>
+                                    <input type="text" id="tiempoConsumo" class="form-input" placeholder="Ej: 5 años, 10 meses">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Frecuencia de Consumo</label>
+                                    <select id="frecuenciaConsumo" class="form-input">
+                                        <option value="">Selecciona</option>
+                                        <option value="diario">Diario</option>
+                                        <option value="varios-dias">Varios días a la semana</option>
+                                        <option value="fins-semana">Fines de semana</option>
+                                        <option value="ocasional">Ocasional</option>
+                                        <option value="abstinencia">En abstinencia</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Vía de Administración</label>
+                                    <input type="text" id="viaAdministracion" class="form-input" placeholder="Ej: Oral, Inhalada, Inyectada">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Intentos Previos de Rehabilitación</label>
+                                    <input type="number" id="intentosRehabilitacion" class="form-input" placeholder="Número de intentos" min="0">
+                                </div>
+                                <div class="form-group">
+                                    <label>Último Tratamiento</label>
+                                    <input type="date" id="ultimoTratamiento" class="form-input">
+                                </div>
+                            </div>
+
+                            <div class="form-group full-width">
+                                <label>Motivación para Tratamiento</label>
+                                <textarea id="motivacionTratamiento" class="form-input" rows="3" placeholder="Describe la motivación del paciente para el tratamiento..."></textarea>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>
+                                        <input type="checkbox" id="comorbilidad"> Tiene comorbilidad (otros problemas de salud mental)
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <input type="text" id="especificacionComorbilidad" class="form-input" placeholder="Especificar" style="display:none;">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>
+                                        <input type="checkbox" id="antecedentesLegales"> Tiene antecedentes legales relacionados
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <input type="text" id="especificacionLegales" class="form-input" placeholder="Especificar" style="display:none;">
+                                </div>
                             </div>
                         </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>
-                                    <input type="checkbox" id="padaceAlergia"> Padece alguna alergia
-                                </label>
-                            </div>
-                            <div class="form-group">
-                                <input type="text" id="especificacionAlergia" class="form-input" placeholder="Especificar alergias" style="display:none;">
-                            </div>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>
-                                    <input type="checkbox" id="utilizaProtesis"> Utiliza alguna prótesis
-                                </label>
-                            </div>
-                            <div class="form-group">
-                                <input type="text" id="especificacionProtesis" class="form-input" placeholder="Especificar prótesis" style="display:none;">
-                            </div>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>
-                                    <input type="checkbox" id="haConvulsionado"> Ha convulsionado alguna vez
-                                </label>
-                            </div>
-                            <div class="form-group">
-                                <input type="text" id="especificacionConvulsion" class="form-input" placeholder="Especificar convulsiones" style="display:none;">
-                            </div>
-                        </div>
-
-                        <div class="form-section-title">Procedimientos y Exámenes</div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Último Procedimiento Quirúrgico</label>
-                                <input type="text" id="ultimoProcedimiento" class="form-input" placeholder="Tipo de procedimiento">
-                            </div>
-                            <div class="form-group">
-                                <label>Fecha del Procedimiento</label>
-                                <input type="date" id="fechaProcedimiento" class="form-input">
-                            </div>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Exámenes de Laboratorio o Radiológicos</label>
-                                <input type="text" id="examenesLab" class="form-input" placeholder="Tipo de exámenes realizados">
-                            </div>
-                            <div class="form-group">
-                                <label>Fecha de Exámenes</label>
-                                <input type="date" id="fechaExamenes" class="form-input">
-                            </div>
-                        </div>
-
-                        <div class="form-section-title">Información Ginecológica (si aplica)</div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Fecha de Último Período Menstrual</label>
-                                <input type="date" id="ultimoPeriodo" class="form-input">
-                            </div>
-                            <div class="form-group">
-                                <label>Edad de Primera Menstruación</label>
-                                <input type="number" id="edadPrimeraMenstruacion" class="form-input" placeholder="Edad" min="0">
-                            </div>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Cantidad de Gestas (embarazos)</label>
-                                <input type="number" id="cantidadGestas" class="form-input" placeholder="Número" min="0">
-                            </div>
-                            <div class="form-group">
-                                <label>Cantidad de Partos</label>
-                                <input type="number" id="cantidadPartos" class="form-input" placeholder="Número" min="0">
-                            </div>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>
-                                    <input type="checkbox" id="tratamientoPsiquiatrico"> Ha recibido tratamiento psiquiátrico o psicológico previamente
-                                </label>
-                            </div>
-                        </div>
-                    </div>
 
                     <!-- TAB 5: DATOS FAMILIARES -->
                     <div id="tab-datosFamiliares" class="tab-content">
@@ -1700,11 +1775,20 @@
                     <!-- TAB 7: FOTOGRAFÍAS Y DOCUMENTOS -->
                     <div id="tab-fotografias" class="tab-content">
                         <div class="form-section-title">Carga de Fotografías y Documentos</div>
-                        <p style="color: #666; margin-bottom: 20px;"><i class="fas fa-info-circle"></i> Carga fotografías de documentos importantes (DPI, Pasaporte, etc.)</p>
+                        <p style="color: #666; margin-bottom: 20px;"><i class="fas fa-info-circle"></i> Carga fotografías de documentos importantes (DPI, Documento de Identificación, etc.)</p>
                         
                         <!-- Input hidden para archivos -->
                         <input type="file" id="pacientDocFileInput" accept="image/*" style="display: none;" multiple>
                         
+                        <!-- Zona de drag & drop para documentos -->
+                        <div id="pacientDocDragZone" style="background: #f5f5f5; border: 2px dashed #3498db; border-radius: 5px; padding: 25px; margin-bottom: 20px; text-align: center; cursor: pointer; transition: all 0.3s ease;">
+                            <p style="color: #3498db; margin: 0 0 15px 0; font-weight: bold;">
+                                <i class="fas fa-cloud-upload-alt" style="font-size: 24px;"></i>
+                            </p>
+                            <p style="color: #666; margin: 0 0 10px 0;">Arrastra imágenes aquí o haz clic en el botón de abajo</p>
+                            <p style="color: #999; font-size: 12px; margin: 0;">Soporta múltiples imágenes</p>
+                        </div>
+
                         <!-- Botón para agregar fotos -->
                         <div style="margin-bottom: 20px;">
                             <button type="button" class="btn btn-primary" style="width: 100%; padding: 12px; border-radius: 4px; border: none; background: #3498db; color: white; cursor: pointer; font-weight: bold;" onclick="PacientesModule.triggerDocumentUpload()">
@@ -1718,9 +1802,9 @@
                             <select id="pacientDocCategory" class="form-input" style="width: 100%;">
                                 <option value="">Selecciona una categoría...</option>
                                 <option value="DPI_Paciente">📄 DPI del Paciente</option>
-                                <option value="Pasaporte_Paciente">🛂 Pasaporte del Paciente</option>
+                                <option value="DocumentoId_Paciente">📄 Documento de Identificación del Paciente</option>
                                 <option value="DPI_Responsable">📄 DPI del Responsable</option>
-                                <option value="Pasaporte_Responsable">🛂 Pasaporte del Responsable</option>
+                                <option value="DocumentoId_Responsable">📄 Documento de Identificación del Responsable</option>
                                 <option value="Foto_Perfil_Responsable">📸 Foto Perfil Responsable</option>
                                 <option value="Documentos_Medicos">🏥 Documentos Médicos</option>
                                 <option value="Otros">📎 Otros</option>
@@ -2362,54 +2446,27 @@
                         </select>
                     </div>
 
-                    <div class="form-section-title">Seleccionar Medicina</div>
-
-                    <div class="form-group full-width">
-                        <label>Medicina <span class="required">*</span></label>
-                        <select id="assignMedicineSelect" class="form-input" required>
-                            <!-- Poblado por JavaScript -->
-                        </select>
-                    </div>
-
-                    <div class="form-section-title">Instrucciones de Tratamiento</div>
+                    <div class="form-section-title">Seleccionar Medicina(s)</div>
 
                     <div class="form-row">
-                        <div class="form-group">
-                            <label>Cantidad a Asignar <span class="required">*</span></label>
-                            <input type="number" id="assignCantidad" class="form-input" placeholder="Unidades" min="1" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Dosis Prescrita <span class="required">*</span></label>
-                            <input type="text" id="assignDosis" class="form-input" placeholder="Ej: 1 tableta cada 8 horas" required>
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Frecuencia <span class="required">*</span></label>
-                            <select id="assignFrecuencia" class="form-input" required>
-                                <option value="">Selecciona</option>
-                                <option value="Una vez al día">Una vez al día</option>
-                                <option value="Cada 8 horas">Cada 8 horas</option>
-                                <option value="Cada 12 horas">Cada 12 horas</option>
-                                <option value="Cada 6 horas">Cada 6 horas</option>
-                                <option value="Cada 4 horas">Cada 4 horas</option>
-                                <option value="Cada 24 horas">Cada 24 horas</option>
-                                <option value="Cada 3 días">Cada 3 días</option>
-                                <option value="Semanalmente">Semanalmente</option>
-                                <option value="Según sea necesario">Según sea necesario</option>
+                        <div class="form-group" style="flex: 1;">
+                            <label>Medicina <span class="required">*</span></label>
+                            <select id="assignMedicineSelect" class="form-input">
+                                <!-- Poblado por JavaScript -->
                             </select>
                         </div>
+                        <div class="form-group">
+                            <label>&nbsp;</label>
+                            <button type="button" class="btn btn-primary" style="width: 100%; padding: 8px 16px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 5px;" onclick="MedicinasModule.addMedicineToList()">
+                                <i class="fas fa-plus"></i> Agregar
+                            </button>
+                        </div>
                     </div>
 
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Fecha Inicio <span class="required">*</span></label>
-                            <input type="date" id="assignFechaInicio" class="form-input" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Fecha Fin (Opcional)</label>
-                            <input type="date" id="assignFechaFin" class="form-input">
+                    <div class="form-group full-width">
+                        <label>Medicinas Seleccionadas:</label>
+                        <div id="assignedMedicinesList" style="background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px; padding: 10px; max-height: 300px; overflow-y: auto;">
+                            <p style="text-align: center; color: #999; margin: 0;">No hay medicinas seleccionadas aún</p>
                         </div>
                     </div>
 
