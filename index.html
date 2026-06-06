@@ -126,12 +126,41 @@
                     <span>Configuración</span>
                 </a>
             </nav>
-            <div class="user-info">
+            <div class="user-info" id="userMenu" style="cursor: pointer;">
                 <div class="user-avatar"><i class="fas fa-user-circle"></i></div>
                 <div class="user-details">
-                    <p class="user-name">Admin User</p>
-                    <p class="user-status">En línea</p>
+                    <p class="user-name" id="userName">Cargando...</p>
+                    <p class="user-status" id="userRole">Sistema</p>
                 </div>
+                <i class="fas fa-chevron-down" style="margin-left: auto; font-size: 12px;"></i>
+            </div>
+            
+            <!-- User Dropdown Menu -->
+            <div id="userDropdown" style="
+                position: absolute;
+                bottom: 20px;
+                left: 20px;
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+                width: 220px;
+                padding: 10px 0;
+                display: none;
+                z-index: 1000;
+            ">
+                <div style="padding: 15px; border-bottom: 1px solid #e0e0e0;">
+                    <p style="font-weight: 600; margin: 0 0 5px 0; color: #333;" id="userEmail">Email</p>
+                    <p style="font-size: 12px; color: #999; margin: 0;" id="userRole">Rol</p>
+                </div>
+                <a href="#" style="display: block; padding: 10px 15px; color: #666; text-decoration: none; border-bottom: 1px solid #e0e0e0;" onclick="event.preventDefault(); alert('Funcionalidad próximamente')">
+                    <i class="fas fa-user"></i> Mi Perfil
+                </a>
+                <a href="#" style="display: block; padding: 10px 15px; color: #666; text-decoration: none; border-bottom: 1px solid #e0e0e0;" onclick="event.preventDefault(); alert('Funcionalidad próximamente')">
+                    <i class="fas fa-key"></i> Cambiar Contraseña
+                </a>
+                <a href="#" style="display: block; padding: 10px 15px; color: #e74c3c; text-decoration: none;" id="logoutBtn">
+                    <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+                </a>
             </div>
         </aside>
 
@@ -2768,6 +2797,9 @@
     <script src="js/google-calendar.js"></script>
     <script src="js/agenda-api.js"></script>
     <script src="js/gastos-servicios.js"></script>
+    
+    <!-- Autenticación -->
+    <script src="js/auth-utils.js"></script>
     
     <!-- App Principal -->
     <script src="js/app.js"></script>

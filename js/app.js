@@ -7,11 +7,24 @@ let currentPage = 'dashboard';
 let charts = {};
 
 // ============================================
+// PROTECCIÓN DE AUTENTICACIÓN
+// ============================================
+
+// Verificar autenticación al cargar la página
+if (!authManager.isAuthenticated() || authManager.isTokenExpired()) {
+    authManager.clearToken();
+    authManager.clearUser();
+    window.location.href = '/login.html';
+}
+
+// ============================================
 // INICIALIZACIÓN
 // ============================================
 
 document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
+    initializeUserProfile();
+    setupLogout();
 });
 
 function initializeApp() {
@@ -1517,6 +1530,109 @@ function setGastosPeriodo(periodo) {
         btn.classList.remove('active');
     });
     event.target.closest('.btn').classList.add('active');
+}
+
+// ============================================
+// AUTENTICACIÓN - FUNCIONES DE USUARIO
+// ============================================
+
+/**
+ * Inicializar perfil de usuario en la UI
+ */
+function initializeUserProfile() {
+    const user = authManager.getUser();
+    
+    if (!user) return;
+
+    // Buscar elemento para mostrar el nombre del usuario
+    const userNameElement = document.getElementById('userName');
+    const userEmailElement = document.getElementById('userEmail');
+    const userRoleElement = document.getElementById('userRole');
+
+    if (userNameElement) {
+        userNameElement.textContent = user.nombre || 'Usuario';
+    }
+
+    if (userEmailElement) {
+        userEmailElement.textContent = user.email || '';
+    }
+
+    if (userRoleElement && user.roles && user.roles.length > 0) {
+        userRoleElement.textContent = user.roles[0] || '';
+    }
+
+    console.log('✓ Perfil de usuario cargado:', user.nombre);
+}
+
+/**
+ * Configurar funcionalidad de logout
+ */
+function setupLogout() {
+    const logoutBtn = document.getElementById('logoutBtn');
+    const logoutLink = document.querySelector('[data-action="logout"]');
+    const userMenu = document.getElementById('userMenu');
+
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', performLogout);
+    }
+
+    if (logoutLink) {
+        logoutLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            performLogout();
+        });
+    }
+
+    // Toggle user menu
+    if (userMenu) {
+        userMenu.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const menu = document.getElementById('userDropdown');
+            if (menu) {
+                menu.classList.toggle('active');
+            }
+        });
+    }
+
+    // Cerrar menú al hacer click fuera
+    document.addEventListener('click', function() {
+        const dropdown = document.getElementById('userDropdown');
+        if (dropdown) {
+            dropdown.classList.remove('active');
+        }
+    });
+}
+
+/**
+ * Ejecutar logout
+ */
+async function performLogout() {
+    if (!confirm('¿Estás seguro que deseas cerrar sesión?')) {
+        return;
+    }
+
+    const result = await authManager.logout();
+
+    if (result.success) {
+        showNotification('Sesión cerrada correctamente', 'success');
+        setTimeout(() => {
+            window.location.href = '/login.html';
+        }, 1500);
+    }
+}
+
+/**
+ * Actualizar información del usuario en tiempo real
+ */
+async function refreshUserProfile() {
+    const result = await authManager.getProfile();
+
+    if (result.success) {
+        initializeUserProfile();
+        console.log('✓ Perfil de usuario actualizado');
+    } else {
+        console.error('Error actualizando perfil:', result.error);
+    }
 }
 
 // Initialize the application
