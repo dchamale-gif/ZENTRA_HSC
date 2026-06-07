@@ -30,7 +30,7 @@ class AuthManager {
      */
     async login(email, password) {
         try {
-            const response = await fetch(`${this.apiBaseUrl}/auth/login`, {
+            const response = await fetch(`${this.apiBaseUrl}/api/auth/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -70,7 +70,7 @@ class AuthManager {
             const token = this.getToken();
             
             if (token) {
-                await fetch(`${this.apiBaseUrl}/auth/logout`, {
+                await fetch(`${this.apiBaseUrl}/api/auth/logout`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`
@@ -97,7 +97,7 @@ class AuthManager {
      */
     async register(userData) {
         try {
-            const response = await fetch(`${this.apiBaseUrl}/auth/register`, {
+            const response = await fetch(`${this.apiBaseUrl}/api/auth/register`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -136,7 +136,7 @@ class AuthManager {
                 return { success: false, error: 'No hay token' };
             }
 
-            const response = await fetch(`${this.apiBaseUrl}/auth/profile`, {
+            const response = await fetch(`${this.apiBaseUrl}/api/auth/profile`, {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`
