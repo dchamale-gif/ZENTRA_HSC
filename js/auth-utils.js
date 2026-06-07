@@ -17,12 +17,12 @@ class AuthManager {
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
             return 'http://localhost:3000';
         }
-        // Si estamos en producción
+        // Si estamos en producción (HTTPS)
         if (window.location.protocol === 'https:') {
-            return window.location.origin;
+            return `${window.location.protocol}//${window.location.hostname}:3000`;
         }
-        // Fallback
-        return 'http://localhost:3000';
+        // Si estamos en producción (HTTP)
+        return `http://${window.location.hostname}:3000`;
     }
 
     /**

@@ -25,7 +25,12 @@ CREATE TABLE users (
     apellido VARCHAR(100),
     telefono VARCHAR(20),
     activo BOOLEAN DEFAULT true,
+    verificado BOOLEAN DEFAULT false,
     ultimo_login TIMESTAMP,
+    ultimo_login_fallido TIMESTAMP,
+    intentos_login_fallidos INTEGER DEFAULT 0,
+    bloqueado_hasta TIMESTAMP,
+    email_verificado_en TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -56,6 +61,48 @@ CREATE TABLE role_permissions (
     permission_id INTEGER NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(role_id, permission_id)
+);
+
+-- ============================================
+-- SEGURIDAD - AUTENTICACIÓN
+-- ============================================
+
+-- Tabla de Intentos de Login
+CREATE TABLE login_attempts (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(100) NOT NULL,
+    ip_address VARCHAR(50),
+    user_agent TEXT,
+    exitoso BOOLEAN DEFAULT false,
+    razon_fallo VARCHAR(255),
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (email) REFERENCES users(email) ON DELETE CASCADE
+);
+
+-- Tabla de Tokens de Recuperación de Contraseña
+CREATE TABLE password_reset_tokens (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token VARCHAR(255) UNIQUE NOT NULL,
+    email VARCHAR(100) NOT NULL,
+    usado BOOLEAN DEFAULT false,
+    usado_en TIMESTAMP,
+    expira_en TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabla de Sesiones Activas
+CREATE TABLE user_sessions (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token VARCHAR(500) UNIQUE NOT NULL,
+    ip_address VARCHAR(50),
+    user_agent TEXT,
+    activa BOOLEAN DEFAULT true,
+    login_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    logout_en TIMESTAMP,
+    ultima_actividad TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expira_en TIMESTAMP NOT NULL
 );
 
 -- ============================================
