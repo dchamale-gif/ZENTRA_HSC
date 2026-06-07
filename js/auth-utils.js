@@ -19,10 +19,10 @@ class AuthManager {
         }
         // Si estamos en producción (HTTPS)
         if (window.location.protocol === 'https:') {
-            return `${window.location.protocol}//${window.location.hostname}:3000`;
+            return `${window.location.protocol}//${window.location.hostname}:3011`;
         }
         // Si estamos en producción (HTTP)
-        return `http://${window.location.hostname}:3000`;
+        return `http://${window.location.hostname}:3011`;
     }
 
     /**
