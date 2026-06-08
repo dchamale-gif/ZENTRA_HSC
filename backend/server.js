@@ -25,7 +25,22 @@ app.use(helmet());
 
 // CORS - Permitir solicitudes desde el frontend
 app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5500', 'http://localhost:3000'],
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:5500',
+      'http://localhost:5501',
+      'http://localhost:3000',
+      'http://178.128.72.110:5500',
+      'http://178.128.72.110:5501',
+      'http://178.128.72.110:3000'
+    ];
+    
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
