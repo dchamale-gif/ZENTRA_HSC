@@ -831,26 +831,151 @@ function saveProduct() {
 // ============================================
 
 function showNotification(message, type = 'info') {
+    // Mapeo de iconos por tipo
+    const icons = {
+        'success': '✓',
+        'error': '✕',
+        'warning': '⚠',
+        'info': 'ℹ'
+    };
+
+    // Mapeo de colores y gradientes por tipo
+    const styles = {
+        'success': {
+            bg: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+            icon: '✓',
+            border: '#15803d'
+        },
+        'error': {
+            bg: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+            icon: '✕',
+            border: '#7f1d1d'
+        },
+        'warning': {
+            bg: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+            icon: '⚠',
+            border: '#92400e'
+        },
+        'info': {
+            bg: 'linear-gradient(135deg, #0891b2 0%, #0e7490 100%)',
+            icon: 'ℹ',
+            border: '#164e63'
+        }
+    };
+
+    const style = styles[type] || styles.info;
+
     const notification = document.createElement('div');
+    notification.className = `notification notification-${type} show`;
+    notification.innerHTML = `
+        <div class="notification-content">
+            <span class="notification-icon">${style.icon}</span>
+            <span class="notification-text">${message}</span>
+            <button class="notification-close">×</button>
+        </div>
+    `;
+
     notification.style.cssText = `
         position: fixed;
-        top: 20px;
+        bottom: 20px;
         right: 20px;
-        padding: 16px 24px;
-        background-color: ${type === 'success' ? '#22c55e' : type === 'error' ? '#ef4444' : '#0891b2'};
+        padding: 0;
+        background: ${style.bg};
         color: white;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2), 0 0 1px rgba(0, 0, 0, 0.1);
         z-index: 10000;
-        animation: slideIn 0.3s ease-out;
+        animation: slideInRight 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        min-width: 320px;
+        max-width: 450px;
+        border-left: 4px solid ${style.border};
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     `;
-    notification.textContent = message;
+
+    // Estilos del contenido
+    const contentDiv = notification.querySelector('.notification-content');
+    contentDiv.style.cssText = `
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        width: 100%;
+    `;
+
+    const icon = notification.querySelector('.notification-icon');
+    icon.style.cssText = `
+        font-size: 20px;
+        font-weight: bold;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        background: rgba(255, 255, 255, 0.25);
+        border-radius: 6px;
+    `;
+
+    const text = notification.querySelector('.notification-text');
+    text.style.cssText = `
+        flex: 1;
+        font-size: 14px;
+        font-weight: 500;
+        line-height: 1.4;
+        word-break: break-word;
+    `;
+
+    const closeBtn = notification.querySelector('.notification-close');
+    closeBtn.style.cssText = `
+        background: none;
+        border: none;
+        color: white;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 0;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: transform 0.2s ease;
+        opacity: 0.7;
+    `;
+
+    closeBtn.addEventListener('mouseenter', () => {
+        closeBtn.style.opacity = '1';
+        closeBtn.style.transform = 'scale(1.2)';
+    });
+
+    closeBtn.addEventListener('mouseleave', () => {
+        closeBtn.style.opacity = '0.7';
+        closeBtn.style.transform = 'scale(1)';
+    });
+
+    closeBtn.addEventListener('click', () => {
+        notification.style.animation = 'slideOutRight 0.3s cubic-bezier(0.6, -0.28, 0.735, 0.045)';
+        setTimeout(() => notification.remove(), 300);
+    });
+
     document.body.appendChild(notification);
 
-    setTimeout(() => {
-        notification.style.animation = 'slideOut 0.3s ease-out';
-        setTimeout(() => notification.remove(), 300);
-    }, 3000);
+    // Auto-remover después de 4 segundos
+    const autoRemoveTimeout = setTimeout(() => {
+        if (notification.parentNode) {
+            notification.style.animation = 'slideOutRight 0.3s cubic-bezier(0.6, -0.28, 0.735, 0.045)';
+            setTimeout(() => {
+                if (notification.parentNode) notification.remove();
+            }, 300);
+        }
+    }, 4000);
+
+    // Cancelar auto-remover si el usuario cierra manualmente
+    notification.addEventListener('click', (e) => {
+        if (e.target.classList.contains('notification-close')) {
+            clearTimeout(autoRemoveTimeout);
+        }
+    });
 }
 
 // ============================================

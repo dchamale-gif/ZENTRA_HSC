@@ -4,7 +4,7 @@
 
 const AgendaAPIModule = {
     state: {
-        apiUrl: 'https://api.example.com/agenda',
+        apiUrl: CONFIG.API.baseURL + '/agenda',
         apiKey: 'your-api-key-here',
         endpoints: {
             appointments: '/appointments',

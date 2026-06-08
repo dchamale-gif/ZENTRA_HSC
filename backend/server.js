@@ -14,7 +14,7 @@ const proveedoresRoutes = require('./src/routes/proveedores');
 const { auditMiddleware } = require('./src/middleware/audit');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3012;
 
 // ====================================
 // MIDDLEWARE GLOBALES
