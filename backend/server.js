@@ -7,6 +7,7 @@ const morgan = require('morgan');
 // Importar rutas
 const authRoutes = require('./src/routes/auth');
 const pacientesRoutes = require('./src/routes/pacientes');
+const medicinasRoutes = require('./src/routes/medicinas');
 
 // Importar middleware
 const { auditMiddleware } = require('./src/middleware/audit');
@@ -57,6 +58,9 @@ app.use('/api/auth', authRoutes);
 
 // Pacientes
 app.use('/api/pacientes', pacientesRoutes);
+
+// Medicinas
+app.use('/api/medicinas', medicinasRoutes);
 
 // ====================================
 // MANEJO DE ERRORES

@@ -75,13 +75,42 @@ const MedicinasModule = {
     },
 
     // Cargar datos
-    loadData() {
-        const demoData = window.DemoData || {};
-        this.state.medicinas = JSON.parse(JSON.stringify(demoData.medicinas || []));
-        this.state.pacientes = JSON.parse(JSON.stringify(demoData.pacientes || []));
-        this.state.medicamentosAsignados = JSON.parse(JSON.stringify(demoData.medicamentosAsignados || []));
-        this.extractFamilias();
-        this.renderMedicines();
+    // Cargar datos desde API
+    async loadData() {
+        try {
+            const token = authManager.getToken();
+            if (!token) {
+                console.warn('No hay token de autenticación');
+                return;
+            }
+
+            const response = await fetch(`${authManager.apiBaseUrl}/api/medicinas`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            this.state.medicinas = data.medicinas || [];
+            this.extractFamilias();
+            this.renderMedicines();
+            
+            console.log(`✅ ${this.state.medicinas.length} medicinas cargadas desde BD`);
+        } catch (error) {
+            console.error('Error cargando medicinas:', error);
+            this.showNotification('⚠️ Error cargando medicinas. Intenta más tarde.', 'error');
+            // Fallback a demoDatas i algo falla
+            const demoData = window.DemoData || {};
+            this.state.medicinas = JSON.parse(JSON.stringify(demoData.medicinas || []));
+            this.extractFamilias();
+            this.renderMedicines();
+        }
     },
 
     // Extraer familias únicas
@@ -112,7 +141,7 @@ const MedicinasModule = {
     },
 
     // Guardar medicina
-    saveMedicine() {
+    async saveMedicine() {
         const form = document.getElementById('editMedicineForm');
         if (!form) return;
 
@@ -124,54 +153,73 @@ const MedicinasModule = {
         const id = document.getElementById('medicineId').value;
         const codigoBarra = document.getElementById('medicineCodigoBarra').value.trim();
         
-        // Validar código barra único
-        const existeCodigoBarra = this.state.medicinas.some(m => 
-            m.codigoBarra === codigoBarra && m.id !== id
-        );
-        if (existeCodigoBarra) {
-            this.showNotification('❌ Este código de barra ya existe', 'error');
-            return;
+        // Validar código barra único (si es nuevo)
+        if (!id) {
+            const existeCodigoBarra = this.state.medicinas.some(m => 
+                m.codigo_interno === codigoBarra || m.codigo_externo === codigoBarra
+            );
+            if (existeCodigoBarra) {
+                this.showNotification('❌ Este código de barra ya existe', 'error');
+                return;
+            }
         }
 
         const medicineData = {
-            id: id || this.generateId('MED'),
-            codigoBarra: codigoBarra,
             nombre: document.getElementById('medicineName').value.trim(),
-            familia: document.getElementById('medicineFamily').value.trim(),
-            subfamilia: document.getElementById('medicineSubfamily').value.trim(),
+            codigo_interno: codigoBarra,
+            codigo_externo: document.getElementById('medicineCodigoBarra').value.trim(),
             presentacion: document.getElementById('medicinePresentacion').value,
-            principioActivo: document.getElementById('medicinePrincipioActivo').value.trim(),
-            dosis: document.getElementById('medicineDosis').value.trim(),
-            unidadDosis: document.getElementById('medicineUnidadDosis').value,
-            lote: document.getElementById('medicineLote').value.trim(),
-            fechaVencimiento: document.getElementById('medicineFechaVencimiento').value,
-            proveedor: document.getElementById('medicineProveedor').value.trim(),
-            cantidad: parseInt(document.getElementById('medicineCantidad').value) || 0,
-            cantidadMinima: parseInt(document.getElementById('medicineCantidadMinima').value) || 0,
-            precioUnitario: parseFloat(document.getElementById('medicinePrecioUnitario').value) || 0,
-            contraindicaciones: document.getElementById('medicineContraindicaciones').value.trim(),
-            efectosSecundarios: document.getElementById('medicineEfectosSecundarios').value.trim(),
-            fechaRegistro: id ? this.state.medicinas.find(m => m.id === id)?.fechaRegistro : new Date().toISOString().split('T')[0],
-            activa: document.getElementById('medicineActiva').checked
+            concentracion: document.getElementById('medicinePrincipioActivo').value.trim(),
+            precio: parseFloat(document.getElementById('medicinePrecioUnitario').value) || 0,
+            stock: parseInt(document.getElementById('medicineCantidad').value) || 0,
+            stock_minimo: parseInt(document.getElementById('medicineCantidadMinima').value) || 0,
+            vencimiento: document.getElementById('medicineFechaVencimiento').value,
+            proveedor_id: document.getElementById('medicineProveedor').value.trim() || null,
+            descripcion: document.getElementById('medicineContraindicaciones').value.trim() || null,
+            activo: document.getElementById('medicineActiva').checked
         };
 
-        if (id) {
-            // Actualizar
-            const index = this.state.medicinas.findIndex(m => m.id === id);
-            if (index > -1) {
-                this.state.medicinas[index] = medicineData;
-                this.showNotification('✅ Medicina actualizada correctamente', 'success');
+        try {
+            const token = authManager.getToken();
+            if (!token) {
+                this.showNotification('❌ No estás autenticado', 'error');
+                return;
             }
-        } else {
-            // Crear
-            this.state.medicinas.push(medicineData);
-            this.showNotification('✅ Medicina creada correctamente', 'success');
-        }
 
-        this.extractFamilias();
-        this.saveToDB();
-        this.closeMedicineModal();
-        this.renderMedicines();
+            const url = id 
+                ? `${authManager.apiBaseUrl}/api/medicinas/${id}`
+                : `${authManager.apiBaseUrl}/api/medicinas`;
+
+            const method = id ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(medicineData)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Error ${response.status}`);
+            }
+
+            const result = await response.json();
+            
+            if (id) {
+                this.showNotification('✅ Medicina actualizada correctamente', 'success');
+            } else {
+                this.showNotification('✅ Medicina creada correctamente', 'success');
+            }
+
+            this.closeMedicineModal();
+            this.loadData(); // Recargar desde BD
+        } catch (error) {
+            console.error('Error guardando medicina:', error);
+            this.showNotification(`❌ Error: ${error.message}`, 'error');
+        }
     },
 
     // Editar medicina
@@ -202,13 +250,38 @@ const MedicinasModule = {
     },
 
     // Eliminar medicina
-    deleteMedicine(id) {
+    async deleteMedicine(id) {
         if (!confirm('¿Estás seguro de que quieres eliminar esta medicina?')) return;
 
-        this.state.medicinas = this.state.medicinas.filter(m => m.id !== id);
-        this.showNotification('✅ Medicina eliminada', 'success');
-        this.saveToDB();
-        this.renderMedicines();
+        try {
+            const token = authManager.getToken();
+            if (!token) {
+                this.showNotification('❌ No estás autenticado', 'error');
+                return;
+            }
+
+            const response = await fetch(
+                `${authManager.apiBaseUrl}/api/medicinas/${id}`,
+                {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Error ${response.status}`);
+            }
+
+            this.showNotification('✅ Medicina eliminada', 'success');
+            this.loadData(); // Recargar desde BD
+        } catch (error) {
+            console.error('Error eliminando medicina:', error);
+            this.showNotification(`❌ Error: ${error.message}`, 'error');
+        }
     },
 
     // Validar formulario
