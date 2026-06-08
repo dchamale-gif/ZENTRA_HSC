@@ -22,7 +22,7 @@ const CONFIG = {
         useAPI: true,
         
         // URL base del servidor (ajustar cuando tengas backend)
-        baseURL: 'http://178.128.72.110:3012/api',
+        baseURL: 'http://178.128.72.110:3002/api',
         
         // Endpoints de la API
         endpoints: {
