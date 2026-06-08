@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const path = require('path');
 
 // Importar rutas
 const authRoutes = require('./src/routes/auth');
@@ -57,6 +58,13 @@ app.use(morgan('combined'));
 app.use(auditMiddleware);
 
 // ====================================
+// SERVIR ARCHIVOS ESTÁTICOS (FRONTEND)
+// ====================================
+
+// Servir archivos públicos (CSS, JS, IMG)
+app.use(express.static(path.join(__dirname, '../public')));
+
+// ====================================
 // RUTAS DE API
 // ====================================
 
@@ -80,6 +88,29 @@ app.use('/api/medicinas', medicinasRoutes);
 
 // Proveedores
 app.use('/api/proveedores', proveedoresRoutes);
+
+// ====================================
+// SERVIR SPA (Single Page Application)
+// ====================================
+
+// Ruta raíz - servir index.html
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
+// Cualquier ruta desconocida que no sea API, servir index.html (SPA)
+app.get('*', (req, res) => {
+  // Si es una ruta de API que no existe, responder 404
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ 
+      error: 'Ruta de API no encontrada',
+      path: req.path,
+      method: req.method
+    });
+  }
+  // Si no es API, servir index.html para SPA
+  res.sendFile(path.join(__dirname, '../public/index.html'));
+});
 
 // ====================================
 // MANEJO DE ERRORES
