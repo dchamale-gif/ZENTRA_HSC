@@ -7,11 +7,11 @@ const router = express.Router();
 // Todas las rutas requieren autenticación
 router.use(authMiddleware);
 
+// GET - Stock bajo (PRIMERO - evitar conflicto con :id)
+router.get('/stock/bajo', medicinasController.getMedicinasStockBajo);
+
 // GET - Listar medicinas
 router.get('/', medicinasController.getMedicinas);
-
-// GET - Stock bajo
-router.get('/stock/bajo', medicinasController.getMedicinasStockBajo);
 
 // GET - Obtener medicina específica
 router.get('/:id', medicinasController.getMedicinaById);
