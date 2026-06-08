@@ -140,7 +140,7 @@ const CuentasPorCobrarModule = {
         const reason = document.getElementById('debtReason')?.value;
 
         if (!client || !amount || !dueDate) {
-            alert('Por favor, completa todos los campos obligatorios');
+            showNotification('Por favor, completa todos los campos obligatorios', 'error');
             return;
         }
 
@@ -162,7 +162,7 @@ const CuentasPorCobrarModule = {
         if (modal) {
             modal.style.display = 'none';
         }
-        alert('Deuda registrada correctamente');
+        showNotification('Deuda registrada correctamente', 'success');
     },
 
     // Registrar pago
@@ -191,7 +191,7 @@ const CuentasPorCobrarModule = {
         }
 
         this.refreshTable();
-        alert('Pago registrado correctamente');
+        showNotification('Pago registrado correctamente', 'success');
     },
 
     // Filtrar deudas
@@ -231,7 +231,7 @@ const CuentasPorCobrarModule = {
     sendReminder(debtId) {
         const debt = this.state.deudas.find(d => d.id === debtId);
         if (debt) {
-            alert(`Recordatorio enviado a ${debt.cliente} por $${debt.monto.toFixed(2)}`);
+            showNotification(`Recordatorio enviado a ${debt.cliente} por $${debt.monto.toFixed(2)}`, 'info');
             console.log('Recordatorio enviado:', debt);
         }
     },

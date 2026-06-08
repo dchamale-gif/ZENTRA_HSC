@@ -169,7 +169,7 @@ const ComprasModule = {
         const date = document.getElementById('purchaseDate')?.value;
 
         if (!type || !provider || !total || !date) {
-            alert('Por favor, completa todos los campos obligatorios');
+            showNotification('Por favor, completa todos los campos obligatorios', 'error');
             return;
         }
 
@@ -190,7 +190,7 @@ const ComprasModule = {
         if (modal) {
             modal.style.display = 'none';
         }
-        alert('Compra registrada correctamente');
+        showNotification('Compra registrada correctamente', 'success');
     },
 
     // Filtrar compras

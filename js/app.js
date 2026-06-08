@@ -385,7 +385,7 @@ function filterInventory() {
 function editProduct(productId) {
     const product = getProduct(productId);
     if (product) {
-        alert(`Editando: ${product.name}\n\nEsta es una demostración. En la versión final se abrirá un formulario de edición.`);
+        showNotification(`Editando: ${product.name}`, 'info');
     }
 }
 

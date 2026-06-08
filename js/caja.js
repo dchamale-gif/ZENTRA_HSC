@@ -161,7 +161,7 @@ const CajaModule = {
         const saldoInicial = document.getElementById('saldoInicial')?.value;
 
         if (!saldoInicial || isNaN(saldoInicial)) {
-            alert('Por favor, ingresa un saldo inicial válido');
+            showNotification('Por favor, ingresa un saldo inicial válido', 'error');
             return;
         }
 
@@ -178,13 +178,13 @@ const CajaModule = {
 
         this.state.aperturasDelDia.push(apertura);
         this.updateCashStatus();
-        alert('Caja abierta correctamente');
+        showNotification('Caja abierta correctamente', 'success');
     },
 
     // Cerrar caja
     closeCash() {
         if (!this.state.cajaAbierta) {
-            alert('La caja no está abierta');
+            showNotification('La caja no está abierta', 'warning');
             return;
         }
 
@@ -199,13 +199,13 @@ const CajaModule = {
         this.state.movimientos = [];
 
         this.updateCashStatus();
-        alert(`Caja cerrada. Saldo final: $${saldoFinal.toFixed(2)}`);
+        showNotification(`Caja cerrada. Saldo final: $${saldoFinal.toFixed(2)}`, 'success');
     },
 
     // Abrir modal de movimiento
     openMovementModal() {
         if (!this.state.cajaAbierta) {
-            alert('Debes abrir la caja primero');
+            showNotification('Debes abrir la caja primero', 'error');
             return;
         }
 
@@ -222,7 +222,7 @@ const CajaModule = {
         const description = document.getElementById('movementDescription')?.value;
 
         if (!type || !amount || !description) {
-            alert('Por favor, completa todos los campos');
+            showNotification('Por favor, completa todos los campos', 'error');
             return;
         }
 
