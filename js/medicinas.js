@@ -74,17 +74,22 @@ const MedicinasModule = {
         }
     },
 
-    // Cargar datos
     // Cargar datos desde API
     async loadData() {
         try {
-            const token = authManager.getToken();
+            const token = authManager?.getToken?.();
             if (!token) {
                 console.warn('No hay token de autenticación');
                 return;
             }
 
-            const response = await fetch(`${authManager.apiBaseUrl}/api/medicinas`, {
+            // Usar CONFIG para obtener la base URL correcta
+            const baseURL = CONFIG?.API?.baseURL || 'http://localhost:3012/api';
+            const url = `${baseURL}/medicinas`;
+
+            console.log('🔄 Cargando medicinas desde:', url);
+
+            const response = await fetch(url, {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -97,15 +102,15 @@ const MedicinasModule = {
             }
 
             const data = await response.json();
-            this.state.medicinas = data.medicinas || [];
+            this.state.medicinas = data.medicinas || data || [];
             this.extractFamilias();
             this.renderMedicines();
             
             console.log(`✅ ${this.state.medicinas.length} medicinas cargadas desde BD`);
         } catch (error) {
             console.error('Error cargando medicinas:', error);
-            this.showNotification('⚠️ Error cargando medicinas. Intenta más tarde.', 'error');
-            // Fallback a demoDatas i algo falla
+            showNotification('Error cargando medicinas. Intenta más tarde.', 'error');
+            // Fallback a demoDatas si algo falla
             const demoData = window.DemoData || {};
             this.state.medicinas = JSON.parse(JSON.stringify(demoData.medicinas || []));
             this.extractFamilias();
@@ -145,8 +150,9 @@ const MedicinasModule = {
         const form = document.getElementById('editMedicineForm');
         if (!form) return;
 
+        // Validación básica
         if (!this.validateMedicineForm()) {
-            this.showNotification('⚠️ Por favor completa todos los campos requeridos', 'warning');
+            showNotification('Por favor completa todos los campos requeridos', 'warning');
             return;
         }
 
@@ -159,38 +165,55 @@ const MedicinasModule = {
                 m.codigo_interno === codigoBarra || m.codigo_externo === codigoBarra
             );
             if (existeCodigoBarra) {
-                this.showNotification('❌ Este código de barra ya existe', 'error');
+                showNotification('Este código de barra ya existe', 'error');
                 return;
             }
         }
 
+        // Mapear campos del formulario a los campos del backend
         const medicineData = {
             nombre: document.getElementById('medicineName').value.trim(),
             codigo_interno: codigoBarra,
-            codigo_externo: document.getElementById('medicineCodigoBarra').value.trim(),
-            presentacion: document.getElementById('medicinePresentacion').value,
+            codigo_externo: codigoBarra, // Usar el mismo código
+            presentacion: document.getElementById('medicinePresentacion').value.trim(),
             concentracion: document.getElementById('medicinePrincipioActivo').value.trim(),
             precio: parseFloat(document.getElementById('medicinePrecioUnitario').value) || 0,
             stock: parseInt(document.getElementById('medicineCantidad').value) || 0,
             stock_minimo: parseInt(document.getElementById('medicineCantidadMinima').value) || 0,
-            vencimiento: document.getElementById('medicineFechaVencimiento').value,
+            vencimiento: document.getElementById('medicineFechaVencimiento').value || null,
             proveedor_id: document.getElementById('medicineProveedor').value.trim() || null,
-            descripcion: document.getElementById('medicineContraindicaciones').value.trim() || null,
+            descripcion: document.getElementById('medicineContraindicaciones').value.trim() || '',
+            categoria: document.getElementById('medicineFamily').value.trim() || 'General',
             activo: document.getElementById('medicineActiva').checked
         };
 
+        // Validación de campos requeridos del backend
+        if (!medicineData.nombre) {
+            showNotification('El nombre de la medicina es requerido', 'error');
+            return;
+        }
+        if (!medicineData.codigo_interno) {
+            showNotification('El código de barra/interno es requerido', 'error');
+            return;
+        }
+
         try {
-            const token = authManager.getToken();
+            // Verificar autenticación
+            const token = authManager?.getToken?.();
             if (!token) {
-                this.showNotification('❌ No estás autenticado', 'error');
+                showNotification('No estás autenticado', 'error');
                 return;
             }
 
+            // Construir URL base correcta
+            const baseURL = CONFIG?.API?.baseURL || 'http://localhost:3012/api';
             const url = id 
-                ? `${authManager.apiBaseUrl}/api/medicinas/${id}`
-                : `${authManager.apiBaseUrl}/api/medicinas`;
+                ? `${baseURL}/medicinas/${id}`
+                : `${baseURL}/medicinas`;
 
             const method = id ? 'PUT' : 'POST';
+
+            console.log(`🔄 ${method === 'POST' ? 'Creando' : 'Actualizando'} medicina:`, medicineData);
 
             const response = await fetch(url, {
                 method: method,
@@ -202,23 +225,29 @@ const MedicinasModule = {
             });
 
             if (!response.ok) {
-                const errorData = await response.json();
+                let errorData;
+                try {
+                    errorData = await response.json();
+                } catch (e) {
+                    errorData = { error: `Error HTTP ${response.status}` };
+                }
                 throw new Error(errorData.error || `Error ${response.status}`);
             }
 
             const result = await response.json();
+            console.log('✅ Respuesta del servidor:', result);
             
             if (id) {
-                this.showNotification('✅ Medicina actualizada correctamente', 'success');
+                showNotification('Medicina actualizada correctamente', 'success');
             } else {
-                this.showNotification('✅ Medicina creada correctamente', 'success');
+                showNotification('Medicina creada correctamente', 'success');
             }
 
             this.closeMedicineModal();
             this.loadData(); // Recargar desde BD
         } catch (error) {
-            console.error('Error guardando medicina:', error);
-            this.showNotification(`❌ Error: ${error.message}`, 'error');
+            console.error('❌ Error guardando medicina:', error);
+            showNotification(`Error: ${error.message}`, 'error');
         }
     },
 
@@ -227,24 +256,25 @@ const MedicinasModule = {
         const medicine = this.state.medicinas.find(m => m.id === id);
         if (!medicine) return;
 
+        // Mapear propiedades del backend a los campos del formulario
         document.getElementById('medicineId').value = medicine.id;
-        document.getElementById('medicineCodigoBarra').value = medicine.codigoBarra;
-        document.getElementById('medicineName').value = medicine.nombre;
-        document.getElementById('medicineFamily').value = medicine.familia;
-        document.getElementById('medicineSubfamily').value = medicine.subfamilia;
-        document.getElementById('medicinePresentacion').value = medicine.presentacion;
-        document.getElementById('medicinePrincipioActivo').value = medicine.principioActivo;
-        document.getElementById('medicineDosis').value = medicine.dosis;
-        document.getElementById('medicineUnidadDosis').value = medicine.unidadDosis;
-        document.getElementById('medicineLote').value = medicine.lote;
-        document.getElementById('medicineFechaVencimiento').value = medicine.fechaVencimiento;
-        document.getElementById('medicineProveedor').value = medicine.proveedor;
-        document.getElementById('medicineCantidad').value = medicine.cantidad;
-        document.getElementById('medicineCantidadMinima').value = medicine.cantidadMinima;
-        document.getElementById('medicinePrecioUnitario').value = medicine.precioUnitario;
-        document.getElementById('medicineContraindicaciones').value = medicine.contraindicaciones;
-        document.getElementById('medicineEfectosSecundarios').value = medicine.efectosSecundarios;
-        document.getElementById('medicineActiva').checked = medicine.activa;
+        document.getElementById('medicineCodigoBarra').value = medicine.codigo_interno || '';
+        document.getElementById('medicineName').value = medicine.nombre || '';
+        document.getElementById('medicineFamily').value = medicine.categoria || 'General';
+        document.getElementById('medicineSubfamily').value = medicine.categoria || '';
+        document.getElementById('medicinePresentacion').value = medicine.presentacion || '';
+        document.getElementById('medicinePrincipioActivo').value = medicine.concentracion || '';
+        document.getElementById('medicineDosis').value = medicine.dosis || '';
+        document.getElementById('medicineUnidadDosis').value = medicine.unidad_dosis || '';
+        document.getElementById('medicineLote').value = medicine.lote || '';
+        document.getElementById('medicineFechaVencimiento').value = medicine.vencimiento || '';
+        document.getElementById('medicineProveedor').value = medicine.proveedor_id || '';
+        document.getElementById('medicineCantidad').value = medicine.stock || '';
+        document.getElementById('medicineCantidadMinima').value = medicine.stock_minimo || '';
+        document.getElementById('medicinePrecioUnitario').value = medicine.precio || '';
+        document.getElementById('medicineContraindicaciones').value = medicine.descripcion || '';
+        document.getElementById('medicineEfectosSecundarios').value = medicine.efectos_secundarios || '';
+        document.getElementById('medicineActiva').checked = medicine.activo === true;
 
         this.openMedicineModal();
     },
@@ -254,29 +284,36 @@ const MedicinasModule = {
         if (!confirm('¿Estás seguro de que quieres eliminar esta medicina?')) return;
 
         try {
-            const token = authManager.getToken();
+            const token = authManager?.getToken?.();
             if (!token) {
-                this.showNotification('❌ No estás autenticado', 'error');
+                showNotification('No estás autenticado', 'error');
                 return;
             }
 
-            const response = await fetch(
-                `${authManager.apiBaseUrl}/api/medicinas/${id}`,
-                {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    }
+            const baseURL = CONFIG?.API?.baseURL || 'http://localhost:3012/api';
+            const url = `${baseURL}/medicinas/${id}`;
+
+            console.log('🔄 Eliminando medicina:', url);
+
+            const response = await fetch(url, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
                 }
-            );
+            });
 
             if (!response.ok) {
-                const errorData = await response.json();
+                let errorData;
+                try {
+                    errorData = await response.json();
+                } catch (e) {
+                    errorData = { error: `Error HTTP ${response.status}` };
+                }
                 throw new Error(errorData.error || `Error ${response.status}`);
             }
 
-            this.showNotification('✅ Medicina eliminada', 'success');
+            showNotification('Medicina eliminada correctamente', 'success');
             this.loadData(); // Recargar desde BD
         } catch (error) {
             console.error('Error eliminando medicina:', error);
@@ -286,12 +323,29 @@ const MedicinasModule = {
 
     // Validar formulario
     validateMedicineForm() {
-        const codigoBarra = document.getElementById('medicineCodigoBarra').value.trim();
-        const nombre = document.getElementById('medicineName').value.trim();
-        const presentacion = document.getElementById('medicinePresentacion').value;
-        const dosis = document.getElementById('medicineDosis').value.trim();
+        const codigoBarra = document.getElementById('medicineCodigoBarra')?.value.trim();
+        const nombre = document.getElementById('medicineName')?.value.trim();
+        const presentacion = document.getElementById('medicinePresentacion')?.value;
+        const principioActivo = document.getElementById('medicinePrincipioActivo')?.value.trim();
 
-        return codigoBarra && nombre && presentacion && dosis;
+        if (!codigoBarra) {
+            showNotification('Código de barra es requerido', 'error');
+            return false;
+        }
+        if (!nombre) {
+            showNotification('Nombre de la medicina es requerido', 'error');
+            return false;
+        }
+        if (!presentacion) {
+            showNotification('Presentación es requerida', 'error');
+            return false;
+        }
+        if (!principioActivo) {
+            showNotification('Principio activo es requerido', 'error');
+            return false;
+        }
+
+        return true;
     },
 
     // Renderizar tabla de medicinas
@@ -679,19 +733,19 @@ const MedicinasModule = {
         const notas = document.getElementById('assignNotas').value.trim();
 
         if (!pacienteId || !fechaInicio) {
-            this.showNotification('⚠️ Por favor selecciona un paciente y fecha de inicio', 'warning');
+            showNotification('Por favor selecciona un paciente y fecha de inicio', 'warning');
             return;
         }
 
         if (this.state.medicinasSeleccionadas.length === 0) {
-            this.showNotification('⚠️ Por favor agrega al menos una medicina', 'warning');
+            showNotification('Por favor agrega al menos una medicina', 'warning');
             return;
         }
 
         // Validar que todas las medicinas tengan dosis y frecuencia
         for (let med of this.state.medicinasSeleccionadas) {
             if (!med.dosis || !med.frecuencia) {
-                this.showNotification(`⚠️ ${med.medicineName} requiere dosis y frecuencia`, 'warning');
+                showNotification(`${med.medicineName} requiere dosis y frecuencia`, 'warning');
                 return;
             }
         }
@@ -703,7 +757,7 @@ const MedicinasModule = {
             const cantidad = parseInt(med.cantidad) || 0;
             
             if (!medicine) {
-                this.showNotification(`❌ No se encontró la medicina ${med.medicineName}`, 'error');
+                showNotification(`No se encontró la medicina ${med.medicineName}`, 'error');
                 return;
             }
 
@@ -753,20 +807,10 @@ const MedicinasModule = {
         localStorage.setItem('medicamentosAsignados', JSON.stringify(this.state.medicamentosAsignados));
     },
 
-    // Mostrar notificación
+    // Mostrar notificación - Delega a la función global
     showNotification(message, type = 'info') {
-        const notification = document.createElement('div');
-        notification.className = `notification notification-${type}`;
-        notification.textContent = message;
-        document.body.appendChild(notification);
-
-        setTimeout(() => {
-            notification.classList.add('show');
-        }, 10);
-
-        setTimeout(() => {
-            notification.classList.remove('show');
-            setTimeout(() => notification.remove(), 300);
-        }, 3000);
+        if (typeof window.showNotification === 'function') {
+            window.showNotification(message, type);
+        }
     }
 };
