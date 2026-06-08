@@ -7,10 +7,12 @@ const authMiddleware = async (req, res, next) => {
     const token = req.headers.authorization?.split(' ')[1]; // "Bearer TOKEN"
 
     if (!token) {
+      console.log('❌ Sin token');
       return res.status(401).json({ error: 'Token no proporcionado' });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('✅ Token verificado:', decoded);
     
     // Obtener usuario de la BD para verificar que siga activo
     const result = await pool.query(
@@ -18,13 +20,21 @@ const authMiddleware = async (req, res, next) => {
       [decoded.userId]
     );
 
-    if (!result.rows[0] || !result.rows[0].activo) {
-      return res.status(401).json({ error: 'Usuario no encontrado o inactivo' });
+    if (!result.rows[0]) {
+      console.log('❌ Usuario no encontrado:', decoded.userId);
+      return res.status(401).json({ error: 'Usuario no encontrado' });
+    }
+    
+    if (!result.rows[0].activo) {
+      console.log('❌ Usuario inactivo:', decoded.userId);
+      return res.status(401).json({ error: 'Usuario inactivo' });
     }
 
+    console.log('✅ Usuario autenticado:', result.rows[0].email);
     req.user = result.rows[0];
     next();
   } catch (error) {
+    console.error('❌ Error en authMiddleware:', error.message);
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({ error: 'Token expirado' });
     }
