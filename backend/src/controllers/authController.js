@@ -82,10 +82,47 @@ const login = async (req, res) => {
     }
 
     // Verificar contraseña
-    const passwordMatch = await bcrypt.compare(password, user.password_hash);
+    let passwordMatch = false;
+    let needsHashUpdate = false;
+
+    try {
+      // Intentar comparación con bcrypt (si está hasheada correctamente)
+      if (user.password_hash.startsWith('$2a$') || user.password_hash.startsWith('$2b$') || user.password_hash.startsWith('$2y$')) {
+        passwordMatch = await bcrypt.compare(password, user.password_hash);
+      } else {
+        // Si no es un hash bcrypt válido, intentar comparación directa (texto plano)
+        if (password === user.password_hash) {
+          passwordMatch = true;
+          needsHashUpdate = true; // Marcar para hashear después
+          console.log(`⚠️  Password en texto plano para ${email}. Se hasheará automáticamente.`);
+        }
+      }
+    } catch (error) {
+      console.error('Error verificando contraseña:', error);
+      // Si bcrypt falla, intentar comparación directa como fallback
+      if (password === user.password_hash) {
+        passwordMatch = true;
+        needsHashUpdate = true;
+      }
+    }
 
     if (!passwordMatch) {
       return res.status(401).json({ error: 'Credenciales inválidas' });
+    }
+
+    // Si la contraseña estaba en texto plano, hashearla automáticamente
+    if (needsHashUpdate) {
+      try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await pool.query(
+          'UPDATE users SET password_hash = $1 WHERE id = $2',
+          [hashedPassword, user.id]
+        );
+        console.log(`✅ Password hasheada automáticamente para ${email}`);
+      } catch (hashError) {
+        console.error('Error hasheando password:', hashError);
+        // Continuar de todas formas, el login es exitoso
+      }
     }
 
     // Obtener roles y permisos
