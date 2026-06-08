@@ -41,8 +41,8 @@ const ComprasModule = {
     },
 
     // Cargar datos de compras
-    loadData() {
-        // Ejemplo de datos iniciales
+    async loadData() {
+        // Cargar compras (datos iniciales hardcodeados por ahora)
         this.state.compras = [
             {
                 id: 'OC-001',
@@ -123,14 +123,34 @@ const ComprasModule = {
             }
         ];
         
-        this.state.proveedores = [
-            { id: 1, nombre: 'Tech Supply', contacto: 'contacto@techsupply.com', telefono: '+57 310 111 1111', ciudad: 'Bogotá' },
-            { id: 2, nombre: 'Fashion Store', contacto: 'contacto@fashionstore.com', telefono: '+57 311 222 2222', ciudad: 'Medellín' },
-            { id: 3, nombre: 'Food Co', contacto: 'contacto@foodco.com', telefono: '+57 312 333 3333', ciudad: 'Cali' },
-            { id: 4, nombre: 'Tools Plus', contacto: 'contacto@toolsplus.com', telefono: '+57 313 444 4444', ciudad: 'Barranquilla' },
-            { id: 5, nombre: 'Aceites Premium', contacto: 'contacto@aceitespremium.com', telefono: '+57 314 555 5555', ciudad: 'Bogotá' },
-            { id: 6, nombre: 'Distribuidora Electrónica', contacto: 'contacto@distribelectronica.com', telefono: '+57 315 666 6666', ciudad: 'Medellín' }
-        ];
+        // Cargar proveedores desde API
+        try {
+            const token = authManager.getToken();
+            if (!token) {
+                console.warn('⚠️ No hay token de autenticación para cargar proveedores');
+                this.state.proveedores = []; // Fallback vacío
+                return;
+            }
+
+            const response = await fetch(`${authManager.apiBaseUrl}/api/proveedores`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            this.state.proveedores = data.proveedores || [];
+            console.log(`✅ ${this.state.proveedores.length} proveedores cargados desde BD`);
+        } catch (error) {
+            console.error('⚠️ Error cargando proveedores:', error);
+            this.state.proveedores = []; // Fallback vacío
+        }
     },
 
     // Abrir modal de nueva compra
