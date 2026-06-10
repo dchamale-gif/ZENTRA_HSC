@@ -36,7 +36,6 @@ app.use(helmet({
     }
   },
   crossOriginOpenerPolicy: false,
-  strictTransportSecurity: false,
   hsts: false
 }));
 
