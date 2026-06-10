@@ -21,8 +21,22 @@ const PORT = process.env.PORT || 3012;
 // MIDDLEWARE GLOBALES
 // ====================================
 
-// Seguridad
-app.use(helmet());
+// Seguridad - Helmet con CSP relajado para permitir CDNs
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://fonts.googleapis.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://cdn.jsdelivr.net"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "https://cdnjs.cloudflare.com", "https://cdn.jsdelivr.net"],
+      fontSrc: ["'self'", "https://cdnjs.cloudflare.com", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"]
+    }
+  },
+  crossOriginOpenerPolicy: false
+}));
 
 // CORS - Permitir solicitudes desde el frontend
 app.use(cors({
