@@ -35,7 +35,9 @@ app.use(helmet({
       frameSrc: ["'none'"]
     }
   },
-  crossOriginOpenerPolicy: false
+  crossOriginOpenerPolicy: false,
+  strictTransportSecurity: false,
+  hsts: false
 }));
 
 // CORS - Permitir solicitudes desde el frontend
