@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const helmet = require('helmet');
 const morgan = require('morgan');
 
 // Importar rutas
@@ -14,18 +13,18 @@ const proveedoresRoutes = require('./src/routes/proveedores');
 const { auditMiddleware } = require('./src/middleware/audit');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3011;
 
 // ====================================
 // MIDDLEWARE GLOBALES
 // ====================================
 
-// Seguridad
-app.use(helmet());
+// Seguridad (sin Helmet en HTTP)
+// app.use(helmet()); // Deshabilitado para HTTP
 
 // CORS - Permitir solicitudes desde el frontend
 app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5500', 'http://localhost:3000'],
+  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5500', 'http://localhost:3000', 'http://localhost:3011', 'http://178.128.72.110:3011', 'http://178.128.72.110:5501'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -50,7 +49,8 @@ app.get('/health', (req, res) => {
   res.status(200).json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV 
+    environment: process.env.NODE_ENV,
+    protocol: req.protocol.toUpperCase()
   });
 });
 
@@ -98,7 +98,7 @@ app.listen(PORT, () => {
 ║     🏥 ZENTRA MED API BACKEND 🏥      ║
 ╚════════════════════════════════════════╝
 
-✅ Servidor ejecutándose en puerto ${PORT}
+✅ Servidor ejecutándose en http://0.0.0.0:${PORT}
 📱 Ambiente: ${process.env.NODE_ENV || 'development'}
 🔒 CORS habilitado
 📊 Auditoría activa
@@ -109,7 +109,6 @@ app.listen(PORT, () => {
   - POST /api/auth/login
   - GET  /api/pacientes
   - POST /api/pacientes
-
   `);
 });
 
