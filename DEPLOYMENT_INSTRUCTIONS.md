@@ -1,4 +1,12 @@
-# 🚀 DEPLOYMENT COMPLETO - Frontend + Backend
+# 🚀 DEPLOYMENT - Backend + Frontend (Separados)
+
+## ⚠️ IMPORTANTE: SOLO ZENTRA-APP EN PM2
+
+- `zentra-app` = Backend API de Zentra en puerto 3011 (gestionado por PM2)
+- `webtrop` = Cliente independiente en PM2 (NO tocar)
+- Frontend de Zentra = Se sirve desde `/opt/stack/ZENTRA_HSC/` en puerto 5501 (manualmente o independiente)
+
+---
 
 ## EJECUTAR EN EL SERVIDOR PRODUCTIVO (178.128.72.110)
 
@@ -11,12 +19,12 @@ git pull origin main
 
 ---
 
-### 2️⃣ DETENER PROCESOS ANTIGUOS Y LIMPIAR
+### 2️⃣ DETENER PROCESO ANTERIOR DE ZENTRA-APP (si existe)
 
 ```bash
-# Detener y eliminar procesos PM2 antiguos
-pm2 stop all
-pm2 delete all
+# Detener y eliminar SOLO zentra-app (NO afecta webtrop ni otros servicios)
+pm2 stop zentra-app 2>/dev/null || true
+pm2 delete zentra-app 2>/dev/null || true
 
 # Crear directorio de logs (si no existe)
 sudo mkdir -p /var/log/zentra
@@ -34,12 +42,12 @@ npm install
 
 ---
 
-### 4️⃣ INICIAR AMBOS PROCESOS CON PM2
+### 4️⃣ INICIAR BACKEND API CON PM2
 
 ```bash
 cd /opt/stack/ZENTRA_HSC
 
-# Iniciar usando el ecosystem.config.js
+# Iniciar solo zentra-app (backend API)
 pm2 start ecosystem.config.js
 
 # Guardar configuración de PM2 para que reinicie al rebootear
@@ -49,18 +57,31 @@ sudo env PATH=$PATH:/usr/local/bin pm2 startup
 
 ---
 
+### 4️⃣.B INICIAR FRONTEND (Manual - Separado)
+
+```bash
+# En otra terminal/ventana, servir el frontend en puerto 5501
+cd /opt/stack/ZENTRA_HSC
+node frontend-server.js
+
+# O usando PM2 con OTRO nombre (no webtrop, que ya está en uso):
+pm2 start frontend-server.js --name "zentra-frontend"
+```
+
+---
+
 ### 5️⃣ VERIFICAR QUE TODO FUNCIONA
 
 ```bash
-# Ver estado de procesos
+# Ver estado de PM2
 pm2 status
 
-# Ver logs en tiempo real
-pm2 logs
+# Ver logs del backend
+pm2 logs zentra-app
 
 # Pruebas específicas
-curl http://localhost:3011/health          # Backend API
-curl http://localhost:5501/                # Frontend
+curl http://localhost:3011/health          # Backend API ✅
+curl http://localhost:5501/                # Frontend (si está corriendo) ✅
 
 # O desde otra máquina
 curl http://178.128.72.110:3011/health
@@ -71,48 +92,65 @@ curl http://178.128.72.110:5501/
 
 ### ✅ RESULTADO ESPERADO
 
+**Backend (zentra-app):**
 ```
-┌─────────────────────┬─────┬─────┬──────────┬────────┬─────────┬─────────┐
-│ App name            │ id  │ mode│ pid      │ status │ restart │ uptime  │
-├─────────────────────┼─────┼─────┼──────────┼────────┼─────────┼─────────┤
-│ zentra-app          │ 0   │ fork│ 1234     │ online │ 0       │ 2m      │
-│ webtrop             │ 1   │ fork│ 5678     │ online │ 0       │ 2m      │
-└─────────────────────┴─────┴─────┴──────────┴────────┴─────────┴─────────┘
+┌──────────────┬─────┬─────┬──────────┬────────┬─────────┬─────────┐
+│ App name     │ id  │ mode│ pid      │ status │ restart │ uptime  │
+├──────────────┼─────┼─────┼──────────┼────────┼─────────┼─────────┤
+│ zentra-app   │ 0   │ fork│ 1234     │ online │ 0       │ 2m      │
+└──────────────┴─────┴─────┴──────────┴────────┴─────────┴─────────┘
 ```
 
-**Backend (API)**: http://178.128.72.110:3011 ✅
-**Frontend (Web)**: http://178.128.72.110:5501 ✅
+**Frontend:**
+```
+✅ Frontend ejecutándose en http://0.0.0.0:5501
+📁 Sirviendo archivos desde: /opt/stack/ZENTRA_HSC
+```
+
+**Endpoints:**
+- Backend (API): http://178.128.72.110:3011 ✅
+- Frontend (Web): http://178.128.72.110:5501 ✅
 
 ---
 
 ## 🔍 TROUBLESHOOTING
 
+### Ver procesos de PM2:
+```bash
+# Ver TODOS los procesos (incluyendo webtrop y otros)
+pm2 status
+
+# Ver SOLO zentra-app
+pm2 list | grep zentra-app
+```
+
 ### Si PM2 no inicia:
 ```bash
 cd /opt/stack/ZENTRA_HSC
 pm2 start ecosystem.config.js
-pm2 logs  # Ver qué pasó
+pm2 logs zentra-app
 ```
 
-### Si quieres ver logs específicos:
+### Ver logs:
 ```bash
 pm2 logs zentra-app      # Logs del backend
-pm2 logs webtrop         # Logs del frontend
 ```
 
-### Si necesitas reiniciar un proceso:
+### Si necesitas reiniciar:
 ```bash
 pm2 restart zentra-app
-pm2 restart webtrop
 ```
 
-### Si necesitas hacer cambios y recargar:
+### Para actualizar código:
 ```bash
-# Hacer cambios en el código
-git pull
+cd /opt/stack/ZENTRA_HSC
+git pull origin main
+pm2 restart zentra-app
+```
 
-# Reiniciar ambos procesos
-pm2 restart all
+### Para reiniciar frontend (si lo iniciaste con PM2):
+```bash
+pm2 restart zentra-frontend
 ```
 
 ---
@@ -121,17 +159,23 @@ pm2 restart all
 
 ✅ **Backend (API)**: 
 - Puerto 3011 (HTTP puro - sin SSL)
+- Gestionado por PM2 como `zentra-app`
 - No hay errores `ERR_SSL_PROTOCOL_ERROR`
 - CORS configurado para aceptar requests del frontend
 
 ✅ **Frontend (Web)**:
 - Puerto 5501 (servidor estático)
+- Se inicia manualmente o con PM2 con nombre diferente: `zentra-frontend`
 - Sirve `index.html` como página principal
 - Hace requests al backend en `http://178.128.72.110:3011/api`
 
+⚠️ **Otros Servicios**:
+- `webtrop` en PM2 es un cliente INDEPENDIENTE, NO tocar
+- Zentra no interfiere con webtrop
+
 ✅ **PM2 Configuration**:
-- Ambos procesos se reinician automáticamente si fallan
-- Se guardan en `ecosystem.config.js`
+- Solo `zentra-app` (backend) está en `ecosystem.config.js`
+- Backend se reinicia automáticamente si falla
 - Los logs van a `/var/log/zentra/`
 
 ---
@@ -156,7 +200,12 @@ Usuario (Cliente)
 ## ⚡ RESULTADO FINAL
 
 ✅ **Problema SSL original RESUELTO**: No hay más `net::ERR_SSL_PROTOCOL_ERROR`
-✅ **Backend funcionando**: API REST en HTTP puro
-✅ **Frontend funcionando**: Interfaz web accesible
-✅ **Ambos sincronizados**: Se comunican sin errores
+✅ **Backend funcionando**: API REST en HTTP puro, gestionado por PM2
+✅ **Frontend funcionando**: Interfaz web accesible en puerto 5501
+✅ **Separado de otros servicios**: No interfiere con webtrop u otros procesos
 ✅ **Listo para cliente**: Mostrable y funcional
+
+**Arquitectura limpia:**
+- Backend: Zentra API + PM2 ✅
+- Frontend: Static server (separado) ✅  
+- Otros servicios: Intactos ✅
