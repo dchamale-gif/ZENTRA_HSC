@@ -2,8 +2,8 @@ module.exports = {
   apps: [
     {
       name: 'zentra-app',
-      script: './backend/server.js',
-      cwd: '/opt/stack/ZENTRA_HSC',
+      script: './server.js',
+      cwd: '/opt/stack/ZENTRA_HSC/backend',
       instances: 1,
       exec_mode: 'fork',
       env: {
