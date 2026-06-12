@@ -420,7 +420,7 @@ const PacientesModule = {
     },
 
     // Guardar paciente
-    savePacient() {
+    async savePacient() {
         const form = document.getElementById('editPacientForm');
         if (!form) return;
 
@@ -431,7 +431,7 @@ const PacientesModule = {
         }
 
         const id = document.getElementById('pacientId').value;
-        const cedula = document.getElementById('pacientCedula').value.trim();
+        const cedula = document.getElementById('dpi').value.trim() || document.getElementById('documentoIdentificacion').value.trim();
         
         // Validar cédula única
         const existeCedula = this.state.pacientes.some(p => 
@@ -442,137 +442,22 @@ const PacientesModule = {
             return;
         }
 
-        const pacientData = {
-            id: id || this.generateId('PAC'),
-            // Datos de consulta
-            fechaPrimerConsulta: document.getElementById('fechaPrimerConsulta').value,
-            motivoConsulta: document.getElementById('motivoConsulta').value.trim(),
-            referencia: document.getElementById('referencia').value.trim(),
-            // Identificación personal
+        // Mapear datos del formulario a lo que espera la API
+        const apiData = {
+            cedula: cedula,
             nombre: document.getElementById('pacientNombre').value.trim(),
-            apellidoPaterno: document.getElementById('pacientApellidoPaterno').value.trim(),
-            apellidoMaterno: document.getElementById('pacientApellidoMaterno').value.trim(),
-            edad: document.getElementById('pacientEdad').value,
-            fechaNacimiento: document.getElementById('pacientFechaNacimiento').value,
-            nacionalidad: document.getElementById('nacionalidad').value.trim(),
-            genero: document.getElementById('pacientGenero').value,
-            dpi: document.getElementById('dpi').value.trim(),
-            documentoIdentificacion: document.getElementById('documentoIdentificacion').value.trim(),
-            // Dirección
-            direccion: document.getElementById('pacientDireccion').value.trim(),
-            colonia: document.getElementById('colonia').value.trim(),
-            zona: document.getElementById('zona').value.trim(),
-            municipio: document.getElementById('municipio').value.trim(),
-            departamento: document.getElementById('departamento').value.trim(),
-            originarioDe: document.getElementById('originarioDe').value.trim(),
-            // Contacto
-            telefono: document.getElementById('pacientTelefono').value.trim(),
-            email: document.getElementById('pacientEmail').value.trim(),
-            vivecon: document.getElementById('vivecon').value.trim(),
-            tieneHijos: document.getElementById('tieneHijos').value,
-            // Información laboral/educativa
-            estadoCivil: document.getElementById('estadoCivil').value,
-            profesion: document.getElementById('profesion').value.trim(),
-            gradoAcademico: document.getElementById('gradoAcademico').value,
-            ocupacion: document.getElementById('ocupacion').value.trim(),
-            // Tipo de servicio
-            tipoServicio: document.getElementById('pacientTipoServicio').value,
-            clasificacion: (['agudo', 'cronico'].includes(document.getElementById('pacientTipoServicio').value)) 
-                ? document.getElementById('pacientClasificacion').value 
-                : null,
-            segmentoCOEX: document.getElementById('pacientTipoServicio').value === 'coex' 
-                ? document.getElementById('pacientCOEXSegmento').value 
-                : null,
-            // Lugar de trabajo
-            empresa: {
-                nombre: document.getElementById('empresaNombre').value.trim(),
-                telefono: document.getElementById('empresaTelefono').value.trim(),
-                direccion: document.getElementById('empresaDireccion').value.trim()
-            },
-            // Contacto de emergencia
-            emergencia: {
-                nombre: document.getElementById('emergenciaNombre').value.trim(),
-                telefono: document.getElementById('emergenciaTelefono').value.trim(),
-                parentesco: document.getElementById('emergenciaParentesco').value.trim()
-            },
-            // Historial médico
-            historialMedico: {
-                padeceCronica: document.getElementById('padeceCronica').checked,
-                especificacionCronica: document.getElementById('especificacionCronica').value.trim(),
-                tomaMedicamento: document.getElementById('tomaMedicamento').checked,
-                especificacionMedicamento: document.getElementById('especificacionMedicamento').value.trim(),
-                padaceAlergia: document.getElementById('padaceAlergia').checked,
-                especificacionAlergia: document.getElementById('especificacionAlergia').value.trim(),
-                utilizaProtesis: document.getElementById('utilizaProtesis').checked,
-                especificacionProtesis: document.getElementById('especificacionProtesis').value.trim(),
-                haConvulsionado: document.getElementById('haConvulsionado').checked,
-                especificacionConvulsion: document.getElementById('especificacionConvulsion').value.trim(),
-                ultimoProcedimiento: document.getElementById('ultimoProcedimiento').value.trim(),
-                fechaProcedimiento: document.getElementById('fechaProcedimiento').value,
-                examenesLab: document.getElementById('examenesLab').value.trim(),
-                fechaExamenes: document.getElementById('fechaExamenes').value,
-                ultimoPeriodo: document.getElementById('ultimoPeriodo').value,
-                edadPrimeraMenstruacion: document.getElementById('edadPrimeraMenstruacion').value,
-                cantidadGestas: document.getElementById('cantidadGestas').value,
-                cantidadPartos: document.getElementById('cantidadPartos').value,
-                tratamientoPsiquiatrico: document.getElementById('tratamientoPsiquiatrico').checked,
-                // Información específica para COEX
-                coex: {
-                    tipoSustancia: document.getElementById('tipoSustancia')?.value.trim() || '',
-                    tiempoConsumo: document.getElementById('tiempoConsumo')?.value.trim() || '',
-                    frecuenciaConsumo: document.getElementById('frecuenciaConsumo')?.value || '',
-                    viaAdministracion: document.getElementById('viaAdministracion')?.value.trim() || '',
-                    intentosRehabilitacion: document.getElementById('intentosRehabilitacion')?.value || 0,
-                    ultimoTratamiento: document.getElementById('ultimoTratamiento')?.value || '',
-                    motivacionTratamiento: document.getElementById('motivacionTratamiento')?.value.trim() || '',
-                    comorbilidad: document.getElementById('comorbilidad')?.checked || false,
-                    especificacionComorbilidad: document.getElementById('especificacionComorbilidad')?.value.trim() || '',
-                    antecedentesLegales: document.getElementById('antecedentesLegales')?.checked || false,
-                    especificacionLegales: document.getElementById('especificacionLegales')?.value.trim() || ''
-                }
-            },
-            // Datos familiares
-            familia: {
-                padre: {
-                    nombre: document.getElementById('padreNombre').value.trim(),
-                    telefono: document.getElementById('padreTelefono').value.trim(),
-                    ocupacion: document.getElementById('padreOcupacion').value.trim()
-                },
-                madre: {
-                    nombre: document.getElementById('madreNombre').value.trim(),
-                    telefono: document.getElementById('madreTelefono').value.trim(),
-                    ocupacion: document.getElementById('madreOcupacion').value.trim()
-                },
-                pareja: {
-                    nombre: document.getElementById('parejaNombre').value.trim(),
-                    telefono: document.getElementById('parejaTelefono').value.trim(),
-                    ocupacion: document.getElementById('parejaOcupacion').value.trim()
-                },
-                hermanos: {
-                    numero: document.getElementById('hermanosNumero').value,
-                    observaciones: document.getElementById('hermanosObservaciones').value.trim()
-                },
-                hijos: {
-                    numero: document.getElementById('hijosNumero').value,
-                    observaciones: document.getElementById('hijosObservaciones').value.trim()
-                }
-            },
-            // Responsable (opcional)
-            responsable: {
-                nombre: document.getElementById('responsableNombre').value.trim(),
-                relacion: document.getElementById('responsableRelacion').value,
-                telefono: document.getElementById('responsableTelefono').value.trim(),
-                email: document.getElementById('responsableEmail').value.trim()
-            },
-            // Información adicional
-            isCliente: document.getElementById('pacientIsCliente').checked,
-            clienteId: document.getElementById('pacientIsCliente').checked 
-                ? document.getElementById('clienteSelect').value 
-                : null,
-            fechaRegistro: id ? this.state.pacientes.find(p => p.id === id)?.fechaRegistro : new Date().toISOString().split('T')[0],
-            notas: document.getElementById('pacientNotas').value.trim(),
-            foto: document.getElementById('pacientFoto').value || null,
-            documentos: this.documentosTemporales?.[id] || []
+            apellido: (document.getElementById('pacientApellidoPaterno').value.trim() + ' ' + 
+                       document.getElementById('pacientApellidoMaterno').value.trim()).trim(),
+            edad: parseInt(document.getElementById('pacientEdad').value) || null,
+            genero: document.getElementById('pacientGenero').value || null,
+            tipo_sangre: null,
+            telefono: document.getElementById('pacientTelefono').value.trim() || null,
+            email: document.getElementById('pacientEmail').value.trim() || null,
+            direccion: document.getElementById('pacientDireccion').value.trim() || null,
+            ciudad: document.getElementById('municipio').value.trim() || null,
+            alergias: document.getElementById('especificacionAlergia').value.trim() || null,
+            enfermedades_cronicas: document.getElementById('especificacionCronica').value.trim() || null,
+            contacto_emergencia: document.getElementById('emergenciaNombre').value.trim() || null
         };
 
         try {
@@ -581,24 +466,6 @@ const PacientesModule = {
                 this.showNotification('❌ No estás autenticado', 'error');
                 return;
             }
-
-            // Mapear datos del formulario a lo que espera la API
-            const apiData = {
-                cedula: document.getElementById('dpi').value.trim() || document.getElementById('documentoIdentificacion').value.trim(),
-                nombre: document.getElementById('pacientNombre').value.trim(),
-                apellido: (document.getElementById('pacientApellidoPaterno').value.trim() + ' ' + 
-                           document.getElementById('pacientApellidoMaterno').value.trim()).trim(),
-                edad: parseInt(document.getElementById('pacientEdad').value) || null,
-                genero: document.getElementById('pacientGenero').value || null,
-                tipo_sangre: document.getElementById('pacientGenero')?.dataset?.tipoSangre || null,
-                telefono: document.getElementById('pacientTelefono').value.trim() || null,
-                email: document.getElementById('pacientEmail').value.trim() || null,
-                direccion: document.getElementById('pacientDireccion').value.trim() || null,
-                ciudad: document.getElementById('municipio').value.trim() || null,
-                alergias: document.getElementById('especificacionAlergia').value.trim() || null,
-                enfermedades_cronicas: document.getElementById('especificacionCronica').value.trim() || null,
-                contacto_emergencia: document.getElementById('emergenciaNombre').value.trim() || null
-            };
 
             const url = id 
                 ? `${authManager.apiBaseUrl}/api/pacientes/${id}`
