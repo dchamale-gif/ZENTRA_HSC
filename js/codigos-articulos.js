@@ -67,13 +67,40 @@ const CodigosArticulosModule = {
         }
     },
 
-    // Cargar datos
-    loadData() {
-        const demoData = window.DemoData || {};
-        this.state.articulos = JSON.parse(JSON.stringify(demoData.articulos || []));
-        this.state.secciones = JSON.parse(JSON.stringify(demoData.secciones || this.getDefaultSecciones()));
-        this.state.familias = JSON.parse(JSON.stringify(demoData.familias || this.getDefaultFamilias()));
-        this.state.subfamilias = JSON.parse(JSON.stringify(demoData.subfamilias || this.getDefaultSubfamilias()));
+    // Cargar datos desde API
+    async loadData() {
+        try {
+            const token = authManager.getToken();
+            if (!token) {
+                console.warn('No hay token de autenticación');
+                return;
+            }
+
+            const response = await fetch(`${authManager.apiBaseUrl}/api/codigos-articulos`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            this.state.articulos = data.articulos || [];
+            this.renderArticulos();
+            
+            console.log(`✅ ${this.state.articulos.length} artículos cargados desde BD`);
+        } catch (error) {
+            console.error('Error cargando artículos:', error);
+            this.showNotification('⚠️ Error cargando artículos. Intenta más tarde.', 'error');
+            // Fallback a demoData si algo falla
+            const demoData = window.DemoData || {};
+            this.state.articulos = JSON.parse(JSON.stringify(demoData.articulos || []));
+            this.renderArticulos();
+        }
     },
 
     // Secciones por defecto
@@ -390,84 +417,117 @@ const CodigosArticulosModule = {
     },
 
     // Guardar artículo
-    saveArticulo() {
+    async saveArticulo() {
         const id = document.getElementById('articuloId').value;
         const nombre = document.getElementById('articuloNombre').value.trim();
-        const concepto = document.getElementById('articuloConcepto').value.trim();
+        const concepto = document.getElementById('articuloConcepto')?.value.trim();
         const codigoVenta = document.getElementById('codigoVenta').value.trim();
         const codigoCompra = document.getElementById('codigoCompra').value.trim();
-        const seccionId = document.getElementById('articuloSeccion').value;
-        const familiaId = document.getElementById('articuloFamilia').value;
+        const seccionId = document.getElementById('articuloSeccion')?.value;
+        const familiaId = document.getElementById('articuloFamilia')?.value;
         const precioCompra = parseFloat(document.getElementById('precioCompra').value) || 0;
         const precioVenta = parseFloat(document.getElementById('precioVenta').value) || 0;
-        const estado = document.getElementById('articuloEstado').value;
+        const estado = document.getElementById('articuloEstado')?.value;
         const descripcion = document.getElementById('articuloDescripcion').value.trim();
+        const cantidad = parseInt(document.getElementById('articuloCantidad')?.value) || 0;
 
-        if (!nombre || !concepto || !codigoVenta || !codigoCompra || !seccionId || !familiaId || precioCompra <= 0 || precioVenta <= 0) {
-            this.showNotification('⚠️ Por favor completa todos los campos requeridos', 'warning');
+        if (!nombre || !codigoVenta || precioVenta <= 0) {
+            this.showNotification('⚠️ Nombre, código y precio de venta son requeridos', 'warning');
             return;
         }
 
-        // Validar códigos únicos
-        const codeExists = this.state.articulos.some(a =>
-            (a.codigoVenta === codigoVenta || a.codigoCompra === codigoCompra) &&
-            a.id !== id
-        );
-
-        if (codeExists) {
-            this.showNotification('❌ Los códigos deben ser únicos', 'error');
-            return;
-        }
-
-        if (id) {
-            // Editar
-            const articulo = this.state.articulos.find(a => a.id === id);
-            if (articulo) {
-                articulo.nombre = nombre;
-                articulo.concepto = concepto;
-                articulo.codigoVenta = codigoVenta;
-                articulo.codigoCompra = codigoCompra;
-                articulo.seccionId = seccionId;
-                articulo.familiaId = familiaId;
-                articulo.precioCompra = precioCompra;
-                articulo.precioVenta = precioVenta;
-                articulo.estado = estado;
-                articulo.descripcion = descripcion;
-                this.showNotification('✅ Artículo actualizado', 'success');
+        try {
+            const token = authManager.getToken();
+            if (!token) {
+                this.showNotification('❌ No estás autenticado', 'error');
+                return;
             }
-        } else {
-            // Crear
-            const nuevoArticulo = {
-                id: this.generateId('ART'),
-                nombre,
-                concepto,
-                codigoVenta,
-                codigoCompra,
-                seccionId,
-                familiaId,
-                precioCompra,
-                precioVenta,
-                estado,
-                descripcion,
-                fechaCreacion: new Date().toLocaleDateString()
-            };
-            this.state.articulos.push(nuevoArticulo);
-            this.showNotification('✅ Artículo creado exitosamente', 'success');
-        }
 
-        this.saveToDB();
-        this.closeArticuloModal();
-        this.renderArticulos();
+            // Mapear datos del formulario a la API
+            const apiData = {
+                codigo: codigoVenta,
+                nombre_articulo: nombre,
+                descripcion: descripcion || null,
+                categoria: seccionId || null,
+                familia: familiaId || null,
+                subfamilia: null,
+                precio_unitario: precioVenta,
+                precio_costo: precioCompra,
+                cantidad_disponible: cantidad,
+                unidad_medida: null,
+                codigo_barras: codigoCompra || null,
+                codigo_alternativo: null,
+                descripcion2: concepto || null,
+                tipo: estado || 'producto',
+                activo: estado !== 'inactivo'
+            };
+
+            const url = id 
+                ? `${authManager.apiBaseUrl}/api/codigos-articulos/${id}`
+                : `${authManager.apiBaseUrl}/api/codigos-articulos`;
+
+            const method = id ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(apiData)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Error ${response.status}`);
+            }
+
+            const result = await response.json();
+            
+            if (id) {
+                this.showNotification('✅ Artículo actualizado correctamente', 'success');
+            } else {
+                this.showNotification('✅ Artículo creado correctamente', 'success');
+            }
+
+            this.closeArticuloModal();
+            this.loadData(); // Recargar desde BD
+        } catch (error) {
+            console.error('Error guardando artículo:', error);
+            this.showNotification(`❌ Error: ${error.message}`, 'error');
+        }
     },
 
     // Eliminar artículo
-    deleteArticulo(articuloId) {
+    async deleteArticulo(articuloId) {
         if (!confirm('¿Estás seguro de que deseas eliminar este artículo?')) return;
 
-        this.state.articulos = this.state.articulos.filter(a => a.id !== articuloId);
-        this.showNotification('✅ Artículo eliminado', 'success');
-        this.saveToDB();
-        this.renderArticulos();
+        try {
+            const token = authManager.getToken();
+            if (!token) {
+                this.showNotification('❌ No estás autenticado', 'error');
+                return;
+            }
+
+            const response = await fetch(`${authManager.apiBaseUrl}/api/codigos-articulos/${articuloId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Error ${response.status}`);
+            }
+
+            this.showNotification('✅ Artículo eliminado correctamente', 'success');
+            this.loadData(); // Recargar desde BD
+        } catch (error) {
+            console.error('Error eliminando artículo:', error);
+            this.showNotification(`❌ Error: ${error.message}`, 'error');
+        }
     },
 
     // Generar ID

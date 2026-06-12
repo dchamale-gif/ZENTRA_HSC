@@ -8,6 +8,7 @@ const authRoutes = require('./src/routes/auth');
 const pacientesRoutes = require('./src/routes/pacientes');
 const medicinasRoutes = require('./src/routes/medicinas');
 const proveedoresRoutes = require('./src/routes/proveedores');
+const codigosArticulosRoutes = require('./src/routes/codigos-articulos');
 
 // Importar middleware
 const { auditMiddleware } = require('./src/middleware/audit');
@@ -62,6 +63,9 @@ app.use('/api/pacientes', pacientesRoutes);
 
 // Medicinas
 app.use('/api/medicinas', medicinasRoutes);
+
+// Códigos/Artículos
+app.use('/api/codigos-articulos', codigosArticulosRoutes);
 
 // Proveedores
 app.use('/api/proveedores', proveedoresRoutes);
