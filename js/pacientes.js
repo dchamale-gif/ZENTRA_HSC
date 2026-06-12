@@ -93,12 +93,40 @@ const PacientesModule = {
         }
     },
 
-    // Cargar datos
-    loadData() {
-        const demoData = window.DemoData || {};
-        this.state.pacientes = JSON.parse(JSON.stringify(demoData.pacientes || []));
-        this.state.clientes = JSON.parse(JSON.stringify(demoData.clientes || []));
-        this.renderPacientes();
+    // Cargar datos desde API
+    async loadData() {
+        try {
+            const token = authManager.getToken();
+            if (!token) {
+                console.warn('No hay token de autenticación');
+                return;
+            }
+
+            const response = await fetch(`${authManager.apiBaseUrl}/api/pacientes`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            this.state.pacientes = data.pacientes || [];
+            this.renderPacientes();
+            
+            console.log(`✅ ${this.state.pacientes.length} pacientes cargados desde BD`);
+        } catch (error) {
+            console.error('Error cargando pacientes:', error);
+            this.showNotification('⚠️ Error cargando pacientes. Intenta más tarde.', 'error');
+            // Fallback a demoData si algo falla
+            const demoData = window.DemoData || {};
+            this.state.pacientes = JSON.parse(JSON.stringify(demoData.pacientes || []));
+            this.renderPacientes();
+        }
     },
 
     // Abrir modal de nuevo paciente
@@ -547,30 +575,65 @@ const PacientesModule = {
             documentos: this.documentosTemporales?.[id] || []
         };
 
-        if (id) {
-            // Actualizar
-            const index = this.state.pacientes.findIndex(p => p.id === id);
-            if (index > -1) {
-                this.state.pacientes[index] = pacientData;
-                this.showNotification('✅ Paciente actualizado correctamente', 'success');
+        try {
+            const token = authManager.getToken();
+            if (!token) {
+                this.showNotification('❌ No estás autenticado', 'error');
+                return;
             }
-        } else {
-            // Crear
-            this.state.pacientes.push(pacientData);
-            this.showNotification('✅ Paciente creado correctamente', 'success');
-        }
 
-        this.saveToDB();
-        this.renderPacientes();
-        
-        // Mantener el modal abierto para permitir carga de archivos
-        const newPacienteId = id || pacientData.id;
-        document.getElementById('pacientId').value = newPacienteId;
-        
-        // Cargar archivos después de guardar
-        setTimeout(() => {
-            PacientesFileManager.renderPacientFiles(newPacienteId);
-        }, 100);
+            // Mapear datos del formulario a lo que espera la API
+            const apiData = {
+                cedula: document.getElementById('dpi').value.trim() || document.getElementById('documentoIdentificacion').value.trim(),
+                nombre: document.getElementById('pacientNombre').value.trim(),
+                apellido: (document.getElementById('pacientApellidoPaterno').value.trim() + ' ' + 
+                           document.getElementById('pacientApellidoMaterno').value.trim()).trim(),
+                edad: parseInt(document.getElementById('pacientEdad').value) || null,
+                genero: document.getElementById('pacientGenero').value || null,
+                tipo_sangre: document.getElementById('pacientGenero')?.dataset?.tipoSangre || null,
+                telefono: document.getElementById('pacientTelefono').value.trim() || null,
+                email: document.getElementById('pacientEmail').value.trim() || null,
+                direccion: document.getElementById('pacientDireccion').value.trim() || null,
+                ciudad: document.getElementById('municipio').value.trim() || null,
+                alergias: document.getElementById('especificacionAlergia').value.trim() || null,
+                enfermedades_cronicas: document.getElementById('especificacionCronica').value.trim() || null,
+                contacto_emergencia: document.getElementById('emergenciaNombre').value.trim() || null
+            };
+
+            const url = id 
+                ? `${authManager.apiBaseUrl}/api/pacientes/${id}`
+                : `${authManager.apiBaseUrl}/api/pacientes`;
+
+            const method = id ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(apiData)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Error ${response.status}`);
+            }
+
+            const result = await response.json();
+            
+            if (id) {
+                this.showNotification('✅ Paciente actualizado correctamente', 'success');
+            } else {
+                this.showNotification('✅ Paciente creado correctamente', 'success');
+            }
+
+            this.closePacientModal();
+            this.loadData(); // Recargar desde BD
+        } catch (error) {
+            console.error('Error guardando paciente:', error);
+            this.showNotification(`❌ Error: ${error.message}`, 'error');
+        }
     },
 
     // Editar paciente
