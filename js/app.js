@@ -257,6 +257,62 @@ function saveAppointment() {
     }
 }
 
+function selectPatientFromAgenda(patientId, patientName, patientEmail, patientPhone) {
+    if (typeof AgendaAvanzadaModule !== 'undefined' && AgendaAvanzadaModule.selectPatient) {
+        AgendaAvanzadaModule.selectPatient(patientId, patientName, patientEmail, patientPhone);
+    } else {
+        console.warn('⚠️ AgendaAvanzadaModule no disponible');
+    }
+}
+
+function confirmAppointmentAction(appointmentId) {
+    if (typeof AgendaAvanzadaModule !== 'undefined' && AgendaAvanzadaModule.confirmAppointment) {
+        AgendaAvanzadaModule.confirmAppointment(appointmentId);
+    } else {
+        console.warn('⚠️ AgendaAvanzadaModule no disponible');
+    }
+}
+
+function editAppointmentAction(appointmentId) {
+    if (typeof AgendaAvanzadaModule !== 'undefined' && AgendaAvanzadaModule.editAppointment) {
+        AgendaAvanzadaModule.editAppointment(appointmentId);
+    } else {
+        console.warn('⚠️ AgendaAvanzadaModule no disponible');
+    }
+}
+
+function cancelAppointmentAction(appointmentId) {
+    if (typeof AgendaAvanzadaModule !== 'undefined' && AgendaAvanzadaModule.cancelAppointment) {
+        AgendaAvanzadaModule.cancelAppointment(appointmentId);
+    } else {
+        console.warn('⚠️ AgendaAvanzadaModule no disponible');
+    }
+}
+
+function editDoctorFormAction(doctorId) {
+    if (typeof AgendaAvanzadaModule !== 'undefined' && AgendaAvanzadaModule.editDoctorForm) {
+        AgendaAvanzadaModule.editDoctorForm(doctorId);
+    } else {
+        console.warn('⚠️ AgendaAvanzadaModule no disponible');
+    }
+}
+
+function removeDoctorAction(doctorId) {
+    if (typeof AgendaAvanzadaModule !== 'undefined' && AgendaAvanzadaModule.removeDoctor) {
+        AgendaAvanzadaModule.removeDoctor(doctorId);
+    } else {
+        console.warn('⚠️ AgendaAvanzadaModule no disponible');
+    }
+}
+
+function removeBloqueoAction(bloqueoId) {
+    if (typeof AgendaAvanzadaModule !== 'undefined' && AgendaAvanzadaModule.removeBloqueo) {
+        AgendaAvanzadaModule.removeBloqueo(bloqueoId);
+    } else {
+        console.warn('⚠️ AgendaAvanzadaModule no disponible');
+    }
+}
+
 // ============================================
 // SUBTABS DEL HISTORIAL MÉDICO
 // ============================================

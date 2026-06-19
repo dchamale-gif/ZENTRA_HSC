@@ -503,13 +503,13 @@ const AgendaAvanzadaModule = {
                                 <span class="badge badge-${apt.estado.toLowerCase()}">${apt.estado}</span>
                             </div>
                             <div class="appointment-actions">
-                                <button class="btn-icon" onclick="AgendaAvanzadaModule.confirmAppointment('${apt.id}')" title="Confirmar">
+                                <button class="btn-icon" onclick="confirmAppointmentAction('${apt.id}')" title="Confirmar">
                                     <i class="fas fa-check"></i>
                                 </button>
-                                <button class="btn-icon" onclick="AgendaAvanzadaModule.editAppointment('${apt.id}')" title="Editar">
+                                <button class="btn-icon" onclick="editAppointmentAction('${apt.id}')" title="Editar">
                                     <i class="fas fa-edit"></i>
                                 </button>
-                                <button class="btn-icon" onclick="AgendaAvanzadaModule.cancelAppointment('${apt.id}')" title="Cancelar">
+                                <button class="btn-icon" onclick="cancelAppointmentAction('${apt.id}')" title="Cancelar">
                                     <i class="fas fa-times"></i>
                                 </button>
                             </div>
@@ -589,7 +589,7 @@ const AgendaAvanzadaModule = {
         }
         
         suggestionsDiv.innerHTML = filtered.map(p => `
-            <div style="padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; background: white;" onclick="AgendaAvanzadaModule.selectPatient('${p.id}', '${p.nombre.replace(/'/g, '\\'')}', '${(p.email || '').replace(/'/g, '\\'')}'​, '${(p.telefono || '').replace(/'/g, '\\'')}')" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
+            <div style="padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; background: white;" onclick="selectPatientFromAgenda('${p.id}', '${p.nombre.replace(/'/g, '\\\'')}', '${(p.email || '').replace(/'/g, '\\\'')}', '${(p.telefono || '').replace(/'/g, '\\\'')}')" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
                 <strong>${p.nombre}</strong>
                 <div style="font-size: 12px; color: #666;">${p.cedula || 'Sin cédula'} | ${p.email || 'Sin email'}</div>
             </div>
@@ -850,10 +850,10 @@ const AgendaAvanzadaModule = {
                                 </span>
                             </div>
                             <div>
-                                <button class="btn btn-sm btn-info" onclick="AgendaAvanzadaModule.editDoctorForm('${doc.id}')" style="display: block; margin-bottom: 5px;">
+                                <button class="btn btn-sm btn-info" onclick="editDoctorFormAction('${doc.id}')" style="display: block; margin-bottom: 5px;">
                                     <i class="fas fa-edit"></i> Editar
                                 </button>
-                                <button class="btn btn-sm btn-danger" onclick="AgendaAvanzadaModule.removeDoctor('${doc.id}')">
+                                <button class="btn btn-sm btn-danger" onclick="removeDoctorAction('${doc.id}')">
                                     <i class="fas fa-trash"></i> Eliminar
                                 </button>
                             </div>
@@ -1151,7 +1151,7 @@ const AgendaAvanzadaModule = {
                                 <td style="padding: 10px;">${bloqueo.fechaInicio}</td>
                                 <td style="padding: 10px;">${bloqueo.fechaFin}</td>
                                 <td style="padding: 10px; text-align: center;">
-                                    <button class="btn btn-sm btn-danger" onclick="AgendaAvanzadaModule.removeBloqueo('${bloqueo.id}')" title="Eliminar">
+                                    <button class="btn btn-sm btn-danger" onclick="removeBloqueoAction('${bloqueo.id}')" title="Eliminar">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </td>
