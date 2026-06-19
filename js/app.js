@@ -179,12 +179,81 @@ function navigateToPage(pageId) {
     }
     if (pageId === 'agenda') {
         setTimeout(() => {
-            AgendaAvanzadaModule.renderCalendar();
+            if (typeof AgendaAvanzadaModule !== 'undefined' && AgendaAvanzadaModule.renderCalendar) {
+                AgendaAvanzadaModule.renderCalendar();
+            } else {
+                console.warn('⚠️ AgendaAvanzadaModule no disponible');
+            }
         }, 100);
     }
     
     if (pageId === 'alertas') {
         AlertasModule.renderAlertas();
+    }
+}
+
+// ============================================
+// SUBTABS DEL HISTORIAL MÉDICO
+// ============================================
+
+// ============================================
+// FUNCIONES AUXILIARES PARA AGENDA
+// ============================================
+
+function openAgendaManagementPanel() {
+    if (typeof AgendaAvanzadaModule !== 'undefined' && AgendaAvanzadaModule.openManagementPanel) {
+        AgendaAvanzadaModule.openManagementPanel();
+    } else {
+        console.warn('⚠️ AgendaAvanzadaModule no disponible');
+        alert('El módulo de Agenda no está disponible. Por favor, recarga la página.');
+    }
+}
+
+function showManagementTab(tab) {
+    if (typeof AgendaAvanzadaModule !== 'undefined' && AgendaAvanzadaModule.showManagementTab) {
+        AgendaAvanzadaModule.showManagementTab(tab);
+    } else {
+        console.warn('⚠️ AgendaAvanzadaModule no disponible');
+    }
+}
+
+function openAddDoctorForm() {
+    if (typeof AgendaAvanzadaModule !== 'undefined' && AgendaAvanzadaModule.openAddDoctorForm) {
+        AgendaAvanzadaModule.openAddDoctorForm();
+    } else {
+        console.warn('⚠️ AgendaAvanzadaModule no disponible');
+    }
+}
+
+function saveRestrictions() {
+    if (typeof AgendaAvanzadaModule !== 'undefined' && AgendaAvanzadaModule.saveRestrictions) {
+        AgendaAvanzadaModule.saveRestrictions();
+    } else {
+        console.warn('⚠️ AgendaAvanzadaModule no disponible');
+    }
+}
+
+function saveBloqueo() {
+    if (typeof AgendaAvanzadaModule !== 'undefined' && AgendaAvanzadaModule.saveBloqueo) {
+        AgendaAvanzadaModule.saveBloqueo();
+    } else {
+        console.warn('⚠️ AgendaAvanzadaModule no disponible');
+    }
+}
+
+function saveDoctorForm() {
+    if (typeof AgendaAvanzadaModule !== 'undefined' && AgendaAvanzadaModule.saveDoctorForm) {
+        AgendaAvanzadaModule.saveDoctorForm();
+    } else {
+        console.warn('⚠️ AgendaAvanzadaModule no disponible');
+    }
+}
+
+function saveAppointment() {
+    if (typeof AgendaAvanzadaModule !== 'undefined' && AgendaAvanzadaModule.saveAppointment) {
+        AgendaAvanzadaModule.saveAppointment();
+    } else {
+        console.warn('⚠️ AgendaAvanzadaModule no disponible');
     }
 }
 

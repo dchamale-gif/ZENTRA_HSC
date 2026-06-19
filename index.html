@@ -949,7 +949,7 @@
                         <select id="specialtyFilter" class="form-input">
                             <option value="">Todas las especialidades</option>
                         </select>
-                        <button class="btn btn-sm btn-info" onclick="AgendaAvanzadaModule.openManagementPanel()">
+                        <button class="btn btn-sm btn-info" onclick="openAgendaManagementPanel()">
                             <i class="fas fa-cog"></i> Admin Agenda
                         </button>
                     </div>
@@ -3235,13 +3235,13 @@
             </div>
             <div class="modal-body">
                 <div class="tabs-group">
-                    <button class="tab-btn active" onclick="AgendaAvanzadaModule.showManagementTab('doctores')">
+                    <button class="tab-btn active" onclick="showManagementTab('doctores')">
                         <i class="fas fa-user-md"></i> Gestionar Doctores
                     </button>
-                    <button class="tab-btn" onclick="AgendaAvanzadaModule.showManagementTab('restricciones')">
+                    <button class="tab-btn" onclick="showManagementTab('restricciones')">
                         <i class="fas fa-ban"></i> Restricciones
                     </button>
-                    <button class="tab-btn" onclick="AgendaAvanzadaModule.showManagementTab('bloqueos')">
+                    <button class="tab-btn" onclick="showManagementTab('bloqueos')">
                         <i class="fas fa-lock"></i> Bloqueos
                     </button>
                 </div>
@@ -3250,7 +3250,7 @@
                 <div id="mgmt-doctores" class="management-tab active">
                     <h3>Gestión de Doctores</h3>
                     
-                    <button class="btn btn-primary btn-sm" onclick="AgendaAvanzadaModule.openAddDoctorForm()">
+                    <button class="btn btn-primary btn-sm" onclick="openAddDoctorForm()">
                         <i class="fas fa-plus"></i> Agregar Doctor
                     </button>
 
@@ -3297,7 +3297,7 @@
                             </div>
                         </div>
 
-                        <button class="btn btn-primary" onclick="AgendaAvanzadaModule.saveRestrictions()">
+                        <button class="btn btn-primary" onclick="saveRestrictions()">
                             <i class="fas fa-save"></i> Guardar Restricciones
                         </button>
                     </div>
@@ -3342,7 +3342,7 @@
                         </div>
                     </div>
 
-                    <button class="btn btn-primary" onclick="AgendaAvanzadaModule.saveBloqueo()">
+                    <button class="btn btn-primary" onclick="saveBloqueo()">
                         <i class="fas fa-lock"></i> Agregar Bloqueo
                     </button>
 
@@ -3421,7 +3421,7 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary modal-close-btn">Cancelar</button>
-                <button class="btn btn-primary" onclick="AgendaAvanzadaModule.saveDoctorForm()">
+                <button class="btn btn-primary" onclick="saveDoctorForm()">
                     <i class="fas fa-save"></i> Guardar Doctor
                 </button>
             </div>
@@ -3505,7 +3505,7 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary modal-close-btn">Cancelar</button>
-                <button class="btn btn-primary" id="saveAppointmentBtn" onclick="AgendaAvanzadaModule.saveAppointment()">
+                <button class="btn btn-primary" id="saveAppointmentBtn" onclick="saveAppointment()">
                     <i class="fas fa-save"></i> Agendar Cita
                 </button>
             </div>
