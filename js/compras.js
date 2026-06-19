@@ -125,10 +125,17 @@ const ComprasModule = {
         
         // Cargar proveedores desde API
         try {
+            // Verificar si authManager está disponible
+            if (typeof authManager === 'undefined') {
+                console.warn('⚠️ authManager no disponible. Cargando proveedores demo...');
+                this.loadProveedoresDemo();
+                return;
+            }
+
             const token = authManager.getToken();
             if (!token) {
-                console.warn('⚠️ No hay token de autenticación para cargar proveedores');
-                this.state.proveedores = []; // Fallback vacío
+                console.warn('⚠️ No hay token de autenticación para cargar proveedores. Cargando demo...');
+                this.loadProveedoresDemo();
                 return;
             }
 
@@ -148,9 +155,16 @@ const ComprasModule = {
             this.state.proveedores = data.proveedores || [];
             console.log(`✅ ${this.state.proveedores.length} proveedores cargados desde BD`);
         } catch (error) {
-            console.error('⚠️ Error cargando proveedores:', error);
-            this.state.proveedores = []; // Fallback vacío
+            console.warn('⚠️ Error cargando proveedores desde API:', error.message);
+            this.loadProveedoresDemo();
         }
+    },
+
+    // Cargar proveedores desde datos demo
+    loadProveedoresDemo() {
+        const demoData = window.DemoData || {};
+        this.state.proveedores = JSON.parse(JSON.stringify(demoData.proveedores || []));
+        console.log(`✅ ${this.state.proveedores.length} proveedores cargados desde datos demo`);
     },
 
     // Abrir modal de nueva compra

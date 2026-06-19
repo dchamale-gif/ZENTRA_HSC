@@ -96,9 +96,15 @@ const PacientesModule = {
     // Cargar datos desde API
     async loadData() {
         try {
+            // Verificar si authManager está disponible
+            if (typeof authManager === 'undefined') {
+                throw new Error('authManager no disponible');
+            }
+
             const token = authManager.getToken();
             if (!token) {
-                console.warn('No hay token de autenticación');
+                console.warn('⚠️ No hay token de autenticación. Cargando datos demo...');
+                this.loadDemoData();
                 return;
             }
 
@@ -120,13 +126,17 @@ const PacientesModule = {
             
             console.log(`✅ ${this.state.pacientes.length} pacientes cargados desde BD`);
         } catch (error) {
-            console.error('Error cargando pacientes:', error);
-            this.showNotification('⚠️ Error cargando pacientes. Intenta más tarde.', 'error');
-            // Fallback a demoData si algo falla
-            const demoData = window.DemoData || {};
-            this.state.pacientes = JSON.parse(JSON.stringify(demoData.pacientes || []));
-            this.renderPacientes();
+            console.warn('⚠️ Error cargando pacientes desde API:', error.message);
+            this.loadDemoData();
         }
+    },
+
+    // Cargar datos demo locales
+    loadDemoData() {
+        const demoData = window.DemoData || {};
+        this.state.pacientes = JSON.parse(JSON.stringify(demoData.pacientes || []));
+        this.renderPacientes();
+        console.log(`✅ ${this.state.pacientes.length} pacientes cargados desde datos demo`);
     },
 
     // Abrir modal de nuevo paciente
