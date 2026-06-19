@@ -150,7 +150,7 @@ const HistoriaClinicaModule = {
                 </div>
                 <div class="card-footer">
                     <span class="stat">📋 ${historiasCount} registro(s)</span>
-                    <span class="stat">📝 ${notasCount} nota(s)</span>
+                    <span class="stat">� ${notasCount} evolución(es)</span>
                     <span class="stat">💊 ${medicamentosCount} medicamento(s)</span>
                 </div>
             </div>
@@ -315,10 +315,10 @@ const HistoriaClinicaModule = {
                     </div>
                 ` : ''}
 
-                <!-- Notas Médicas / Observaciones -->
+                <!-- Evolución del Paciente -->
                 ${historia && historia.notas && historia.notas.length > 0 ? `
                     <div class="section-card">
-                        <h2><i class="fas fa-pen"></i> Notas Médicas y Observaciones</h2>
+                        <h2><i class="fas fa-chart-line"></i> Evolución del Paciente</h2>
                         <div class="notas-timeline">
                             ${[...historia.notas].reverse().map((nota, idx) => `
                                 <div class="nota-item">

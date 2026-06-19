@@ -43,6 +43,24 @@ const AgendaAvanzadaModule = {
         if (nextMonthBtn) {
             nextMonthBtn.addEventListener('click', () => this.nextMonth());
         }
+        
+        // Búsqueda de pacientes en modal
+        const patientSearch = document.getElementById('patientSearch');
+        if (patientSearch) {
+            patientSearch.addEventListener('input', (e) => this.handlePatientSearch(e.target.value));
+            patientSearch.addEventListener('blur', () => {
+                setTimeout(() => {
+                    const suggestions = document.getElementById('patientSuggestions');
+                    if (suggestions) suggestions.style.display = 'none';
+                }, 200);
+            });
+        }
+        
+        // Botón crear paciente rápido
+        const createPatientBtn = document.getElementById('createPatientQuickBtn');
+        if (createPatientBtn) {
+            createPatientBtn.addEventListener('click', () => this.createPatientQuick());
+        }
 
         const doctorFilter = document.getElementById('doctorFilter');
         if (doctorFilter) {
@@ -112,14 +130,12 @@ const AgendaAvanzadaModule = {
         }
 
         this.state.especialidades = [
-            { id: 1, nombre: 'Cardiología', icon: 'fa-heart' },
-            { id: 2, nombre: 'Dermatología', icon: 'fa-spa' },
-            { id: 3, nombre: 'Neurología', icon: 'fa-brain' },
-            { id: 4, nombre: 'Pediatría', icon: 'fa-child' },
-            { id: 5, nombre: 'Oftalmología', icon: 'fa-eye' },
-            { id: 6, nombre: 'Ginecología', icon: 'fa-female' },
-            { id: 7, nombre: 'Urología', icon: 'fa-tint' },
-            { id: 8, nombre: 'General', icon: 'fa-stethoscope' }
+            { id: 1, nombre: 'Psiquiatría General', icon: 'fa-brain', color: '#8E44AD', bgColor: '#EBD6F7' },
+            { id: 2, nombre: 'Psiquiatría Infantil', icon: 'fa-child', color: '#3498DB', bgColor: '#D6EAF8' },
+            { id: 3, nombre: 'Psicología Clínica', icon: 'fa-couch', color: '#E74C3C', bgColor: '#FADBD8' },
+            { id: 4, nombre: 'Terapia Cognitivo-Conductual', icon: 'fa-lightbulb', color: '#F39C12', bgColor: '#FCF3CF' },
+            { id: 5, nombre: 'Adicciones y Rehabilitación', icon: 'fa-leaf', color: '#27AE60', bgColor: '#D5F4E6' },
+            { id: 6, nombre: 'Psiquiatría Forense', icon: 'fa-gavel', color: '#34495E', bgColor: '#D7DBDD' }
         ];
 
         // Inicializar restricciones por defecto
@@ -131,12 +147,15 @@ const AgendaAvanzadaModule = {
         this.state.doctores = [
             {
                 id: 'DOC-001',
-                nombre: 'Dr. Juan García',
-                especialidad: 'Cardiología',
-                email: 'juan@clinic.com',
+                nombre: 'Dra. Carolina Mendoza',
+                especialidad: 'Psiquiatría General',
+                especialidadId: 1,
+                email: 'carolina@clinic.com',
                 telefono: '+584121234567',
                 estado: 'activo',
-                condiciones: ['Hipertensión', 'Arritmias'],
+                color: '#E91E63',
+                bgColor: '#FCE4EC',
+                condiciones: ['Depresión', 'Ansiedad', 'Trastornos del Sueño'],
                 horariosLaborales: {
                     'lunes': { inicio: '08:00', fin: '17:00' },
                     'martes': { inicio: '08:00', fin: '17:00' },
@@ -149,12 +168,15 @@ const AgendaAvanzadaModule = {
             },
             {
                 id: 'DOC-002',
-                nombre: 'Dra. María López',
-                especialidad: 'Dermatología',
-                email: 'maria@clinic.com',
+                nombre: 'Dr. Luis Fernando Rodríguez',
+                especialidad: 'Psiquiatría Infantil',
+                especialidadId: 2,
+                email: 'luis@clinic.com',
                 telefono: '+584125678901',
                 estado: 'activo',
-                condiciones: ['Dermatitis', 'Psoriasis', 'Acné'],
+                color: '#2196F3',
+                bgColor: '#E3F2FD',
+                condiciones: ['TDAH', 'Autismo', 'Problemas de Conducta'],
                 horariosLaborales: {
                     'lunes': { inicio: '09:00', fin: '18:00' },
                     'martes': { inicio: '09:00', fin: '18:00' },
@@ -167,12 +189,15 @@ const AgendaAvanzadaModule = {
             },
             {
                 id: 'DOC-003',
-                nombre: 'Dr. Roberto Martínez',
-                especialidad: 'Neurología',
-                email: 'roberto@clinic.com',
+                nombre: 'Dra. Sofía García López',
+                especialidad: 'Psicología Clínica',
+                especialidadId: 3,
+                email: 'sofia@clinic.com',
                 telefono: '+584129876543',
                 estado: 'activo',
-                condiciones: ['Migrañas', 'Epilepsia', 'Parkinson'],
+                color: '#FF5722',
+                bgColor: '#FFEBEE',
+                condiciones: ['Terapia Individual', 'Trauma', 'Estrés Postraumático'],
                 horariosLaborales: {
                     'lunes': { inicio: '08:30', fin: '16:30' },
                     'martes': { inicio: '08:30', fin: '16:30' },
@@ -251,7 +276,11 @@ const AgendaAvanzadaModule = {
         }
 
         doctorSelect.innerHTML = '<option value="">Selecciona doctor...</option>' +
-            availableDoctors.map(d => `<option value="${d.id}">${d.nombre}</option>`).join('');
+            availableDoctors.map(d => {
+                const bgColor = d.bgColor || '#f0f0f0';
+                const color = d.color || '#666';
+                return `<option value="${d.id}" style="background: ${bgColor}; color: ${color};">🟤 ${d.nombre}</option>`;
+            }).join('');
     },
 
     // Actualizar horas disponibles
@@ -453,16 +482,24 @@ const AgendaAvanzadaModule = {
                 .sort((a, b) => a.hora.localeCompare(b.hora))
                 .map(apt => {
                     const doctor = this.state.doctores.find(d => d.id === apt.doctorId);
+                    const specialty = this.state.especialidades.find(e => e.id == apt.especialidadId);
+                    const doctorColor = doctor?.color || '#666';
+                    const doctorBgColor = doctor?.bgColor || '#f0f0f0';
+                    const specialtyColor = specialty?.color || '#666';
+                    const specialtyBgColor = specialty?.bgColor || '#f0f0f0';
+                    
                     return `
-                        <div class="appointment-card">
-                            <div class="appointment-time">
+                        <div class="appointment-card" style="border-left: 4px solid ${doctorColor}; background: linear-gradient(to right, ${doctorBgColor}, white);">
+                            <div class="appointment-time" style="color: ${doctorColor}; font-weight: bold;">
                                 <i class="fas fa-clock"></i> ${apt.hora}
                             </div>
                             <div class="appointment-details">
                                 <p class="patient-name"><strong>${apt.paciente}</strong></p>
-                                <p class="doctor-name">${doctor?.nombre || 'Doctor'}</p>
-                                <p class="specialty">${apt.especialidad}</p>
-                                ${apt.condiciones ? `<p class="conditions"><i class="fas fa-stethoscope"></i> ${apt.condiciones}</p>` : ''}
+                                <p class="doctor-name" style="color: ${doctorColor};"><i class="fas fa-user-md"></i> ${doctor?.nombre || 'Doctor'}</p>
+                                <p class="specialty" style="background: ${specialtyBgColor}; color: ${specialtyColor}; padding: 4px 8px; border-radius: 3px; display: inline-block; font-size: 12px;">
+                                    <i class="fas fa-stethoscope"></i> ${apt.especialidad}
+                                </p>
+                                ${apt.condiciones ? `<p class="conditions"><i class="fas fa-heart"></i> ${apt.condiciones}</p>` : ''}
                                 <span class="badge badge-${apt.estado.toLowerCase()}">${apt.estado}</span>
                             </div>
                             <div class="appointment-actions">
@@ -508,6 +545,8 @@ const AgendaAvanzadaModule = {
         const modal = document.getElementById('appointmentModal');
         if (modal) {
             modal.style.display = 'block';
+            document.getElementById('patientSearch').value = '';
+            document.getElementById('patientId').value = '';
             document.getElementById('patientName').value = '';
             document.getElementById('patientEmail').value = '';
             document.getElementById('patientPhone').value = '';
@@ -517,12 +556,81 @@ const AgendaAvanzadaModule = {
             document.getElementById('appointmentTime').value = '';
             document.getElementById('appointmentConditions').value = '';
             document.getElementById('appointmentNotes').value = '';
+            document.getElementById('patientSuggestions').style.display = 'none';
         }
+    },
+    
+    // Búsqueda de pacientes
+    handlePatientSearch(searchTerm) {
+        const suggestionsDiv = document.getElementById('patientSuggestions');
+        if (!suggestionsDiv) return;
+        
+        if (!searchTerm.trim()) {
+            suggestionsDiv.style.display = 'none';
+            return;
+        }
+        
+        // Obtener pacientes del módulo PacientesModule
+        let pacientes = [];
+        if (typeof PacientesModule !== 'undefined' && PacientesModule.state && PacientesModule.state.pacientes) {
+            pacientes = PacientesModule.state.pacientes;
+        }
+        
+        const filtered = pacientes.filter(p => 
+            p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (p.cedula && p.cedula.includes(searchTerm)) ||
+            (p.email && p.email.toLowerCase().includes(searchTerm.toLowerCase()))
+        ).slice(0, 8);
+        
+        if (filtered.length === 0) {
+            suggestionsDiv.innerHTML = '<div style="padding: 10px; color: #999;">No hay pacientes que coincidan</div>';
+            suggestionsDiv.style.display = 'block';
+            return;
+        }
+        
+        suggestionsDiv.innerHTML = filtered.map(p => `
+            <div style="padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; background: white;" onclick="AgendaAvanzadaModule.selectPatient('${p.id}', '${p.nombre.replace(/'/g, '\\'')}', '${(p.email || '').replace(/'/g, '\\'')}'​, '${(p.telefono || '').replace(/'/g, '\\'')}')" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
+                <strong>${p.nombre}</strong>
+                <div style="font-size: 12px; color: #666;">${p.cedula || 'Sin cédula'} | ${p.email || 'Sin email'}</div>
+            </div>
+        `).join('');
+        
+        suggestionsDiv.style.display = 'block';
+    },
+    
+    // Seleccionar paciente
+    selectPatient(patientId, nombre, email, telefono) {
+        document.getElementById('patientSearch').value = nombre;
+        document.getElementById('patientId').value = patientId;
+        document.getElementById('patientName').value = nombre;
+        document.getElementById('patientEmail').value = email;
+        document.getElementById('patientPhone').value = telefono;
+        document.getElementById('patientSuggestions').style.display = 'none';
+    },
+    
+    // Crear paciente rápido
+    createPatientQuick() {
+        const searchTerm = document.getElementById('patientSearch').value.trim();
+        if (!searchTerm) {
+            alert('Por favor escribe el nombre del paciente');
+            return;
+        }
+        
+        const newPatientId = `PAC-${Date.now()}`;
+        let nombre = searchTerm;
+        let email = '';
+        let telefono = '';
+        
+        // Llenar los campos
+        this.selectPatient(newPatientId, nombre, email, telefono);
+        
+        alert(`✓ Paciente creado: ${nombre}\\n\\nPuedes completar más datos después de la consulta.`);
     },
 
     // Guardar cita
     saveAppointment() {
         const patientName = document.getElementById('patientName')?.value;
+        const patientId = document.getElementById('patientId')?.value;
         const email = document.getElementById('patientEmail')?.value;
         const phone = document.getElementById('patientPhone')?.value;
         const specialtyId = document.getElementById('appointmentSpecialty')?.value;
@@ -532,7 +640,7 @@ const AgendaAvanzadaModule = {
         const conditions = document.getElementById('appointmentConditions')?.value;
         const notes = document.getElementById('appointmentNotes')?.value;
 
-        if (!patientName || !doctorId || !dateStr || !time) {
+        if (!patientName || !doctorId || !dateStr || !time || !conditions) {
             alert('Por favor completa todos los campos obligatorios');
             return;
         }
@@ -555,20 +663,24 @@ const AgendaAvanzadaModule = {
 
         const newAppointment = {
             id: `CIT-${Date.now()}`,
+            pacienteId: patientId,
             paciente: patientName,
             email: email,
             telefono: phone,
             doctorId: doctorId,
             doctorNombre: doctor?.nombre,
+            doctorColor: doctor?.color,
+            doctorBgColor: doctor?.bgColor,
             especialidad: specialty?.nombre,
             especialidadId: specialtyId,
+            especialidadColor: specialty?.color,
+            especialidadBgColor: specialty?.bgColor,
             fecha: dateStr,
             hora: time,
             condiciones: conditions,
             notas: notes,
             estado: 'Pendiente',
-            fechaCreacion: new Date().toISOString(),
-            pacienteId: null // Se puede integrar con módulo de pacientes
+            fechaCreacion: new Date().toISOString()
         };
 
         this.state.citas.push(newAppointment);
@@ -711,12 +823,15 @@ const AgendaAvanzadaModule = {
 
         container.innerHTML = `
             <div class="doctors-grid">
-                ${this.state.doctores.map(doc => `
-                    <div class="doctor-card" style="border: 1px solid #ddd; padding: 15px; border-radius: 5px; margin-bottom: 10px;">
+                ${this.state.doctores.map(doc => {
+                    const bgColor = doc.bgColor || '#f0f0f0';
+                    const color = doc.color || '#666';
+                    return `
+                    <div class="doctor-card" style="border-left: 4px solid ${color}; background: linear-gradient(to right, ${bgColor}, white); padding: 15px; border-radius: 5px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                         <div style="display: flex; justify-content: space-between; align-items: start;">
                             <div>
-                                <h4>${doc.nombre}</h4>
-                                <p style="margin: 5px 0; font-size: 13px; color: #666;">
+                                <h4 style="color: ${color}; margin: 0 0 8px 0;">${doc.nombre}</h4>
+                                <p style="margin: 5px 0; font-size: 13px; color: ${color}; font-weight: bold;">
                                     <i class="fas fa-stethoscope"></i> ${doc.especialidad}
                                 </p>
                                 <p style="margin: 5px 0; font-size: 13px;">
@@ -727,11 +842,11 @@ const AgendaAvanzadaModule = {
                                 </p>
                                 ${doc.condiciones && doc.condiciones.length > 0 ? `
                                     <p style="margin: 8px 0; font-size: 12px;">
-                                        <strong>Condiciones:</strong> ${doc.condiciones.join(', ')}
+                                        <strong>Especialidades:</strong> ${doc.condiciones.join(', ')}
                                     </p>
                                 ` : ''}
-                                <span class="badge badge-${doc.estado === 'activo' ? 'success' : 'danger'}" style="margin-top: 8px;">
-                                    ${doc.estado === 'activo' ? 'Activo' : 'Inactivo'}
+                                <span class="badge" style="background: ${color}; color: white; padding: 4px 8px; border-radius: 3px; margin-top: 8px; display: inline-block;">
+                                    ${doc.estado === 'activo' ? '✓ Activo' : '✗ Inactivo'}
                                 </span>
                             </div>
                             <div>
@@ -744,7 +859,8 @@ const AgendaAvanzadaModule = {
                             </div>
                         </div>
                     </div>
-                `).join('')}
+                `;
+                }).join('')}
             </div>
         `;
     },

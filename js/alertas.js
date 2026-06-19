@@ -287,8 +287,8 @@ const AlertasModule = {
 };
 
 // Agregar estilos de animación
-const style = document.createElement('style');
-style.textContent = `
+const styleAlertasElement = document.createElement('style');
+styleAlertasElement.textContent = `
     @keyframes slideIn {
         from {
             transform: translateX(400px);
@@ -311,4 +311,4 @@ style.textContent = `
         }
     }
 `;
-document.head.appendChild(style);
+document.head.appendChild(styleAlertasElement);

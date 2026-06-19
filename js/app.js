@@ -31,6 +31,7 @@ function initializeApp() {
     // Initialize event listeners
     setupNavigation();
     setupModals();
+    setupSubtabs();
     setupDashboard();
     setupInventory();
     setupTransactions();
@@ -174,6 +175,53 @@ function navigateToPage(pageId) {
     
     if (pageId === 'alertas') {
         AlertasModule.renderAlertas();
+    }
+}
+
+// ============================================
+// SUBTABS DEL HISTORIAL MÉDICO
+// ============================================
+
+function setupSubtabs() {
+    // Agregar event listeners a los botones de subtabs
+    const subtabBtns = document.querySelectorAll('.subtab-btn');
+    
+    subtabBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const subtabName = this.getAttribute('data-subtab');
+            
+            // Ocultar todos los subtabs
+            document.querySelectorAll('[data-subtab]').forEach(subtab => {
+                subtab.style.display = 'none';
+            });
+            
+            // Mostrar el subtab seleccionado
+            const selectedSubtab = document.querySelector(`[data-subtab="${subtabName}"]`);
+            if (selectedSubtab) {
+                selectedSubtab.style.display = 'block';
+            }
+            
+            // Remover clase active de todos los botones
+            subtabBtns.forEach(b => b.classList.remove('active'));
+            
+            // Agregar clase active al botón clickeado
+            this.classList.add('active');
+            
+            // Cambiar estilo visual
+            subtabBtns.forEach(b => {
+                b.style.borderBottom = '3px solid transparent';
+                b.style.color = '#666';
+            });
+            this.style.borderBottom = '3px solid #27ae60';
+            this.style.color = '#27ae60';
+        });
+    });
+    
+    // Configurar tab inicial
+    const firstBtn = document.querySelector('.subtab-btn');
+    if (firstBtn) {
+        firstBtn.style.borderBottom = '3px solid #27ae60';
+        firstBtn.style.color = '#27ae60';
     }
 }
 
@@ -1586,21 +1634,30 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function switchGastosTab(tabName) {
     // Ocultar todos los tabs
-    document.querySelectorAll('.tab-content').forEach(tab => {
+    document.querySelectorAll('#page-gastos-servicios .tab-content').forEach(tab => {
+        tab.style.display = 'none';
         tab.classList.remove('active');
     });
-    document.querySelectorAll('.tab-button').forEach(btn => {
+    document.querySelectorAll('#page-gastos-servicios .tab-button').forEach(btn => {
         btn.classList.remove('active');
     });
 
     // Mostrar el tab seleccionado
     const tabElement = document.getElementById('tab-' + tabName);
     if (tabElement) {
+        tabElement.style.display = 'block';
         tabElement.classList.add('active');
     }
 
     // Marcar botón como activo
     event.target.closest('.tab-button').classList.add('active');
+
+    // Cargar datos específicos según el tab
+    if (tabName === 'cuentaspagar') {
+        populateSelectsCuentasPorPagar();
+        gastosModule.renderCuentasPorPagar();
+        actualizarResumenCuentasPorPagar();
+    }
 }
 
 function agregarPago() {
@@ -1654,6 +1711,97 @@ function agregarProveedor() {
         // Actualizar vista
         gastosModule.render();
         showNotification('Proveedor agregado correctamente', 'success');
+    }
+}
+
+function agregarCuentaPorPagar() {
+    const proveedor = document.getElementById('selectProveedorCPP').value;
+    const concepto = document.getElementById('selectConceptoCPP').value;
+    const monto = document.getElementById('inputMontoCPP').value;
+    const numeroFactura = document.getElementById('inputNumeroFacturaCPP').value;
+    const fecha = document.getElementById('inputFechaCPP').value;
+    const vencimiento = document.getElementById('inputVencimientoCPP').value;
+
+    if (!proveedor || !concepto || !monto || !numeroFactura || !fecha || !vencimiento) {
+        alert('Por favor complete todos los campos requeridos');
+        return;
+    }
+
+    if (gastosModule.addCuentaPorPagar(proveedor, concepto, monto, fecha, vencimiento, numeroFactura)) {
+        // Limpiar formulario
+        document.getElementById('selectProveedorCPP').value = '';
+        document.getElementById('selectConceptoCPP').value = '';
+        document.getElementById('inputMontoCPP').value = '';
+        document.getElementById('inputNumeroFacturaCPP').value = '';
+        document.getElementById('inputFechaCPP').value = '';
+        document.getElementById('inputVencimientoCPP').value = '';
+
+        // Actualizar vista
+        gastosModule.renderCuentasPorPagar();
+        actualizarResumenCuentasPorPagar();
+        showNotification('Cuenta por pagar registrada correctamente', 'success');
+    }
+}
+
+function actualizarResumenCuentasPorPagar() {
+    const cuentas = gastosModule.state.cuentasPorPagar || [];
+    const vencidas = gastosModule.getCuentasVencidas();
+    
+    let totalPendiente = 0;
+    let totalParcial = 0;
+    let totalPagada = 0;
+    let totalVencida = 0;
+
+    cuentas.forEach(cuenta => {
+        if (cuenta.estado === 'pendiente') {
+            totalPendiente += cuenta.saldo;
+        } else if (cuenta.estado === 'parcial') {
+            totalParcial += cuenta.saldo;
+        } else if (cuenta.estado === 'pagada') {
+            totalPagada += cuenta.monto;
+        }
+    });
+
+    vencidas.forEach(cuenta => {
+        totalVencida += cuenta.saldo;
+    });
+
+    const formatarMoneda = (valor) => {
+        return new Intl.NumberFormat('es-GT', {
+            style: 'currency',
+            currency: 'GTQ',
+            minimumFractionDigits: 2
+        }).format(valor);
+    };
+
+    const elem1 = document.getElementById('totalPendiente');
+    const elem2 = document.getElementById('totalParcial');
+    const elem3 = document.getElementById('totalPagada');
+    const elem4 = document.getElementById('totalVencidas');
+
+    if (elem1) elem1.textContent = formatarMoneda(totalPendiente);
+    if (elem2) elem2.textContent = formatarMoneda(totalParcial);
+    if (elem3) elem3.textContent = formatarMoneda(totalPagada);
+    if (elem4) elem4.textContent = formatarMoneda(totalVencida);
+}
+
+function populateSelectsCuentasPorPagar() {
+    const selectProveedor = document.getElementById('selectProveedorCPP');
+    const selectConcepto = document.getElementById('selectConceptoCPP');
+    
+    if (!selectProveedor || !selectConcepto) return;
+
+    selectProveedor.innerHTML = '<option value="">-- Seleccionar Proveedor --</option>';
+    selectConcepto.innerHTML = '<option value="">-- Seleccionar Concepto --</option>';
+
+    if (gastosModule && gastosModule.state) {
+        gastosModule.state.proveedores.forEach(proveedor => {
+            selectProveedor.innerHTML += `<option value="${proveedor.id}">${proveedor.nombre}</option>`;
+        });
+
+        gastosModule.state.conceptos.forEach(concepto => {
+            selectConcepto.innerHTML += `<option value="${concepto.id}">${concepto.nombre}</option>`;
+        });
     }
 }
 

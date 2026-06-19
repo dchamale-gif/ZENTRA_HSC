@@ -1844,6 +1844,63 @@ textarea.form-input {
     font-size: 14px;
 }
 
+/* Badges para Cuentas por Pagar */
+.badge-pendiente {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(227, 29, 35, 0.1);
+    color: #e31d23;
+    border-left: 4px solid #e31d23;
+    padding: 8px 14px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.badge-parcial {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(243, 156, 18, 0.1);
+    color: #d68910;
+    border-left: 4px solid #f39c12;
+    padding: 8px 14px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.badge-pagada {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(46, 204, 113, 0.1);
+    color: #27ae60;
+    border-left: 4px solid #27ae60;
+    padding: 8px 14px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.badge-vencida {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(192, 57, 43, 0.1);
+    color: #c0392b;
+    border-left: 4px solid #c0392b;
+    padding: 8px 14px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
 .empty-state {
     padding: 40px 20px;
     text-align: center;
@@ -3296,7 +3353,7 @@ textarea.form-input {
     overflow: hidden;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     transition: all 0.3s ease;
-    min-height: 200px;
+    min-height: auto;
     display: flex;
     flex-direction: column;
 }
@@ -3338,6 +3395,7 @@ textarea.form-input {
     gap: 8px;
     flex: 1;
     overflow-y: auto;
+    max-height: 400px;
 }
 
 .cama-ocupada,
@@ -3439,7 +3497,30 @@ textarea.form-input {
     }
 
     .habitaciones-flex {
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        grid-template-columns: 1fr;
+    }
+
+    .habitacion-card {
+        min-height: 150px;
+    }
+
+    .camas-container {
+        padding: 8px;
+        gap: 6px;
+    }
+
+    .cama-ocupada,
+    .cama-libre {
+        padding: 8px;
+        font-size: 12px;
+    }
+
+    .habitacion-header h4 {
+        font-size: 13px;
+    }
+
+    .ocupacion-badge {
+        font-size: 10px;
     }
 }
     .day-card-agenda {
@@ -4127,6 +4208,11 @@ textarea.form-input {
     text-align: right;
     font-weight: 500;
     color: #2c3e50;
+}
+
+.tabla-datos .monto.saldo-pendiente {
+    color: #e74c3c;
+    font-weight: 600;
 }
 
 .tabla-datos .cantidad {

@@ -9,6 +9,7 @@ class GastosServiciosModule {
             conceptos: [],
             proveedores: [],
             pagos: [],
+            cuentasPorPagar: [], // {id, proveedor, concepto, monto, saldo, fecha, vencimiento, numeroFactura, estado, pagos[]}
             filtroConcepto: 'todos',
             filtroPeriodo: 'mensual',
             fechaInicio: null,
@@ -73,6 +74,19 @@ class GastosServiciosModule {
                 { id: 'PAG-005', fecha: dates[4], concepto: 'CON-004', proveedor: 'PRV-003', monto: 468, numeroFactura: 'FAC-2024-005', requisicion: '', referencia: 'Ref#005', estado: 'pagado' },
                 { id: 'PAG-006', fecha: dates[5], concepto: 'CON-002', proveedor: 'PRV-002', monto: 624, numeroFactura: 'FAC-2024-006', requisicion: 'LOTE-002', referencia: 'Ref#006', estado: 'pagado' },
                 { id: 'PAG-007', fecha: dates[6], concepto: 'CON-005', proveedor: 'PRV-004', monto: 2340, numeroFactura: 'FAC-2024-007', requisicion: 'REQ-2024-003', referencia: 'Ref#007', estado: 'pagado' }
+            ];
+            
+            // Cuentas por pagar demo
+            const proximoVencimiento = new Date();
+            proximoVencimiento.setDate(proximoVencimiento.getDate() + 15);
+            const vencimiento2 = new Date();
+            vencimiento2.setDate(vencimiento2.getDate() + 30);
+            
+            this.state.cuentasPorPagar = [
+                { id: 'CPP-001', proveedor: 'PRV-001', concepto: 'CON-001', monto: 2500, saldo: 2500, fecha: dates[3], vencimiento: proximoVencimiento.toISOString().split('T')[0], numeroFactura: 'FAC-2024-015', estado: 'pendiente', pagos: [] },
+                { id: 'CPP-002', proveedor: 'PRV-002', concepto: 'CON-002', monto: 1200, saldo: 800, fecha: dates[4], vencimiento: proximoVencimiento.toISOString().split('T')[0], numeroFactura: 'FAC-2024-016', estado: 'parcial', pagos: [{ id: 'PAG-P1', monto: 400, fecha: dates[2] }] },
+                { id: 'CPP-003', proveedor: 'PRV-003', concepto: 'CON-004', monto: 950, saldo: 0, fecha: dates[5], vencimiento: dates[0], numeroFactura: 'FAC-2024-017', estado: 'pagada', pagos: [{ id: 'PAG-P2', monto: 950, fecha: dates[1] }] },
+                { id: 'CPP-004', proveedor: 'PRV-004', concepto: 'CON-005', monto: 3600, saldo: 3600, fecha: dates[6], vencimiento: vencimiento2.toISOString().split('T')[0], numeroFactura: 'FAC-2024-018', estado: 'pendiente', pagos: [] }
             ];
         }
         this.save();
@@ -590,7 +604,191 @@ class GastosServiciosModule {
         link.download = `reporte-${tipoReporte.toLowerCase()}-${new Date().toISOString().split('T')[0]}.html`;
         link.click();
     }
-}
+
+    // ==================== CUENTAS POR PAGAR ====================
+    addCuentaPorPagar(proveedor, concepto, monto, fecha, vencimiento, numeroFactura) {
+        if (!proveedor || !concepto || !monto || !fecha || !vencimiento || !numeroFactura) {
+            alert('Por favor complete todos los campos requeridos');
+            return false;
+        }
+
+        const newCuenta = {
+            id: 'CPP-' + Date.now(),
+            proveedor: proveedor,
+            concepto: concepto,
+            monto: parseFloat(monto),
+            saldo: parseFloat(monto),
+            fecha: fecha,
+            vencimiento: vencimiento,
+            numeroFactura: numeroFactura,
+            estado: 'pendiente',
+            pagos: []
+        };
+
+        this.state.cuentasPorPagar.push(newCuenta);
+        this.save();
+        return true;
+    }
+
+    registrarPagoCuenta(cuentaId, monto, fecha) {
+        const cuenta = this.state.cuentasPorPagar.find(c => c.id === cuentaId);
+        if (!cuenta) return false;
+
+        const montoNum = parseFloat(monto);
+        if (montoNum <= 0 || montoNum > cuenta.saldo) {
+            alert('Monto inválido. Debe ser mayor a 0 y menor o igual al saldo pendiente');
+            return false;
+        }
+
+        const pago = {
+            id: 'PAG-' + Date.now(),
+            monto: montoNum,
+            fecha: fecha
+        };
+
+        cuenta.pagos.push(pago);
+        cuenta.saldo -= montoNum;
+
+        if (cuenta.saldo === 0) {
+            cuenta.estado = 'pagada';
+        } else if (cuenta.saldo < cuenta.monto) {
+            cuenta.estado = 'parcial';
+        }
+
+        this.save();
+        return true;
+    }
+
+    deleteCuentaPorPagar(cuentaId) {
+        this.state.cuentasPorPagar = this.state.cuentasPorPagar.filter(c => c.id !== cuentaId);
+        this.save();
+    }
+
+    getCuentasPendientes() {
+        return this.state.cuentasPorPagar.filter(c => c.estado !== 'pagada');
+    }
+
+    getCuentasVencidas() {
+        const hoy = new Date();
+        return this.state.cuentasPorPagar.filter(c => {
+            const vencimiento = new Date(c.vencimiento);
+            return vencimiento < hoy && c.estado !== 'pagada';
+        });
+    }
+
+    renderCuentasPorPagar() {
+        const container = document.getElementById('listadoCuentasPorPagar');
+        if (!container) return;
+
+        const cuentas = this.state.cuentasPorPagar;
+
+        if (cuentas.length === 0) {
+            container.innerHTML = '<p class="empty-state">No hay cuentas por pagar registradas</p>';
+            return;
+        }
+
+        let html = '<table class="tabla-datos">';
+        html += '<thead><tr>';
+        html += '<th>Fecha</th>';
+        html += '<th>Proveedor</th>';
+        html += '<th>Nº Factura</th>';
+        html += '<th>Concepto</th>';
+        html += '<th>Monto Original</th>';
+        html += '<th>Saldo</th>';
+        html += '<th>Vencimiento</th>';
+        html += '<th>Estado</th>';
+        html += '<th>Acciones</th>';
+        html += '</tr></thead><tbody>';
+
+        cuentas.forEach(cuenta => {
+            const proveedor = this.getPagoProveedor(cuenta.proveedor);
+            const concepto = this.getPagoConcepto(cuenta.concepto);
+            const proveedorNombre = proveedor ? proveedor.nombre : 'Desconocido';
+            const conceptoNombre = concepto ? concepto.nombre : 'Desconocido';
+            
+            const vencimiento = new Date(cuenta.vencimiento);
+            const hoy = new Date();
+            const estadoClass = vencimiento < hoy && cuenta.estado !== 'pagada' ? 'vencida' : cuenta.estado;
+            const estadoLabel = vencimiento < hoy && cuenta.estado !== 'pagada' ? 'VENCIDA' : cuenta.estado.toUpperCase();
+            const estadoIcon = cuenta.estado === 'pagada' ? '✓' : cuenta.estado === 'parcial' ? '◐' : '●';
+
+            html += '<tr>';
+            html += `<td>${this.formatarFecha(cuenta.fecha)}</td>`;
+            html += `<td>${proveedorNombre}</td>`;
+            html += `<td><strong>${cuenta.numeroFactura}</strong></td>`;
+            html += `<td>${conceptoNombre}</td>`;
+            html += `<td class="monto">${this.formatarMoneda(cuenta.monto)}</td>`;
+            html += `<td class="monto saldo-pendiente">${this.formatarMoneda(cuenta.saldo)}</td>`;
+            html += `<td>${this.formatarFecha(cuenta.vencimiento)}</td>`;
+            html += `<td><span class="badge badge-${estadoClass}">${estadoIcon} ${estadoLabel}</span></td>`;
+            html += `<td class="acciones">`;
+            if (cuenta.estado !== 'pagada') {
+                html += `<button onclick="gastosModule.abrirModalPagoCuenta('${cuenta.id}')" class="btn-info" style="padding: 5px 10px; margin-right: 5px;"><i class="fas fa-money-bill"></i> Pagar</button>`;
+            }
+            html += `<button onclick="gastosModule.deleteCuentaPorPagar('${cuenta.id}'); gastosModule.renderCuentasPorPagar();" class="btn-delete"><i class="fas fa-trash"></i></button>`;
+            html += `</td></tr>`;
+        });
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    }
+
+    abrirModalPagoCuenta(cuentaId) {
+        const cuenta = this.state.cuentasPorPagar.find(c => c.id === cuentaId);
+        if (!cuenta) return;
+
+        const proveedor = this.getPagoProveedor(cuenta.proveedor);
+        const proveedorNombre = proveedor ? proveedor.nombre : 'Desconocido';
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-dialog" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h2><i class="fas fa-money-bill"></i> Registrar Pago</h2>
+                    <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                        <p><strong>Proveedor:</strong> ${proveedorNombre}</p>
+                        <p><strong>Factura:</strong> ${cuenta.numeroFactura}</p>
+                        <p><strong>Saldo Pendiente:</strong> <span style="color: #e74c3c; font-weight: bold;">${this.formatarMoneda(cuenta.saldo)}</span></p>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Monto a Pagar *</label>
+                        <input type="number" id="montoPago" class="form-input" placeholder="0.00" step="0.01" value="${cuenta.saldo}" required>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Fecha del Pago *</label>
+                        <input type="date" id="fechaPago" class="form-input" value="${new Date().toISOString().split('T')[0]}" required>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button type="button" class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+                        <button type="button" class="btn btn-primary" onclick="gastosModule.confirmarPagoCuenta('${cuentaId}')">
+                            <i class="fas fa-check"></i> Registrar Pago
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    confirmarPagoCuenta(cuentaId) {
+        const monto = document.getElementById('montoPago')?.value;
+        const fecha = document.getElementById('fechaPago')?.value;
+
+        if (!monto || !fecha) {
+            alert('Por favor complete todos los campos');
+            return;
+        }
+
+        if (this.registrarPagoCuenta(cuentaId, monto, fecha)) {
+            this.renderCuentasPorPagar();
+            document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
+            alert('Pago registrado exitosamente');
+        }
+    }
 
 // Inicializar módulo globalmente
 let gastosModule;
