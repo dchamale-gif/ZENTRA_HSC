@@ -771,7 +771,7 @@ const demoData = {
         }
     ],
 
-    // Patient transactions/movements (Movimientos Paciente)
+    // Patient transactions/movements (Movimientos Paciente) - CON LÍNEAS DE CONCEPTO
     movimientosPaciente: [
         {
             id: 'MOV-001',
@@ -779,15 +779,23 @@ const demoData = {
             tipo: 'Cargo',
             monto: 500.00,
             descripcion: 'Consulta y medicamentos',
-            fecha: '2026-05-01'
+            fecha: '2026-05-01',
+            lineas: [
+                { concepto: 'Consulta Médica', cantidad: 1, unitario: 200.00, subtotal: 200.00 },
+                { concepto: 'Medicamentos', cantidad: 3, unitario: 100.00, subtotal: 300.00 }
+            ]
         },
         {
             id: 'MOV-002',
             pacienteId: 'PAC-0001',
             tipo: 'Cargo',
             monto: 350.00,
-            descripcion: 'Servicios de enfermería',
-            fecha: '2026-04-29'
+            descripcion: 'Servicios de enfermería y encamamiento',
+            fecha: '2026-04-29',
+            lineas: [
+                { concepto: 'Encamamiento (1 noche)', cantidad: 1, unitario: 250.00, subtotal: 250.00 },
+                { concepto: 'Servicios de enfermería', cantidad: 1, unitario: 100.00, subtotal: 100.00 }
+            ]
         },
         {
             id: 'MOV-003',
@@ -802,8 +810,13 @@ const demoData = {
             pacienteId: 'PAC-0002',
             tipo: 'Cargo',
             monto: 1250.50,
-            descripcion: 'Internación y servicios',
-            fecha: '2026-04-20'
+            descripcion: 'Internación y servicios médicos',
+            fecha: '2026-04-20',
+            lineas: [
+                { concepto: 'Encamamiento (5 noches)', cantidad: 5, unitario: 200.00, subtotal: 1000.00 },
+                { concepto: 'Análisis de laboratorio', cantidad: 1, unitario: 150.00, subtotal: 150.00 },
+                { concepto: 'Medicamentos especiales', cantidad: 1, unitario: 100.50, subtotal: 100.50 }
+            ]
         },
         {
             id: 'MOV-005',

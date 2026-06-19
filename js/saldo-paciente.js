@@ -162,7 +162,7 @@ const SaldoPacienteModule = {
         detailsContent.innerHTML = `
             <div class="saldo-details-card">
                 <div class="saldo-header">
-                    <h3>${pacient.nombre} ${pacient.apellidoPaterno} ${pacient.apellidoMaterno || ''}</h3>
+                    <h3>Estado de Cuenta - ${pacient.nombre} ${pacient.apellidoPaterno} ${pacient.apellidoMaterno || ''}</h3>
                     ${saldo.saldoPendiente === 0 
                         ? '<span class="badge badge-success">SIN DEUDA</span>'
                         : '<span class="badge badge-danger">DEUDOR</span>'
@@ -196,24 +196,63 @@ const SaldoPacienteModule = {
 
                 ${movimientos.length > 0 ? `
                     <div class="movimientos-section">
-                        <h4>Histórico de Transacciones</h4>
+                        <h4>Detalle de Servicios Prestados</h4>
+                        <div style="overflow-x: auto;">
+                            <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px;">
+                                <thead>
+                                    <tr style="background: #f5f5f5; border-bottom: 2px solid #ddd;">
+                                        <th style="padding: 10px; text-align: left;">Fecha</th>
+                                        <th style="padding: 10px; text-align: left;">Concepto</th>
+                                        <th style="padding: 10px; text-align: center;">Detalle</th>
+                                        <th style="padding: 10px; text-align: right;">Monto</th>
+                                        <th style="padding: 10px; text-align: center;">Tipo</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${movimientos.map(m => {
+                                        const tipoClass = m.tipo === 'Abono' ? 'positive' : 'negative';
+                                        const tipoIcon = m.tipo === 'Abono' ? '✓ Pago' : '• Cargo';
+                                        return `
+                                            <tr style="border-bottom: 1px solid #eee;">
+                                                <td style="padding: 10px;">${m.fecha}</td>
+                                                <td style="padding: 10px;"><strong>${m.descripcion}</strong></td>
+                                                <td style="padding: 10px; text-align: center;">
+                                                    ${m.lineas && m.lineas.length > 0 ? `
+                                                        <button onclick="SaldoPacienteModule.mostrarLineasDetalle('${m.id}')" class="btn-link" style="color: #0066cc; text-decoration: underline; border: none; background: none; cursor: pointer; font-size: 12px;">
+                                                            Ver líneas (${m.lineas.length})
+                                                        </button>
+                                                    ` : '-'}
+                                                </td>
+                                                <td style="padding: 10px; text-align: right; font-weight: bold; color: ${m.tipo === 'Abono' ? '#27ae60' : '#e74c3c'};">
+                                                    ${m.tipo === 'Abono' ? '+' : '-'}$${m.monto.toFixed(2)}
+                                                </td>
+                                                <td style="padding: 10px; text-align: center;">
+                                                    <span style="background: ${m.tipo === 'Abono' ? '#d4edda' : '#f8d7da'}; color: ${m.tipo === 'Abono' ? '#155724' : '#721c24'}; padding: 3px 8px; border-radius: 3px; font-size: 11px; font-weight: 600;">
+                                                        ${tipoIcon}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+
                         <div class="movimientos-list">
-                            ${movimientos.map(m => `
+                            ${movimientos.filter(m => m.tipo === 'Abono').map(m => `
                                 <div class="movimiento-item">
                                     <div class="mov-header">
-                                        <strong>${m.tipo}</strong>
-                                        <span class="badge badge-info">${m.fecha}</span>
+                                        <strong>Pago registrado</strong>
+                                        <span class="badge badge-success">${m.fecha}</span>
                                     </div>
                                     <div class="mov-details">
                                         <span class="mov-desc">${m.descripcion}</span>
-                                        <span class="mov-amount ${m.tipo === 'Abono' ? 'positive' : 'negative'}">
-                                            ${m.tipo === 'Abono' ? '+' : '-'}$${m.monto.toFixed(2)}
-                                        </span>
+                                        <span class="mov-amount positive">+$${m.monto.toFixed(2)}</span>
                                     </div>
-                                    ${m.tipo === 'Abono' && m.factura ? `
+                                    ${m.factura ? `
                                         <div style="margin-top: 8px;">
                                             <button onclick="SaldoPacienteModule.descargarFactura('${m.factura}')" class="btn-small" style="background: #27ae60; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px;">
-                                                <i class="fas fa-file-download"></i> Descargar Factura
+                                                <i class="fas fa-file-download"></i> Descargar Comprobante
                                             </button>
                                         </div>
                                     ` : ''}
@@ -227,6 +266,55 @@ const SaldoPacienteModule = {
 
         detailsModal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
+    },
+
+    // Mostrar líneas detalladas de un movimiento
+    mostrarLineasDetalle(movimientoId) {
+        const movimiento = this.state.movimientosPaciente.find(m => m.id === movimientoId);
+        if (!movimiento || !movimiento.lineas || movimiento.lineas.length === 0) return;
+
+        const modal = document.createElement('div');
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 10001;';
+        modal.innerHTML = `
+            <div style="background: white; border-radius: 8px; padding: 0; max-width: 500px; width: 90%;">
+                <div style="padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0; font-size: 16px;">${movimiento.descripcion}</h3>
+                    <button onclick="this.closest('div').parentElement.remove();" style="border: none; background: none; font-size: 24px; cursor: pointer; color: #999;">×</button>
+                </div>
+                <div style="padding: 15px; max-height: 400px; overflow-y: auto;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f5f5f5;">
+                                <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd;">Concepto</th>
+                                <th style="text-align: right; padding: 8px; border-bottom: 1px solid #ddd;">Cantidad</th>
+                                <th style="text-align: right; padding: 8px; border-bottom: 1px solid #ddd;">Unitario</th>
+                                <th style="text-align: right; padding: 8px; border-bottom: 1px solid #ddd;">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${movimiento.lineas.map(linea => `
+                                <tr style="border-bottom: 1px solid #eee;">
+                                    <td style="padding: 8px;">${linea.concepto}</td>
+                                    <td style="text-align: right; padding: 8px;">${linea.cantidad}</td>
+                                    <td style="text-align: right; padding: 8px;">$${linea.unitario.toFixed(2)}</td>
+                                    <td style="text-align: right; padding: 8px; font-weight: bold;">$${linea.subtotal.toFixed(2)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                        <tfoot>
+                            <tr style="background: #f5f5f5; font-weight: bold;">
+                                <td colspan="3" style="padding: 10px; text-align: right; border-top: 2px solid #ddd;">TOTAL:</td>
+                                <td style="padding: 10px; text-align: right; border-top: 2px solid #ddd;">$${movimiento.monto.toFixed(2)}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <div style="padding: 12px; background: #f5f5f5; border-top: 1px solid #eee; text-align: right;">
+                    <button onclick="this.closest('div').parentElement.remove();" class="btn btn-secondary" style="font-size: 13px; padding: 6px 12px;">Cerrar</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
     },
 
     // Cerrar modal de detalles

@@ -76,17 +76,87 @@ class GastosServiciosModule {
                 { id: 'PAG-007', fecha: dates[6], concepto: 'CON-005', proveedor: 'PRV-004', monto: 2340, numeroFactura: 'FAC-2024-007', requisicion: 'REQ-2024-003', referencia: 'Ref#007', estado: 'pagado' }
             ];
             
-            // Cuentas por pagar demo
+            // Proveedores médicos/sanitarios
+            if (!this.state.proveedores.some(p => p.id === 'PRV-MED-001')) {
+                this.state.proveedores.push(
+                    { id: 'PRV-MED-001', nombre: 'Farmacia La Salud', contacto: 'Gerente Ventas', referencia: 'Medicamentos y Suministros', telefono: '2385-5000', estado: 'activo', fechaAlta: new Date().toISOString().split('T')[0] },
+                    { id: 'PRV-MED-002', nombre: 'Laboratorio Clínico Central', contacto: 'Jefe de Servicio', referencia: 'Análisis y Pruebas', telefono: '2220-3500', estado: 'activo', fechaAlta: new Date().toISOString().split('T')[0] },
+                    { id: 'PRV-MED-003', nombre: 'Servicios de Encamamiento Plus', contacto: 'Coordinador', referencia: 'Hospedaje Hospital', telefono: '2400-7800', estado: 'activo', fechaAlta: new Date().toISOString().split('T')[0] }
+                );
+            }
+            
+            // Cuentas por pagar demo con líneas de concepto
             const proximoVencimiento = new Date();
             proximoVencimiento.setDate(proximoVencimiento.getDate() + 15);
             const vencimiento2 = new Date();
             vencimiento2.setDate(vencimiento2.getDate() + 30);
             
             this.state.cuentasPorPagar = [
-                { id: 'CPP-001', proveedor: 'PRV-001', concepto: 'CON-001', monto: 2500, saldo: 2500, fecha: dates[3], vencimiento: proximoVencimiento.toISOString().split('T')[0], numeroFactura: 'FAC-2024-015', estado: 'pendiente', pagos: [] },
-                { id: 'CPP-002', proveedor: 'PRV-002', concepto: 'CON-002', monto: 1200, saldo: 800, fecha: dates[4], vencimiento: proximoVencimiento.toISOString().split('T')[0], numeroFactura: 'FAC-2024-016', estado: 'parcial', pagos: [{ id: 'PAG-P1', monto: 400, fecha: dates[2] }] },
-                { id: 'CPP-003', proveedor: 'PRV-003', concepto: 'CON-004', monto: 950, saldo: 0, fecha: dates[5], vencimiento: dates[0], numeroFactura: 'FAC-2024-017', estado: 'pagada', pagos: [{ id: 'PAG-P2', monto: 950, fecha: dates[1] }] },
-                { id: 'CPP-004', proveedor: 'PRV-004', concepto: 'CON-005', monto: 3600, saldo: 3600, fecha: dates[6], vencimiento: vencimiento2.toISOString().split('T')[0], numeroFactura: 'FAC-2024-018', estado: 'pendiente', pagos: [] }
+                { 
+                    id: 'CPP-001', 
+                    proveedor: 'PRV-MED-001', 
+                    concepto: 'Medicamentos', 
+                    monto: 2500, 
+                    saldo: 2500, 
+                    fecha: dates[3], 
+                    vencimiento: proximoVencimiento.toISOString().split('T')[0], 
+                    numeroFactura: 'FAC-FARM-2024-015', 
+                    estado: 'pendiente', 
+                    lineas: [
+                        { id: 'L1', concepto: 'Antibióticos (Amoxicilina)', cantidad: 50, unitario: 25, subtotal: 1250 },
+                        { id: 'L2', concepto: 'Analgésicos (Ibuprofeno)', cantidad: 100, unitario: 5.50, subtotal: 550 },
+                        { id: 'L3', concepto: 'Vitaminas B12', cantidad: 20, unitario: 36, subtotal: 720 }
+                    ],
+                    pagos: [] 
+                },
+                { 
+                    id: 'CPP-002', 
+                    proveedor: 'PRV-MED-002', 
+                    concepto: 'Análisis de Laboratorio', 
+                    monto: 1200, 
+                    saldo: 800, 
+                    fecha: dates[4], 
+                    vencimiento: proximoVencimiento.toISOString().split('T')[0], 
+                    numeroFactura: 'FAC-LAB-2024-016', 
+                    estado: 'parcial', 
+                    lineas: [
+                        { id: 'L1', concepto: 'Hemograma completo', cantidad: 15, unitario: 45, subtotal: 675 },
+                        { id: 'L2', concepto: 'Química sanguínea', cantidad: 10, unitario: 52.50, subtotal: 525 }
+                    ],
+                    pagos: [{ id: 'PAG-P1', monto: 400, fecha: dates[2] }] 
+                },
+                { 
+                    id: 'CPP-003', 
+                    proveedor: 'PRV-MED-003', 
+                    concepto: 'Encamamiento Hospitalario', 
+                    monto: 950, 
+                    saldo: 0, 
+                    fecha: dates[5], 
+                    vencimiento: dates[0], 
+                    numeroFactura: 'FAC-ENC-2024-017', 
+                    estado: 'pagada', 
+                    lineas: [
+                        { id: 'L1', concepto: 'Cama estándar (5 noches)', cantidad: 5, unitario: 150, subtotal: 750 },
+                        { id: 'L2', concepto: 'Servicios de enfermería', cantidad: 1, unitario: 200, subtotal: 200 }
+                    ],
+                    pagos: [{ id: 'PAG-P2', monto: 950, fecha: dates[1] }] 
+                },
+                { 
+                    id: 'CPP-004', 
+                    proveedor: 'PRV-MED-001', 
+                    concepto: 'Medicamentos Especiales', 
+                    monto: 3600, 
+                    saldo: 3600, 
+                    fecha: dates[6], 
+                    vencimiento: vencimiento2.toISOString().split('T')[0], 
+                    numeroFactura: 'FAC-FARM-2024-018', 
+                    estado: 'pendiente', 
+                    lineas: [
+                        { id: 'L1', concepto: 'Insulina NPH (frascos)', cantidad: 12, unitario: 200, subtotal: 2400 },
+                        { id: 'L2', concepto: 'Metformina 850mg', cantidad: 60, unitario: 20, subtotal: 1200 }
+                    ],
+                    pagos: [] 
+                }
             ];
         }
         this.save();
@@ -701,10 +771,8 @@ class GastosServiciosModule {
         html += '</tr></thead><tbody>';
 
         cuentas.forEach(cuenta => {
-            const proveedor = this.getPagoProveedor(cuenta.proveedor);
-            const concepto = this.getPagoConcepto(cuenta.concepto);
-            const proveedorNombre = proveedor ? proveedor.nombre : 'Desconocido';
-            const conceptoNombre = concepto ? concepto.nombre : 'Desconocido';
+            const proveedor = this.getPagoProveedor(cuenta.proveedor) || { nombre: cuenta.proveedor };
+            const proveedorNombre = proveedor.nombre;
             
             const vencimiento = new Date(cuenta.vencimiento);
             const hoy = new Date();
@@ -716,12 +784,13 @@ class GastosServiciosModule {
             html += `<td>${this.formatarFecha(cuenta.fecha)}</td>`;
             html += `<td>${proveedorNombre}</td>`;
             html += `<td><strong>${cuenta.numeroFactura}</strong></td>`;
-            html += `<td>${conceptoNombre}</td>`;
+            html += `<td>${cuenta.concepto}</td>`;
             html += `<td class="monto">${this.formatarMoneda(cuenta.monto)}</td>`;
             html += `<td class="monto saldo-pendiente">${this.formatarMoneda(cuenta.saldo)}</td>`;
             html += `<td>${this.formatarFecha(cuenta.vencimiento)}</td>`;
             html += `<td><span class="badge badge-${estadoClass}">${estadoIcon} ${estadoLabel}</span></td>`;
             html += `<td class="acciones">`;
+            html += `<button onclick="gastosModule.abrirModalDetallesCuenta('${cuenta.id}')" class="btn-info" style="padding: 5px 10px; margin-right: 5px;"><i class="fas fa-eye"></i> Detalles</button>`;
             if (cuenta.estado !== 'pagada') {
                 html += `<button onclick="gastosModule.abrirModalPagoCuenta('${cuenta.id}')" class="btn-info" style="padding: 5px 10px; margin-right: 5px;"><i class="fas fa-money-bill"></i> Pagar</button>`;
             }
@@ -733,11 +802,92 @@ class GastosServiciosModule {
         container.innerHTML = html;
     }
 
+    abrirModalDetallesCuenta(cuentaId) {
+        const cuenta = this.state.cuentasPorPagar.find(c => c.id === cuentaId);
+        if (!cuenta) return;
+
+        const proveedor = this.getPagoProveedor(cuenta.proveedor) || { nombre: cuenta.proveedor };
+        
+        let html = `
+            <div style="background: white; border-radius: 8px; padding: 20px; max-height: 600px; overflow-y: auto;">
+                <h3>${proveedor.nombre} - Factura ${cuenta.numeroFactura}</h3>
+                <p style="color: #666; margin-bottom: 15px;"><strong>Concepto:</strong> ${cuenta.concepto}</p>
+                
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                    <thead>
+                        <tr style="background: #f5f5f5;">
+                            <th style="text-align: left; padding: 10px; border-bottom: 2px solid #ddd;">Concepto</th>
+                            <th style="text-align: right; padding: 10px; border-bottom: 2px solid #ddd;">Cantidad</th>
+                            <th style="text-align: right; padding: 10px; border-bottom: 2px solid #ddd;">Unitario</th>
+                            <th style="text-align: right; padding: 10px; border-bottom: 2px solid #ddd;">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${cuenta.lineas.map(linea => `
+                            <tr style="border-bottom: 1px solid #eee;">
+                                <td style="padding: 10px;">${linea.concepto}</td>
+                                <td style="text-align: right; padding: 10px;">${linea.cantidad}</td>
+                                <td style="text-align: right; padding: 10px;">${this.formatarMoneda(linea.unitario)}</td>
+                                <td style="text-align: right; padding: 10px; font-weight: bold;">${this.formatarMoneda(linea.subtotal)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                    <tfoot>
+                        <tr style="background: #f5f5f5; font-weight: bold;">
+                            <td colspan="3" style="padding: 10px; text-align: right; border-top: 2px solid #ddd;">TOTAL:</td>
+                            <td style="text-align: right; padding: 10px; border-top: 2px solid #ddd;">${this.formatarMoneda(cuenta.monto)}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                    <div style="background: #f9f9f9; padding: 12px; border-radius: 5px;">
+                        <p style="margin: 0; color: #666; font-size: 12px;">Pagado</p>
+                        <p style="margin: 5px 0 0 0; font-size: 16px; font-weight: bold; color: #27ae60;">${this.formatarMoneda(cuenta.monto - cuenta.saldo)}</p>
+                    </div>
+                    <div style="background: #f9f9f9; padding: 12px; border-radius: 5px;">
+                        <p style="margin: 0; color: #666; font-size: 12px;">Saldo Pendiente</p>
+                        <p style="margin: 5px 0 0 0; font-size: 16px; font-weight: bold; color: ${cuenta.saldo > 0 ? '#e74c3c' : '#27ae60'};">${this.formatarMoneda(cuenta.saldo)}</p>
+                    </div>
+                </div>
+
+                ${cuenta.pagos.length > 0 ? `
+                    <div style="background: #f0f8ff; padding: 12px; border-radius: 5px; margin-bottom: 15px;">
+                        <p style="margin: 0 0 8px 0; font-weight: bold; color: #0066cc;">Historial de Pagos:</p>
+                        ${cuenta.pagos.map(pago => `
+                            <p style="margin: 5px 0; color: #333; font-size: 12px;">
+                                📅 ${pago.fecha} - ${this.formatarMoneda(pago.monto)}
+                            </p>
+                        `).join('')}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+
+        const modal = document.createElement('div');
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+        modal.innerHTML = `
+            <div style="background: white; border-radius: 8px; padding: 0; max-width: 600px; width: 90%;">
+                <div style="padding: 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                    <h2 style="margin: 0;">Detalles de Cuenta por Pagar</h2>
+                    <button onclick="this.closest('div').parentElement.remove();" style="border: none; background: none; font-size: 24px; cursor: pointer; color: #999;">×</button>
+                </div>
+                <div style="padding: 20px;">
+                    ${html}
+                </div>
+                <div style="padding: 15px; background: #f5f5f5; border-top: 1px solid #eee; text-align: right;">
+                    <button onclick="this.closest('div').parentElement.remove();" class="btn btn-secondary">Cerrar</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
     abrirModalPagoCuenta(cuentaId) {
         const cuenta = this.state.cuentasPorPagar.find(c => c.id === cuentaId);
         if (!cuenta) return;
 
-        const proveedor = this.getPagoProveedor(cuenta.proveedor);
+        const proveedor = this.getPagoProveedor(cuenta.proveedor) || { nombre: cuenta.proveedor };
         const proveedorNombre = proveedor ? proveedor.nombre : 'Desconocido';
 
         const modal = document.createElement('div');
