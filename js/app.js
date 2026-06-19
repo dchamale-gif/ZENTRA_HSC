@@ -1429,8 +1429,8 @@ function updateCurrentDate() {
 }
 
 // Add CSS animations dynamically
-const style = document.createElement('style');
-style.textContent = `
+const styleElement = document.createElement('style');
+styleElement.textContent = `
     @keyframes slideIn {
         from {
             transform: translateX(400px);
@@ -1453,7 +1453,7 @@ style.textContent = `
         }
     }
 `;
-document.head.appendChild(style);
+document.head.appendChild(styleElement);
 
 // ============================================
 // FUNCIONES PARA GESTIÓN DE PACIENTES
