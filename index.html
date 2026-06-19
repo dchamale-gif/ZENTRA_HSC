@@ -121,6 +121,10 @@
 
                 <!-- CONFIGURACIÓN -->
                 <div class="nav-section-title">SISTEMA</div>
+                <a href="#" class="nav-item" data-page="alertas">
+                    <i class="fas fa-bell"></i>
+                    <span>Alertas <span id="alertasBadge" style="background: #e74c3c; color: white; padding: 2px 6px; border-radius: 10px; font-size: 11px; margin-left: 5px; display: none;">0</span></span>
+                </a>
                 <a href="#" class="nav-item" data-page="settings">
                     <i class="fas fa-cog"></i>
                     <span>Configuración</span>
@@ -945,6 +949,9 @@
                         <select id="specialtyFilter" class="form-input">
                             <option value="">Todas las especialidades</option>
                         </select>
+                        <button class="btn btn-sm btn-info" onclick="AgendaAvanzadaModule.openManagementPanel()">
+                            <i class="fas fa-cog"></i> Admin Agenda
+                        </button>
                     </div>
 
                     <div class="calendar-container">
@@ -1117,8 +1124,18 @@
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
+                                    <label>Número de Factura *</label>
+                                    <input type="text" id="inputNumeroFactura" placeholder="Ej: FAC-2024-001" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Requisición/Lote</label>
+                                    <input type="text" id="inputRequisicion" placeholder="Ej: REQ-2024-001 o LOTE-001">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
                                     <label>Referencia</label>
-                                    <input type="text" id="inputReferencia" placeholder="Ref. o comprobante">
+                                    <input type="text" id="inputReferencia" placeholder="Ref. o comprobante adicional">
                                 </div>
                             </div>
                             <button class="btn btn-primary" onclick="agregarPago()">
@@ -1161,12 +1178,18 @@
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label>Referencia</label>
-                                    <input type="text" id="inputProveedorReferencia" placeholder="Descripción o detalle">
+                                    <label>Nombre del Contacto *</label>
+                                    <input type="text" id="inputProveedorContacto" placeholder="Ej: Juan Pérez" required>
                                 </div>
                                 <div class="form-group">
-                                    <label>Teléfono</label>
-                                    <input type="tel" id="inputProveedorTelefono" placeholder="Contacto">
+                                    <label>Teléfono del Contacto</label>
+                                    <input type="tel" id="inputProveedorTelefono" placeholder="Contacto directo">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Referencia</label>
+                                    <input type="text" id="inputProveedorReferencia" placeholder="Descripción o detalle">
                                 </div>
                             </div>
                             <button class="btn btn-primary" onclick="agregarProveedor()">
@@ -1200,6 +1223,42 @@
                     </div>
                 </div>
 
+                <!-- Página: Alertas -->
+                <div id="page-alertas" class="page">
+                    <div class="page-header">
+                        <h1><i class="fas fa-bell"></i> Sistema de Alertas</h1>
+                        <button class="btn btn-secondary" id="markAllAsReadBtn">
+                            <i class="fas fa-check-double"></i> Marcar todas como leídas
+                        </button>
+                        <button class="btn btn-danger" id="clearAlertsBtn">
+                            <i class="fas fa-trash"></i> Limpiar alertas
+                        </button>
+                    </div>
+
+                    <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+                        <div class="form-group" style="flex: 1; min-width: 200px;">
+                            <label>Filtrar por Tipo</label>
+                            <select id="filterTipo" class="form-input">
+                                <option value="todas">Todas</option>
+                                <option value="compra">Compras</option>
+                                <option value="paciente">Pacientes</option>
+                                <option value="sistema">Sistema</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex: 1; min-width: 200px;">
+                            <label>Filtrar por Estado</label>
+                            <select id="filterLeidas" class="form-input">
+                                <option value="sin-leer">Sin leer</option>
+                                <option value="leidas">Leídas</option>
+                                <option value="todas">Todas</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="alertasContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 15px;">
+                        <!-- Alertas se renderizarán aquí -->
+                    </div>
+                </div>
 
     <!-- Modal for managing pacients -->
     <div id="pacientModal" class="modal">
@@ -1261,9 +1320,26 @@
                                 <label>Motivo de Consulta</label>
                                 <input type="text" id="motivoConsulta" class="form-input" placeholder="Motivo de la consulta">
                             </div>
+                        </div>
+
+                        <div class="form-row">
                             <div class="form-group">
-                                <label>Referencia</label>
-                                <input type="text" id="referencia" class="form-input" placeholder="¿De quién/qué fue referido?">
+                                <label>De donde viene</label>
+                                <select id="referencia" class="form-input" onchange="PacientesModule.toggleNombrePacienteRefiere()">
+                                    <option value="">-- Selecciona una opcion --</option>
+                                    <option value="otro-hospital">Otro Hospital</option>
+                                    <option value="clinica-privada">Clinica Privada</option>
+                                    <option value="medico-particular">Medico Particular</option>
+                                    <option value="amigo-familia">Recomendacion Amigo/Familia</option>
+                                    <option value="otro-paciente">Otro Paciente</option>
+                                    <option value="redes-sociales">Redes Sociales</option>
+                                    <option value="publicidad">Publicidad</option>
+                                    <option value="otro">Otro</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="pacienteRefiereName" style="display: none;">
+                                <label>Nombre del Paciente que Refiere</label>
+                                <input type="text" id="pacienteRefierenombre" class="form-input" placeholder="Nombre del paciente">
                             </div>
                         </div>
 
@@ -1345,13 +1421,6 @@
                             </div>
                         </div>
 
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Originario de</label>
-                                <input type="text" id="originarioDe" class="form-input" placeholder="Lugar de origen">
-                            </div>
-                        </div>
-
                         <div class="form-section-title">Contacto e Información Social</div>
                         <div class="form-row">
                             <div class="form-group">
@@ -1365,10 +1434,6 @@
                         </div>
 
                         <div class="form-row">
-                            <div class="form-group">
-                                <label>Vive con</label>
-                                <input type="text" id="vivecon" class="form-input" placeholder="¿Con quién vive?">
-                            </div>
                             <div class="form-group">
                                 <label>Tiene hijos</label>
                                 <select id="tieneHijos" class="form-input">
@@ -1394,7 +1459,150 @@
                             </div>
                             <div class="form-group">
                                 <label>Profesión</label>
-                                <input type="text" id="profesion" class="form-input" placeholder="Profesión">
+                                <select id="profesion" class="form-input">
+                                    <option value="">Selecciona una profesión</option>
+                                    <option value="abogado">Abogado</option>
+                                    <option value="contador">Contador</option>
+                                    <option value="arquitecto">Arquitecto</option>
+                                    <option value="artesano">Artesano</option>
+                                    <option value="auxiliar-enfermeria">Auxiliar de Enfermería</option>
+                                    <option value="barbero">Barbero/Peluquero</option>
+                                    <option value="bibliotecario">Bibliotecario</option>
+                                    <option value="biologo">Biólogo</option>
+                                    <option value="bombero">Bombero</option>
+                                    <option value="camarero">Camarero</option>
+                                    <option value="camillero">Camillero</option>
+                                    <option value="carpintero">Carpintero</option>
+                                    <option value="cartero">Cartero</option>
+                                    <option value="cerrajero">Cerrajero</option>
+                                    <option value="chef">Chef/Cocinero</option>
+                                    <option value="chofer">Chofer/Taxista</option>
+                                    <option value="cirujano">Cirujano</option>
+                                    <option value="comerciante">Comerciante</option>
+                                    <option value="conductor">Conductor</option>
+                                    <option value="constructor">Constructor</option>
+                                    <option value="consultor">Consultor</option>
+                                    <option value="dentista">Dentista</option>
+                                    <option value="deportista">Deportista</option>
+                                    <option value="dermatolog">Dermatólogo</option>
+                                    <option value="detective">Detective</option>
+                                    <option value="dibujante">Dibujante</option>
+                                    <option value="dietista">Dietista</option>
+                                    <option value="diplomatico">Diplomático</option>
+                                    <option value="director">Director</option>
+                                    <option value="diseñador">Diseñador</option>
+                                    <option value="diseñador-grafico">Diseñador Gráfico</option>
+                                    <option value="distribuidor">Distribuidor</option>
+                                    <option value="docente">Docente</option>
+                                    <option value="doctor">Doctor/Médico</option>
+                                    <option value="economista">Economista</option>
+                                    <option value="editor">Editor</option>
+                                    <option value="educador">Educador</option>
+                                    <option value="ejecutivo">Ejecutivo</option>
+                                    <option value="electricista">Eléctricista</option>
+                                    <option value="empleado-administrativo">Empleado Administrativo</option>
+                                    <option value="empleado-comercio">Empleado de Comercio</option>
+                                    <option value="empleada-doméstica">Empleada Doméstica</option>
+                                    <option value="encargado-tienda">Encargado de Tienda</option>
+                                    <option value="enfermera">Enfermera</option>
+                                    <option value="enfermero">Enfermero</option>
+                                    <option value="empresario">Empresario</option>
+                                    <option value="especialista-cardiologia">Especialista en Cardiología</option>
+                                    <option value="especialista-pediatria">Especialista en Pediatría</option>
+                                    <option value="especialista-psiquiatria">Especialista en Psiquiatría</option>
+                                    <option value="especialista-oftalmologia">Especialista en Oftalmología</option>
+                                    <option value="especialista-ginecologia">Especialista en Ginecología</option>
+                                    <option value="farmaceutico">Farmacéutico</option>
+                                    <option value="filosofo">Filósofo</option>
+                                    <option value="fisico">Físico</option>
+                                    <option value="fisioterapeuta">Fisioterapeuta</option>
+                                    <option value="florista">Florista</option>
+                                    <option value="fontanero">Fontanero</option>
+                                    <option value="fotografo">Fotógrafo</option>
+                                    <option value="ganadero">Ganadero</option>
+                                    <option value="gastonomo">Gastrónomo</option>
+                                    <option value="gastroenterologo">Gastroenterólogo</option>
+                                    <option value="gerente">Gerente</option>
+                                    <option value="historiador">Historiador</option>
+                                    <option value="ingeniero">Ingeniero</option>
+                                    <option value="intendente">Intendente</option>
+                                    <option value="interprete">Intérprete</option>
+                                    <option value="investigador">Investigador</option>
+                                    <option value="jardinero">Jardinero</option>
+                                    <option value="jefe-proyecto">Jefe de Proyecto</option>
+                                    <option value="joyero">Joyero</option>
+                                    <option value="jubilado">Jubilado</option>
+                                    <option value="juez">Juez</option>
+                                    <option value="jugador-deportes">Jugador de Deportes</option>
+                                    <option value="kinesiologo">Kinesiólogo</option>
+                                    <option value="laboralista">Laboralista</option>
+                                    <option value="limpiador">Limpiador</option>
+                                    <option value="linguista">Lingüista</option>
+                                    <option value="locutor">Locutor</option>
+                                    <option value="logistica">Logística</option>
+                                    <option value="maestro">Maestro</option>
+                                    <option value="mago">Mago</option>
+                                    <option value="maître">Maître</option>
+                                    <option value="malabarista">Malabarista</option>
+                                    <option value="mamógrafo">Mamógrafo</option>
+                                    <option value="manceba">Manceba</option>
+                                    <option value="mancebo">Mancebo</option>
+                                    <option value="mandatario">Mandatario</option>
+                                    <option value="mando-operativo">Mando Operativo</option>
+                                    <option value="maneja-cargas">Maneja Cargas</option>
+                                    <option value="manifestante">Manifestante</option>
+                                    <option value="manipulador">Manipulador</option>
+                                    <option value="mano-obra">Mano de Obra</option>
+                                    <option value="manotista">Manotista</option>
+                                    <option value="mansedumbre">Mansedumbre</option>
+                                    <option value="mantecador">Mantecador</option>
+                                    <option value="mantenedor">Mantenedor</option>
+                                    <option value="mantenimiento">Mantenimiento</option>
+                                    <option value="mantequero">Mantequero</option>
+                                    <option value="mantilla">Mantilla</option>
+                                    <option value="manto">Manto</option>
+                                    <option value="mantón">Mantón</option>
+                                    <option value="manual">Manual</option>
+                                    <option value="manubrio">Manubrio</option>
+                                    <option value="manufactura">Manufactura</option>
+                                    <option value="manuscrito">Manuscrito</option>
+                                    <option value="manutención">Manutención</option>
+                                    <option value="manzana">Manzana</option>
+                                    <option value="manzanada">Manzanada</option>
+                                    <option value="manzanal">Manzanal</option>
+                                    <option value="manzanilla">Manzanilla</option>
+                                    <option value="manzano">Manzano</option>
+                                    <option value="maña">Maña</option>
+                                    <option value="mañana">Mañana</option>
+                                    <option value="mañanita">Mañanita</option>
+                                    <option value="mañero">Mañero</option>
+                                    <option value="mañosamente">Mañosamente</option>
+                                    <option value="mañoso">Mañoso</option>
+                                    <option value="mapa">Mapa</option>
+                                    <option value="mapamundi">Mapamundi</option>
+                                    <option value="maqueta">Maqueta</option>
+                                    <option value="maquetador">Maquetador</option>
+                                    <option value="maqui">Maqui</option>
+                                    <option value="maquiador">Maquiador</option>
+                                    <option value="maquiadora">Maquiadora</option>
+                                    <option value="maquiar">Maquiar</option>
+                                    <option value="máquila">Máquila</option>
+                                    <option value="maquiladora">Maquiladora</option>
+                                    <option value="maquillador">Maquillador</option>
+                                    <option value="maquilladora">Maquilladora</option>
+                                    <option value="maquillaje">Maquillaje</option>
+                                    <option value="maquilla">Maquilla</option>
+                                    <option value="maquina">Maquina</option>
+                                    <option value="maquinación">Maquinación</option>
+                                    <option value="maquinal">Maquinal</option>
+                                    <option value="maquinalmente">Maquinalmente</option>
+                                    <option value="maquinador">Maquinador</option>
+                                    <option value="maquinadora">Maquinadora</option>
+                                    <option value="maquinadora-industrial">Maquinadora Industrial</option>
+                                    <option value="maquinadora-persona">Maquinadora Persona</option>
+                                    <option value="maquinadora-cosa">Maquinadora Cosa</option>
+                                    <option value="maquinadora-otro">Maquinadora Otro</option>
+                                </select>
                             </div>
                         </div>
 
@@ -1470,7 +1678,7 @@
 
                     <!-- TAB 3: CONTACTO DE EMERGENCIA -->
                     <div id="tab-emergencia" class="tab-content">
-                        <div class="form-section-title">Contacto de Emergencia</div>
+                        <div class="form-section-title">Contacto de Emergencia Principal</div>
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Nombre</label>
@@ -1483,6 +1691,36 @@
                             <div class="form-group">
                                 <label>Parentesco</label>
                                 <input type="text" id="emergenciaParentesco" class="form-input" placeholder="Parentesco">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Dirección</label>
+                                <input type="text" id="emergenciaDireccion" class="form-input" placeholder="Dirección completa">
+                            </div>
+                        </div>
+
+                        <div class="form-section-title" style="margin-top: 25px;">Contacto de Emergencia Secundario</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Nombre</label>
+                                <input type="text" id="emergenciaNombre2" class="form-input" placeholder="Nombre">
+                            </div>
+                            <div class="form-group">
+                                <label>Teléfono</label>
+                                <input type="tel" id="emergenciaTelefono2" class="form-input" placeholder="Teléfono">
+                            </div>
+                            <div class="form-group">
+                                <label>Parentesco</label>
+                                <input type="text" id="emergenciaParentesco2" class="form-input" placeholder="Parentesco">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Dirección</label>
+                                <input type="text" id="emergenciaDireccion2" class="form-input" placeholder="Dirección completa">
                             </div>
                         </div>
                     </div>
@@ -1534,6 +1772,25 @@
                                 </div>
                                 <div class="form-group">
                                     <input type="text" id="especificacionProtesis" class="form-input" placeholder="Especificar prótesis" style="display:none;">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>
+                                        <input type="checkbox" id="tuvoEmbarazosHist"> Ha tenido embarazos
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label>Cantidad de embarazos</label>
+                                    <input type="number" id="cantidadEmbarazosHist" class="form-input" placeholder="Número de embarazos" min="0" style="display:none;">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Días de período</label>
+                                    <input type="number" id="diasPeriodoHist" class="form-input" placeholder="Duración en días" min="0">
                                 </div>
                             </div>
 
@@ -1675,7 +1932,154 @@
                                     <input type="text" id="especificacionLegales" class="form-input" placeholder="Especificar" style="display:none;">
                                 </div>
                             </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>
+                                        <input type="checkbox" id="requiereFisioterapia"> Requiere Fisioterapia
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label>
+                                        <input type="checkbox" id="requiereNutricion"> Requiere Nutrición
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>
+                                        <input type="checkbox" id="tuvoEmbarazos"> Ha tenido embarazos
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label>Cantidad de embarazos</label>
+                                    <input type="number" id="cantidadEmbarazos" class="form-input" placeholder="Número de embarazos" min="0" style="display:none;">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Días de período</label>
+                                    <input type="number" id="diasPeriodo" class="form-input" placeholder="Duración en días" min="0">
+                                </div>
+                            </div>
                         </div>
+
+                        <!-- SUB-TABS de Historial Médico -->
+                        <div class="subtabs-container" style="margin-top: 30px; border-top: 2px solid #ddd; padding-top: 20px;">
+                            <div class="subtabs-header" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #eee;">
+                                <button type="button" class="subtab-btn active" data-subtab="laboratorios" onclick="document.querySelectorAll('[data-subtab]').forEach(e => e.style.display='none'); document.querySelector('[data-subtab=\\\"laboratorios\\\"]').style.display='block'; document.querySelectorAll('.subtab-btn').forEach(e => e.classList.remove('active')); this.classList.add('active');" style="padding: 10px 15px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent;">
+                                    🔬 Laboratorios
+                                </button>
+                                <button type="button" class="subtab-btn" data-subtab="ordenes" onclick="document.querySelectorAll('[data-subtab]').forEach(e => e.style.display='none'); document.querySelector('[data-subtab=\\\"ordenes\\\"]').style.display='block'; document.querySelectorAll('.subtab-btn').forEach(e => e.classList.remove('active')); this.classList.add('active');" style="padding: 10px 15px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent;">
+                                    📋 Órdenes
+                                </button>
+                                <button type="button" class="subtab-btn" data-subtab="evolucion" onclick="document.querySelectorAll('[data-subtab]').forEach(e => e.style.display='none'); document.querySelector('[data-subtab=\\\"evolucion\\\"]').style.display='block'); document.querySelectorAll('.subtab-btn').forEach(e => e.classList.remove('active')); this.classList.add('active');" style="padding: 10px 15px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent;">
+                                    📝 Evolución
+                                </button>
+                                <button type="button" class="subtab-btn" data-subtab="alertas" onclick="document.querySelectorAll('[data-subtab]').forEach(e => e.style.display='none'); document.querySelector('[data-subtab=\\\"alertas\\\"]').style.display='block'); document.querySelectorAll('.subtab-btn').forEach(e => e.classList.remove('active')); this.classList.add('active');" style="padding: 10px 15px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent;">
+                                    ⚠️ Alertas
+                                </button>
+                            </div>
+
+                            <!-- LABORATORIOS Y RESULTADOS -->
+                            <div data-subtab="laboratorios" style="display: block;">
+                                <div class="form-section-title">Laboratorios y Resultados</div>
+                                <div class="form-group full-width">
+                                    <label>Agregar Resultado de Laboratorio</label>
+                                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                                        <input type="text" id="laboratorioTipo" class="form-input" placeholder="Tipo (ej: Hemograma, Glucosa)" style="flex: 1;">
+                                        <input type="date" id="laboratorioFecha" class="form-input" style="flex: 1;">
+                                        <button type="button" onclick="PacientesModule.addLaboratorio()" class="btn-primary" style="padding: 8px 15px;">+ Agregar</button>
+                                    </div>
+                                </div>
+                                <div class="form-group full-width">
+                                    <label>Resultado/Valor</label>
+                                    <textarea id="laboratorioResultado" class="form-input" rows="3" placeholder="Detalles del resultado..."></textarea>
+                                </div>
+                                <div id="laboratoriosList" style="margin-top: 15px;">
+                                    <table style="width: 100%; border-collapse: collapse;">
+                                        <thead>
+                                            <tr style="background: #f5f5f5; border-bottom: 2px solid #ddd;">
+                                                <th style="padding: 10px; text-align: left;">Tipo</th>
+                                                <th style="padding: 10px; text-align: left;">Fecha</th>
+                                                <th style="padding: 10px; text-align: left;">Resultado</th>
+                                                <th style="padding: 10px; text-align: center;">Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="laboratoriosTableBody">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- ÓRDENES Y ACTIVIDADES -->
+                            <div data-subtab="ordenes" style="display: none;">
+                                <div class="form-section-title">Órdenes y Actividades del Paciente</div>
+                                <div class="form-group full-width">
+                                    <label>Nueva Orden/Actividad</label>
+                                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                                        <select id="ordenTipo" class="form-input" style="flex: 1;">
+                                            <option value="">-- Seleccionar tipo --</option>
+                                            <option value="ejercicio">🏃 Ejercicio</option>
+                                            <option value="alimentacion">🍎 Alimentación</option>
+                                            <option value="medicamento">💊 Medicamento</option>
+                                            <option value="descanso">😴 Descanso</option>
+                                            <option value="higiene">🧼 Higiene</option>
+                                            <option value="otro">📝 Otro</option>
+                                        </select>
+                                        <input type="text" id="ordenDescripcion" class="form-input" placeholder="Descripción (ej: Salir a caminar 30 min, Tomar más agua)" style="flex: 2;">
+                                        <button type="button" onclick="PacientesModule.addOrden()" class="btn-primary" style="padding: 8px 15px;">+ Agregar</button>
+                                    </div>
+                                </div>
+                                <div id="ordenesList" style="margin-top: 15px;">
+                                    <table style="width: 100%; border-collapse: collapse;">
+                                        <thead>
+                                            <tr style="background: #f5f5f5; border-bottom: 2px solid #ddd;">
+                                                <th style="padding: 10px; text-align: left;">Tipo</th>
+                                                <th style="padding: 10px; text-align: left;">Descripción</th>
+                                                <th style="padding: 10px; text-align: left;">Estado</th>
+                                                <th style="padding: 10px; text-align: center;">Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="ordenesTableBody">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- EVOLUCIÓN (NOTAS) -->
+                            <div data-subtab="evolucion" style="display: none;">
+                                <div class="form-section-title">Evolución y Notas Médicas</div>
+                                <div id="evolucionList" style="margin-top: 15px; max-height: 400px; overflow-y: auto;">
+                                    <!-- Las notas se cargan desde historia clínica -->
+                                </div>
+                            </div>
+
+                            <!-- ALERTAS -->
+                            <div data-subtab="alertas" style="display: none;">
+                                <div class="form-section-title">Alertas del Paciente</div>
+                                <div class="form-group full-width">
+                                    <label>Nueva Alerta</label>
+                                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                                        <select id="alertaTipo" class="form-input" style="flex: 1;">
+                                            <option value="">-- Tipo de alerta --</option>
+                                            <option value="alergia">🔴 Alergia</option>
+                                            <option value="medicamento">💊 Medicamento</option>
+                                            <option value="riesgo">⚠️ Riesgo</option>
+                                            <option value="otro">📌 Otro</option>
+                                        </select>
+                                        <input type="text" id="alertaDescripcion" class="form-input" placeholder="Descripción" style="flex: 2;">
+                                        <button type="button" onclick="PacientesModule.addAlerta()" class="btn-primary" style="padding: 8px 15px;">+ Agregar</button>
+                                    </div>
+                                </div>
+                                <div id="alertasList" style="margin-top: 15px;">
+                                    <!-- Las alertas se cargan aquí -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
                     <!-- TAB 5: DATOS FAMILIARES -->
                     <div id="tab-datosFamiliares" class="tab-content">
@@ -2712,14 +3116,256 @@
         </div>
     </div>
 
-    <!-- Modal for appointments -->
-    <div id="appointmentModal" class="modal">
-        <div class="modal-content">
+    <!-- Modal for baja de proveedor -->
+    <div id="bajaProveedorModal" class="modal">
+        <div class="modal-content modal-content-md">
             <div class="modal-header">
-                <h2><i class="fas fa-calendar-plus"></i> Nueva Cita</h2>
+                <h2><i class="fas fa-ban"></i> Dar de Baja Proveedor</h2>
+                <button class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="bajaProveedorNombre" style="font-weight: bold; margin-bottom: 15px;"></p>
+                <div class="form-group">
+                    <label>Fecha de Baja *</label>
+                    <input type="date" id="inputFechaBaja" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label>Motivo de la Baja *</label>
+                    <select id="selectMotivoBaja" class="form-input" required>
+                        <option value="">-- Seleccionar motivo --</option>
+                        <option value="Cambio de proveedor">Cambio de proveedor</option>
+                        <option value="Servicio insatisfactorio">Servicio insatisfactorio</option>
+                        <option value="Precio no competitivo">Precio no competitivo</option>
+                        <option value="Cierre de negocio">Cierre de negocio</option>
+                        <option value="Incumplimiento de pagos">Incumplimiento de pagos</option>
+                        <option value="Problema administrativo">Problema administrativo</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Detalles Adicionales</label>
+                    <textarea id="inputDetallesBaja" class="form-input" placeholder="Información adicional..." rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary modal-close-btn">Cancelar</button>
+                <button class="btn btn-danger" onclick="confirmarBajaProveedor()"><i class="fas fa-check"></i> Dar de Baja</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for agenda management panel -->
+    <div id="agendaManagementModal" class="modal">
+        <div class="modal-content modal-content-xl">
+            <div class="modal-header">
+                <h2><i class="fas fa-cog"></i> Administración de Agenda</h2>
                 <button class="modal-close">&times;</button>
             </div>
             <div class="modal-body">
+                <div class="tabs-group">
+                    <button class="tab-btn active" onclick="AgendaAvanzadaModule.showManagementTab('doctores')">
+                        <i class="fas fa-user-md"></i> Gestionar Doctores
+                    </button>
+                    <button class="tab-btn" onclick="AgendaAvanzadaModule.showManagementTab('restricciones')">
+                        <i class="fas fa-ban"></i> Restricciones
+                    </button>
+                    <button class="tab-btn" onclick="AgendaAvanzadaModule.showManagementTab('bloqueos')">
+                        <i class="fas fa-lock"></i> Bloqueos
+                    </button>
+                </div>
+
+                <!-- TAB: DOCTORES -->
+                <div id="mgmt-doctores" class="management-tab active">
+                    <h3>Gestión de Doctores</h3>
+                    
+                    <button class="btn btn-primary btn-sm" onclick="AgendaAvanzadaModule.openAddDoctorForm()">
+                        <i class="fas fa-plus"></i> Agregar Doctor
+                    </button>
+
+                    <div id="doctoresList" style="margin-top: 15px;">
+                        <!-- Doctores se renderean aquí -->
+                    </div>
+                </div>
+
+                <!-- TAB: RESTRICCIONES -->
+                <div id="mgmt-restricciones" class="management-tab" style="display: none;">
+                    <h3>Configurar Restricciones por Doctor</h3>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Selecciona Doctor <span class="required">*</span></label>
+                            <select id="restrictionDoctorSelect" class="form-input">
+                                <option value="">Selecciona...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="restrictionForm" style="display: none; margin-top: 20px;">
+                        <div class="form-section-title">Configuración de Restricciones</div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Duración de Cita (minutos) <span class="required">*</span></label>
+                                <input type="number" id="restrictionDuration" class="form-input" value="30" min="15" max="120" step="15">
+                            </div>
+                            <div class="form-group">
+                                <label>Máx. Pacientes por Día <span class="required">*</span></label>
+                                <input type="number" id="restrictionMaxPatients" class="form-input" value="8" min="1" max="20">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Tiempo entre Citas (minutos)</label>
+                                <input type="number" id="restrictionBuffer" class="form-input" value="10" min="0" max="60">
+                            </div>
+                            <div class="form-group">
+                                <label>Permitir traslapo de paciente</label>
+                                <input type="checkbox" id="restrictionOverlap" class="form-input">
+                            </div>
+                        </div>
+
+                        <button class="btn btn-primary" onclick="AgendaAvanzadaModule.saveRestrictions()">
+                            <i class="fas fa-save"></i> Guardar Restricciones
+                        </button>
+                    </div>
+                </div>
+
+                <!-- TAB: BLOQUEOS -->
+                <div id="mgmt-bloqueos" class="management-tab" style="display: none;">
+                    <h3>Bloqueos de Personal</h3>
+
+                    <div class="form-section-title">Agregar Bloqueo</div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Doctor <span class="required">*</span></label>
+                            <select id="bloqueoDoctor" class="form-input" required>
+                                <option value="">Selecciona doctor...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Motivo <span class="required">*</span></label>
+                            <select id="bloqueoMotivo" class="form-input" required>
+                                <option value="">Selecciona motivo...</option>
+                                <option value="Vacaciones">Vacaciones</option>
+                                <option value="Permiso">Permiso Personal</option>
+                                <option value="Enfermedad">Enfermedad</option>
+                                <option value="Capacitación">Capacitación</option>
+                                <option value="Congreso">Congreso/Seminario</option>
+                                <option value="Cirugía">Cirugía</option>
+                                <option value="Otro">Otro</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Fecha Inicio <span class="required">*</span></label>
+                            <input type="date" id="bloqueoFechaInicio" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Fecha Fin <span class="required">*</span></label>
+                            <input type="date" id="bloqueoFechaFin" class="form-input" required>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="AgendaAvanzadaModule.saveBloqueo()">
+                        <i class="fas fa-lock"></i> Agregar Bloqueo
+                    </button>
+
+                    <div id="bloqueosList" style="margin-top: 20px;">
+                        <!-- Bloqueos se renderean aquí -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary modal-close-btn">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for adding/editing doctor -->
+    <div id="doctorModal" class="modal">
+        <div class="modal-content modal-content-lg">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-md"></i> Gestionar Doctor</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-section-title">Información Personal</div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Nombre Completo <span class="required">*</span></label>
+                        <input type="text" id="doctorName" class="form-input" placeholder="Dr./Dra. Nombre Apellido" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Especialidad <span class="required">*</span></label>
+                        <select id="doctorSpecialty" class="form-input" required>
+                            <option value="">Selecciona especialidad...</option>
+                            <option value="Cardiología">Cardiología</option>
+                            <option value="Dermatología">Dermatología</option>
+                            <option value="Neurología">Neurología</option>
+                            <option value="Pediatría">Pediatría</option>
+                            <option value="Oftalmología">Oftalmología</option>
+                            <option value="Ginecología">Ginecología</option>
+                            <option value="Urología">Urología</option>
+                            <option value="General">Medicina General</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Email <span class="required">*</span></label>
+                        <input type="email" id="doctorEmail" class="form-input" placeholder="doctor@clinic.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Teléfono <span class="required">*</span></label>
+                        <input type="tel" id="doctorPhone" class="form-input" placeholder="+58412..." required>
+                    </div>
+                </div>
+
+                <div class="form-section-title">Condiciones Médicas Especialistas</div>
+                <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Selecciona las condiciones que trata este doctor</p>
+
+                <div id="doctorConditions" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px;">
+                    <!-- Checkboxes de condiciones se generan dinámicamente -->
+                </div>
+
+                <div class="form-section-title">Horarios de Trabajo</div>
+
+                <div id="doctorSchedule" style="display: grid; gap: 10px;">
+                    <!-- Horarios se renderean dinámicamente -->
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <label>
+                        <input type="checkbox" id="doctorActive" checked>
+                        <span><strong>Doctor Activo</strong></span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary modal-close-btn">Cancelar</button>
+                <button class="btn btn-primary" onclick="AgendaAvanzadaModule.saveDoctorForm()">
+                    <i class="fas fa-save"></i> Guardar Doctor
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for appointments (Avanzado) -->
+    <div id="appointmentModal" class="modal">
+        <div class="modal-content modal-content-lg">
+            <div class="modal-header">
+                <h2><i class="fas fa-calendar-plus"></i> Nueva Cita Médica</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-section-title">Datos del Paciente</div>
+                
                 <div class="form-row">
                     <div class="form-group">
                         <label>Nombre del Paciente <span class="required">*</span></label>
@@ -2736,13 +3382,26 @@
                         <label>Teléfono <span class="required">*</span></label>
                         <input type="tel" id="patientPhone" class="form-input" placeholder="Número de teléfono" required>
                     </div>
+                </div>
+
+                <div class="form-section-title">Selección de Doctor</div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Especialidad <span class="required">*</span></label>
+                        <select id="appointmentSpecialty" class="form-input" required>
+                            <option value="">Selecciona especialidad...</option>
+                        </select>
+                    </div>
                     <div class="form-group">
                         <label>Doctor <span class="required">*</span></label>
                         <select id="appointmentDoctor" class="form-input" required>
-                            <option value="">Selecciona un doctor...</option>
+                            <option value="">Selecciona especialidad primero...</option>
                         </select>
                     </div>
                 </div>
+
+                <div class="form-section-title">Fecha y Hora</div>
 
                 <div class="form-row">
                     <div class="form-group">
@@ -2751,14 +3410,30 @@
                     </div>
                     <div class="form-group">
                         <label>Hora <span class="required">*</span></label>
-                        <input type="time" id="appointmentTime" class="form-input" required>
+                        <select id="appointmentTime" class="form-input" required>
+                            <option value="">Selecciona fecha y doctor...</option>
+                        </select>
                     </div>
+                </div>
+
+                <div class="form-section-title">Información Médica</div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Condición/Motivo de Consulta <span class="required">*</span></label>
+                        <input type="text" id="appointmentConditions" class="form-input" placeholder="Ej: Dolor de cabeza, Seguimiento, etc." required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Notas Adicionales</label>
+                    <textarea id="appointmentNotes" class="form-input" rows="3" placeholder="Información adicional para el doctor..."></textarea>
                 </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary modal-close-btn">Cancelar</button>
-                <button class="btn btn-primary" id="saveAppointmentBtn" onclick="AgendaModule.saveAppointment()">
-                    <i class="fas fa-save"></i> Guardar Cita
+                <button class="btn btn-primary" id="saveAppointmentBtn" onclick="AgendaAvanzadaModule.saveAppointment()">
+                    <i class="fas fa-save"></i> Agendar Cita
                 </button>
             </div>
         </div>
@@ -2783,6 +3458,7 @@
     <script src="js/codigos-articulos.js"></script>
     <script src="js/caja-integrada.js"></script>
     <script src="js/compras.js"></script>
+    <script src="js/alertas.js"></script>
     <script src="js/ventas.js"></script>
     <script src="js/caja.js"></script>
     <script src="js/cuentas-por-cobrar.js"></script>
@@ -2791,7 +3467,7 @@
     <script src="js/reports.js"></script>
     
     <!-- Módulos Agenda -->
-    <script src="js/agenda.js"></script>
+    <script src="js/agenda-avanzada.js"></script>
     <script src="js/reservas-web.js"></script>
     <script src="js/confirmaciones.js"></script>
     <script src="js/google-calendar.js"></script>

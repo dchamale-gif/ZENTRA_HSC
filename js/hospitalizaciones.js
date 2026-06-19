@@ -275,23 +275,6 @@ const HospitalizacionesModule = {
                                 <strong>Piso ${camaDestinoInfo[0]}, Hab. ${camaDestinoInfo[1]}</strong>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label>Razón del Traslado <span class="required">*</span></label>
-                            <select id="razonTraslado" class="form-input" required>
-                                <option value="">-- Selecciona una razón --</option>
-                                <option value="cambio-solicitud">Cambio solicitado por paciente</option>
-                                <option value="cambio-medico">Recomendación médica</option>
-                                <option value="cambio-higiene">Motivos de higiene/sanitarios</option>
-                                <option value="cambio-luz">Mejor luminosidad</option>
-                                <option value="cambio-ruido">Reducir exposición a ruido</option>
-                                <option value="cambio-acceso">Mejor acceso a servicios</option>
-                                <option value="otro">Otro</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Detalles (opcional)</label>
-                            <textarea id="detallesTraslado" class="form-input" placeholder="Detalles adicionales del traslado..." rows="3"></textarea>
-                        </div>
                         <div style="display: flex; gap: 10px; margin-top: 20px;">
                             <button type="button" class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
                             <button type="button" class="btn btn-primary" onclick="HospitalizacionesModule.confirmarTraslado('${hospId}', '${camaDestino}')">
@@ -308,14 +291,6 @@ const HospitalizacionesModule = {
 
     // Confirmar traslado de paciente
     confirmarTraslado(hospId, camaDestino) {
-        const razonSelect = document.getElementById('razonTraslado');
-        const detallesArea = document.getElementById('detallesTraslado');
-
-        if (!razonSelect.value) {
-            alert('Por favor selecciona la razón del traslado');
-            return;
-        }
-
         const hosp = this.state.hospitalizaciones.find(h => h.id === hospId);
         if (!hosp) return;
 
@@ -341,9 +316,7 @@ const HospitalizacionesModule = {
             fecha: new Date().toISOString().split('T')[0],
             hora: new Date().toTimeString().split(' ')[0],
             desde: hosp.camaAnterior,
-            hacia: camaDestino,
-            razon: razonSelect.value,
-            detalles: detallesArea.value || ''
+            hacia: camaDestino
         });
 
         this.saveToDB();

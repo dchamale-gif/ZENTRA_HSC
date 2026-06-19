@@ -184,6 +184,19 @@ const ComprasModule = {
         };
 
         this.state.compras.push(newPurchase);
+        
+        // Crear alerta para la compra
+        if (window.AlertasModule) {
+            AlertasModule.crearAlerta({
+                tipo: 'compra',
+                titulo: `Nueva compra registrada: ${provider}`,
+                descripcion: `Compra de $${total} registrada el ${date}`,
+                prioridad: 'media',
+                referencia: newPurchase.id,
+                referenciaType: 'compra'
+            });
+        }
+        
         this.refreshTable();
         
         const modal = document.getElementById('purchaseModal');

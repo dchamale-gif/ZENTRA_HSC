@@ -210,6 +210,13 @@ const SaldoPacienteModule = {
                                             ${m.tipo === 'Abono' ? '+' : '-'}$${m.monto.toFixed(2)}
                                         </span>
                                     </div>
+                                    ${m.tipo === 'Abono' && m.factura ? `
+                                        <div style="margin-top: 8px;">
+                                            <button onclick="SaldoPacienteModule.descargarFactura('${m.factura}')" class="btn-small" style="background: #27ae60; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px;">
+                                                <i class="fas fa-file-download"></i> Descargar Factura
+                                            </button>
+                                        </div>
+                                    ` : ''}
                                 </div>
                             `).join('')}
                         </div>
@@ -320,7 +327,8 @@ const SaldoPacienteModule = {
             tipo: tipo,
             monto: monto,
             descripcion: descripcion,
-            fecha: fecha
+            fecha: fecha,
+            factura: null // Para almacenar referencia a factura
         };
 
         this.state.movimientosPaciente.push(movimento);
@@ -329,6 +337,13 @@ const SaldoPacienteModule = {
         if (tipo === 'Abono') {
             saldo.saldoPendiente -= monto;
             saldo.totalAbonos += monto;
+            
+            // Generar factura automática para abonos
+            const paciente = this.state.pacientes.find(p => p.id === pacienteId);
+            if (paciente) {
+                const factura = this.generarFacturaAbono(paciente, monto, fecha, movimento.id);
+                movimento.factura = factura.id;
+            }
         } else if (tipo === 'Cargo') {
             saldo.saldoPendiente += monto;
             saldo.totalAcumulado += monto;
@@ -341,6 +356,150 @@ const SaldoPacienteModule = {
         this.saveToDB();
         this.closePaymentModal();
         this.renderSaldosPacientes();
+    },
+
+    // Generar factura individual para abono
+    generarFacturaAbono(paciente, monto, fecha, movimientoId) {
+        const facturas = this.loadFacturas();
+        
+        const factura = {
+            id: this.generateId('FAC'),
+            numeroFactura: `FAC-${new Date().getFullYear()}-${String(facturas.length + 1).padStart(5, '0')}`,
+            pacienteId: paciente.id,
+            pacienteNombre: `${paciente.nombre} ${paciente.apellidoPaterno} ${paciente.apellidoMaterno}`,
+            pacienteDPI: paciente.dpi || '',
+            movimientoId: movimientoId,
+            monto: monto,
+            fecha: fecha,
+            concepto: 'Abono a cuenta de hospitalización',
+            estado: 'emitida',
+            fechaEmision: new Date().toISOString(),
+            impreso: false
+        };
+
+        facturas.push(factura);
+        localStorage.setItem('facturasAbonos', JSON.stringify(facturas));
+        
+        return factura;
+    },
+
+    // Cargar facturas del localStorage
+    loadFacturas() {
+        const facturasStr = localStorage.getItem('facturasAbonos');
+        return facturasStr ? JSON.parse(facturasStr) : [];
+    },
+
+    // Descargar factura en PDF
+    descargarFactura(facturaId) {
+        const facturas = this.loadFacturas();
+        const factura = facturas.find(f => f.id === facturaId);
+        
+        if (!factura) {
+            this.showNotification('❌ Factura no encontrada', 'error');
+            return;
+        }
+
+        let html = `
+            <!DOCTYPE html>
+            <html lang="es">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>${factura.numeroFactura}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+                    .container { max-width: 800px; margin: 0 auto; border: 1px solid #ddd; padding: 30px; }
+                    .header { text-align: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 20px; margin-bottom: 20px; }
+                    .header h1 { margin: 0; color: #1e3a8a; }
+                    .header p { margin: 5px 0; color: #666; }
+                    .factura-numero { text-align: right; font-weight: bold; margin-bottom: 20px; }
+                    .section { margin-bottom: 20px; }
+                    .section-title { font-weight: bold; color: #1e3a8a; margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+                    .info-row { display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 8px; }
+                    .info-label { font-weight: bold; color: #333; }
+                    .info-value { color: #666; }
+                    .tabla { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                    .tabla th { background: #1e3a8a; color: white; padding: 10px; text-align: left; }
+                    .tabla td { padding: 10px; border-bottom: 1px solid #ddd; }
+                    .tabla tr:nth-child(even) { background: #f9f9f9; }
+                    .total-row { font-weight: bold; font-size: 18px; background: #f0f0f0; }
+                    .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 12px; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>FACTURA DE ABONO</h1>
+                        <p>Sistema de Gestión Contable y Sanitaria</p>
+                    </div>
+
+                    <div class="factura-numero">
+                        <p>Factura: <strong>${factura.numeroFactura}</strong></p>
+                        <p>Fecha: ${new Date(factura.fechaEmision).toLocaleDateString('es-GT')}</p>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">DATOS DEL PACIENTE</div>
+                        <div class="info-row">
+                            <div>
+                                <div class="info-label">Nombre:</div>
+                                <div class="info-value">${factura.pacienteNombre}</div>
+                            </div>
+                            <div>
+                                <div class="info-label">DPI:</div>
+                                <div class="info-value">${factura.pacienteDPI || 'No registrado'}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <table class="tabla">
+                        <thead>
+                            <tr>
+                                <th style="width: 60%;">Descripción</th>
+                                <th style="width: 20%;">Cantidad</th>
+                                <th style="width: 20%; text-align: right;">Monto</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>${factura.concepto}</td>
+                                <td style="text-align: center;">1</td>
+                                <td style="text-align: right;">Q. ${factura.monto.toFixed(2)}</td>
+                            </tr>
+                            <tr class="total-row">
+                                <td colspan="2" style="text-align: right;">TOTAL:</td>
+                                <td style="text-align: right;">Q. ${factura.monto.toFixed(2)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="section">
+                        <div class="section-title">OBSERVACIONES</div>
+                        <p style="color: #666; margin: 10px 0;">
+                            Abono parcial a cuenta de hospitalización. Esta factura documenta el pago realizado 
+                            en la fecha indicada.
+                        </p>
+                    </div>
+
+                    <div class="footer">
+                        <p>Documento generado por sistema. Válido sin firma digital.</p>
+                        <p>Emitido: ${new Date().toLocaleString('es-GT')}</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+
+        const blob = new Blob([html], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${factura.numeroFactura}.html`;
+        link.click();
+        
+        factura.impreso = true;
+        localStorage.setItem('facturasAbonos', JSON.stringify(facturas));
+        this.showNotification('✅ Factura descargada correctamente', 'success');
     },
 
     // Generar ID único

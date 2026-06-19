@@ -457,7 +457,25 @@ const PacientesModule = {
             ciudad: document.getElementById('municipio').value.trim() || null,
             alergias: document.getElementById('especificacionAlergia').value.trim() || null,
             enfermedades_cronicas: document.getElementById('especificacionCronica').value.trim() || null,
-            contacto_emergencia: document.getElementById('emergenciaNombre').value.trim() || null
+            contacto_emergencia: document.getElementById('emergenciaNombre').value.trim() || null,
+            emergenciaTelefono: document.getElementById('emergenciaTelefono').value.trim() || null,
+            emergenciaParentesco: document.getElementById('emergenciaParentesco').value.trim() || null,
+            emergenciaDireccion: document.getElementById('emergenciaDireccion').value.trim() || null,
+            emergenciaNombre2: document.getElementById('emergenciaNombre2').value.trim() || null,
+            emergenciaTelefono2: document.getElementById('emergenciaTelefono2').value.trim() || null,
+            emergenciaParentesco2: document.getElementById('emergenciaParentesco2').value.trim() || null,
+            emergenciaDireccion2: document.getElementById('emergenciaDireccion2').value.trim() || null,
+            tuvoEmbarazosHist: document.getElementById('tuvoEmbarazosHist').checked || false,
+            cantidadEmbarazosHist: parseInt(document.getElementById('cantidadEmbarazosHist').value) || null,
+            diasPeriodoHist: parseInt(document.getElementById('diasPeriodoHist').value) || null,
+            requiereFisioterapia: document.getElementById('requiereFisioterapia').checked || false,
+            requiereNutricion: document.getElementById('requiereNutricion').checked || false,
+            tuvoEmbarazos: document.getElementById('tuvoEmbarazos').checked || false,
+            cantidadEmbarazos: parseInt(document.getElementById('cantidadEmbarazos').value) || null,
+            diasPeriodo: parseInt(document.getElementById('diasPeriodo').value) || null,
+            referencia: document.getElementById('referencia').value || null,
+            pacienteRefierenombre: document.getElementById('pacienteRefierenombre').value.trim() || null,
+            profesion: document.getElementById('profesion').value || null
         };
 
         try {
@@ -489,17 +507,44 @@ const PacientesModule = {
 
             const result = await response.json();
             
+            // Guardar/actualizar en estado local
+            const pacientCompleto = id 
+                ? { ...this.state.pacientes.find(p => p.id === id), ...apiData, ...result }
+                : { ...apiData, ...result, id: result.id };
+            
             if (id) {
+                const index = this.state.pacientes.findIndex(p => p.id === id);
+                if (index !== -1) {
+                    this.state.pacientes[index] = pacientCompleto;
+                }
                 this.showNotification('✅ Paciente actualizado correctamente', 'success');
             } else {
+                this.state.pacientes.push(pacientCompleto);
                 this.showNotification('✅ Paciente creado correctamente', 'success');
             }
+
+            // Guardar en localStorage
+            localStorage.setItem('pacientes', JSON.stringify(this.state.pacientes));
 
             this.closePacientModal();
             this.loadData(); // Recargar desde BD
         } catch (error) {
             console.error('Error guardando paciente:', error);
             this.showNotification(`❌ Error: ${error.message}`, 'error');
+        }
+    },
+
+    // Toggle campo de nombre cuando refiere otro paciente
+    toggleNombrePacienteRefiere() {
+        const referencia = document.getElementById('referencia');
+        const pacienteRefiereName = document.getElementById('pacienteRefiereName');
+        if (referencia && pacienteRefiereName) {
+            if (referencia.value === 'otro-paciente') {
+                pacienteRefiereName.style.display = 'block';
+                document.getElementById('pacienteRefierenombre').focus();
+            } else {
+                pacienteRefiereName.style.display = 'none';
+            }
         }
     },
 
@@ -514,6 +559,8 @@ const PacientesModule = {
         document.getElementById('fechaPrimerConsulta').value = pacient.fechaPrimerConsulta || '';
         document.getElementById('motivoConsulta').value = pacient.motivoConsulta || '';
         document.getElementById('referencia').value = pacient.referencia || '';
+        document.getElementById('pacienteRefierenombre').value = pacient.pacienteRefierenombre || '';
+        this.toggleNombrePacienteRefiere();
         
         // Identificación personal
         document.getElementById('pacientNombre').value = pacient.nombre || '';
@@ -532,12 +579,10 @@ const PacientesModule = {
         document.getElementById('zona').value = pacient.zona || '';
         document.getElementById('municipio').value = pacient.municipio || '';
         document.getElementById('departamento').value = pacient.departamento || '';
-        document.getElementById('originarioDe').value = pacient.originarioDe || '';
         
         // Contacto
         document.getElementById('pacientTelefono').value = pacient.telefono || '';
         document.getElementById('pacientEmail').value = pacient.email || '';
-        document.getElementById('vivecon').value = pacient.vivecon || '';
         document.getElementById('tieneHijos').value = pacient.tieneHijos || '';
         
         // Información laboral/educativa
@@ -563,6 +608,15 @@ const PacientesModule = {
             document.getElementById('emergenciaNombre').value = pacient.emergencia.nombre || '';
             document.getElementById('emergenciaTelefono').value = pacient.emergencia.telefono || '';
             document.getElementById('emergenciaParentesco').value = pacient.emergencia.parentesco || '';
+            document.getElementById('emergenciaDireccion').value = pacient.emergencia.direccion || '';
+        }
+        
+        // Segundo contacto de emergencia
+        if (pacient.emergencia2) {
+            document.getElementById('emergenciaNombre2').value = pacient.emergencia2.nombre || '';
+            document.getElementById('emergenciaTelefono2').value = pacient.emergencia2.telefono || '';
+            document.getElementById('emergenciaParentesco2').value = pacient.emergencia2.parentesco || '';
+            document.getElementById('emergenciaDireccion2').value = pacient.emergencia2.direccion || '';
         }
         
         // Historial médico
@@ -587,6 +641,18 @@ const PacientesModule = {
             document.getElementById('cantidadPartos').value = pacient.historialMedico.cantidadPartos || '';
             document.getElementById('tratamientoPsiquiatrico').checked = pacient.historialMedico.tratamientoPsiquiatrico || false;
             
+            // Campos ginecológicos
+            if (document.getElementById('tuvoEmbarazosHist')) {
+                document.getElementById('tuvoEmbarazosHist').checked = pacient.historialMedico.tuvoEmbarazos || false;
+                if (document.getElementById('cantidadEmbarazosHist')) {
+                    document.getElementById('cantidadEmbarazosHist').value = pacient.historialMedico.cantidadEmbarazos || '';
+                    document.getElementById('cantidadEmbarazosHist').style.display = pacient.historialMedico.tuvoEmbarazos ? 'block' : 'none';
+                }
+            }
+            if (document.getElementById('diasPeriodoHist')) {
+                document.getElementById('diasPeriodoHist').value = pacient.historialMedico.diasPeriodo || '';
+            }
+            
             // Cargar campos COEX si existen
             if (pacient.historialMedico.coex) {
                 const coex = pacient.historialMedico.coex;
@@ -601,6 +667,14 @@ const PacientesModule = {
                 document.getElementById('especificacionComorbilidad').value = coex.especificacionComorbilidad || '';
                 document.getElementById('antecedentesLegales').checked = coex.antecedentesLegales || false;
                 document.getElementById('especificacionLegales').value = coex.especificacionLegales || '';
+                document.getElementById('requiereFisioterapia').checked = coex.requiereFisioterapia || false;
+                document.getElementById('requiereNutricion').checked = coex.requiereNutricion || false;
+                document.getElementById('tuvoEmbarazos').checked = coex.tuvoEmbarazos || false;
+                if (document.getElementById('cantidadEmbarazos')) {
+                    document.getElementById('cantidadEmbarazos').value = coex.cantidadEmbarazos || '';
+                    document.getElementById('cantidadEmbarazos').style.display = coex.tuvoEmbarazos ? 'block' : 'none';
+                }
+                document.getElementById('diasPeriodo').value = coex.diasPeriodo || '';
             }
         }
         
@@ -679,6 +753,12 @@ const PacientesModule = {
         }
         this.documentosTemporales[id] = pacient.documentos || [];
         this.displayDocumentGallery(id);
+
+        // Cargar laboratorios, órdenes, alertas y evoluciones
+        this.displayLaboratorios(id);
+        this.displayOrdenes(id);
+        this.displayAlertas(id);
+        this.loadEvolucion(id);
 
         this.openPacientModal();
     },
@@ -916,10 +996,6 @@ const PacientesModule = {
                         <label>Departamento</label>
                         <p>${pacient.departamento || 'No especificado'}</p>
                     </div>
-                    <div class="detail-group">
-                        <label>Originario de</label>
-                        <p>${pacient.originarioDe || 'No especificado'}</p>
-                    </div>
                 </div>
 
                 <!-- CONTACTO -->
@@ -932,10 +1008,6 @@ const PacientesModule = {
                     <div class="detail-group">
                         <label>Email</label>
                         <p>${pacient.email || 'No especificado'}</p>
-                    </div>
-                    <div class="detail-group">
-                        <label>Vive con</label>
-                        <p>${pacient.vivecon || 'No especificado'}</p>
                     </div>
                     <div class="detail-group">
                         <label>Tiene Hijos</label>
@@ -999,6 +1071,33 @@ const PacientesModule = {
                             <label>Parentesco</label>
                             <p>${pacient.emergencia.parentesco || 'No especificado'}</p>
                         </div>
+                        <div class="detail-group">
+                            <label>Dirección</label>
+                            <p>${pacient.emergencia.direccion || 'No especificada'}</p>
+                        </div>
+                    </div>
+                ` : ''}
+
+                <!-- SEGUNDO CONTACTO DE EMERGENCIA -->
+                ${pacient.emergencia2 && (pacient.emergencia2.nombre || pacient.emergencia2.telefono) ? `
+                    <div class="detail-section">
+                        <h4><i class="fas fa-phone"></i> Segundo Contacto de Emergencia</h4>
+                        <div class="detail-group">
+                            <label>Nombre</label>
+                            <p>${pacient.emergencia2.nombre || 'No especificado'}</p>
+                        </div>
+                        <div class="detail-group">
+                            <label>Teléfono</label>
+                            <p>${pacient.emergencia2.telefono || 'No especificado'}</p>
+                        </div>
+                        <div class="detail-group">
+                            <label>Parentesco</label>
+                            <p>${pacient.emergencia2.parentesco || 'No especificado'}</p>
+                        </div>
+                        <div class="detail-group">
+                            <label>Dirección</label>
+                            <p>${pacient.emergencia2.direccion || 'No especificada'}</p>
+                        </div>
                     </div>
                 ` : ''}
 
@@ -1060,6 +1159,14 @@ const PacientesModule = {
                                 <p>${pacient.historialMedico.cantidadPartos || 'No especificada'}</p>
                             </div>
                         ` : ''}
+                        <div class="detail-group">
+                            <label>Ha tenido embarazos</label>
+                            <p>${pacient.tuvoEmbarazosHist ? 'Sí' : 'No'} ${pacient.cantidadEmbarazosHist ? ' - Cantidad: ' + pacient.cantidadEmbarazosHist : ''}</p>
+                        </div>
+                        <div class="detail-group">
+                            <label>Días de periodo</label>
+                            <p>${pacient.diasPeriodoHist || 'No especificado'} días</p>
+                        </div>
                         <div class="detail-group">
                             <label>Tratamiento psiquiátrico</label>
                             <p>${pacient.historialMedico.tratamientoPsiquiatrico ? 'Sí' : 'No'}</p>
@@ -1161,6 +1268,29 @@ const PacientesModule = {
                     </div>
                 ` : ''}
 
+                <!-- SERVICIOS ESPECIALES (COEX) -->
+                ${pacient.requiereFisioterapia || pacient.requiereNutricion || pacient.tuvoEmbarazos || pacient.cantidadEmbarazos || pacient.diasPeriodo ? `
+                    <div class="detail-section">
+                        <h4><i class="fas fa-heartbeat"></i> Servicios Especiales (COEX)</h4>
+                        <div class="detail-group">
+                            <label>Requiere Fisioterapia</label>
+                            <p>${pacient.requiereFisioterapia ? 'Sí' : 'No'}</p>
+                        </div>
+                        <div class="detail-group">
+                            <label>Requiere Nutrición</label>
+                            <p>${pacient.requiereNutricion ? 'Sí' : 'No'}</p>
+                        </div>
+                        <div class="detail-group">
+                            <label>Ha tenido embarazos</label>
+                            <p>${pacient.tuvoEmbarazos ? 'Sí' : 'No'} ${pacient.cantidadEmbarazos ? ' - Cantidad: ' + pacient.cantidadEmbarazos : ''}</p>
+                        </div>
+                        <div class="detail-group">
+                            <label>Días de periodo</label>
+                            <p>${pacient.diasPeriodo ? pacient.diasPeriodo + ' días' : 'No especificado'}</p>
+                        </div>
+                    </div>
+                ` : ''}
+
                 <div class="details-footer">
                     <p class="text-muted">Tipo de Servicio: ${pacient.tipoServicio || 'No especificado'}</p>
                     <p class="text-muted">Registrado el: ${pacient.fechaRegistro}</p>
@@ -1222,6 +1352,320 @@ const PacientesModule = {
             notification.classList.remove('show');
             setTimeout(() => notification.remove(), 300);
         }, 3000);
+    },
+
+    // Agregar laboratorio/resultado
+    addLaboratorio() {
+        const id = document.getElementById('pacientId').value;
+        if (!id) {
+            this.showNotification('⚠️ Por favor selecciona un paciente primero', 'warning');
+            return;
+        }
+
+        const tipo = document.getElementById('laboratorioTipo').value.trim();
+        const fecha = document.getElementById('laboratorioFecha').value;
+        const resultado = document.getElementById('laboratorioResultado').value.trim();
+
+        if (!tipo || !fecha || !resultado) {
+            this.showNotification('⚠️ Completa todos los campos del laboratorio', 'warning');
+            return;
+        }
+
+        const pacient = this.state.pacientes.find(p => p.id === id);
+        if (!pacient) return;
+
+        if (!pacient.laboratorios) {
+            pacient.laboratorios = [];
+        }
+
+        pacient.laboratorios.push({
+            id: this.generateId('LAB'),
+            tipo: tipo,
+            fecha: fecha,
+            resultado: resultado,
+            fechaRegistro: new Date().toISOString().split('T')[0]
+        });
+
+        this.showNotification('✅ Laboratorio agregado', 'success');
+        document.getElementById('laboratorioTipo').value = '';
+        document.getElementById('laboratorioFecha').value = '';
+        document.getElementById('laboratorioResultado').value = '';
+        
+        this.displayLaboratorios(id);
+        this.saveToDB();
+    },
+
+    // Mostrar laboratorios
+    displayLaboratorios(pacientId) {
+        const pacient = this.state.pacientes.find(p => p.id === pacientId);
+        const tbody = document.getElementById('laboratoriosTableBody');
+        
+        if (!tbody) return;
+
+        if (!pacient || !pacient.laboratorios || pacient.laboratorios.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="padding: 10px; text-align: center;">Sin resultados registrados</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = pacient.laboratorios.map(lab => `
+            <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 10px;">${lab.tipo}</td>
+                <td style="padding: 10px;">${lab.fecha}</td>
+                <td style="padding: 10px;">${lab.resultado}</td>
+                <td style="padding: 10px; text-align: center;">
+                    <button onclick="PacientesModule.deleteLaboratorio('${pacientId}', '${lab.id}')" style="color: #e74c3c; background: none; border: none; cursor: pointer;">🗑️ Eliminar</button>
+                </td>
+            </tr>
+        `).join('');
+    },
+
+    // Eliminar laboratorio
+    deleteLaboratorio(pacientId, labId) {
+        const pacient = this.state.pacientes.find(p => p.id === pacientId);
+        if (pacient && pacient.laboratorios) {
+            pacient.laboratorios = pacient.laboratorios.filter(l => l.id !== labId);
+            this.displayLaboratorios(pacientId);
+            this.saveToDB();
+            this.showNotification('✅ Laboratorio eliminado', 'success');
+        }
+    },
+
+    // Agregar orden/actividad
+    addOrden() {
+        const id = document.getElementById('pacientId').value;
+        if (!id) {
+            this.showNotification('⚠️ Por favor selecciona un paciente primero', 'warning');
+            return;
+        }
+
+        const tipo = document.getElementById('ordenTipo').value;
+        const descripcion = document.getElementById('ordenDescripcion').value.trim();
+
+        if (!tipo || !descripcion) {
+            this.showNotification('⚠️ Completa todos los campos de la orden', 'warning');
+            return;
+        }
+
+        const pacient = this.state.pacientes.find(p => p.id === id);
+        if (!pacient) return;
+
+        if (!pacient.ordenes) {
+            pacient.ordenes = [];
+        }
+
+        pacient.ordenes.push({
+            id: this.generateId('ORD'),
+            tipo: tipo,
+            descripcion: descripcion,
+            estado: 'pendiente',
+            fechaCreacion: new Date().toISOString().split('T')[0],
+            fechaCompletada: null
+        });
+
+        this.showNotification('✅ Orden agregada', 'success');
+        document.getElementById('ordenTipo').value = '';
+        document.getElementById('ordenDescripcion').value = '';
+        
+        this.displayOrdenes(id);
+        this.saveToDB();
+    },
+
+    // Mostrar órdenes
+    displayOrdenes(pacientId) {
+        const pacient = this.state.pacientes.find(p => p.id === pacientId);
+        const tbody = document.getElementById('ordenesTableBody');
+        
+        if (!tbody) return;
+
+        if (!pacient || !pacient.ordenes || pacient.ordenes.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="padding: 10px; text-align: center;">Sin órdenes registradas</td></tr>';
+            return;
+        }
+
+        const tiposIcons = {
+            ejercicio: '🏃',
+            alimentacion: '🍎',
+            medicamento: '💊',
+            descanso: '😴',
+            higiene: '🧼',
+            otro: '📝'
+        };
+
+        tbody.innerHTML = pacient.ordenes.map(ord => `
+            <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 10px;">${tiposIcons[ord.tipo] || '📋'} ${ord.tipo}</td>
+                <td style="padding: 10px;">${ord.descripcion}</td>
+                <td style="padding: 10px;">
+                    <span style="padding: 3px 8px; border-radius: 3px; background: ${ord.estado === 'completada' ? '#27ae60' : '#f39c12'}; color: white; font-size: 12px;">
+                        ${ord.estado === 'completada' ? '✅ Completada' : '⏳ Pendiente'}
+                    </span>
+                </td>
+                <td style="padding: 10px; text-align: center;">
+                    ${ord.estado === 'pendiente' ? `<button onclick="PacientesModule.toggleOrdenEstado('${pacientId}', '${ord.id}')" style="background: #27ae60; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">✓ Completar</button>` : ''}
+                    <button onclick="PacientesModule.deleteOrden('${pacientId}', '${ord.id}')" style="color: #e74c3c; background: none; border: none; cursor: pointer; margin-left: 5px;">🗑️</button>
+                </td>
+            </tr>
+        `).join('');
+    },
+
+    // Cambiar estado de orden
+    toggleOrdenEstado(pacientId, ordenId) {
+        const pacient = this.state.pacientes.find(p => p.id === pacientId);
+        if (pacient && pacient.ordenes) {
+            const orden = pacient.ordenes.find(o => o.id === ordenId);
+            if (orden) {
+                orden.estado = orden.estado === 'pendiente' ? 'completada' : 'pendiente';
+                if (orden.estado === 'completada') {
+                    orden.fechaCompletada = new Date().toISOString().split('T')[0];
+                }
+                this.displayOrdenes(pacientId);
+                this.saveToDB();
+                this.showNotification('✅ Orden actualizada', 'success');
+            }
+        }
+    },
+
+    // Eliminar orden
+    deleteOrden(pacientId, ordenId) {
+        const pacient = this.state.pacientes.find(p => p.id === pacientId);
+        if (pacient && pacient.ordenes) {
+            pacient.ordenes = pacient.ordenes.filter(o => o.id !== ordenId);
+            this.displayOrdenes(pacientId);
+            this.saveToDB();
+            this.showNotification('✅ Orden eliminada', 'success');
+        }
+    },
+
+    // Agregar alerta
+    addAlerta() {
+        const id = document.getElementById('pacientId').value;
+        if (!id) {
+            this.showNotification('⚠️ Por favor selecciona un paciente primero', 'warning');
+            return;
+        }
+
+        const tipo = document.getElementById('alertaTipo').value;
+        const descripcion = document.getElementById('alertaDescripcion').value.trim();
+
+        if (!tipo || !descripcion) {
+            this.showNotification('⚠️ Completa todos los campos de la alerta', 'warning');
+            return;
+        }
+
+        const pacient = this.state.pacientes.find(p => p.id === id);
+        if (!pacient) return;
+
+        if (!pacient.alertas) {
+            pacient.alertas = [];
+        }
+
+        pacient.alertas.push({
+            id: this.generateId('ALT'),
+            tipo: tipo,
+            descripcion: descripcion,
+            activa: true,
+            fechaCreacion: new Date().toISOString().split('T')[0]
+        });
+
+        this.showNotification('✅ Alerta agregada', 'success');
+        document.getElementById('alertaTipo').value = '';
+        document.getElementById('alertaDescripcion').value = '';
+        
+        this.displayAlertas(id);
+        this.saveToDB();
+    },
+
+    // Mostrar alertas
+    displayAlertas(pacientId) {
+        const pacient = this.state.pacientes.find(p => p.id === pacientId);
+        const container = document.getElementById('alertasList');
+        
+        if (!container) return;
+
+        if (!pacient || !pacient.alertas || pacient.alertas.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: #999;">Sin alertas registradas</p>';
+            return;
+        }
+
+        const tiposIcons = {
+            alergia: '🔴',
+            medicamento: '💊',
+            riesgo: '⚠️',
+            otro: '📌'
+        };
+
+        container.innerHTML = pacient.alertas.map(alt => `
+            <div style="background: ${alt.activa ? '#fff3cd' : '#e8f5e9'}; border-left: 4px solid ${alt.activa ? '#ff9800' : '#4caf50'}; padding: 12px; margin-bottom: 10px; border-radius: 3px;">
+                <div style="display: flex; justify-content: space-between; align-items: start;">
+                    <div>
+                        <strong>${tiposIcons[alt.tipo] || '📌'} ${alt.tipo.toUpperCase()}</strong>
+                        <p style="margin: 5px 0 0 0; color: #333;">${alt.descripcion}</p>
+                        <small style="color: #999;">Creada: ${alt.fechaCreacion}</small>
+                    </div>
+                    <div style="display: flex; gap: 5px;">
+                        <button onclick="PacientesModule.toggleAlerta('${pacientId}', '${alt.id}')" style="background: none; border: none; cursor: pointer; font-size: 16px;">
+                            ${alt.activa ? '⏸️' : '▶️'}
+                        </button>
+                        <button onclick="PacientesModule.deleteAlerta('${pacientId}', '${alt.id}')" style="color: #e74c3c; background: none; border: none; cursor: pointer;">🗑️</button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    },
+
+    // Cambiar estado de alerta
+    toggleAlerta(pacientId, alertaId) {
+        const pacient = this.state.pacientes.find(p => p.id === pacientId);
+        if (pacient && pacient.alertas) {
+            const alerta = pacient.alertas.find(a => a.id === alertaId);
+            if (alerta) {
+                alerta.activa = !alerta.activa;
+                this.displayAlertas(pacientId);
+                this.saveToDB();
+            }
+        }
+    },
+
+    // Eliminar alerta
+    deleteAlerta(pacientId, alertaId) {
+        const pacient = this.state.pacientes.find(p => p.id === pacientId);
+        if (pacient && pacient.alertas) {
+            pacient.alertas = pacient.alertas.filter(a => a.id !== alertaId);
+            this.displayAlertas(pacientId);
+            this.saveToDB();
+            this.showNotification('✅ Alerta eliminada', 'success');
+        }
+    },
+
+    // Cargar y mostrar evoluciones desde historia clínica
+    loadEvolucion(pacientId) {
+        const historiasClinicas = JSON.parse(localStorage.getItem('historiasClinicas') || '[]');
+        const historia = historiasClinicas.find(h => h.pacientId === pacientId);
+        const container = document.getElementById('evolucionList');
+        
+        if (!container) return;
+
+        if (!historia || !historia.notas || historia.notas.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: #999;">Sin notas de evolución</p>';
+            return;
+        }
+
+        container.innerHTML = `
+            <div style="max-height: 400px; overflow-y: auto;">
+                ${[...historia.notas].reverse().map(nota => `
+                    <div style="background: #f9f9f9; border-left: 3px solid #3498db; padding: 12px; margin-bottom: 10px; border-radius: 3px;">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div style="flex: 1;">
+                                <strong style="color: #2c3e50;">${nota.tipo.toUpperCase()}</strong>
+                                <small style="color: #7f8c8d; margin-left: 10px;">📅 ${nota.fecha}</small>
+                                ${nota.medico ? `<small style="color: #7f8c8d; margin-left: 10px;">👨‍⚕️ ${nota.medico}</small>` : ''}
+                                <p style="margin: 8px 0 0 0; color: #2c3e50; line-height: 1.5;">${nota.contenido}</p>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
     },
 
     // Obtener badge de tipo de servicio

@@ -60,19 +60,19 @@ class GastosServiciosModule {
                 { id: 'CON-005', nombre: 'Gasolina', descripcion: 'Combustible Vehículos', categoria: 'Transporte' }
             ];
             this.state.proveedores = [
-                { id: 'PRV-001', nombre: 'EEGSA', referencia: 'Energía Eléctrica de Guatemala', telefono: '2206-6500', estado: 'activo' },
-                { id: 'PRV-002', nombre: 'Claro Guatemala', referencia: 'Telefonía', telefono: '1200-1200', estado: 'activo' },
-                { id: 'PRV-003', nombre: 'EMAYA', referencia: 'Agua', telefono: '2221-2000', estado: 'activo' },
-                { id: 'PRV-004', nombre: 'Shell Guatemala', referencia: 'Combustibles', telefono: '2384-7000', estado: 'activo' }
+                { id: 'PRV-001', nombre: 'EEGSA', contacto: 'Gerente de Ventas', referencia: 'Energía Eléctrica de Guatemala', telefono: '2206-6500', estado: 'activo', fechaAlta: new Date().toISOString().split('T')[0] },
+                { id: 'PRV-002', nombre: 'Claro Guatemala', contacto: 'Representante Comercial', referencia: 'Telefonía', telefono: '1200-1200', estado: 'activo', fechaAlta: new Date().toISOString().split('T')[0] },
+                { id: 'PRV-003', nombre: 'EMAYA', contacto: 'Jefe de Servicio al Cliente', referencia: 'Agua', telefono: '2221-2000', estado: 'activo', fechaAlta: new Date().toISOString().split('T')[0] },
+                { id: 'PRV-004', nombre: 'Shell Guatemala', contacto: 'Ejecutivo de Cuenta', referencia: 'Combustibles', telefono: '2384-7000', estado: 'activo', fechaAlta: new Date().toISOString().split('T')[0] }
             ];
             this.state.pagos = [
-                { id: 'PAG-001', fecha: dates[0], concepto: 'CON-001', proveedor: 'PRV-001', monto: 1560, referencia: 'Ref#001', estado: 'pagado' },
-                { id: 'PAG-002', fecha: dates[1], concepto: 'CON-002', proveedor: 'PRV-002', monto: 780, referencia: 'Ref#002', estado: 'pagado' },
-                { id: 'PAG-003', fecha: dates[2], concepto: 'CON-003', proveedor: 'PRV-002', monto: 390, referencia: 'Ref#003', estado: 'pagado' },
-                { id: 'PAG-004', fecha: dates[3], concepto: 'CON-001', proveedor: 'PRV-001', monto: 1560, referencia: 'Ref#004', estado: 'pagado' },
-                { id: 'PAG-005', fecha: dates[4], concepto: 'CON-004', proveedor: 'PRV-003', monto: 468, referencia: 'Ref#005', estado: 'pagado' },
-                { id: 'PAG-006', fecha: dates[5], concepto: 'CON-002', proveedor: 'PRV-002', monto: 624, referencia: 'Ref#006', estado: 'pagado' },
-                { id: 'PAG-007', fecha: dates[6], concepto: 'CON-005', proveedor: 'PRV-004', monto: 2340, referencia: 'Ref#007', estado: 'pagado' }
+                { id: 'PAG-001', fecha: dates[0], concepto: 'CON-001', proveedor: 'PRV-001', monto: 1560, numeroFactura: 'FAC-2024-001', requisicion: 'REQ-2024-001', referencia: 'Ref#001', estado: 'pagado' },
+                { id: 'PAG-002', fecha: dates[1], concepto: 'CON-002', proveedor: 'PRV-002', monto: 780, numeroFactura: 'FAC-2024-002', requisicion: '', referencia: 'Ref#002', estado: 'pagado' },
+                { id: 'PAG-003', fecha: dates[2], concepto: 'CON-003', proveedor: 'PRV-002', monto: 390, numeroFactura: 'FAC-2024-003', requisicion: 'LOTE-001', referencia: 'Ref#003', estado: 'pagado' },
+                { id: 'PAG-004', fecha: dates[3], concepto: 'CON-001', proveedor: 'PRV-001', monto: 1560, numeroFactura: 'FAC-2024-004', requisicion: 'REQ-2024-002', referencia: 'Ref#004', estado: 'pagado' },
+                { id: 'PAG-005', fecha: dates[4], concepto: 'CON-004', proveedor: 'PRV-003', monto: 468, numeroFactura: 'FAC-2024-005', requisicion: '', referencia: 'Ref#005', estado: 'pagado' },
+                { id: 'PAG-006', fecha: dates[5], concepto: 'CON-002', proveedor: 'PRV-002', monto: 624, numeroFactura: 'FAC-2024-006', requisicion: 'LOTE-002', referencia: 'Ref#006', estado: 'pagado' },
+                { id: 'PAG-007', fecha: dates[6], concepto: 'CON-005', proveedor: 'PRV-004', monto: 2340, numeroFactura: 'FAC-2024-007', requisicion: 'REQ-2024-003', referencia: 'Ref#007', estado: 'pagado' }
             ];
         }
         this.save();
@@ -91,9 +91,9 @@ class GastosServiciosModule {
     }
 
     // ==================== PAGOS ====================
-    addPago(concepto, proveedor, monto, fecha, referencia) {
-        if (!concepto || !proveedor || !monto || !fecha) {
-            alert('Por favor complete todos los campos requeridos');
+    addPago(concepto, proveedor, monto, fecha, numeroFactura, requisicion, referencia) {
+        if (!concepto || !proveedor || !monto || !fecha || !numeroFactura) {
+            alert('Por favor complete todos los campos requeridos (incluyendo número de factura)');
             return false;
         }
 
@@ -103,6 +103,8 @@ class GastosServiciosModule {
             concepto: concepto,
             proveedor: proveedor,
             monto: parseFloat(monto),
+            numeroFactura: numeroFactura,
+            requisicion: requisicion || '',
             referencia: referencia || '',
             estado: 'pagado'
         };
@@ -117,13 +119,15 @@ class GastosServiciosModule {
         this.save();
     }
 
-    editPago(pagoId, concepto, proveedor, monto, fecha, referencia) {
+    editPago(pagoId, concepto, proveedor, monto, fecha, numeroFactura, requisicion, referencia) {
         const pago = this.state.pagos.find(p => p.id === pagoId);
         if (pago) {
             pago.concepto = concepto;
             pago.proveedor = proveedor;
             pago.monto = parseFloat(monto);
             pago.fecha = fecha;
+            pago.numeroFactura = numeroFactura;
+            pago.requisicion = requisicion || '';
             pago.referencia = referencia || '';
             this.save();
             return true;
@@ -140,18 +144,21 @@ class GastosServiciosModule {
     }
 
     // ==================== PROVEEDORES ====================
-    addProveedor(nombre, referencia, telefono) {
-        if (!nombre) {
-            alert('Por favor ingrese el nombre del proveedor');
+    addProveedor(nombre, contacto, referencia, telefono) {
+        if (!nombre || !contacto) {
+            alert('Por favor ingrese el nombre del proveedor y el contacto');
             return false;
         }
 
         const newProveedor = {
             id: 'PRV-' + Date.now(),
             nombre: nombre,
+            contacto: contacto,
             referencia: referencia || '',
             telefono: telefono || '',
-            estado: 'activo'
+            estado: 'activo',
+            fechaAlta: new Date().toISOString().split('T')[0],
+            historialBajas: [] // Array para guardar historial de bajas si se reactiva
         };
 
         this.state.proveedores.push(newProveedor);
@@ -164,10 +171,45 @@ class GastosServiciosModule {
         this.save();
     }
 
-    editProveedor(proveedorId, nombre, referencia, telefono) {
+    // Dar de baja un proveedor (sin eliminar datos)
+    darDeBajaProveedor(proveedorId, motivo, fechaBaja) {
+        const proveedor = this.state.proveedores.find(p => p.id === proveedorId);
+        if (proveedor) {
+            proveedor.estado = 'inactivo';
+            proveedor.fechaBaja = fechaBaja || new Date().toISOString().split('T')[0];
+            proveedor.motivoBaja = motivo || '';
+            if (!proveedor.historialBajas) {
+                proveedor.historialBajas = [];
+            }
+            proveedor.historialBajas.push({
+                fecha: fechaBaja || new Date().toISOString().split('T')[0],
+                motivo: motivo || '',
+                timestamp: new Date().toISOString()
+            });
+            this.save();
+            return true;
+        }
+        return false;
+    }
+
+    // Reactivar proveedor
+    reactivarProveedor(proveedorId) {
+        const proveedor = this.state.proveedores.find(p => p.id === proveedorId);
+        if (proveedor) {
+            proveedor.estado = 'activo';
+            delete proveedor.fechaBaja;
+            delete proveedor.motivoBaja;
+            this.save();
+            return true;
+        }
+        return false;
+    }
+
+    editProveedor(proveedorId, nombre, contacto, referencia, telefono) {
         const proveedor = this.state.proveedores.find(p => p.id === proveedorId);
         if (proveedor) {
             proveedor.nombre = nombre;
+            proveedor.contacto = contacto;
             proveedor.referencia = referencia || '';
             proveedor.telefono = telefono || '';
             this.save();
@@ -300,6 +342,8 @@ class GastosServiciosModule {
         html += '<th>Fecha</th>';
         html += '<th>Concepto</th>';
         html += '<th>Proveedor</th>';
+        html += '<th>Nº Factura</th>';
+        html += '<th>Requisición/Lote</th>';
         html += '<th>Referencia</th>';
         html += '<th>Monto</th>';
         html += '<th>Acciones</th>';
@@ -315,6 +359,8 @@ class GastosServiciosModule {
             html += `<td>${this.formatarFecha(pago.fecha)}</td>`;
             html += `<td>${conceptoNombre}</td>`;
             html += `<td>${proveedorNombre}</td>`;
+            html += `<td><strong>${pago.numeroFactura || '-'}</strong></td>`;
+            html += `<td>${pago.requisicion || '-'}</td>`;
             html += `<td>${pago.referencia || '-'}</td>`;
             html += `<td class="monto">${this.formatarMoneda(pago.monto)}</td>`;
             html += `<td class="acciones">`;
@@ -338,8 +384,9 @@ class GastosServiciosModule {
         let html = '<table class="tabla-datos">';
         html += '<thead><tr>';
         html += '<th>Nombre</th>';
-        html += '<th>Referencia</th>';
+        html += '<th>Contacto</th>';
         html += '<th>Teléfono</th>';
+        html += '<th>Referencia</th>';
         html += '<th>Estado</th>';
         html += '<th>Acciones</th>';
         html += '</tr></thead><tbody>';
@@ -347,14 +394,19 @@ class GastosServiciosModule {
         this.state.proveedores.forEach(proveedor => {
             const estadoClass = proveedor.estado === 'activo' ? 'badge-active' : 'badge-inactive';
             const estadoIcon = proveedor.estado === 'activo' ? 'fas fa-check-circle' : 'fas fa-times-circle';
+            const botonesAccion = proveedor.estado === 'activo'
+                ? `<button onclick="abrirModalBajaProveedor('${proveedor.id}', '${proveedor.nombre}')" class="btn-warning" style="padding: 5px 10px; margin-right: 5px;"><i class="fas fa-ban"></i> Dar de baja</button>`
+                : `<button onclick="gastosModule.reactivarProveedor('${proveedor.id}'); gastosModule.render();" class="btn-info" style="padding: 5px 10px; margin-right: 5px;"><i class="fas fa-refresh"></i> Reactivar</button>`;
 
             html += '<tr>';
-            html += `<td>${proveedor.nombre}</td>`;
-            html += `<td>${proveedor.referencia || '-'}</td>`;
+            html += `<td><strong>${proveedor.nombre}</strong></td>`;
+            html += `<td>${proveedor.contacto || '-'}</td>`;
             html += `<td>${proveedor.telefono || '-'}</td>`;
+            html += `<td>${proveedor.referencia || '-'}</td>`;
             html += `<td><span class="${estadoClass}"><i class="${estadoIcon}"></i> ${proveedor.estado}</span></td>`;
             html += `<td class="acciones">`;
-            html += `<button onclick="gastosModule.deleteProveedor('${proveedor.id}'); gastosModule.render();" class="btn-delete"><i class="fas fa-trash"></i></button>`;
+            html += botonesAccion;
+            html += `<button onclick="gastosModule.deleteProveedor('${proveedor.id}'); gastosModule.render();" class="btn-delete"><i class="fas fa-trash"></i> Eliminar</button>`;
             html += `</td></tr>`;
         });
 

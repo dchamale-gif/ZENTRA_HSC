@@ -16,7 +16,8 @@ const HistoriaClinicaModule = {
         searchTerm: '',
         filtroEstado: 'activos', // activos, todos
         agendaWeekStart: new Date(), // Se inicializa correctamente en init()
-        agendaWeekStartGeneral: new Date() // Para la vista general
+        agendaWeekStartGeneral: new Date(), // Para la vista general
+        filtroAgendaPaciente: '' // Filtro de paciente en agenda general
     },
 
     // Inicializar el módulo
@@ -180,36 +181,59 @@ const HistoriaClinicaModule = {
             buttonBar.style.display = 'flex';
         }
 
+        // Obtener color por tipo de paciente
+        let tipoColor = '#4CAF50';
+        let tipoBg = '#c8e6c9';
+        if (pacient.tipoServicio === 'agudo') {
+            tipoColor = '#f44336';
+            tipoBg = '#ffcdd2';
+        } else if (pacient.tipoServicio === 'coex') {
+            tipoColor = '#ff9800';
+            tipoBg = '#ffe0b2';
+        }
+
         container.innerHTML = `
             <div class="historia-container">
                 <!-- Header con datos del paciente -->
-                <div class="historia-header">
+                <div class="historia-header" style="background-color: ${tipoBg}; border-left: 5px solid ${tipoColor};">
                     <div class="pacient-info">
-                        <h1>${pacient.nombre} ${pacient.apellidoPaterno} ${pacient.apellidoMaterno || ''}</h1>
-                        <div class="info-grid">
-                            <div class="info-item">
-                                <label>Cédula/DPI</label>
-                                <p>${pacient.dpi || pacient.pasaporte || 'N/A'}</p>
+                        <div style="display: flex; gap: 20px; align-items: flex-start;">
+                            <div style="flex-shrink: 0;">
+                                ${pacient.foto ? `<img src="${pacient.foto}" alt="Foto ${pacient.nombre}" style="width: 120px; height: 120px; border-radius: 10px; object-fit: cover; border: 3px solid ${tipoColor};">` : `<div style="width: 120px; height: 120px; background: #e0e0e0; border-radius: 10px; display: flex; align-items: center; justify-content: center; border: 3px solid ${tipoColor};"><i class="fas fa-user" style="font-size: 40px; color: #999;"></i></div>`}
                             </div>
-                            <div class="info-item">
-                                <label>Edad</label>
-                                <p>${this.calculateAge(pacient.fechaNacimiento)} años</p>
-                            </div>
-                            <div class="info-item">
-                                <label>Género</label>
-                                <p>${pacient.genero}</p>
-                            </div>
-                            <div class="info-item">
-                                <label>Teléfono</label>
-                                <p>${pacient.telefono}</p>
-                            </div>
-                            <div class="info-item">
-                                <label>Email</label>
-                                <p>${pacient.email}</p>
-                            </div>
-                            <div class="info-item">
-                                <label>Ciudad</label>
-                                <p>${pacient.municipio || 'No especificado'}</p>
+                            <div style="flex: 1;">
+                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                                    <h1>${pacient.nombre} ${pacient.apellidoPaterno} ${pacient.apellidoMaterno || ''}</h1>
+                                    <span style="background-color: ${tipoColor}; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold;">
+                                        ${pacient.tipoServicio === 'agudo' ? '🚨 AGUDO' : pacient.tipoServicio === 'cronico' ? '📋 CRÓNICO' : '⚠️ COEX'}
+                                    </span>
+                                </div>
+                                <div class="info-grid">
+                                    <div class="info-item">
+                                        <label>Cédula/DPI</label>
+                                        <p>${pacient.dpi || pacient.pasaporte || 'N/A'}</p>
+                                    </div>
+                                    <div class="info-item">
+                                        <label>Edad</label>
+                                        <p>${this.calculateAge(pacient.fechaNacimiento)} años</p>
+                                    </div>
+                                    <div class="info-item">
+                                        <label>Género</label>
+                                        <p>${pacient.genero}</p>
+                                    </div>
+                                    <div class="info-item">
+                                        <label>Teléfono</label>
+                                        <p>${pacient.telefono}</p>
+                                    </div>
+                                    <div class="info-item">
+                                        <label>Email</label>
+                                        <p>${pacient.email}</p>
+                                    </div>
+                                    <div class="info-item">
+                                        <label>Ciudad</label>
+                                        <p>${pacient.municipio || 'No especificado'}</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1270,6 +1294,19 @@ const HistoriaClinicaModule = {
 
     // ============ VISTA AGENDA GENERAL (TODO EL MÓDULO) ============
 
+    // Crear contenedor de filtro de paciente
+    createFilterContainer() {
+        const vistaAgenda = document.getElementById('vistaAgendaGeneral');
+        const filterContainer = document.createElement('div');
+        filterContainer.id = 'agendaFilterPaciente';
+        if (vistaAgenda.firstChild) {
+            vistaAgenda.insertBefore(filterContainer, vistaAgenda.firstChild);
+        } else {
+            vistaAgenda.appendChild(filterContainer);
+        }
+        return filterContainer;
+    },
+
     // Cambiar entre vista de paciente y vista de agenda general
     switchVistaHistoria(vista) {
         const vistaPaciente = document.getElementById('vistaPaciente');
@@ -1299,6 +1336,15 @@ const HistoriaClinicaModule = {
         const weekDays = this.getWeekDays(this.state.agendaWeekStartGeneral);
         const medicinesByDay = this.calculateMedicinesByDay(this.state.agendaWeekStartGeneral);
         
+        // Obtener lista única de pacientes para filtro
+        const pacientesUnicos = new Map();
+        this.state.prescripciones.forEach(presc => {
+            const paciente = this.state.pacientes.find(p => p.id === presc.pacienteId);
+            if (paciente && !pacientesUnicos.has(paciente.id)) {
+                pacientesUnicos.set(paciente.id, paciente);
+            }
+        });
+        
         // Actualizar display de semana
         const startDate = weekDays[0];
         const endDate = weekDays[6];
@@ -1307,10 +1353,44 @@ const HistoriaClinicaModule = {
         const monthYear = startDate.toLocaleDateString('es-ES', { year: 'numeric', month: 'long' });
         
         document.getElementById('weekDisplayGeneral').textContent = `Semana del ${startStr} al ${endStr} de ${monthYear}`;
+        
+        // Renderizar filtro de paciente
+        const filterContainer = document.getElementById('agendaFilterPaciente') || this.createFilterContainer();
+        let filterHTML = `
+            <div style="margin-bottom: 20px; background: #f5f5f5; padding: 15px; border-radius: 8px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: bold;">Filtrar por Paciente:</label>
+                <select id="selectPacienteAgendaGeneral" class="form-input" style="width: 100%; max-width: 400px;">
+                    <option value="">-- Todos los pacientes --</option>
+        `;
+        pacientesUnicos.forEach(paciente => {
+            filterHTML += `<option value="${paciente.id}">${paciente.nombre} ${paciente.apellidoPaterno}</option>`;
+        });
+        filterHTML += `</select></div>`;
+        filterContainer.innerHTML = filterHTML;
+        
+        const selectPaciente = document.getElementById('selectPacienteAgendaGeneral');
+        if (selectPaciente && !selectPaciente._listenerAdded) {
+            selectPaciente.addEventListener('change', (e) => {
+                this.state.filtroAgendaPaciente = e.target.value;
+                this.renderAgendaSemanalGeneral();
+            });
+            selectPaciente._listenerAdded = true;
+        }
 
         // Renderizar los 7 días
         const agendaWeekly = document.getElementById('agendaWeeklyGeneral');
         agendaWeekly.innerHTML = '';
+        
+        // Aplicar filtro de paciente si existe
+        let medicinesByDayFiltered = medicinesByDay;
+        if (this.state.filtroAgendaPaciente) {
+            medicinesByDayFiltered = {};
+            Object.keys(medicinesByDay).forEach(dateKey => {
+                medicinesByDayFiltered[dateKey] = medicinesByDay[dateKey].filter(med => 
+                    med.pacienteId === this.state.filtroAgendaPaciente
+                );
+            });
+        }
 
         weekDays.forEach(day => {
             const dateKey = day.toISOString().split('T')[0];

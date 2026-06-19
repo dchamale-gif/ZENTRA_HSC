@@ -46,6 +46,7 @@ function initializeApp() {
     CodigosArticulosModule.init();
     CajaIntegradaModule.init();
     ComprasModule.init();
+    AlertasModule.init();
     VentasModule.init();
     CajaModule.init();
     CuentasPorCobrarModule.init();
@@ -54,7 +55,7 @@ function initializeApp() {
     ReportsModule.init();
     
     // Initialize Agenda Modules
-    AgendaModule.init();
+    AgendaAvanzadaModule.init();
     ReservasWebModule.init();
     ConfirmacionesModule.init();
     GoogleCalendarModule.init();
@@ -167,8 +168,12 @@ function navigateToPage(pageId) {
     }
     if (pageId === 'agenda') {
         setTimeout(() => {
-            AgendaModule.renderCalendar();
+            AgendaAvanzadaModule.renderCalendar();
         }, 100);
+    }
+    
+    if (pageId === 'alertas') {
+        AlertasModule.renderAlertas();
     }
 }
 
@@ -1603,19 +1608,23 @@ function agregarPago() {
     const proveedor = document.getElementById('selectProveedor').value;
     const monto = document.getElementById('inputMonto').value;
     const fecha = document.getElementById('inputFecha').value;
+    const numeroFactura = document.getElementById('inputNumeroFactura').value;
+    const requisicion = document.getElementById('inputRequisicion').value;
     const referencia = document.getElementById('inputReferencia').value;
 
-    if (!concepto || !proveedor || !monto || !fecha) {
-        alert('Por favor complete todos los campos requeridos');
+    if (!concepto || !proveedor || !monto || !fecha || !numeroFactura) {
+        alert('Por favor complete todos los campos requeridos (incluyendo número de factura)');
         return;
     }
 
-    if (gastosModule.addPago(concepto, proveedor, monto, fecha, referencia)) {
+    if (gastosModule.addPago(concepto, proveedor, monto, fecha, numeroFactura, requisicion, referencia)) {
         // Limpiar formulario
         document.getElementById('selectConcepto').value = '';
         document.getElementById('selectProveedor').value = '';
         document.getElementById('inputMonto').value = '';
         document.getElementById('inputFecha').value = '';
+        document.getElementById('inputNumeroFactura').value = '';
+        document.getElementById('inputRequisicion').value = '';
         document.getElementById('inputReferencia').value = '';
 
         // Actualizar vista
@@ -1626,19 +1635,21 @@ function agregarPago() {
 
 function agregarProveedor() {
     const nombre = document.getElementById('inputProveedorNombre').value;
-    const referencia = document.getElementById('inputProveedorReferencia').value;
+    const contacto = document.getElementById('inputProveedorContacto').value;
     const telefono = document.getElementById('inputProveedorTelefono').value;
+    const referencia = document.getElementById('inputProveedorReferencia').value;
 
-    if (!nombre) {
-        alert('Por favor ingrese el nombre del proveedor');
+    if (!nombre || !contacto) {
+        alert('Por favor ingrese el nombre del proveedor y el contacto');
         return;
     }
 
-    if (gastosModule.addProveedor(nombre, referencia, telefono)) {
+    if (gastosModule.addProveedor(nombre, contacto, referencia, telefono)) {
         // Limpiar formulario
         document.getElementById('inputProveedorNombre').value = '';
-        document.getElementById('inputProveedorReferencia').value = '';
+        document.getElementById('inputProveedorContacto').value = '';
         document.getElementById('inputProveedorTelefono').value = '';
+        document.getElementById('inputProveedorReferencia').value = '';
 
         // Actualizar vista
         gastosModule.render();
@@ -1655,6 +1666,45 @@ function setGastosPeriodo(periodo) {
         btn.classList.remove('active');
     });
     event.target.closest('.btn').classList.add('active');
+}
+
+// Variable global para almacenar el proveedor a dar de baja
+let proveedorEnBaja = null;
+
+function abrirModalBajaProveedor(proveedorId, proveedorNombre) {
+    proveedorEnBaja = proveedorId;
+    document.getElementById('bajaProveedorNombre').textContent = `¿Dar de baja a: ${proveedorNombre}?`;
+    document.getElementById('inputFechaBaja').value = new Date().toISOString().split('T')[0];
+    document.getElementById('selectMotivoBaja').value = '';
+    document.getElementById('inputDetallesBaja').value = '';
+    
+    const modal = document.getElementById('bajaProveedorModal');
+    modal.style.display = 'flex';
+}
+
+function confirmarBajaProveedor() {
+    if (!proveedorEnBaja) {
+        alert('Error: No se especificó el proveedor');
+        return;
+    }
+
+    const fechaBaja = document.getElementById('inputFechaBaja').value;
+    const motivo = document.getElementById('selectMotivoBaja').value;
+    const detalles = document.getElementById('inputDetallesBaja').value;
+
+    if (!fechaBaja || !motivo) {
+        alert('Por favor complete la fecha y el motivo de la baja');
+        return;
+    }
+
+    const motivoCompleto = detalles ? `${motivo} - ${detalles}` : motivo;
+
+    if (gastosModule.darDeBajaProveedor(proveedorEnBaja, motivoCompleto, fechaBaja)) {
+        gastosModule.render();
+        showNotification('Proveedor dado de baja correctamente', 'success');
+        document.getElementById('bajaProveedorModal').style.display = 'none';
+        proveedorEnBaja = null;
+    }
 }
 
 // ============================================
