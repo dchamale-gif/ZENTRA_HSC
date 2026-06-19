@@ -3,6 +3,7 @@ const pool = require('../db/connection');
 // OBTENER todos los pacientes
 const getPacientes = async (req, res) => {
   try {
+    console.log('📋 Intentando obtener pacientes...');
     const result = await pool.query(
       `SELECT id, cedula, nombre, apellido, edad, genero, tipo_sangre, 
               telefono, email, activo, created_at
@@ -12,13 +13,18 @@ const getPacientes = async (req, res) => {
        LIMIT 100`
     );
 
+    console.log(`✅ ${result.rows.length} pacientes obtenidos`);
     res.status(200).json({
       total: result.rows.length,
       pacientes: result.rows
     });
   } catch (error) {
-    console.error('Error en getPacientes:', error);
-    res.status(500).json({ error: 'Error obteniendo pacientes' });
+    console.error('❌ Error en getPacientes:', error.message);
+    console.error('Detalles:', error);
+    res.status(500).json({ 
+      error: 'Error obteniendo pacientes',
+      details: error.message
+    });
   }
 };
 

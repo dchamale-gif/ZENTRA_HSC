@@ -4,7 +4,7 @@
 
 const AgendaAPIModule = {
     state: {
-        apiUrl: CONFIG.API.baseURL + '/agenda',
+        apiUrl: CONFIG.API.baseURL,  // http://178.128.72.110:3011/api
         apiKey: 'your-api-key-here',
         endpoints: {
             appointments: '/appointments',
@@ -23,10 +23,21 @@ const AgendaAPIModule = {
 
     // Verificar conexión con la API
     verifyConnection() {
-        this.get('/health').then(response => {
-            console.log('API disponible:', response);
+        // Intentar conectar al health check del servidor
+        const healthUrl = CONFIG.API.baseURL.replace('/api', '') + '/health';
+        fetch(healthUrl, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        }).then(response => {
+            if (response.ok) {
+                console.log('✅ Servidor backend disponible');
+            } else {
+                console.warn('⚠️ Servidor backend no responde correctamente:', response.status);
+            }
         }).catch(err => {
-            console.warn('API no disponible:', err);
+            console.warn('⚠️ Servidor backend no disponible:', err.message);
         });
     },
 
@@ -36,7 +47,13 @@ const AgendaAPIModule = {
 
     // GET Request
     get(endpoint, params = {}) {
-        const url = new URL(this.state.apiUrl + endpoint);
+        // Si el endpoint es absoluto (empieza con http), usarlo directamente
+        let url;
+        if (endpoint.startsWith('http')) {
+            url = new URL(endpoint);
+        } else {
+            url = new URL(this.state.apiUrl + endpoint);
+        }
         Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
 
         return fetch(url, {
@@ -49,7 +66,7 @@ const AgendaAPIModule = {
             if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
             return response.json();
         });
-    },
+    },,
 
     // POST Request
     post(endpoint, data = {}) {

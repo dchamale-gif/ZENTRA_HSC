@@ -12,6 +12,7 @@ const codigosArticulosRoutes = require('./src/routes/codigos-articulos');
 
 // Importar middleware
 const { auditMiddleware } = require('./src/middleware/audit');
+const { runMigrations } = require('./src/db/migration');
 
 const app = express();
 const PORT = process.env.PORT || 3011;
@@ -96,8 +97,14 @@ app.use((err, req, res, next) => {
 // INICIAR SERVIDOR
 // ====================================
 
-app.listen(PORT, () => {
-  console.log(`
+// Ejecutar migraciones al iniciar
+runMigrations().then(success => {
+  if (!success) {
+    console.warn('\n⚠️  Las migraciones completaron con advertencias');
+  }
+  
+  app.listen(PORT, () => {
+    console.log(`
 ╔════════════════════════════════════════╗
 ║     🏥 ZENTRA MED API BACKEND 🏥      ║
 ╚════════════════════════════════════════╝
@@ -114,6 +121,10 @@ app.listen(PORT, () => {
   - GET  /api/pacientes
   - POST /api/pacientes
   `);
+  });
+}).catch(err => {
+  console.error('\n❌ Error fatal durante migración:', err);
+  process.exit(1);
 });
 
 module.exports = app;
