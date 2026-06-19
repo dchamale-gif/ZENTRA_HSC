@@ -215,7 +215,9 @@ const CodigosArticulosModule = {
     // Renderizar fila de artículo
     renderArticuloRow(articulo) {
         const familia = this.state.familias.find(f => f.id === articulo.familiaId);
-        const margen = familia ? ((articulo.precioVenta - articulo.precioCompra) / articulo.precioCompra * 100).toFixed(1) : '-';
+        const precioCompra = articulo.precioCompra || 0;
+        const precioVenta = articulo.precioVenta || 0;
+        const margen = familia && precioCompra > 0 ? ((precioVenta - precioCompra) / precioCompra * 100).toFixed(1) : '-';
         const estadoBadge = articulo.estado === 'activo'
             ? '<span class="badge badge-success">Activo</span>'
             : '<span class="badge badge-secondary">Inactivo</span>';
@@ -226,9 +228,9 @@ const CodigosArticulosModule = {
                 <td><code class="codigo-venta">${articulo.codigoVenta}</code></td>
                 <td><code class="codigo-compra">${articulo.codigoCompra}</code></td>
                 <td>${familia ? familia.nombre : '-'}</td>
-                <td>$${articulo.precioCompra.toFixed(2)}</td>
-                <td>$${articulo.precioVenta.toFixed(2)}</td>
-                <td><span class="badge badge-info">${margen}%</span></td>
+                <td>$${(articulo.precioCompra || 0).toFixed(2)}</td>
+                <td>$${(articulo.precioVenta || 0).toFixed(2)}</td>
+                <td><span class="badge badge-info">${margen}${margen !== '-' ? '%' : ''}</span></td>
                 <td>${estadoBadge}</td>
                 <td class="actions">
                     <button class="btn-icon btn-view" title="Ver Detalles" onclick="CodigosArticulosModule.viewArticuloDetails('${articulo.id}')">
@@ -254,8 +256,10 @@ const CodigosArticulosModule = {
         const subfamilia = this.state.subfamilias.find(s => s.id === articulo.subfamiliaId);
         const seccion = this.state.secciones.find(s => s.id === articulo.seccionId);
 
-        const margen = ((articulo.precioVenta - articulo.precioCompra) / articulo.precioCompra * 100).toFixed(2);
-        const margenPeso = (articulo.precioVenta - articulo.precioCompra).toFixed(2);
+        const precioCompra = articulo.precioCompra || 0;
+        const precioVenta = articulo.precioVenta || 0;
+        const margen = precioCompra > 0 ? ((precioVenta - precioCompra) / precioCompra * 100).toFixed(2) : '0';
+        const margenPeso = (precioVenta - precioCompra).toFixed(2);
 
         const detailsHTML = `
             <div class="codigo-details-card">

@@ -55,14 +55,24 @@ function initializeApp() {
     DashboardFinancieroModule.init();
     ReportsModule.init();
     
-    // Initialize Agenda Modules
-    AgendaAvanzadaModule.init();
-    ReservasWebModule.init();
-    ConfirmacionesModule.init();
-    GoogleCalendarModule.init();
-    AgendaAPIModule.init();
+    // Initialize Agenda Modules (with checks)
+    if (typeof AgendaAvanzadaModule !== 'undefined' && AgendaAvanzadaModule.init) {
+        try { AgendaAvanzadaModule.init(); } catch(e) { console.warn('AgendaAvanzadaModule init error:', e); }
+    }
+    if (typeof ReservasWebModule !== 'undefined' && ReservasWebModule.init) {
+        try { ReservasWebModule.init(); } catch(e) { console.warn('ReservasWebModule init error:', e); }
+    }
+    if (typeof ConfirmacionesModule !== 'undefined' && ConfirmacionesModule.init) {
+        try { ConfirmacionesModule.init(); } catch(e) { console.warn('ConfirmacionesModule init error:', e); }
+    }
+    if (typeof GoogleCalendarModule !== 'undefined' && GoogleCalendarModule.init) {
+        try { GoogleCalendarModule.init(); } catch(e) { console.warn('GoogleCalendarModule init error:', e); }
+    }
+    if (typeof AgendaAPIModule !== 'undefined' && AgendaAPIModule.init) {
+        try { AgendaAPIModule.init(); } catch(e) { console.warn('AgendaAPIModule init error:', e); }
+    }
     
-    console.log('Stock Flow initialized successfully');
+    console.log('✅ Sistema inicializado correctamente');
 }
 
 // ============================================
