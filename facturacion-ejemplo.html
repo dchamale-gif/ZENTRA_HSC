@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Facturación Robusta</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 10px;
+        }
+
+        .button-group {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #218838;
+        }
+
+        .btn-warning {
+            background-color: #ffc107;
+            color: black;
+        }
+
+        .btn-warning:hover {
+            background-color: #e0a800;
+        }
+
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+
+        .btn-lg {
+            padding: 15px 30px;
+            font-size: 16px;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section h2 {
+            color: #495057;
+            font-size: 20px;
+            margin-bottom: 15px;
+            border-left: 4px solid #007bff;
+            padding-left: 10px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-card h3 {
+            margin: 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        table th {
+            background-color: #f8f9fa;
+            padding: 12px;
+            text-align: left;
+            border-bottom: 2px solid #dee2e6;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        table td {
+            padding: 12px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        table tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .input-group input,
+        .input-group select {
+            flex: 1;
+            min-width: 150px;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .badge-warning {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+
+        .badge-danger {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .alert {
+            padding: 12px 15px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+
+        .alert-info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border-left: 4px solid #0c5460;
+        }
+
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border-left: 4px solid #155724;
+        }
+
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #721c24;
+        }
+
+        .form-section {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .demo-section {
+            background-color: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+
+        .demo-section h3 {
+            margin-top: 0;
+            color: #1565c0;
+        }
+
+        .code-block {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📋 Sistema de Facturación Robusta</h1>
+        
+        <!-- Dashboard Stats -->
+        <div class="section">
+            <div class="stats">
+                <div class="stat-card">
+                    <h3>Total Facturas</h3>
+                    <div class="value" id="totalFacturas">0</div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                    <h3>Ingresos Totales</h3>
+                    <div class="value" id="totalIngresos">Q 0.00</div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                    <h3>Descuentos Aplicados</h3>
+                    <div class="value" id="totalDescuentos">Q 0.00</div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                    <h3>Impuestos Cobrados</h3>
+                    <div class="value" id="totalImpuestos">Q 0.00</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Control Principal -->
+        <div class="section">
+            <h2>Acciones</h2>
+            <div class="button-group">
+                <button class="btn btn-success btn-lg" id="btnNuevaFactura">
+                    ➕ Nueva Factura
+                </button>
+                <button class="btn btn-primary" onclick="mostrarSeccion('facturas')">
+                    📊 Ver Facturas
+                </button>
+                <button class="btn btn-primary" onclick="mostrarSeccion('descuentos')">
+                    🏷️ Gestionar Descuentos
+                </button>
+                <button class="btn btn-primary" onclick="mostrarSeccion('reportes')">
+                    📈 Reportes
+                </button>
+            </div>
+        </div>
+
+        <!-- Sección de Facturas -->
+        <div id="seccionFacturas" class="section" style="display: none;">
+            <h2>Listado de Facturas</h2>
+            
+            <div class="input-group">
+                <input type="date" id="filtroFecha" placeholder="Filtrar por fecha">
+                <input type="text" id="filtroCliente" placeholder="Filtrar por cliente">
+                <select id="filtroEstado">
+                    <option value="">Todos los estados</option>
+                    <option value="completada">Completada</option>
+                    <option value="pendiente">Pendiente</option>
+                    <option value="anulada">Anulada</option>
+                </select>
+                <button class="btn btn-primary" onclick="aplicarFiltrosFacturas()">🔍 Filtrar</button>
+            </div>
+
+            <div id="facturasListContainer"></div>
+        </div>
+
+        <!-- Sección de Descuentos -->
+        <div id="seccionDescuentos" class="section" style="display: none;">
+            <h2>Gestión de Descuentos</h2>
+            
+            <div class="form-section">
+                <h3>Crear Nuevo Descuento</h3>
+                <div class="form-group">
+                    <label>Nombre del Descuento:</label>
+                    <input type="text" id="descNombre" placeholder="Ej: Descuento por Volumen">
+                </div>
+
+                <div class="form-group">
+                    <label>Descripción:</label>
+                    <textarea id="descDescripcion" placeholder="Descripción del descuento"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Tipo de Descuento:</label>
+                    <div style="display: flex; gap: 20px;">
+                        <label>
+                            <input type="radio" name="tipoDesc" value="porcentaje" checked> Porcentaje (%)
+                        </label>
+                        <label>
+                            <input type="radio" name="tipoDesc" value="fijo"> Cantidad Fija (Q)
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Valor:</label>
+                    <input type="number" id="descValor" placeholder="Ingrese el valor" step="0.01" min="0">
+                </div>
+
+                <div class="form-group">
+                    <label>Monto Mínimo para Aplicar (Q):</label>
+                    <input type="number" id="descMinimo" placeholder="Ej: 500" step="0.01" min="0">
+                </div>
+
+                <div class="form-group">
+                    <label>Código Promocional (opcional):</label>
+                    <input type="text" id="descCodigo" placeholder="Ej: PROMO2026">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label>Fecha Inicio (opcional):</label>
+                        <input type="date" id="descFechaInicio">
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha Fin (opcional):</label>
+                        <input type="date" id="descFechaFin">
+                    </div>
+                </div>
+
+                <button class="btn btn-success" onclick="crearDescuentoPredefinido()">
+                    ✅ Crear Descuento
+                </button>
+            </div>
+
+            <h3>Descuentos Disponibles</h3>
+            <div id="descuentosListContainer"></div>
+        </div>
+
+        <!-- Sección de Reportes -->
+        <div id="seccionReportes" class="section" style="display: none;">
+            <h2>Reportes</h2>
+            
+            <div class="input-group">
+                <input type="date" id="reporteFechaInicio" placeholder="Fecha inicio">
+                <input type="date" id="reporteFechaFin" placeholder="Fecha fin">
+                <button class="btn btn-primary" onclick="generarReporte()">📊 Generar Reporte</button>
+            </div>
+
+            <div id="reporteContainer"></div>
+        </div>
+
+        <!-- Demo/Ejemplos -->
+        <div class="section">
+            <h2>📖 Ejemplos de Uso</h2>
+            
+            <div class="demo-section">
+                <h3>Ejemplo 1: Crear Factura con Descuento por Porcentaje</h3>
+                <p>Crear una factura con:</p>
+                <ul>
+                    <li>2 Medicamentos a Q100 cada uno</li>
+                    <li>Descuento del 10% (aplicable si total > Q150)</li>
+                    <li>IVA 12% automático</li>
+                </ul>
+                <div class="code-block">
+Subtotal: Q 200.00<br>
+Descuento (10%): -Q 20.00<br>
+Impuesto (12%): Q 21.60<br>
+<strong>Total: Q 201.60</strong>
+                </div>
+            </div>
+
+            <div class="demo-section">
+                <h3>Ejemplo 2: Descuento Fijo Acumulativo</h3>
+                <p>Múltiples descuentos en la misma factura:</p>
+                <ul>
+                    <li>Descuento por cantidad: -Q 50</li>
+                    <li>Promoción especial: -Q 25</li>
+                    <li>Código promocional: -Q 30</li>
+                </ul>
+                <div class="code-block">
+Subtotal: Q 500.00<br>
+Total Descuentos: -Q 105.00<br>
+Impuesto (12%): Q 47.40<br>
+<strong>Total: Q 442.40</strong>
+                </div>
+            </div>
+
+            <div class="demo-section">
+                <h3>Ejemplo 3: Descuentos por Item Individual</h3>
+                <p>Items con descuentos individuales:</p>
+                <ul>
+                    <li>Item 1: Q 200 - 5% descuento = Q 190</li>
+                    <li>Item 2: Q 300 - Q 25 descuento = Q 275</li>
+                </ul>
+                <div class="code-block">
+Subtotal: Q 500.00<br>
+Descuentos: -Q 35.00<br>
+Subtotal con desc: Q 465.00<br>
+Impuesto (12%): Q 55.80<br>
+<strong>Total: Q 520.80</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Características -->
+        <div class="section">
+            <h2>✨ Características Principales</h2>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Característica</th>
+                        <th>Descripción</th>
+                        <th>Tipo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Descuentos por Porcentaje</strong></td>
+                        <td>Aplicar descuentos como % del total (0-100%)</td>
+                        <td><span class="badge badge-success">Activo</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Descuentos Fijos</strong></td>
+                        <td>Aplicar montos fijos (máximo = total)</td>
+                        <td><span class="badge badge-success">Activo</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Descuentos Múltiples</strong></td>
+                        <td>Aplicar varios descuentos simultáneamente</td>
+                        <td><span class="badge badge-success">Activo</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Descuentos por Item</strong></td>
+                        <td>Aplicar descuentos a items específicos</td>
+                        <td><span class="badge badge-success">Activo</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Códigos Promocionales</strong></td>
+                        <td>Validar y aplicar códigos automáticamente</td>
+                        <td><span class="badge badge-success">Activo</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Cálculo Automático de Impuestos</strong></td>
+                        <td>IVA 12% sobre subtotal con descuentos</td>
+                        <td><span class="badge badge-success">Activo</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Gestión de Clientes</strong></td>
+                        <td>Asociar facturas con clientes</td>
+                        <td><span class="badge badge-success">Activo</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Historial de Cambios</strong></td>
+                        <td>Registrar todos los cambios en facturas</td>
+                        <td><span class="badge badge-success">Activo</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/facturacion.js"></script>
+    <script>
+        // Función para mostrar/ocultar secciones
+        function mostrarSeccion(seccion) {
+            // Ocultar todas las secciones
+            document.getElementById('seccionFacturas').style.display = 'none';
+            document.getElementById('seccionDescuentos').style.display = 'none';
+            document.getElementById('seccionReportes').style.display = 'none';
+
+            // Mostrar sección seleccionada
+            if (seccion === 'facturas') {
+                document.getElementById('seccionFacturas').style.display = 'block';
+                BillingModule.cargarFacturas();
+            } else if (seccion === 'descuentos') {
+                document.getElementById('seccionDescuentos').style.display = 'block';
+                BillingModule.cargarDescuentosPredefinidos();
+            } else if (seccion === 'reportes') {
+                document.getElementById('seccionReportes').style.display = 'block';
+            }
+        }
+
+        // Funciones de ejemplo
+        function crearDescuentoPredefinido() {
+            alert('Esta función se conectará con el backend para crear un descuento predefinido');
+        }
+
+        function aplicarFiltrosFacturas() {
+            alert('Esta función filtrará las facturas según los criterios ingresados');
+        }
+
+        function generarReporte() {
+            alert('Esta función generará un reporte del período seleccionado');
+        }
+
+        // Cargar datos al inicializar
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Página de facturación cargada');
+        });
+    </script>
+</body>
+</html>
