@@ -378,26 +378,459 @@
 
                 <!-- Saldo del Paciente Page -->
                 <div id="page-saldo-paciente" class="page">
-                    <div class="page-header">
-                        <h1>Saldo del Paciente</h1>
-                        <div class="button-group">
-                            <button class="btn btn-primary" id="addPaymentBtn">
-                                <i class="fas fa-money-bill-wave"></i> Registrar Pago
-                            </button>
+                    <style>
+                        .tabs-container {
+                            display: flex;
+                            gap: 10px;
+                            margin-bottom: 20px;
+                            background: white;
+                            padding: 15px;
+                            border-radius: 8px;
+                            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                            overflow-x: auto;
+                        }
+
+                        .tab-btn {
+                            padding: 12px 24px;
+                            border: none;
+                            background: #ecf0f1;
+                            color: #2c3e50;
+                            border-radius: 4px;
+                            cursor: pointer;
+                            font-weight: bold;
+                            font-size: 13px;
+                            white-space: nowrap;
+                            transition: all 0.3s;
+                        }
+
+                        .tab-btn.active {
+                            background: #3498db;
+                            color: white;
+                        }
+
+                        .tab-btn:hover {
+                            background: #3498db;
+                            color: white;
+                        }
+
+                        .tab-content {
+                            display: none;
+                            background: white;
+                            border-radius: 8px;
+                            padding: 20px;
+                            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                        }
+
+                        .tab-content.active {
+                            display: block;
+                        }
+
+                        .info-box {
+                            background: #d1ecf1;
+                            border-left: 4px solid #0c5460;
+                            padding: 15px;
+                            border-radius: 4px;
+                            margin-bottom: 20px;
+                            color: #0c5460;
+                        }
+
+                        .modal {
+                            display: none;
+                            position: fixed;
+                            z-index: 1;
+                            left: 0;
+                            top: 0;
+                            width: 100%;
+                            height: 100%;
+                            background-color: rgba(0,0,0,0.4);
+                        }
+
+                        .modal.active {
+                            display: block;
+                        }
+
+                        .modal-content {
+                            background-color: #fefefe;
+                            margin: 5% auto;
+                            padding: 0;
+                            border: 1px solid #888;
+                            border-radius: 8px;
+                            width: 90%;
+                            max-width: 600px;
+                            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+                        }
+
+                        .modal-header {
+                            background: #3498db;
+                            color: white;
+                            padding: 20px;
+                            border-radius: 8px 8px 0 0;
+                            font-weight: bold;
+                            font-size: 16px;
+                        }
+
+                        .modal-body {
+                            padding: 20px;
+                        }
+
+                        .modal-footer {
+                            background: #f9f9f9;
+                            padding: 15px 20px;
+                            border-top: 1px solid #ddd;
+                            border-radius: 0 0 8px 8px;
+                            display: flex;
+                            gap: 10px;
+                            justify-content: flex-end;
+                        }
+
+                        .close-btn {
+                            color: #aaa;
+                            float: right;
+                            font-size: 28px;
+                            font-weight: bold;
+                            cursor: pointer;
+                            padding: 10px 20px;
+                            margin-top: -5px;
+                        }
+
+                        .close-btn:hover {
+                            color: #000;
+                        }
+                    </style>
+
+                    <!-- TABS -->
+                    <div class="tabs-container">
+                        <button class="tab-btn active" onclick="switchTab('saldos')">📊 Mis Saldos</button>
+                        <button class="tab-btn" onclick="switchTab('facturar')">📋 Crear Factura</button>
+                        <button class="tab-btn" onclick="switchTab('estados')">📑 Estados de Cuenta</button>
+                        <button class="tab-btn" onclick="switchTab('pagos')">💳 Registrar Pago</button>
+                        <button class="tab-btn" onclick="switchTab('historialPagos')">📜 Historial de Pagos</button>
+                    </div>
+
+                    <!-- TAB 1: SALDOS DE PACIENTES -->
+                    <div id="saldos" class="tab-content active">
+                        <div style="display: grid; grid-template-columns: 1fr 350px; gap: 20px;">
+                            <div>
+                                <div style="position: relative; margin-bottom: 20px;">
+                                    <input type="text" id="searchSaldo" placeholder="Buscar por nombre, apellido o DPI..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Paciente</th>
+                                                <th>DPI</th>
+                                                <th class="text-right">Total Deuda</th>
+                                                <th class="text-right">Saldo Pendiente</th>
+                                                <th class="text-center">Estado</th>
+                                                <th>Últim. Trans.</th>
+                                                <th class="text-center">Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tablaSaldos">
+                                            <tr><td colspan="7" class="text-center">Cargando...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div>
+                                <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                                    <div style="font-weight: bold; color: #2c3e50; margin-bottom: 15px;">📌 Filtros</div>
+                                    <div style="margin-bottom: 15px;">
+                                        <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">Estado</label>
+                                        <select id="filterEstado" onchange="SaldoPacienteFacturacion.actualizarTabla()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                            <option value="todos">Todos</option>
+                                            <option value="deudores">Deudores</option>
+                                            <option value="pagados">Pagados</option>
+                                            <option value="morosos">Morosos (+30 días)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div style="background: #f9f9f9; padding: 15px; border-radius: 8px;">
+                                    <div style="font-weight: bold; color: #2c3e50; margin-bottom: 15px;">📈 Resumen</div>
+                                    <div id="resumenSaldos" style="font-size: 13px; color: #666;">Cargando...</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="saldo-filters">
-                        <input type="text" id="searchSaldoPaciente" class="form-input" placeholder="Buscar por nombre o cédula...">
-                        <select id="filterEstadoSaldo" class="form-input">
-                            <option value="todos">Todos</option>
-                            <option value="deudores">Con Saldo Pendiente</option>
-                            <option value="pagados">Sin Deuda</option>
-                        </select>
+                    <!-- TAB 2: CREAR FACTURA -->
+                    <div id="facturar" class="tab-content">
+                        <div style="display: grid; grid-template-columns: 1fr 350px; gap: 20px;">
+                            <div>
+                                <div class="info-box"><p><strong>1. Selecciona un paciente y agrega artículos/servicios</strong></p></div>
+                                <div style="margin-bottom: 20px;">
+                                    <label style="display: block; font-weight: bold; margin-bottom: 5px;">Buscar Paciente</label>
+                                    <input type="text" id="busquedaPacienteFactura" placeholder="Escribe nombre, apellido o DPI..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <input type="hidden" id="pacienteIdFactura">
+                                    <div id="resultadosPacientes" style="margin-top: 10px;"></div>
+                                </div>
+                                <div class="info-box"><p><strong>2. Agrega artículos o servicios a la factura</strong></p></div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                                    <div>
+                                        <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">Descripción</label>
+                                        <input type="text" id="descripcionItem" placeholder="Ej: Consulta General" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                    </div>
+                                    <div>
+                                        <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">Cantidad</label>
+                                        <input type="number" id="cantidadItem" min="1" value="1" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                    </div>
+                                </div>
+                                <div style="margin-bottom: 15px;">
+                                    <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">Precio Unitario (Q)</label>
+                                    <input type="number" id="precioItem" min="0" step="0.01" placeholder="0.00" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                </div>
+                                <button class="btn btn-primary" onclick="SaldoPacienteFacturacion.agregarItem()" style="width: 100%; margin-bottom: 25px;">➕ Agregar Artículo</button>
+                                
+                                <h3 style="color: #2c3e50; margin-bottom: 15px;">Artículos en Factura</h3>
+                                <div class="table-responsive">
+                                    <table class="data-table">
+                                        <thead><tr><th>#</th><th>Descripción</th><th class="text-center">Cant.</th><th class="text-right">P. Unit.</th><th class="text-right">Subtotal</th><th class="text-right">Desc.</th><th class="text-right">Total</th><th class="text-center">Acc.</th></tr></thead>
+                                        <tbody id="tablaItems"><tr><td colspan="8" class="text-center" style="color: #999;">Sin artículos</td></tr></tbody>
+                                    </table>
+                                </div>
+
+                                <div style="margin-top: 25px;">
+                                    <h3 style="color: #2c3e50; margin-bottom: 15px;">Descuentos Generales</h3>
+                                    <button class="btn btn-warning" onclick="SaldoPacienteFacturacion.abrirModalDescuento()" style="width: 100%; margin-bottom: 15px;">⬇️ Agregar Descuento</button>
+                                    <div class="table-responsive">
+                                        <table class="data-table">
+                                            <thead><tr><th>#</th><th>Tipo</th><th class="text-right">Valor</th><th>Motivo</th><th class="text-right">Monto</th><th class="text-center">Acc.</th></tr></thead>
+                                            <tbody id="tablaDescuentos"><tr><td colspan="6" class="text-center" style="color: #999;">Sin descuentos</td></tr></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                                    <div style="font-weight: bold; color: #2c3e50; margin-bottom: 15px;">📊 Resumen de Factura</div>
+                                    <div id="totalesFactura">
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 13px;">
+                                            <span>Subtotal:</span>
+                                            <strong>Q0.00</strong>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 13px;">
+                                            <span>Descuentos:</span>
+                                            <strong>Q0.00</strong>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 13px;">
+                                            <span>Base Imponible:</span>
+                                            <strong>Q0.00</strong>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 13px;">
+                                            <span>IVA 12%:</span>
+                                            <strong>Q0.00</strong>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; padding-top: 10px; border-top: 2px solid #ddd; margin-bottom: 10px;">
+                                            <span>TOTAL:</span>
+                                            <strong style="color: #e74c3c;">Q0.00</strong>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                                    <div style="font-weight: bold; color: #2c3e50; margin-bottom: 15px;">💳 Método de Pago</div>
+                                    <div style="margin-bottom: 15px;">
+                                        <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">Selecciona Método</label>
+                                        <select id="metodoPago" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                            <option value="efectivo">Efectivo</option>
+                                            <option value="tarjeta">Tarjeta</option>
+                                            <option value="cheque">Cheque</option>
+                                            <option value="transferencia">Transferencia</option>
+                                            <option value="credito">Crédito</option>
+                                        </select>
+                                    </div>
+                                    <div style="margin-bottom: 15px;">
+                                        <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">Observaciones</label>
+                                        <textarea id="observaciones" placeholder="Notas adicionales..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; min-height: 80px;"></textarea>
+                                    </div>
+                                    <div style="display: flex; gap: 10px;">
+                                        <button class="btn btn-success" onclick="SaldoPacienteFacturacion.guardarFactura()" style="flex: 1;">✅ Guardar Factura</button>
+                                        <button class="btn btn-danger" onclick="SaldoPacienteFacturacion.cancelarFactura()" style="flex: 1;">❌ Cancelar</button>
+                                    </div>
+                                </div>
+
+                                <div style="background: #f9f9f9; padding: 15px; border-radius: 8px;">
+                                    <div style="font-weight: bold; color: #2c3e50; margin-bottom: 15px;">👤 Paciente Seleccionado</div>
+                                    <div id="datoPacienteSeleccionado" style="font-size: 13px; color: #666;">
+                                        <p>No hay paciente seleccionado</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div id="saldosPacientesTableContainer" class="table-responsive">
-                        <!-- Poblada por JavaScript -->
+                    <!-- TAB 3: ESTADOS DE CUENTA -->
+                    <div id="estados" class="tab-content">
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; font-weight: bold; margin-bottom: 5px;">Selecciona un Paciente para ver su Estado de Cuenta</label>
+                            <select id="selectPacienteEstado" onchange="SaldoPacienteFacturacion.cargarEstadoCuenta()" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                <option value="">-- Selecciona paciente --</option>
+                            </select>
+                        </div>
+                        <div id="estadoCuentaContainer" style="display: none;">
+                            <button class="btn btn-info" onclick="SaldoPacienteFacturacion.imprimirEstado()">🖨️ Imprimir Estado de Cuenta</button>
+                            <div id="estadoCuentaContent" style="margin-top: 20px;"></div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 4: PAGOS -->
+                    <div id="pagos" class="tab-content">
+                        <div class="info-box"><p>Registra pagos o abonos para reducir el saldo pendiente del paciente</p></div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; font-weight: bold; margin-bottom: 5px;">Buscar Paciente Deudor</label>
+                            <input type="text" id="busquedaPacientePago" placeholder="Nombre, apellido o DPI..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                            <div id="resultadosPago" style="margin-top: 10px;"></div>
+                        </div>
+
+                        <div id="formPago" style="display: none; background: #f9f9f9; padding: 20px; border-radius: 4px; margin-top: 20px;">
+                            <h3 style="color: #2c3e50; margin-bottom: 15px;">Registrar Pago</h3>
+                            <div style="margin-bottom: 15px;">
+                                <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">Paciente</label>
+                                <input type="text" id="pacienteNombrePago" disabled style="width: 100%; padding: 10px; border: 1px solid #ddd; background: #ecf0f1; border-radius: 4px;">
+                            </div>
+                            <div style="margin-bottom: 15px;">
+                                <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">Saldo Pendiente</label>
+                                <input type="text" id="saldoPendientePago" disabled style="width: 100%; padding: 10px; border: 1px solid #ddd; background: #ecf0f1; border-radius: 4px;">
+                                <input type="hidden" id="pacienteIdPago">
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                                <div>
+                                    <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">Monto a Pagar (Q)</label>
+                                    <input type="number" id="montoPago" min="0" step="0.01" placeholder="0.00" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                </div>
+                                <div>
+                                    <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">Método de Pago</label>
+                                    <select id="metodoPagoPago" onchange="SaldoPacienteFacturacion.mostrarCamposMetodo('nuevo')" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                        <option value="efectivo">Efectivo</option>
+                                        <option value="transferencia">Transferencia</option>
+                                        <option value="tarjeta">Tarjeta de Crédito/Débito</option>
+                                        <option value="cheque">Cheque</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div id="camposMetodoNuevo"></div>
+                            <div style="margin-bottom: 15px;">
+                                <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">Observaciones</label>
+                                <textarea id="observacionesPago" placeholder="Notas..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; min-height: 80px;"></textarea>
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <button class="btn btn-success" onclick="SaldoPacienteFacturacion.registrarPago()" style="flex: 1;">✅ Registrar Pago</button>
+                                <button class="btn btn-danger" onclick="SaldoPacienteFacturacion.cancelarPago()" style="flex: 1;">❌ Cancelar</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 5: HISTORIAL DE PAGOS -->
+                    <div id="historialPagos" class="tab-content">
+                        <div class="info-box"><p>Visualiza, modifica y edita todos los pagos realizados por los pacientes</p></div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                            <div>
+                                <label style="display: block; font-weight: bold; margin-bottom: 5px;">Filtrar por Paciente</label>
+                                <select id="filtrarPacientePagos" onchange="SaldoPacienteFacturacion.filtrarPagosPorPaciente()" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <option value="">-- Todos --</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display: block; font-weight: bold; margin-bottom: 5px;">Buscar Pago</label>
+                                <input type="text" id="buscarPago" placeholder="Número de recibo, voucher..." onkeyup="SaldoPacienteFacturacion.buscarPagos()" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 20px;">
+                            <h3 style="color: #2c3e50; margin-bottom: 15px;">Registro de Pagos</h3>
+                            <div class="table-responsive">
+                                <table style="width: 100%; border-collapse: collapse;">
+                                    <thead>
+                                        <tr style="background: #34495e; color: white;">
+                                            <th style="padding: 12px; text-align: left;">Paciente</th>
+                                            <th style="padding: 12px; text-align: center;">Fecha</th>
+                                            <th style="padding: 12px; text-align: right;">Monto</th>
+                                            <th style="padding: 12px; text-align: center;">Método</th>
+                                            <th style="padding: 12px; text-align: center;">Referencia</th>
+                                            <th style="padding: 12px; text-align: center;">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tablaPagosRealizados" style="background: white;">
+                                        <tr><td colspan="6" style="text-align: center; padding: 20px; color: #999;">Sin pagos registrados</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- MODAL EDITAR PAGO -->
+                        <div id="modalEditarPago" class="modal">
+                            <div class="modal-content">
+                                <span class="close-btn" onclick="document.getElementById('modalEditarPago').classList.remove('active')">&times;</span>
+                                <div class="modal-header">Editar Pago</div>
+                                <div class="modal-body">
+                                    <div style="margin-bottom: 15px;">
+                                        <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">Paciente</label>
+                                        <input type="text" id="editarPaciente" disabled style="width: 100%; padding: 10px; background: #ecf0f1; border: 1px solid #ddd; border-radius: 4px;">
+                                        <input type="hidden" id="editarPagoId">
+                                    </div>
+                                    <div style="margin-bottom: 15px;">
+                                        <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">Fecha del Pago</label>
+                                        <input type="date" id="editarFechaPago" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                    </div>
+                                    <div style="margin-bottom: 15px;">
+                                        <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">Monto (Q)</label>
+                                        <input type="number" id="editarMontoPago" min="0" step="0.01" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                    </div>
+                                    <div style="margin-bottom: 15px;">
+                                        <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">Método de Pago</label>
+                                        <select id="editarMetodoPago" onchange="SaldoPacienteFacturacion.mostrarCamposMetodo('editar')" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                            <option value="efectivo">Efectivo</option>
+                                            <option value="transferencia">Transferencia</option>
+                                            <option value="tarjeta">Tarjeta de Crédito/Débito</option>
+                                            <option value="cheque">Cheque</option>
+                                        </select>
+                                    </div>
+                                    <div id="editarCamposMetodo"></div>
+                                    <div>
+                                        <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">Observaciones</label>
+                                        <textarea id="editarObservacionesPago" placeholder="Notas..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; min-height: 80px;"></textarea>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button class="btn btn-danger" onclick="document.getElementById('modalEditarPago').classList.remove('active')">Cancelar</button>
+                                    <button class="btn btn-success" onclick="SaldoPacienteFacturacion.guardarCambiosPago()">Guardar Cambios</button>
+                                    <button class="btn btn-warning" onclick="if(confirm('¿Eliminar este pago?')) { SaldoPacienteFacturacion.eliminarPago(); }">Eliminar</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- MODAL DESCUENTO -->
+                    <div id="modalDescuento" class="modal">
+                        <div class="modal-content" style="max-width: 500px;">
+                            <span class="close-btn" onclick="document.getElementById('modalDescuento').classList.remove('active')">&times;</span>
+                            <div class="modal-header">Agregar Descuento General</div>
+                            <div class="modal-body">
+                                <div style="margin-bottom: 15px;">
+                                    <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">Tipo de Descuento</label>
+                                    <select id="tipoDescuento" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                        <option value="porcentaje">Porcentaje (%)</option>
+                                        <option value="fijo">Cantidad Fija (Q)</option>
+                                    </select>
+                                </div>
+                                <div style="margin-bottom: 15px;">
+                                    <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">Valor</label>
+                                    <input type="number" id="valorDescuento" min="0" step="0.01" placeholder="0.00" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                </div>
+                                <div style="margin-bottom: 15px;">
+                                    <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">Motivo</label>
+                                    <input type="text" id="motivoDescuento" placeholder="Ej: Promoción, Descuento profesional..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button class="btn btn-danger" onclick="document.getElementById('modalDescuento').classList.remove('active')">Cancelar</button>
+                                <button class="btn btn-success" onclick="SaldoPacienteFacturacion.agregarDescuento()">Agregar Descuento</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -3529,7 +3962,7 @@
     <script src="js/pacientes-file-manager.js"></script>
     <script src="js/medicinas.js"></script>
     <script src="js/historia-clinica.js"></script>
-    <script src="js/saldo-paciente.js"></script>
+    <script src="js/saldo-paciente-facturacion-integrado.js"></script>
     <script src="js/hospitalizaciones.js"></script>
     <script src="js/codigos-articulos.js"></script>
     <script src="js/caja-integrada.js"></script>
