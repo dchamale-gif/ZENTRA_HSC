@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saldo de Paciente + Facturación - Sistema Contable</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        /* TABS */
+        .tabs-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+
+        .tab-btn {
+            padding: 12px 24px;
+            border: none;
+            background: #ecf0f1;
+            color: #2c3e50;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+            white-space: nowrap;
+            transition: all 0.3s;
+        }
+
+        .tab-btn.active {
+            background: #3498db;
+            color: white;
+        }
+
+        .tab-btn:hover {
+            background: #3498db;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* LAYOUT GENERAL */
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+        }
+
+        /* PANEL LATERAL */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .sidebar-card {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .sidebar-title {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+
+        .saldo-item {
+            margin-bottom: 15px;
+        }
+
+        .saldo-label {
+            font-size: 12px;
+            color: #666;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .saldo-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .saldo-value.positivo {
+            color: #e74c3c;
+        }
+
+        .saldo-value.negativo {
+            color: #27ae60;
+        }
+
+        /* TABLAS */
+        .tabla-responsive {
+            overflow-x: auto;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+
+        .data-table th {
+            background: #34495e;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .data-table td {
+            padding: 12px;
+            border-bottom: 1px solid #ecf0f1;
+            font-size: 13px;
+        }
+
+        .data-table tr:hover {
+            background: #f9f9f9;
+        }
+
+        .data-table .text-right {
+            text-align: right;
+        }
+
+        .data-table .text-center {
+            text-align: center;
+        }
+
+        /* FORMULARIOS */
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        /* BOTONES */
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #229954;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #d68910;
+        }
+
+        .btn-info {
+            background: #16a085;
+            color: white;
+        }
+
+        .btn-info:hover {
+            background: #138d75;
+        }
+
+        .btn-sm {
+            padding: 6px 10px;
+            font-size: 11px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn-group .btn {
+            flex: 1;
+        }
+
+        /* BÚSQUEDA */
+        .search-box {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 100;
+        }
+
+        .search-result-item {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .search-result-item:hover {
+            background: #f0f8ff;
+        }
+
+        /* TOTALES */
+        .totales-box {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            font-size: 13px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .total-row.final {
+            border-top: 2px solid #2c3e50;
+            border-bottom: none;
+            font-size: 16px;
+            font-weight: bold;
+            color: #2c3e50;
+            padding-top: 10px;
+            margin-top: 10px;
+        }
+
+        .total-row.descuento {
+            color: #27ae60;
+        }
+
+        /* BADGES */
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .badge-success {
+            background: #d5f4e6;
+            color: #27ae60;
+        }
+
+        .badge-danger {
+            background: #fadbd8;
+            color: #e74c3c;
+        }
+
+        .badge-info {
+            background: #d6eaf8;
+            color: #2c3e50;
+        }
+
+        .badge-warning {
+            background: #fdebd0;
+            color: #f39c12;
+        }
+
+        /* MODAL */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+
+        .modal-body {
+            margin: 15px 0;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .close-btn {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close-btn:hover {
+            color: #000;
+        }
+
+        /* INFO BOX */
+        .info-box {
+            background: #e8f4f8;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+
+        .info-box p {
+            font-size: 13px;
+            color: #666;
+            margin: 5px 0;
+        }
+
+        /* EMPTY STATE */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+            margin: 10px 0;
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 1024px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                grid-auto-flow: column;
+                grid-auto-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .tabs-container {
+                flex-wrap: wrap;
+            }
+
+            .tab-btn {
+                padding: 10px 16px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- HEADER -->
+        <div class="header">
+            <h1>💰 Saldo de Paciente + Facturación Integrada</h1>
+            <p>Gestión completa de saldos, facturación con descuentos robustos e impresión de reportes</p>
+        </div>
+
+        <!-- TABS -->
+        <div class="tabs-container">
+            <button class="tab-btn active" onclick="switchTab('saldos')">📊 Mis Saldos</button>
+            <button class="tab-btn" onclick="switchTab('facturar')">📋 Crear Factura</button>
+            <button class="tab-btn" onclick="switchTab('estados')">📑 Estados de Cuenta</button>
+            <button class="tab-btn" onclick="switchTab('pagos')">💳 Registrar Pago</button>
+        </div>
+
+        <!-- TAB 1: SALDOS DE PACIENTES -->
+        <div id="saldos" class="tab-content active">
+            <div class="main-layout">
+                <div>
+                    <!-- Búsqueda -->
+                    <div class="search-box">
+                        <input type="text" id="searchSaldo" placeholder="Buscar por nombre, apellido o DPI...">
+                        <div id="searchResults" class="search-results"></div>
+                    </div>
+
+                    <!-- Tabla de saldos -->
+                    <div class="tabla-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Paciente</th>
+                                    <th>DPI</th>
+                                    <th class="text-right">Total Deuda</th>
+                                    <th class="text-right">Saldo Pendiente</th>
+                                    <th class="text-center">Estado</th>
+                                    <th>Últim. Trans.</th>
+                                    <th class="text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaSaldos">
+                                <tr>
+                                    <td colspan="7" class="text-center">Cargando...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Sidebar -->
+                <div class="sidebar">
+                    <div class="sidebar-card">
+                        <div class="sidebar-title">📌 Filtros</div>
+                        <div class="form-group">
+                            <label>Estado</label>
+                            <select id="filterEstado" onchange="actualizarTabla()">
+                                <option value="todos">Todos</option>
+                                <option value="deudores">Deudores</option>
+                                <option value="pagados">Pagados</option>
+                                <option value="morosos">Morosos (+30 días)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="sidebar-card">
+                        <div class="sidebar-title">📈 Resumen</div>
+                        <div id="resumenSaldos">
+                            <p style="text-align: center; color: #999;">Cargando...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: CREAR FACTURA -->
+        <div id="facturar" class="tab-content">
+            <div class="main-layout">
+                <div>
+                    <!-- Seleccionar Paciente -->
+                    <div class="info-box">
+                        <p><strong>1. Selecciona un paciente y agrega artículos/servicios</strong></p>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Buscar Paciente</label>
+                        <input type="text" id="busquedaPacienteFactura" placeholder="Escribe nombre, apellido o DPI...">
+                        <div id="resultadosPacientes" style="margin-top: 10px;"></div>
+                        <input type="hidden" id="pacienteIdFactura">
+                        <div id="pacienteSeleccionado" style="margin-top: 10px; font-weight: bold; color: #27ae60; display: none;"></div>
+                    </div>
+
+                    <!-- Agregar Items -->
+                    <div class="info-box">
+                        <p><strong>2. Agrega artículos o servicios a la factura</strong></p>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Descripción</label>
+                            <input type="text" id="descripcionItem" placeholder="Ej: Consulta General">
+                        </div>
+                        <div class="form-group">
+                            <label>Cantidad</label>
+                            <input type="number" id="cantidadItem" min="1" value="1" placeholder="1">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Precio Unitario (Q)</label>
+                        <input type="number" id="precioItem" min="0" step="0.01" placeholder="0.00">
+                    </div>
+
+                    <button class="btn btn-primary" onclick="SaldoPacienteFacturacion.agregarItem()" style="width: 100%;">➕ Agregar Artículo</button>
+
+                    <!-- Tabla de Items -->
+                    <div style="margin-top: 25px;">
+                        <h3 style="color: #2c3e50; margin-bottom: 15px;">Artículos en Factura</h3>
+                        <div class="tabla-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Descripción</th>
+                                        <th class="text-center">Cant.</th>
+                                        <th class="text-right">P. Unit.</th>
+                                        <th class="text-right">Subtotal</th>
+                                        <th class="text-right">Desc.</th>
+                                        <th class="text-right">Total</th>
+                                        <th class="text-center">Acc.</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tablaItems">
+                                    <tr>
+                                        <td colspan="8" class="text-center" style="color: #999;">Sin artículos</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Descuentos -->
+                    <div style="margin-top: 25px;">
+                        <h3 style="color: #2c3e50; margin-bottom: 15px;">Descuentos Generales</h3>
+                        <button class="btn btn-warning" onclick="SaldoPacienteFacturacion.abrirModalDescuento()" style="width: 100%; margin-bottom: 15px;">⬇️ Agregar Descuento</button>
+
+                        <div class="tabla-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Tipo</th>
+                                        <th class="text-right">Valor</th>
+                                        <th>Motivo</th>
+                                        <th class="text-right">Monto</th>
+                                        <th class="text-center">Acc.</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tablaDescuentos">
+                                    <tr>
+                                        <td colspan="6" class="text-center" style="color: #999;">Sin descuentos</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SIDEBAR TOTALES -->
+                <div class="sidebar">
+                    <div class="sidebar-card">
+                        <div class="sidebar-title">📊 Resumen de Factura</div>
+                        <div id="totalesFactura">
+                            <div class="total-row">
+                                <span>Subtotal:</span>
+                                <strong>Q0.00</strong>
+                            </div>
+                            <div class="total-row">
+                                <span>Descuentos:</span>
+                                <strong>Q0.00</strong>
+                            </div>
+                            <div class="total-row">
+                                <span>Base Imponible:</span>
+                                <strong>Q0.00</strong>
+                            </div>
+                            <div class="total-row">
+                                <span>IVA 12%:</span>
+                                <strong>Q0.00</strong>
+                            </div>
+                            <div class="total-row final">
+                                <span>TOTAL:</span>
+                                <strong style="color: #e74c3c;">Q0.00</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="sidebar-card">
+                        <div class="sidebar-title">💳 Método de Pago</div>
+                        <div class="form-group">
+                            <label>Selecciona Método</label>
+                            <select id="metodoPago">
+                                <option value="efectivo">Efectivo</option>
+                                <option value="tarjeta">Tarjeta</option>
+                                <option value="cheque">Cheque</option>
+                                <option value="transferencia">Transferencia</option>
+                                <option value="credito">Crédito</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Observaciones</label>
+                            <textarea id="observaciones" placeholder="Notas adicionales..." style="min-height: 80px;"></textarea>
+                        </div>
+
+                        <div class="btn-group">
+                            <button class="btn btn-success" onclick="SaldoPacienteFacturacion.guardarFactura()">✅ Guardar Factura</button>
+                            <button class="btn btn-danger" onclick="SaldoPacienteFacturacion.cancelarFactura()">❌ Cancelar</button>
+                        </div>
+                    </div>
+
+                    <div class="sidebar-card">
+                        <div class="sidebar-title">👤 Paciente Seleccionado</div>
+                        <div id="datoPacienteSeleccionado" style="font-size: 13px; color: #666;">
+                            <p>No hay paciente seleccionado</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: ESTADOS DE CUENTA -->
+        <div id="estados" class="tab-content">
+            <div class="form-group">
+                <label>Selecciona un Paciente para ver su Estado de Cuenta</label>
+                <select id="selectPacienteEstado" onchange="SaldoPacienteFacturacion.cargarEstadoCuenta()">
+                    <option value="">-- Selecciona paciente --</option>
+                </select>
+            </div>
+
+            <div id="estadoCuentaContainer" style="display: none;">
+                <button class="btn btn-info" onclick="SaldoPacienteFacturacion.imprimirEstado()">🖨️ Imprimir Estado de Cuenta</button>
+                <div id="estadoCuentaContent" style="margin-top: 20px;"></div>
+            </div>
+        </div>
+
+        <!-- TAB 4: PAGOS -->
+        <div id="pagos" class="tab-content">
+            <div class="info-box">
+                <p>Registra pagos o abonos para reducir el saldo pendiente del paciente</p>
+            </div>
+
+            <div class="form-group">
+                <label>Buscar Paciente Deudor</label>
+                <input type="text" id="busquedaPacientePago" placeholder="Nombre, apellido o DPI...">
+                <div id="resultadosPago" style="margin-top: 10px;"></div>
+            </div>
+
+            <div id="formPago" style="display: none; background: #f9f9f9; padding: 20px; border-radius: 4px; margin-top: 20px;">
+                <h3 style="color: #2c3e50; margin-bottom: 15px;">Registrar Pago</h3>
+
+                <div class="form-group">
+                    <label>Paciente</label>
+                    <input type="text" id="pacienteNombrePago" disabled style="background: #ecf0f1;">
+                </div>
+
+                <div class="form-group">
+                    <label>Saldo Pendiente</label>
+                    <input type="text" id="saldoPendientePago" disabled style="background: #ecf0f1;">
+                    <input type="hidden" id="pacienteIdPago">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Monto a Pagar (Q)</label>
+                        <input type="number" id="montoPago" min="0" step="0.01" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label>Método de Pago</label>
+                        <select id="metodoPagoPago">
+                            <option value="efectivo">Efectivo</option>
+                            <option value="tarjeta">Tarjeta</option>
+                            <option value="cheque">Cheque</option>
+                            <option value="transferencia">Transferencia</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Referencia (Opcional)</label>
+                    <input type="text" id="referenciaPago" placeholder="Ej: Número de transacción">
+                </div>
+
+                <div class="form-group">
+                    <label>Observaciones</label>
+                    <textarea id="observacionesPago" placeholder="Notas..."></textarea>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-success" onclick="SaldoPacienteFacturacion.registrarPago()">✅ Registrar Pago</button>
+                    <button class="btn btn-danger" onclick="SaldoPacienteFacturacion.cancelarPago()">❌ Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DESCUENTO -->
+    <div id="modalDescuento" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="document.getElementById('modalDescuento').classList.remove('active')">&times;</span>
+            <div class="modal-header">Agregar Descuento General</div>
+
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Tipo de Descuento</label>
+                    <select id="tipoDescuento">
+                        <option value="porcentaje">Porcentaje (%)</option>
+                        <option value="fijo">Cantidad Fija (Q)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Valor</label>
+                    <input type="number" id="valorDescuento" min="0" step="0.01" placeholder="0.00">
+                </div>
+
+                <div class="form-group">
+                    <label>Motivo</label>
+                    <input type="text" id="motivoDescuento" placeholder="Ej: Promoción, Descuento profesional...">
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-danger" onclick="document.getElementById('modalDescuento').classList.remove('active')">Cancelar</button>
+                <button class="btn btn-success" onclick="SaldoPacienteFacturacion.agregarDescuento()">Agregar Descuento</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/saldo-paciente-facturacion-integrado.js"></script>
+</body>
+</html>
