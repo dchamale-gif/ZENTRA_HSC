@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facturación Mejorada - Sistema Contable</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* Estilos para facturación mejorada */
+        .facturacion-container {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .seccion-factura {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .seccion-titulo {
+            font-size: 16px;
+            font-weight: bold;
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        /* Búsqueda de paciente */
+        .busqueda-paciente {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .busqueda-paciente input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        #resultadosBusquedaPaciente {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 100;
+        }
+
+        .resultado-paciente {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .resultado-paciente:hover {
+            background: #f0f8ff;
+        }
+
+        .resultado-paciente .saldo {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        /* Tabla de items */
+        .tabla-items {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+
+        .tabla-items th {
+            background: #34495e;
+            color: white;
+            padding: 10px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .tabla-items td {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            font-size: 13px;
+        }
+
+        .tabla-items tr:hover {
+            background: #f9f9f9;
+        }
+
+        .tabla-items .text-center {
+            text-align: center;
+        }
+
+        .tabla-items .text-right {
+            text-align: right;
+        }
+
+        .tabla-items .font-weight-bold {
+            font-weight: bold;
+        }
+
+        /* Formulario de items */
+        .form-item {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .form-item input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .form-item label {
+            font-size: 12px;
+            font-weight: bold;
+            color: #666;
+            margin-bottom: 5px;
+            grid-column: 1 / -1;
+        }
+
+        /* Totales */
+        .totales-factura {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            font-size: 13px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .total-row.descuento {
+            color: #27ae60;
+        }
+
+        .total-row.total-final {
+            font-size: 16px;
+            font-weight: bold;
+            color: #2c3e50;
+            border: none;
+            border-top: 2px solid #2c3e50;
+            padding-top: 10px;
+            margin-top: 10px;
+        }
+
+        /* Botones */
+        .btn {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #229954;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        .btn-info {
+            background: #16a085;
+            color: white;
+        }
+
+        .btn-info:hover {
+            background: #138d75;
+        }
+
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #d68910;
+        }
+
+        .btn-sm {
+            padding: 5px 8px;
+            font-size: 11px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        /* Modales */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 10% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 500px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .modal-header {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+
+        .modal-body {
+            margin: 15px 0;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .close-btn {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close-btn:hover {
+            color: #000;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .badge-info {
+            background: #3498db;
+            color: white;
+        }
+
+        .badge-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .badge-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .badge-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        /* Saldo */
+        .saldo-box {
+            background: #ecf0f1;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+            font-size: 13px;
+        }
+
+        .saldo-box strong {
+            color: #2c3e50;
+            font-size: 14px;
+        }
+
+        .saldo-box .positivo {
+            color: #27ae60;
+        }
+
+        .saldo-box .negativo {
+            color: #e74c3c;
+        }
+
+        /* Form items */
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+            box-sizing: border-box;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .facturacion-container {
+                grid-template-columns: 1fr;
+            }
+
+            .form-item {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="facturacion-container">
+        <!-- SECCIÓN PRINCIPAL DE FACTURACIÓN -->
+        <div>
+            <!-- Búsqueda de paciente -->
+            <div class="seccion-factura">
+                <div class="seccion-titulo">Seleccionar Paciente</div>
+
+                <div class="busqueda-paciente">
+                    <input type="text" id="busquedaPaciente" placeholder="Buscar por nombre, apellido o DPI...">
+                    <div id="resultadosBusquedaPaciente"></div>
+                </div>
+
+                <div id="saldoActualPaciente" class="saldo-box" style="display:none;"></div>
+
+                <input type="hidden" id="pacienteIdFactura">
+            </div>
+
+            <!-- Agregar items -->
+            <div class="seccion-factura">
+                <div class="seccion-titulo">Agregar Artículos/Servicios</div>
+
+                <div class="form-group">
+                    <label>Descripción</label>
+                    <input type="text" id="descripcionItemM" placeholder="Ej: Consulta General">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="form-group">
+                        <label>Cantidad</label>
+                        <input type="number" id="cantidadItemM" min="1" value="1" placeholder="1">
+                    </div>
+                    <div class="form-group">
+                        <label>Precio Unitario (Q)</label>
+                        <input type="number" id="precioItemM" min="0" step="0.01" placeholder="0.00">
+                    </div>
+                </div>
+
+                <button class="btn btn-primary" id="btnAgregarItemM" style="width: 100%;">+ Agregar Artículo</button>
+
+                <!-- Tabla de items -->
+                <table class="tabla-items">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Descripción</th>
+                            <th>Cant.</th>
+                            <th>Precio Unit.</th>
+                            <th>Subtotal</th>
+                            <th>Desc.</th>
+                            <th>Total</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="itemsTableBodyM">
+                        <tr>
+                            <td colspan="8" style="text-align: center; color: #999; padding: 20px;">Sin items agregados</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Descuentos -->
+            <div class="seccion-factura">
+                <div class="seccion-titulo">Descuentos Generales</div>
+
+                <button class="btn btn-warning" id="btnAgregarDescuentoM" style="width: 100%; margin-bottom: 15px;">+ Agregar Descuento General</button>
+
+                <table class="tabla-items">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Tipo</th>
+                            <th>Tipo Desc.</th>
+                            <th>Motivo</th>
+                            <th>Monto</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="descuentosTableBodyM">
+                        <tr>
+                            <td colspan="6" style="text-align: center; color: #999; padding: 20px;">Sin descuentos agregados</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Método de pago y observaciones -->
+            <div class="seccion-factura">
+                <div class="seccion-titulo">Información Adicional</div>
+
+                <div class="form-group">
+                    <label>Método de Pago</label>
+                    <select id="metodoPagoM">
+                        <option value="efectivo">Efectivo</option>
+                        <option value="tarjeta">Tarjeta</option>
+                        <option value="cheque">Cheque</option>
+                        <option value="transferencia">Transferencia</option>
+                        <option value="credito">Crédito</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Observaciones</label>
+                    <textarea id="observacionesM" placeholder="Notas adicionales..."></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- RESUMEN Y TOTALES -->
+        <div>
+            <div class="seccion-factura">
+                <div class="seccion-titulo">Resumen de Factura</div>
+
+                <div id="totalesFacturaM">
+                    <div class="total-row">
+                        <span>Subtotal:</span>
+                        <strong>Q0.00</strong>
+                    </div>
+                    <div class="total-row">
+                        <span>Descuentos:</span>
+                        <strong>Q0.00</strong>
+                    </div>
+                    <div class="total-row">
+                        <span>IVA 12%:</span>
+                        <strong>Q0.00</strong>
+                    </div>
+                    <div class="total-row total-final">
+                        <span>TOTAL A PAGAR:</span>
+                        <strong>Q0.00</strong>
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-success" id="btnGuardarFacturaM" style="flex: 1;">✓ Guardar Factura</button>
+                    <button class="btn btn-danger" id="btnCancelarFacturaM" style="flex: 1;">✗ Cancelar</button>
+                </div>
+            </div>
+
+            <!-- Últimas facturas -->
+            <div class="seccion-factura">
+                <div class="seccion-titulo">Últimas Facturas</div>
+                <div id="ultimasFacturas" style="font-size: 13px; color: #666;">
+                    <p style="text-align: center; color: #999;">Cargando...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE DESCUENTO -->
+    <div id="modalDescuentoM" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="document.getElementById('modalDescuentoM').style.display='none'">&times;</span>
+            <div class="modal-header">Agregar Descuento General</div>
+
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Tipo de Descuento</label>
+                    <select id="tipoDescuentoM">
+                        <option value="porcentaje">Porcentaje (%)</option>
+                        <option value="fijo">Cantidad Fija (Q)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Valor</label>
+                    <input type="number" id="valorDescuentoM" min="0" step="0.01" placeholder="0.00">
+                </div>
+
+                <div class="form-group">
+                    <label>Motivo</label>
+                    <input type="text" id="motivoDescuentoM" placeholder="Ej: Promoción, Descuento profesional...">
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="document.getElementById('modalDescuentoM').style.display='none'">Cancelar</button>
+                <button class="btn btn-success" onclick="FacturacionMejorada.agregarDescuentoFactura()">Agregar Descuento</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/facturacion-mejorada.js"></script>
+</body>
+</html>

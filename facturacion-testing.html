@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facturación Mejorada + Testing Local</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .tab-btn {
+            padding: 10px 20px;
+            border: none;
+            background: #ecf0f1;
+            color: #2c3e50;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .tab-btn.active {
+            background: #3498db;
+            color: white;
+        }
+
+        .tab-btn:hover {
+            background: #3498db;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .testing-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .test-card {
+            background: #f9f9f9;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            border-radius: 4px;
+        }
+
+        .test-card h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .test-card p {
+            color: #666;
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #229954;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        .output {
+            background: #ecf0f1;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .output.success {
+            background: #d5f4e6;
+            border-color: #27ae60;
+            color: #27ae60;
+        }
+
+        .output.error {
+            background: #fadbd8;
+            border-color: #e74c3c;
+            color: #e74c3c;
+        }
+
+        .output.info {
+            background: #d6eaf8;
+            border-color: #3498db;
+            color: #2c3e50;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+
+        .data-table th {
+            background: #34495e;
+            color: white;
+            padding: 10px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .data-table td {
+            padding: 10px;
+            border-bottom: 1px solid #ecf0f1;
+            font-size: 13px;
+        }
+
+        .data-table tr:hover {
+            background: #f9f9f9;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .status-badge.pagado {
+            background: #d5f4e6;
+            color: #27ae60;
+        }
+
+        .status-badge.deudor {
+            background: #fadbd8;
+            color: #e74c3c;
+        }
+
+        .iframe-container {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .iframe-container iframe {
+            width: 100%;
+            height: 600px;
+            border: none;
+        }
+
+        .info-box {
+            background: #e8f4f8;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        .info-box h4 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .info-box p {
+            color: #666;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 768px) {
+            .testing-panel {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- HEADER -->
+        <div class="header">
+            <h1>🧾 Facturación Mejorada + Testing Local</h1>
+            <p>Sistema completo de facturación con descuentos robustos, integración con saldo de paciente e impresión de reportes.</p>
+        </div>
+
+        <!-- TABS -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('facturacion')">📋 Facturación</button>
+            <button class="tab-btn" onclick="switchTab('testing')">🧪 Testing Local</button>
+            <button class="tab-btn" onclick="switchTab('documentacion')">📖 Documentación</button>
+        </div>
+
+        <!-- TAB 1: FACTURACIÓN -->
+        <div id="facturacion" class="tab-content active">
+            <div class="info-box">
+                <h4>📌 Módulo de Facturación Mejorada</h4>
+                <p>
+                    Este módulo incluye:
+                </p>
+                <ul style="margin-left: 20px; color: #666; font-size: 13px;">
+                    <li>✓ Búsqueda y selección de pacientes</li>
+                    <li>✓ Agregación de artículos/servicios ilimitados</li>
+                    <li>✓ Descuentos por porcentaje o cantidad fija</li>
+                    <li>✓ Cálculo automático de IVA</li>
+                    <li>✓ Integración automática con saldo del paciente</li>
+                    <li>✓ Impresión de recibos profesionales</li>
+                    <li>✓ Historial de transacciones</li>
+                </ul>
+            </div>
+
+            <div style="text-align: center; margin: 30px 0;">
+                <p style="color: #666; margin-bottom: 15px;">Acceder al módulo de facturación:</p>
+                <a href="facturacion-mejorada.html" target="_blank" class="btn btn-primary" style="text-decoration: none; display: inline-block;">
+                    → Abrir Facturación Mejorada
+                </a>
+            </div>
+
+            <div class="info-box" style="background: #fff9e6; border-color: #f39c12;">
+                <h4>⚠️ Nota Importante</h4>
+                <p>
+                    Para usar el módulo completo, necesitas:
+                </p>
+                <ol style="margin-left: 20px; color: #666; font-size: 13px;">
+                    <li>Backend ejecutándose en <code>http://localhost:3011</code></li>
+                    <li>Base de datos con las tablas de facturación</li>
+                    <li>Token de autenticación en localStorage</li>
+                    <li>Pacientes registrados en el sistema</li>
+                </ol>
+            </div>
+        </div>
+
+        <!-- TAB 2: TESTING LOCAL -->
+        <div id="testing" class="tab-content">
+            <div class="info-box">
+                <h4>🧪 Testing Local - Sin Servidor Remoto</h4>
+                <p>
+                    Aquí puedes probar toda la lógica de facturación, descuentos y saldo usando datos simulados localmente en tu navegador.
+                </p>
+            </div>
+
+            <!-- Panel de pruebas -->
+            <div class="testing-panel">
+                <div class="test-card">
+                    <h3>1️⃣ Crear Factura de Prueba</h3>
+                    <p>Crea una factura con dos items y un descuento del 10%.</p>
+                    <button class="btn btn-success" onclick="testCrearFactura()">Crear Factura</button>
+                </div>
+
+                <div class="test-card">
+                    <h3>2️⃣ Obtener Estado de Cuenta</h3>
+                    <p>Obtén el estado de cuenta completo del paciente PAC-001.</p>
+                    <button class="btn btn-success" onclick="testEstadoCuenta()">Ver Estado</button>
+                </div>
+
+                <div class="test-card">
+                    <h3>3️⃣ Registrar Pago</h3>
+                    <p>Registra un pago de Q200.00 para el paciente PAC-001.</p>
+                    <button class="btn btn-success" onclick="testRegistrarPago()">Registrar Pago</button>
+                </div>
+
+                <div class="test-card">
+                    <h3>4️⃣ Ver Datos Almacenados</h3>
+                    <p>Visualiza todas las facturas y movimientos creados.</p>
+                    <button class="btn btn-primary" onclick="testVerDatos()">Ver Datos</button>
+                </div>
+
+                <div class="test-card">
+                    <h3>5️⃣ Mostrar Reporte</h3>
+                    <p>Genera un reporte en consola con todos los datos de testing.</p>
+                    <button class="btn btn-primary" onclick="testMostrarReporte()">Mostrar Reporte</button>
+                </div>
+
+                <div class="test-card">
+                    <h3>6️⃣ Limpiar Datos</h3>
+                    <p>Borra todas las facturas y movimientos de prueba.</p>
+                    <button class="btn btn-danger" onclick="testLimpiarDatos()">Limpiar</button>
+                </div>
+            </div>
+
+            <!-- Output -->
+            <div id="testOutput"></div>
+        </div>
+
+        <!-- TAB 3: DOCUMENTACIÓN -->
+        <div id="documentacion" class="tab-content">
+            <div class="info-box">
+                <h4>📖 Documentación - Facturación Mejorada</h4>
+            </div>
+
+            <h3 style="color: #2c3e50; margin-top: 30px; margin-bottom: 15px;">📁 Archivos Creados</h3>
+
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Tipo</th>
+                        <th>Archivo</th>
+                        <th>Descripción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="status-badge">JS</span></td>
+                        <td><code>js/facturacion-mejorada.js</code></td>
+                        <td>Módulo principal de facturación con descuentos</td>
+                    </tr>
+                    <tr>
+                        <td><span class="status-badge">JS</span></td>
+                        <td><code>js/saldo-paciente-integrado.js</code></td>
+                        <td>Módulo integrado de saldo de paciente</td>
+                    </tr>
+                    <tr>
+                        <td><span class="status-badge">JS</span></td>
+                        <td><code>js/testing-local.js</code></td>
+                        <td>Simulación local para testing sin servidor</td>
+                    </tr>
+                    <tr>
+                        <td><span class="status-badge">HTML</span></td>
+                        <td><code>facturacion-mejorada.html</code></td>
+                        <td>Interfaz completa de facturación</td>
+                    </tr>
+                    <tr>
+                        <td><span class="status-badge">Node</span></td>
+                        <td><code>backend/src/controllers/billingMejoradoController.js</code></td>
+                        <td>Controlador backend con lógica de facturación</td>
+                    </tr>
+                    <tr>
+                        <td><span class="status-badge">Node</span></td>
+                        <td><code>backend/src/routes/billing-mejorada.js</code></td>
+                        <td>Rutas API de facturación mejorada</td>
+                    </tr>
+                    <tr>
+                        <td><span class="status-badge">SQL</span></td>
+                        <td><code>database/facturacion-mejorada-migration.sql</code></td>
+                        <td>Script SQL para crear tablas en BD</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3 style="color: #2c3e50; margin-top: 30px; margin-bottom: 15px;">🚀 Pasos de Integración</h3>
+
+            <div style="background: #f9f9f9; padding: 20px; border-radius: 4px; margin-bottom: 20px;">
+                <ol style="color: #666; font-size: 14px; line-height: 2;">
+                    <li>Copiar los archivos JS y HTML al directorio del proyecto</li>
+                    <li>Copiar los archivos del backend al directorio correspondiente</li>
+                    <li>Ejecutar el script SQL en la base de datos local</li>
+                    <li>Agregar las rutas de facturación en <code>backend/server.js</code></li>
+                    <li>Reiniciar el servidor backend</li>
+                    <li>Acceder a <code>facturacion-mejorada.html</code> desde el navegador</li>
+                </ol>
+            </div>
+
+            <h3 style="color: #2c3e50; margin-top: 30px; margin-bottom: 15px;">💾 Estructura de Base de Datos</h3>
+
+            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">Se crean las siguientes tablas:</p>
+
+            <div style="background: #f0f8ff; padding: 15px; border-radius: 4px; margin-bottom: 20px; font-family: monospace; font-size: 12px; overflow-x: auto;">
+                <pre>pacientes_saldo
+├─ id (PK)
+├─ paciente_id (FK)
+├─ saldo_pendiente
+├─ total_deuda
+├─ ultima_transaccion
+└─ usuario_actualizo
+
+ventas_mejorada
+├─ id (PK)
+├─ numero_factura
+├─ paciente_id (FK)
+├─ items: venta_items_mejorada
+├─ descuentos: venta_descuentos_mejorada
+├─ totales (subtotal, descuentos, impuestos, total)
+└─ metodo_pago
+
+movimientos_paciente
+├─ id (PK)
+├─ paciente_id (FK)
+├─ tipo (factura, pago, abono)
+├─ monto
+├─ saldo_anterior
+├─ saldo_nuevo
+└─ fecha</pre>
+            </div>
+
+            <h3 style="color: #2c3e50; margin-top: 30px; margin-bottom: 15px;">📌 Endpoints API</h3>
+
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Método</th>
+                        <th>Endpoint</th>
+                        <th>Descripción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong style="color: #27ae60;">POST</strong></td>
+                        <td>/api/billing/facturas-mejorada</td>
+                        <td>Crear nueva factura</td>
+                    </tr>
+                    <tr>
+                        <td><strong style="color: #3498db;">GET</strong></td>
+                        <td>/api/billing/facturas</td>
+                        <td>Listar facturas</td>
+                    </tr>
+                    <tr>
+                        <td><strong style="color: #3498db;">GET</strong></td>
+                        <td>/api/billing/estado-cuenta/:id</td>
+                        <td>Obtener estado de cuenta</td>
+                    </tr>
+                    <tr>
+                        <td><strong style="color: #3498db;">GET</strong></td>
+                        <td>/api/saldo-paciente/:id</td>
+                        <td>Obtener saldo actual</td>
+                    </tr>
+                    <tr>
+                        <td><strong style="color: #27ae60;">POST</strong></td>
+                        <td>/api/billing/pagos</td>
+                        <td>Registrar pago</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3 style="color: #2c3e50; margin-top: 30px; margin-bottom: 15px;">✨ Características Principales</h3>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                <div style="background: #e8f8f5; border-left: 4px solid #27ae60; padding: 15px; border-radius: 4px;">
+                    <h4 style="color: #27ae60; margin-bottom: 10px;">✓ Descuentos</h4>
+                    <ul style="font-size: 13px; color: #666; margin-left: 20px;">
+                        <li>Por porcentaje (0-100%)</li>
+                        <li>Por cantidad fija (Q)</li>
+                        <li>A nivel de item o factura</li>
+                        <li>Validación automática</li>
+                    </ul>
+                </div>
+
+                <div style="background: #e8f4f8; border-left: 4px solid #3498db; padding: 15px; border-radius: 4px;">
+                    <h4 style="color: #3498db; margin-bottom: 10px;">✓ Saldo de Paciente</h4>
+                    <ul style="font-size: 13px; color: #666; margin-left: 20px;">
+                        <li>Actualización automática</li>
+                        <li>Historial de movimientos</li>
+                        <li>Registro de pagos</li>
+                        <li>Estado deudor/pagado</li>
+                    </ul>
+                </div>
+
+                <div style="background: #f9f3e6; border-left: 4px solid #f39c12; padding: 15px; border-radius: 4px;">
+                    <h4 style="color: #f39c12; margin-bottom: 10px;">✓ Impresión</h4>
+                    <ul style="font-size: 13px; color: #666; margin-left: 20px;">
+                        <li>Recibos profesionales</li>
+                        <li>Estados de cuenta</li>
+                        <li>Formatos listos para PDF</li>
+                        <li>Datos organizados</li>
+                    </ul>
+                </div>
+
+                <div style="background: #fae6e6; border-left: 4px solid #e74c3c; padding: 15px; border-radius: 4px;">
+                    <h4 style="color: #e74c3c; margin-bottom: 10px;">✓ Seguridad</h4>
+                    <ul style="font-size: 13px; color: #666; margin-left: 20px;">
+                        <li>Transacciones en BD</li>
+                        <li>Validaciones completas</li>
+                        <li>Rollback automático</li>
+                        <li>Auditoría de cambios</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/testing-local.js"></script>
+
+    <script>
+        function switchTab(tab) {
+            // Ocultar todos
+            document.querySelectorAll('.tab-content').forEach(el => {
+                el.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('active');
+            });
+
+            // Mostrar seleccionado
+            document.getElementById(tab).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function outputResult(title, data, type = 'info') {
+            const output = document.getElementById('testOutput');
+            const div = document.createElement('div');
+            div.className = `output ${type}`;
+            div.innerHTML = `
+                <strong>${title}</strong>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+            output.appendChild(div);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        async function testCrearFactura() {
+            FacturacionTestingLocal.init();
+            const resultado = await FacturacionTestingLocal.crearFacturaPrueba();
+            outputResult('✅ Factura Creada', resultado, 'success');
+        }
+
+        async function testEstadoCuenta() {
+            const resultado = await FacturacionTestingLocal.obtenerEstadoCuentaLocal('PAC-001');
+            outputResult('📊 Estado de Cuenta', resultado, 'info');
+        }
+
+        async function testRegistrarPago() {
+            const resultado = await FacturacionTestingLocal.registrarPagoLocal('PAC-001', 200);
+            outputResult('💰 Pago Registrado', resultado, 'success');
+        }
+
+        function testVerDatos() {
+            const datos = FacturacionTestingLocal.obtenerTodosDatos();
+            outputResult('📁 Todos los Datos', datos, 'info');
+        }
+
+        function testMostrarReporte() {
+            FacturacionTestingLocal.mostrarReporte();
+            outputResult('📈 Reporte', 'Ver consola del navegador (F12) para ver el reporte detallado', 'info');
+        }
+
+        function testLimpiarDatos() {
+            FacturacionTestingLocal.limpiarDatos();
+            outputResult('🗑️ Datos Limpiados', 'Todos los datos de prueba han sido eliminados', 'success');
+        }
+
+        // Inicializar
+        window.addEventListener('DOMContentLoaded', () => {
+            FacturacionTestingLocal.init();
+        });
+    </script>
+</body>
+</html>
