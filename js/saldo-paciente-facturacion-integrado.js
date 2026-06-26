@@ -9,9 +9,11 @@ const SaldoPacienteFacturacion = {
         saldos: [],
         facturas: [],
         movimientos: [],
+        pagos_realizados: [],
         items_actuales: [],
         descuentos_actuales: [],
         paciente_seleccionado: null,
+        pago_en_edicion: null,
         config: {
             iva: 12,
             moneda: 'GTQ',
@@ -66,6 +68,7 @@ const SaldoPacienteFacturacion = {
         try {
             this.state.pacientes = JSON.parse(localStorage.getItem('pacientes')) || [];
             this.state.saldos = JSON.parse(localStorage.getItem('saldosPacientes')) || [];
+            this.state.pagos_realizados = JSON.parse(localStorage.getItem('pagosRealizados')) || [];
             this.cargarDelServidor();
         } catch (error) {
             console.error('Error al cargar datos:', error);
@@ -113,6 +116,8 @@ const SaldoPacienteFacturacion = {
         // Acciones específicas por tab
         if (tabName === 'estados') {
             this.cargarPacientesParaEstado();
+        } else if (tabName === 'historialPagos') {
+            this.cargarPagosPorTab();
         }
     },
 
@@ -952,10 +957,32 @@ const SaldoPacienteFacturacion = {
     async registrarPago() {
         const pacienteId = document.getElementById('pacienteIdPago').value;
         const monto = parseFloat(document.getElementById('montoPago').value);
+        const metodo = document.getElementById('metodoPagoPago').value;
 
         if (!pacienteId || !monto || monto <= 0) {
             alert('Ingresa un monto válido');
             return;
+        }
+
+        const datos = {
+            paciente_id: pacienteId,
+            monto: monto,
+            metodo: metodo,
+            fecha: new Date().toISOString(),
+            observaciones: document.getElementById('observacionesPago').value,
+            id: 'PAGO-' + Date.now()
+        };
+
+        // Capturar datos específicos del método
+        if (metodo === 'transferencia') {
+            datos.voucher = document.getElementById('nuevoVoucherTransferencia')?.value || '';
+            datos.banco = document.getElementById('nuevoBancoTransferencia')?.value || '';
+        } else if (metodo === 'tarjeta') {
+            datos.ultimos_digitos = document.getElementById('nuevoDigitosTargeta')?.value || '';
+            datos.numero_autorizacion = document.getElementById('nuevoAuthTarjeta')?.value || '';
+        } else if (metodo === 'cheque') {
+            datos.numero_cheque = document.getElementById('nuevoNumeroCheque')?.value || '';
+            datos.banco = document.getElementById('nuevoBancoCheque')?.value || '';
         }
 
         try {
@@ -965,28 +992,28 @@ const SaldoPacienteFacturacion = {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 },
-                body: JSON.stringify({
-                    paciente_id: pacienteId,
-                    monto: monto,
-                    metodo_pago: document.getElementById('metodoPagoPago').value,
-                    referencia: document.getElementById('referenciaPago').value,
-                    observaciones: document.getElementById('observacionesPago').value
-                })
+                body: JSON.stringify(datos)
             }).catch(() => null);
 
             if (response?.ok) {
                 const result = await response.json();
                 if (result.success) {
+                    this.state.pagos_realizados.push(datos);
+                    localStorage.setItem('pagosRealizados', JSON.stringify(this.state.pagos_realizados));
                     alert('✅ Pago registrado correctamente');
                     this.cancelarPago();
                     this.loadData();
                     this.renderSaldos();
                 }
             } else {
+                // Guardar localmente
+                this.state.pagos_realizados.push(datos);
+                localStorage.setItem('pagosRealizados', JSON.stringify(this.state.pagos_realizados));
                 alert('✅ Pago guardado localmente');
                 this.cancelarPago();
             }
         } catch (error) {
+            console.error('Error:', error);
             alert('Error al registrar pago');
         }
     },
@@ -999,6 +1026,287 @@ const SaldoPacienteFacturacion = {
         document.getElementById('montoPago').value = '';
         document.getElementById('busquedaPacientePago').value = '';
         document.getElementById('resultadosPago').innerHTML = '';
+    },
+
+    // ============================================
+    // TAB 5: HISTORIAL DE PAGOS
+    // ============================================
+
+    mostrarCamposMetodo(tipo) {
+        const metodo = tipo === 'editar' 
+            ? document.getElementById('editarMetodoPago').value
+            : document.getElementById('metodoPagoPago').value;
+        
+        const contenedor = tipo === 'editar'
+            ? document.getElementById('editarCamposMetodo')
+            : document.getElementById('camposMetodoNuevo');
+
+        let html = '';
+
+        if (metodo === 'transferencia') {
+            html = `
+                <div class="form-group">
+                    <label>Número de Voucher/Recibo</label>
+                    <input type="text" id="${tipo}VoucherTransferencia" placeholder="Ej: REF-123456" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Banco</label>
+                    <input type="text" id="${tipo}BancoTransferencia" placeholder="Ej: Banco Industrial" class="form-control">
+                </div>
+            `;
+        } else if (metodo === 'tarjeta') {
+            html = `
+                <div style="background: #fff3cd; padding: 12px; border-radius: 4px; margin-bottom: 15px;">
+                    <strong>⚠️ Solicitud de Pago con Tarjeta</strong>
+                    <p>Al registrar un pago con tarjeta, se generará una solicitud que deberá ser procesada por el sistema de pagos.</p>
+                </div>
+                <div class="form-group">
+                    <label>Últimos 4 dígitos</label>
+                    <input type="text" id="${tipo}DigitosTargeta" placeholder="Ej: 4532" maxlength="4" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Número de Autorización</label>
+                    <input type="text" id="${tipo}AuthTarjeta" placeholder="Ej: AUTH-789456" class="form-control">
+                </div>
+            `;
+        } else if (metodo === 'cheque') {
+            html = `
+                <div class="form-group">
+                    <label>Número de Cheque</label>
+                    <input type="text" id="${tipo}NumeroCheque" placeholder="Ej: CHQ-0001234" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Banco</label>
+                    <input type="text" id="${tipo}BancoCheque" placeholder="Ej: Banco Agrario" class="form-control">
+                </div>
+            `;
+        }
+
+        contenedor.innerHTML = html;
+    },
+
+    cargarPagosPorTab() {
+        this.cargarPagosRealizados();
+        this.cargarSelectPacientes();
+    },
+
+    cargarSelectPacientes() {
+        const select = document.getElementById('filtrarPacientePagos');
+        select.innerHTML = '<option value="">-- Todos --</option>' +
+            this.state.pacientes.map(p => 
+                `<option value="${p.id}">${p.nombre} ${p.apellidoPaterno}</option>`
+            ).join('');
+    },
+
+    async cargarPagosRealizados() {
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                this.cargarPagosLocales();
+                return;
+            }
+
+            const response = await fetch('http://localhost:3011/api/billing/pagos', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).catch(() => null);
+
+            if (response?.ok) {
+                const result = await response.json();
+                if (result.success) {
+                    this.state.pagos_realizados = result.data;
+                }
+            } else {
+                this.cargarPagosLocales();
+            }
+        } catch (error) {
+            console.warn('Usando pagos locales');
+            this.cargarPagosLocales();
+        }
+
+        this.mostrarPagosRealizados(this.state.pagos_realizados);
+    },
+
+    cargarPagosLocales() {
+        const pagos = JSON.parse(localStorage.getItem('pagosRealizados')) || [];
+        this.state.pagos_realizados = pagos;
+    },
+
+    mostrarPagosRealizados(pagos) {
+        const tbody = document.getElementById('tablaPagosRealizados');
+        if (!pagos || pagos.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px; color: #999;">Sin pagos registrados</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = pagos.map(pago => {
+            const paciente = this.state.pacientes.find(p => p.id === pago.paciente_id);
+            const nombrePaciente = paciente ? `${paciente.nombre} ${paciente.apellidoPaterno}` : 'Desconocido';
+            const fecha = new Date(pago.fecha).toLocaleDateString('es-GT');
+            const referencia = pago.referencia || pago.voucher || pago.numero_cheque || '-';
+            
+            const metodos = {
+                'efectivo': '💵 Efectivo',
+                'transferencia': '🏦 Transferencia',
+                'tarjeta': '💳 Tarjeta',
+                'cheque': '📄 Cheque'
+            };
+
+            return `
+                <tr style="border-bottom: 1px solid #ecf0f1;">
+                    <td style="padding: 12px;">${nombrePaciente}</td>
+                    <td style="padding: 12px; text-align: center;">${fecha}</td>
+                    <td style="padding: 12px; text-align: right; font-weight: bold; color: #27ae60;">Q${pago.monto.toFixed(2)}</td>
+                    <td style="padding: 12px; text-align: center;">${metodos[pago.metodo] || pago.metodo}</td>
+                    <td style="padding: 12px; text-align: center;"><small>${referencia}</small></td>
+                    <td style="padding: 12px; text-align: center;">
+                        <button class="btn btn-sm btn-primary" onclick="SaldoPacienteFacturacion.abrirEditarPago('${pago.id}')">✏️ Editar</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    },
+
+    filtrarPagosPorPaciente() {
+        const pacienteId = document.getElementById('filtrarPacientePagos').value;
+        let filtrados = this.state.pagos_realizados;
+
+        if (pacienteId) {
+            filtrados = filtrados.filter(p => p.paciente_id === pacienteId);
+        }
+
+        this.mostrarPagosRealizados(filtrados);
+    },
+
+    buscarPagos() {
+        const termino = document.getElementById('buscarPago').value.toLowerCase();
+        const filtrados = this.state.pagos_realizados.filter(p => 
+            (p.referencia && p.referencia.toLowerCase().includes(termino)) ||
+            (p.voucher && p.voucher.toLowerCase().includes(termino)) ||
+            (p.numero_cheque && p.numero_cheque.toLowerCase().includes(termino))
+        );
+
+        this.mostrarPagosRealizados(filtrados);
+    },
+
+    abrirEditarPago(pagoId) {
+        const pago = this.state.pagos_realizados.find(p => p.id === pagoId);
+        if (!pago) return;
+
+        const paciente = this.state.pacientes.find(p => p.id === pago.paciente_id);
+        this.state.pago_en_edicion = pago;
+
+        document.getElementById('editarPagoId').value = pagoId;
+        document.getElementById('editarPaciente').value = paciente ? `${paciente.nombre} ${paciente.apellidoPaterno}` : 'Desconocido';
+        document.getElementById('editarFechaPago').value = new Date(pago.fecha).toISOString().split('T')[0];
+        document.getElementById('editarMontoPago').value = pago.monto;
+        document.getElementById('editarMetodoPago').value = pago.metodo || 'efectivo';
+        document.getElementById('editarObservacionesPago').value = pago.observaciones || '';
+
+        this.mostrarCamposMetodo('editar');
+
+        // Cargar datos según el método
+        if (pago.metodo === 'transferencia') {
+            document.getElementById('editarVoucherTransferencia').value = pago.voucher || '';
+            document.getElementById('editarBancoTransferencia').value = pago.banco || '';
+        } else if (pago.metodo === 'tarjeta') {
+            document.getElementById('editarDigitosTargeta').value = pago.ultimos_digitos || '';
+            document.getElementById('editarAuthTarjeta').value = pago.numero_autorizacion || '';
+        } else if (pago.metodo === 'cheque') {
+            document.getElementById('editarNumeroCheque').value = pago.numero_cheque || '';
+            document.getElementById('editarBancoCheque').value = pago.banco || '';
+        }
+
+        document.getElementById('modalEditarPago').classList.add('active');
+    },
+
+    async guardarCambiosPago() {
+        const pagoId = document.getElementById('editarPagoId').value;
+        const metodo = document.getElementById('editarMetodoPago').value;
+        const monto = parseFloat(document.getElementById('editarMontoPago').value);
+
+        if (!monto || monto <= 0) {
+            alert('Ingresa un monto válido');
+            return;
+        }
+
+        const datosActualizados = {
+            id: pagoId,
+            fecha: document.getElementById('editarFechaPago').value,
+            monto: monto,
+            metodo: metodo,
+            observaciones: document.getElementById('editarObservacionesPago').value
+        };
+
+        // Agregar datos específicos del método
+        if (metodo === 'transferencia') {
+            datosActualizados.voucher = document.getElementById('editarVoucherTransferencia').value;
+            datosActualizados.banco = document.getElementById('editarBancoTransferencia').value;
+        } else if (metodo === 'tarjeta') {
+            datosActualizados.ultimos_digitos = document.getElementById('editarDigitosTargeta').value;
+            datosActualizados.numero_autorizacion = document.getElementById('editarAuthTarjeta').value;
+        } else if (metodo === 'cheque') {
+            datosActualizados.numero_cheque = document.getElementById('editarNumeroCheque').value;
+            datosActualizados.banco = document.getElementById('editarBancoCheque').value;
+        }
+
+        try {
+            const response = await fetch(`http://localhost:3011/api/billing/pagos/${pagoId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify(datosActualizados)
+            }).catch(() => null);
+
+            if (response?.ok) {
+                alert('✅ Pago actualizado');
+                document.getElementById('modalEditarPago').classList.remove('active');
+                this.cargarPagosRealizados();
+            } else {
+                // Guardar localmente
+                const index = this.state.pagos_realizados.findIndex(p => p.id === pagoId);
+                if (index >= 0) {
+                    this.state.pagos_realizados[index] = { ...this.state.pagos_realizados[index], ...datosActualizados };
+                    localStorage.setItem('pagosRealizados', JSON.stringify(this.state.pagos_realizados));
+                    alert('✅ Pago actualizado localmente');
+                    document.getElementById('modalEditarPago').classList.remove('active');
+                    this.mostrarPagosRealizados(this.state.pagos_realizados);
+                }
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al actualizar pago');
+        }
+    },
+
+    async eliminarPago() {
+        const pagoId = document.getElementById('editarPagoId').value;
+
+        try {
+            const response = await fetch(`http://localhost:3011/api/billing/pagos/${pagoId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            }).catch(() => null);
+
+            if (response?.ok) {
+                alert('✅ Pago eliminado');
+                document.getElementById('modalEditarPago').classList.remove('active');
+                this.cargarPagosRealizados();
+            } else {
+                // Eliminar localmente
+                this.state.pagos_realizados = this.state.pagos_realizados.filter(p => p.id !== pagoId);
+                localStorage.setItem('pagosRealizados', JSON.stringify(this.state.pagos_realizados));
+                alert('✅ Pago eliminado localmente');
+                document.getElementById('modalEditarPago').classList.remove('active');
+                this.mostrarPagosRealizados(this.state.pagos_realizados);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al eliminar pago');
+        }
     }
 };
 
