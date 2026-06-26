@@ -139,6 +139,9 @@ const SaldoPacienteModule = {
                     <button class="btn-icon btn-view" title="Ver Detalles" onclick="SaldoPacienteModule.viewSaldoDetails('${saldo.pacienteId}')">
                         <i class="fas fa-eye"></i>
                     </button>
+                    <button class="btn-icon btn-info" title="Imprimir Saldo" onclick="SaldoPacienteModule.imprimirSaldo('${saldo.pacienteId}')">
+                        <i class="fas fa-print"></i>
+                    </button>
                     <button class="btn-icon btn-edit" title="Registrar Pago" onclick="SaldoPacienteModule.openPaymentModal('${saldo.pacienteId}')">
                         <i class="fas fa-money-bill-wave"></i>
                     </button>
@@ -594,6 +597,215 @@ const SaldoPacienteModule = {
     generateId(prefix) {
         const timestamp = Date.now().toString(36);
         return `${prefix}-${timestamp}`;
+    },
+
+    // Imprimir saldo del paciente
+    imprimirSaldo(pacienteId) {
+        const saldo = this.state.saldosPacientes.find(s => s.pacienteId === pacienteId);
+        const pacient = this.state.pacientes.find(p => p.id === pacienteId);
+
+        if (!saldo || !pacient) {
+            this.showNotification('Datos de paciente no encontrados', 'error');
+            return;
+        }
+
+        const ventana = window.open('', '_blank', 'width=700,height=600');
+        const fecha = new Date().toLocaleDateString('es-GT');
+        const hora = new Date().toLocaleTimeString('es-GT');
+
+        const html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>Estado de Saldo - ${pacient.nombre}</title>
+                <style>
+                    * { margin: 0; padding: 0; }
+                    body { 
+                        font-family: 'Arial', sans-serif; 
+                        padding: 20px;
+                        background: white;
+                    }
+                    .container {
+                        max-width: 650px;
+                        margin: 0 auto;
+                        border: 1px solid #ddd;
+                        padding: 30px;
+                        border-radius: 5px;
+                    }
+                    .header {
+                        text-align: center;
+                        border-bottom: 3px solid #34495e;
+                        padding-bottom: 15px;
+                        margin-bottom: 25px;
+                    }
+                    .header h1 {
+                        color: #34495e;
+                        font-size: 28px;
+                        margin-bottom: 5px;
+                    }
+                    .header p {
+                        color: #7f8c8d;
+                        font-size: 12px;
+                    }
+                    .paciente-info {
+                        background: #ecf0f1;
+                        padding: 15px;
+                        border-radius: 4px;
+                        margin-bottom: 20px;
+                    }
+                    .info-row {
+                        display: flex;
+                        justify-content: space-between;
+                        margin-bottom: 8px;
+                        font-size: 14px;
+                    }
+                    .info-label {
+                        font-weight: bold;
+                        color: #2c3e50;
+                    }
+                    .info-value {
+                        color: #34495e;
+                    }
+                    .saldos-section {
+                        margin-top: 30px;
+                    }
+                    .saldos-section h3 {
+                        color: #34495e;
+                        border-bottom: 2px solid #3498db;
+                        padding-bottom: 8px;
+                        margin-bottom: 20px;
+                        font-size: 16px;
+                    }
+                    .saldo-item {
+                        display: flex;
+                        justify-content: space-between;
+                        padding: 12px;
+                        border-bottom: 1px solid #ecf0f1;
+                        font-size: 14px;
+                    }
+                    .saldo-item:last-child {
+                        border-bottom: none;
+                    }
+                    .saldo-label {
+                        font-weight: 600;
+                        color: #2c3e50;
+                    }
+                    .saldo-value {
+                        text-align: right;
+                        font-weight: bold;
+                        font-size: 16px;
+                    }
+                    .saldo-deuda {
+                        color: #e74c3c;
+                    }
+                    .saldo-pagado {
+                        color: #27ae60;
+                    }
+                    .footer {
+                        text-align: center;
+                        margin-top: 30px;
+                        padding-top: 15px;
+                        border-top: 1px solid #ddd;
+                        color: #7f8c8d;
+                        font-size: 11px;
+                    }
+                    .estado-badge {
+                        display: inline-block;
+                        padding: 5px 15px;
+                        border-radius: 20px;
+                        font-weight: bold;
+                        font-size: 12px;
+                        margin-top: 10px;
+                    }
+                    .estado-deudor {
+                        background: #ffe6e6;
+                        color: #c0392b;
+                    }
+                    .estado-pagado {
+                        background: #e6ffe6;
+                        color: #27ae60;
+                    }
+                    @media print {
+                        body { padding: 0; }
+                        .container { border: none; padding: 0; }
+                        .footer { display: none; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>ESTADO DE SALDO</h1>
+                        <p>Comprobante de Saldo Actual del Paciente</p>
+                    </div>
+
+                    <div class="paciente-info">
+                        <div class="info-row">
+                            <span class="info-label">Paciente:</span>
+                            <span class="info-value">${pacient.nombre} ${pacient.apellidoPaterno} ${pacient.apellidoMaterno || ''}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Documento:</span>
+                            <span class="info-value">${pacient.dpi || pacient.pasaporte || 'N/A'}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Teléfono:</span>
+                            <span class="info-value">${pacient.telefono || 'N/A'}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Correo:</span>
+                            <span class="info-value">${pacient.correo || 'N/A'}</span>
+                        </div>
+                    </div>
+
+                    <div class="saldos-section">
+                        <h3>INFORMACIÓN DE SALDO</h3>
+                        
+                        <div class="saldo-item">
+                            <span class="saldo-label">Total Acumulado:</span>
+                            <span class="saldo-value">$${parseFloat(saldo.totalAcumulado).toFixed(2)}</span>
+                        </div>
+
+                        <div class="saldo-item">
+                            <span class="saldo-label">Total Abonos:</span>
+                            <span class="saldo-value">$${parseFloat(saldo.totalAbonos).toFixed(2)}</span>
+                        </div>
+                        
+                        <div class="saldo-item">
+                            <span class="saldo-label">Saldo Pendiente:</span>
+                            <span class="saldo-value saldo-${saldo.saldoPendiente > 0 ? 'deuda' : 'pagado'}">
+                                $${parseFloat(saldo.saldoPendiente).toFixed(2)}
+                            </span>
+                        </div>
+
+                        <div class="saldo-item">
+                            <span class="saldo-label">Estado:</span>
+                            <span class="saldo-value">
+                                <div class="estado-badge ${saldo.saldoPendiente === 0 ? 'estado-pagado' : 'estado-deudor'}">
+                                    ${saldo.saldoPendiente === 0 ? '✓ PAGADO' : '⚠ DEUDOR'}
+                                </div>
+                            </span>
+                        </div>
+
+                        <div class="saldo-item">
+                            <span class="saldo-label">Última Transacción:</span>
+                            <span class="info-value">${saldo.ultimaTransaccion || 'N/A'}</span>
+                        </div>
+                    </div>
+
+                    <div class="footer">
+                        <p>Documento emitido: ${fecha} a las ${hora}</p>
+                        <p>Este comprobante certifica el estado actual del saldo del paciente</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+
+        ventana.document.write(html);
+        ventana.document.close();
+        ventana.print();
     },
 
     // Guardar en DB (localStorage)
