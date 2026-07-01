@@ -55,12 +55,54 @@ const SaldoPacienteModule = {
     },
 
     // Cargar datos
-    loadData() {
-        const demoData = window.DemoData || {};
-        this.state.pacientes = JSON.parse(JSON.stringify(demoData.pacientes || []));
-        this.state.saldosPacientes = JSON.parse(JSON.stringify(demoData.saldosPacientes || []));
-        this.state.movimientosPaciente = JSON.parse(JSON.stringify(demoData.movimientosPaciente || []));
-        this.renderSaldosPacientes();
+    async loadData() {
+        try {
+            const token = localStorage.getItem('token');
+            
+            // 1. Cargar pacientes de la API
+            console.log('Cargando pacientes desde API...');
+            const resPacientes = await fetch('http://localhost:3011/api/pacientes', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const dataPacientes = await resPacientes.json();
+            this.state.pacientes = dataPacientes.data || [];
+            console.log('Pacientes cargados:', this.state.pacientes);
+
+            // 2. Cargar saldos de cada paciente
+            console.log('Cargando saldos desde API...');
+            const saldos = [];
+            for (const paciente of this.state.pacientes) {
+                try {
+                    const resSaldo = await fetch(`http://localhost:3011/api/billing/saldo/${paciente.id}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (resSaldo.ok) {
+                        const dataSaldo = await resSaldo.json();
+                        if (dataSaldo.data) {
+                            saldos.push({
+                                pacienteId: paciente.id,
+                                saldoPendiente: dataSaldo.data.saldo_pendiente || 0,
+                                totalDeuda: dataSaldo.data.total_deuda || 0
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.log(`No se pudo cargar saldo para paciente ${paciente.id}`);
+                }
+            }
+            this.state.saldosPacientes = saldos;
+            console.log('Saldos cargados:', this.state.saldosPacientes);
+
+            this.renderSaldosPacientes();
+        } catch (error) {
+            console.error('Error cargando datos:', error);
+            // Fallback a demo data
+            const demoData = window.DemoData || {};
+            this.state.pacientes = JSON.parse(JSON.stringify(demoData.pacientes || []));
+            this.state.saldosPacientes = JSON.parse(JSON.stringify(demoData.saldosPacientes || []));
+            this.state.movimientosPaciente = JSON.parse(JSON.stringify(demoData.movimientosPaciente || []));
+            this.renderSaldosPacientes();
+        }
     },
 
     // Renderizar tabla de saldos
