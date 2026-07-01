@@ -83,8 +83,8 @@ const SaldoPacienteModule = {
                 const pacient = this.state.pacientes.find(p => p.id === s.pacienteId);
                 return pacient && (
                     pacient.nombre.toLowerCase().includes(this.searchTerm) ||
-                    pacient.apellidoPaterno.toLowerCase().includes(this.searchTerm) ||
-                    pacient.dpi.includes(this.searchTerm)
+                    (pacient.apellido_paterno || pacient.apellidoPaterno || '').toLowerCase().includes(this.searchTerm) ||
+                    (pacient.dpi || pacient.cedula || '').includes(this.searchTerm)
                 );
             });
         }
@@ -126,13 +126,16 @@ const SaldoPacienteModule = {
             ? '<span class="badge badge-success">Pagado</span>'
             : '<span class="badge badge-warning">Deudor</span>';
 
+        const apellidos = `${pacient.apellido_paterno || pacient.apellidoPaterno || ''} ${pacient.apellido_materno || pacient.apellidoMaterno || ''}`.trim();
+        const abonosRealizados = saldo.abonosRealizados || saldo.totalAbonos || 0;
+
         return `
             <tr>
-                <td><strong>${pacient.nombre} ${pacient.apellidoPaterno} ${pacient.apellidoMaterno || ''}</strong></td>
-                <td>${pacient.dpi || pacient.pasaporte || 'N/A'}</td>
-                <td><span class="amount ${saldo.saldoPendiente > 0 ? 'negative' : 'positive'}">$${saldo.saldoPendiente.toFixed(2)}</span></td>
-                <td>$${saldo.totalAcumulado.toFixed(2)}</td>
-                <td>$${saldo.totalAbonos.toFixed(2)}</td>
+                <td><strong>${pacient.nombre} ${apellidos}</strong></td>
+                <td>${pacient.dpi || pacient.cedula || 'N/A'}</td>
+                <td><span class="amount ${saldo.saldoPendiente > 0 ? 'negative' : 'positive'}">Q${saldo.saldoPendiente.toFixed(2)}</span></td>
+                <td>Q${saldo.totalAcumulado.toFixed(2)}</td>
+                <td>Q${abonosRealizados.toFixed(2)}</td>
                 <td>${saldo.ultimaTransaccion}</td>
                 <td>${estadoBadge}</td>
                 <td class="actions">
@@ -165,7 +168,7 @@ const SaldoPacienteModule = {
         detailsContent.innerHTML = `
             <div class="saldo-details-card">
                 <div class="saldo-header">
-                    <h3>Estado de Cuenta - ${pacient.nombre} ${pacient.apellidoPaterno} ${pacient.apellidoMaterno || ''}</h3>
+                    <h3>Estado de Cuenta - ${pacient.nombre} ${pacient.apellido_paterno || pacient.apellidoPaterno || ''} ${pacient.apellido_materno || pacient.apellidoMaterno || ''}</h3>
                     ${saldo.saldoPendiente === 0 
                         ? '<span class="badge badge-success">SIN DEUDA</span>'
                         : '<span class="badge badge-danger">DEUDOR</span>'
@@ -366,7 +369,7 @@ const SaldoPacienteModule = {
         select.innerHTML = '<option value="">-- Selecciona un paciente --</option>' +
             this.state.pacientes
                 .filter(p => p.estado === 'activo')
-                .map(p => `<option value="${p.id}">${p.nombre} ${p.apellido} (${p.cedula})</option>`)
+                .map(p => `<option value="${p.id}">${p.nombre} ${p.apellido_paterno || p.apellido || ''} (${p.dpi || p.cedula})</option>`)
                 .join('');
 
         select.addEventListener('change', (e) => {
@@ -457,8 +460,9 @@ const SaldoPacienteModule = {
             id: this.generateId('FAC'),
             numeroFactura: `FAC-${new Date().getFullYear()}-${String(facturas.length + 1).padStart(5, '0')}`,
             pacienteId: paciente.id,
-            pacienteNombre: `${paciente.nombre} ${paciente.apellidoPaterno} ${paciente.apellidoMaterno}`,
-            pacienteDPI: paciente.dpi || '',
+            pacienteNombre: `${paciente.nombre} ${paciente.apellido_paterno || paciente.apellidoPaterno || ''} ${paciente.apellido_materno || paciente.apellidoMaterno || ''}`,
+            pacienteDPI: `${paciente.dpi || paciente.cedula || ''}`,
+            pacienteEdad: `${paciente.edad || ''}`,
             movimientoId: movimientoId,
             monto: monto,
             fecha: fecha,
@@ -743,11 +747,11 @@ const SaldoPacienteModule = {
                     <div class="paciente-info">
                         <div class="info-row">
                             <span class="info-label">Paciente:</span>
-                            <span class="info-value">${pacient.nombre} ${pacient.apellidoPaterno} ${pacient.apellidoMaterno || ''}</span>
+                            <span class="info-value">${pacient.nombre} ${pacient.apellido_paterno || pacient.apellidoPaterno || ''} ${pacient.apellido_materno || pacient.apellidoMaterno || ''}</span>
                         </div>
                         <div class="info-row">
                             <span class="info-label">Documento:</span>
-                            <span class="info-value">${pacient.dpi || pacient.pasaporte || 'N/A'}</span>
+                            <span class="info-value">${pacient.dpi || pacient.cedula || 'N/A'}</span>
                         </div>
                         <div class="info-row">
                             <span class="info-label">Teléfono:</span>
