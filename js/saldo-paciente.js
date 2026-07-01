@@ -22,7 +22,7 @@ const SaldoPacienteModule = {
 
     // Configurar event listeners
     setupEventListeners() {
-        const searchInput = document.getElementById('searchSaldoPaciente');
+        const searchInput = document.getElementById('searchSaldo');
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
                 this.searchTerm = e.target.value.toLowerCase();
@@ -30,27 +30,12 @@ const SaldoPacienteModule = {
             });
         }
 
-        const filterSelect = document.getElementById('filterEstadoSaldo');
+        const filterSelect = document.getElementById('filterEstado');
         if (filterSelect) {
             filterSelect.addEventListener('change', (e) => {
                 this.filtroEstado = e.target.value;
                 this.renderSaldosPacientes();
             });
-        }
-
-        const addPaymentBtn = document.getElementById('addPaymentBtn');
-        if (addPaymentBtn) {
-            addPaymentBtn.addEventListener('click', () => this.openPaymentModal());
-        }
-
-        const savePaymentBtn = document.getElementById('savePaymentBtn');
-        if (savePaymentBtn) {
-            savePaymentBtn.addEventListener('click', () => this.savePayment());
-        }
-
-        const closePaymentModal = document.querySelector('#paymentModal .close-btn');
-        if (closePaymentModal) {
-            closePaymentModal.addEventListener('click', () => this.closePaymentModal());
         }
     },
 
@@ -69,9 +54,9 @@ const SaldoPacienteModule = {
 
     // Renderizar tabla de saldos
     renderSaldosPacientes() {
-        const container = document.getElementById('saldosPacientesTableContainer');
-        if (!container) {
-            console.error('Contenedor saldosPacientesTableContainer no encontrado');
+        const tbody = document.getElementById('tablaSaldos');
+        if (!tbody) {
+            console.error('Tabla tablaSaldos no encontrada en HTML');
             return;
         }
 
@@ -96,33 +81,16 @@ const SaldoPacienteModule = {
             });
         }
 
+        // Limpiar tabla y renderizar filas
+        tbody.innerHTML = '';
+        
         if (filtered.length === 0) {
-            container.innerHTML = '<div class="empty-state"><p>No hay pacientes registrados</p></div>';
-            console.warn('⚠️ Sin datos para mostrar');
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center">No hay pacientes registrados</td></tr>';
             return;
         }
 
-        container.innerHTML = `
-            <div class="table-responsive">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Paciente</th>
-                            <th>Cédula</th>
-                            <th>Saldo Pendiente</th>
-                            <th>Total Acumulado</th>
-                            <th>Abonos Realizados</th>
-                            <th>Última Transacción</th>
-                            <th>Estado</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${filtered.map(saldo => this.renderSaldoRow(saldo)).join('')}
-                    </tbody>
-                </table>
-            </div>
-        `;
+        // Renderizar filas de la tabla
+        tbody.innerHTML = filtered.map(saldo => this.renderSaldoRow(saldo)).join('');
     },
 
     // Renderizar fila de saldo
