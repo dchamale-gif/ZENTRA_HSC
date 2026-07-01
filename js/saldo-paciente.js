@@ -72,7 +72,7 @@ const SaldoPacienteModule = {
         // Búsqueda
         if (this.searchTerm) {
             filtered = filtered.filter(s => {
-                const pacient = this.state.pacientes.find(p => p.id === s.pacienteId);
+                const pacient = this.state.pacientes.find(p => p.id === parseInt(s.pacienteId, 10));
                 return pacient && (
                     pacient.nombre.toLowerCase().includes(this.searchTerm) ||
                     (pacient.apellido_paterno || pacient.apellidoPaterno || '').toLowerCase().includes(this.searchTerm) ||
@@ -95,7 +95,7 @@ const SaldoPacienteModule = {
 
     // Renderizar fila de saldo
     renderSaldoRow(saldo) {
-        const pacient = this.state.pacientes.find(p => p.id === saldo.pacienteId);
+        const pacient = this.state.pacientes.find(p => p.id === parseInt(saldo.pacienteId, 10));
         if (!pacient) return '';
 
         const estadoBadge = saldo.saldoPendiente === 0
@@ -131,9 +131,11 @@ const SaldoPacienteModule = {
 
     // Ver detalles de saldo
     viewSaldoDetails(pacienteId) {
-        const saldo = this.state.saldosPacientes.find(s => s.pacienteId === pacienteId);
-        const pacient = this.state.pacientes.find(p => p.id === pacienteId);
-        const movimientos = this.state.movimientosPaciente.filter(m => m.pacienteId === pacienteId);
+        // Convertir a número para comparación correcta
+        const pacienteIdNum = parseInt(pacienteId, 10);
+        const saldo = this.state.saldosPacientes.find(s => s.pacienteId === pacienteIdNum);
+        const pacient = this.state.pacientes.find(p => p.id === pacienteIdNum);
+        const movimientos = this.state.movimientosPaciente.filter(m => m.pacienteId === pacienteIdNum);
 
         if (!saldo || !pacient) return;
 
@@ -361,7 +363,8 @@ const SaldoPacienteModule = {
 
     // Cargar info de saldo del paciente
     loadSaldoInfo(pacienteId) {
-        const saldo = this.state.saldosPacientes.find(s => s.pacienteId === pacienteId);
+        const pacienteIdNum = parseInt(pacienteId, 10);
+        const saldo = this.state.saldosPacientes.find(s => s.pacienteId === pacienteIdNum);
         const saldoInfoDiv = document.getElementById('saldoInfo');
         
         if (saldoInfoDiv && saldo) {
@@ -376,7 +379,7 @@ const SaldoPacienteModule = {
 
     // Guardar pago/abono
     savePayment() {
-        const pacienteId = document.getElementById('paymentPacienteSelect').value;
+        const pacienteId = parseInt(document.getElementById('paymentPacienteSelect').value, 10);
         const monto = parseFloat(document.getElementById('paymentMonto').value) || 0;
         const tipo = document.getElementById('paymentTipo').value;
         const descripcion = document.getElementById('paymentDescripcion').value.trim();
@@ -584,8 +587,9 @@ const SaldoPacienteModule = {
 
     // Imprimir saldo del paciente
     imprimirSaldo(pacienteId) {
-        const saldo = this.state.saldosPacientes.find(s => s.pacienteId === pacienteId);
-        const pacient = this.state.pacientes.find(p => p.id === pacienteId);
+        const pacienteIdNum = parseInt(pacienteId, 10);
+        const saldo = this.state.saldosPacientes.find(s => s.pacienteId === pacienteIdNum);
+        const pacient = this.state.pacientes.find(p => p.id === pacienteIdNum);
 
         if (!saldo || !pacient) {
             this.showNotification('Datos de paciente no encontrados', 'error');
@@ -818,10 +822,11 @@ const SaldoPacienteModule = {
     async cargarEstadoCuentaCompleto(pacienteId) {
         try {
             this.showNotification('Cargando Estado de Cuenta...', 'info');
-            console.log('📋 Cargando Estado de Cuenta para paciente:', pacienteId);
+            const pacienteIdNum = parseInt(pacienteId, 10);
+            console.log('📋 Cargando Estado de Cuenta para paciente:', pacienteIdNum);
             
             const token = localStorage.getItem('token');
-            const response = await fetch(`http://localhost:3011/api/billing/estado-cuenta-detallado/${pacienteId}`, {
+            const response = await fetch(`http://localhost:3011/api/billing/estado-cuenta-detallado/${pacienteIdNum}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
