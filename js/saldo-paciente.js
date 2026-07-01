@@ -56,12 +56,36 @@ const SaldoPacienteModule = {
 
     // Cargar datos
     loadData() {
-        // Usar demo data como primary source
-        const demoData = window.DemoData || {};
-        this.state.pacientes = JSON.parse(JSON.stringify(demoData.pacientes || []));
-        this.state.saldosPacientes = JSON.parse(JSON.stringify(demoData.saldosPacientes || []));
-        this.state.movimientosPaciente = JSON.parse(JSON.stringify(demoData.movimientosPaciente || []));
-        this.renderSaldosPacientes();
+        try {
+            // Cargar desde demo data
+            const demoData = window.DemoData || {};
+            this.state.pacientes = JSON.parse(JSON.stringify(demoData.pacientes || []));
+            this.state.saldosPacientes = JSON.parse(JSON.stringify(demoData.saldosPacientes || []));
+            this.state.movimientosPaciente = JSON.parse(JSON.stringify(demoData.movimientosPaciente || []));
+            
+            console.log('📋 Pacientes cargados:', this.state.pacientes.length, this.state.pacientes.map(p => p.id));
+            console.log('💰 Saldos cargados:', this.state.saldosPacientes.length, this.state.saldosPacientes.map(s => s.pacienteId));
+            
+            // Validar que haya coincidencia entre pacientes y saldos
+            for (const saldo of this.state.saldosPacientes) {
+                const paciente = this.state.pacientes.find(p => p.id === saldo.pacienteId);
+                if (!paciente) {
+                    console.warn(`⚠️ No hay paciente con ID ${saldo.pacienteId}`);
+                }
+            }
+            
+            if (this.state.pacientes.length === 0) {
+                console.warn('⚠️ No hay pacientes en demo data');
+            }
+            
+            if (this.state.saldosPacientes.length === 0) {
+                console.warn('⚠️ No hay saldos en demo data');
+            }
+            
+            this.renderSaldosPacientes();
+        } catch (error) {
+            console.error('❌ Error cargando datos:', error);
+        }
     },
 
     // Renderizar tabla de saldos
