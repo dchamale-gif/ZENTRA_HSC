@@ -5,11 +5,32 @@
 -- Idempotente: Verifica si los datos ya existen antes de insertar
 -- ============================================
 
-BEGIN;
+-- Validar que las tablas existen
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_name = 'pacientes'
+    ) THEN
+        RAISE EXCEPTION 'Tabla "pacientes" no existe. Ejecutar estado-de-cuenta-setup-idempotent.sql primero.';
+    END IF;
+    
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_name = 'pacientes_saldo'
+    ) THEN
+        RAISE EXCEPTION 'Tabla "pacientes_saldo" no existe. Ejecutar estado-de-cuenta-setup-idempotent.sql primero.';
+    END IF;
+    
+    RAISE NOTICE '✅ Tablas requeridas existen - procediendo con inserción de datos...';
+END $$;
 
 -- ============================================
 -- 1. INSERTAR PACIENTES DE EJEMPLO (si no existen)
 -- ============================================
+
+BEGIN;
+RAISE NOTICE '>>> Iniciando inserción de pacientes (1001-1005)...';
 
 INSERT INTO pacientes (
     id, nombre, apellido_paterno, apellido_materno, edad, fecha_nacimiento,
@@ -48,9 +69,15 @@ INSERT INTO pacientes (
 )
 ON CONFLICT (id) DO NOTHING;
 
+RAISE NOTICE '✅ Pacientes insertados correctamente';
+COMMIT;
+
 -- ============================================
 -- 2. INSERTAR SALDOS DE PACIENTES (si no existen)
 -- ============================================
+
+BEGIN;
+RAISE NOTICE '>>> Iniciando inserción de saldos de pacientes...';
 
 INSERT INTO pacientes_saldo (
     paciente_id, saldo_pendiente, total_deuda, usuario_actualizo, created_at, updated_at
@@ -65,9 +92,15 @@ ON CONFLICT (paciente_id) DO UPDATE SET
     total_deuda = EXCLUDED.total_deuda,
     updated_at = NOW();
 
+RAISE NOTICE '✅ Saldos de pacientes insertados/actualizados correctamente';
+COMMIT;
+
 -- ============================================
 -- 3. INSERTAR MOVIMIENTOS DE PACIENTES (si no existen)
 -- ============================================
+
+BEGIN;
+RAISE NOTICE '>>> Iniciando inserción de movimientos de pacientes...';
 
 INSERT INTO movimientos_paciente (
     paciente_id, tipo, descripcion, monto, saldo_anterior, saldo_nuevo,
@@ -83,9 +116,15 @@ INSERT INTO movimientos_paciente (
 (1005, 'abono', 'Pago total', -2100.00, 2100.00, 0.00, 'PAG_004', '2026-06-20', NOW())
 ON CONFLICT DO NOTHING;
 
+RAISE NOTICE '✅ Movimientos de pacientes insertados correctamente';
+COMMIT;
+
 -- ============================================
 -- 4. INSERTAR FACTURAS DE EJEMPLO CON ITEMS
 -- ============================================
+
+BEGIN;
+RAISE NOTICE '>>> Iniciando inserción de facturas de ejemplo...';
 
 -- Nota: Los IDs de facturas se generan automáticamente
 -- Aquí se insertan ejemplos de facturas asociadas a los pacientes
@@ -101,27 +140,36 @@ INSERT INTO ventas (
 (1004, 450.75, 0.00, 45.08, 495.83, 0.00, 450.75, 45.08, 'normal', 'completada', NOW(), NOW())
 ON CONFLICT DO NOTHING;
 
+RAISE NOTICE '✅ Facturas de ejemplo insertadas correctamente';
+COMMIT;
+
 -- ============================================
 -- 5. ACTUALIZAR ITEMS DE FACTURAS CON CATEGORÍAS
 -- ============================================
 
+BEGIN;
+RAISE NOTICE '>>> Iniciando actualización de categorías de items...';
+
 -- Categorizar items existentes por tipo (si no están categorizados)
 UPDATE venta_items 
 SET tipo_item = 'honorarios' 
-WHERE tipo_item = 'general' 
+WHERE (tipo_item = 'general' OR tipo_item IS NULL)
   AND venta_id IN (
     SELECT id FROM ventas WHERE paciente_id IN (1001, 1002, 1004)
   );
 
 UPDATE venta_items 
 SET tipo_item = 'internamiento' 
-WHERE tipo_item = 'general' 
+WHERE (tipo_item = 'general' OR tipo_item IS NULL)
   AND venta_id IN (
     SELECT id FROM ventas WHERE paciente_id = 1003
   );
 
+RAISE NOTICE '✅ Categorías de items actualizadas correctamente';
+COMMIT;
+
 -- ============================================
--- 6. VERIFICACIÓN Y REPORTE
+-- 6. VERIFICACIÓN Y REPORTE FINAL
 -- ============================================
 
 DO $$
@@ -151,15 +199,13 @@ BEGIN
     RAISE NOTICE '====================================';
 END $$;
 
-COMMIT;
-
 -- ============================================
 -- FIN DE CARGA DE DATOS DE EJEMPLO
 -- ============================================
 -- Status: ✅ Listo para ejecutar
 -- Notas:
---   - Script es seguro para ejecutar múltiples veces
---   - Solo inserta si los datos no existen
---   - Actualiza saldos si ya están registrados
---   - Incluye 5 pacientes con diferentes estados de cuenta
+--   - Script dividido en transacciones independientes
+--   - Si una sección falla, las demás continúan
+--   - Incluye validación de tablas al inicio
+--   - Reporte detallado al final
 -- ============================================
