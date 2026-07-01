@@ -601,6 +601,15 @@ const FacturacionMejorada = {
             });
 
             const result = await response.json();
+            console.log('=== RESPUESTA API ESTADO CUENTA ===');
+            console.log('Status:', response.status);
+            console.log('Resultado completo:', result);
+            console.log('Paciente:', result.data?.paciente);
+            console.log('Facturas:', result.data?.facturas);
+            console.log('Totales:', result.data?.totales);
+            console.log('Saldo:', result.data?.saldo);
+            console.log('=====================================');
+            
             if (result.success) {
                 alert(`Estado de Cuenta de ${result.data.paciente.nombre}\n\nSubtotal: Q${result.data.totales.subtotal_total.toFixed(2)}\nTotal: Q${result.data.totales.total_facturado.toFixed(2)}\nSaldo Pendiente: Q${result.data.totales.saldo_pendiente.toFixed(2)}`);
             } else {
@@ -619,6 +628,13 @@ const FacturacionMejorada = {
             });
 
             const result = await response.json();
+            console.log('=== IMPRIMIR ESTADO CUENTA MEJORADO ===');
+            console.log('Respuesta:', result);
+            console.log('Datos:', result.data);
+            console.log('Facturas a imprimir:', result.data?.facturas);
+            console.log('Cantidad de facturas:', result.data?.facturas?.length || 0);
+            console.log('=====================================');
+            
             if (result.success) {
                 this.generarEstadoCuentaPDFMejorado(result.data);
             } else {
@@ -637,6 +653,17 @@ const FacturacionMejorada = {
             });
 
             const result = await response.json();
+            console.log('=== IMPRIMIR ESTADO CUENTA ===');
+            console.log('Response status:', response.status);
+            console.log('Resultado:', result);
+            console.log('Success:', result.success);
+            console.log('Data:', result.data);
+            if (result.data?.facturas) {
+                console.log('Cantidad de facturas:', result.data.facturas.length);
+                console.log('Facturas:', result.data.facturas);
+            }
+            console.log('=====================================');
+            
             if (result.success) {
                 this.generarEstadoCuentaPDFMejorado(result.data);
             } else {
