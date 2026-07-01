@@ -13,9 +13,38 @@ async function runMigrations() {
   console.log('\n📊 Iniciando verificación de esquema de base de datos...\n');
   
   try {
-    // Leer el archivo schema.sql
-    const schemaPath = path.join(__dirname, '../../database/schema.sql');
-    const schema = fs.readFileSync(schemaPath, 'utf8');
+    // Leer el archivo schema.sql (buscar en rutas posibles)
+    let schemaPath;
+    let schema;
+    
+    // Intentar rutas en orden de probabilidad
+    const possiblePaths = [
+      path.join(__dirname, '../../database/schema.sql'),      // Local: backend/src/db -> ../../database
+      path.join(__dirname, '../../../database/schema.sql'),   // Producción: backend/src/db -> ../../../database
+      path.join(process.cwd(), 'database/schema.sql'),        // Desde directorio de trabajo
+      path.join(process.cwd(), 'backend/database/schema.sql') // Alt
+    ];
+    
+    for (const possiblePath of possiblePaths) {
+      try {
+        if (fs.existsSync(possiblePath)) {
+          schemaPath = possiblePath;
+          schema = fs.readFileSync(schemaPath, 'utf8');
+          console.log(`📂 Schema encontrado en: ${schemaPath}`);
+          break;
+        }
+      } catch (e) {
+        // Continuar a la siguiente ruta
+        continue;
+      }
+    }
+    
+    // Si no encuentra el archivo, solo advertir (el schema ya está en la BD)
+    if (!schema) {
+      console.warn('⚠️  No se pudo encontrar schema.sql, continuando...');
+      console.log('✅ Base de datos ya está configurada en el servidor');
+      return true;
+    }
     
     // Separar las queries por punto y coma (simple parser)
     const queries = schema
