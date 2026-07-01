@@ -486,6 +486,123 @@ class BillingMejoradoController {
     }
 
     /**
+     * Obtener estado de cuenta detallado con items agrupados por categoría
+     */
+    async getEstadoCuentaDetallado(req, res) {
+        try {
+            const { paciente_id } = req.params;
+
+            // Obtener datos del paciente
+            const queryPaciente = `
+                SELECT id, nombre, apellidoPaterno, apellidoMaterno, dpi, telefono, fecha_nacimiento
+                FROM pacientes
+                WHERE id = $1
+            `;
+            const resPaciente = await db.query(queryPaciente, [paciente_id]);
+
+            if (resPaciente.rows.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Paciente no encontrado'
+                });
+            }
+
+            const paciente = resPaciente.rows[0];
+
+            // Obtener saldo actual
+            const querySaldo = `
+                SELECT saldo_pendiente, total_deuda
+                FROM pacientes_saldo
+                WHERE paciente_id = $1
+            `;
+            const resSaldo = await db.query(querySaldo, [paciente_id]);
+            const saldo = resSaldo.rows[0] || { saldo_pendiente: 0, total_deuda: 0 };
+
+            // Obtener todas las facturas con sus items agrupados por categoría
+            const queryFacturas = `
+                SELECT 
+                    v.id, v.numero_factura, v.fecha, v.subtotal, 
+                    v.total_descuentos, v.total_impuestos, v.total,
+                    vi.id as item_id, vi.descripcion, vi.cantidad, 
+                    vi.precio_unitario, vi.subtotal as item_subtotal,
+                    COALESCE(vi.descuento, 0) as item_descuento,
+                    COALESCE(vi.total, vi.subtotal - COALESCE(vi.descuento, 0)) as item_total,
+                    COALESCE(vi.tipo_item, 'general') as tipo_item
+                FROM ventas v
+                LEFT JOIN venta_items vi ON v.id = vi.venta_id
+                WHERE v.paciente_id = $1
+                ORDER BY v.fecha DESC, vi.tipo_item, vi.descripcion
+            `;
+            const resFacturas = await db.query(queryFacturas, [paciente_id]);
+
+            // Agrupar items por categoría
+            const facturaMap = new Map();
+            resFacturas.rows.forEach(row => {
+                if (!facturaMap.has(row.numero_factura)) {
+                    facturaMap.set(row.numero_factura, {
+                        id: row.id,
+                        numero_factura: row.numero_factura,
+                        fecha: row.fecha,
+                        subtotal: parseFloat(row.subtotal),
+                        total_descuentos: parseFloat(row.total_descuentos),
+                        total_impuestos: parseFloat(row.total_impuestos),
+                        total: parseFloat(row.total),
+                        categorias: {}
+                    });
+                }
+
+                const factura = facturaMap.get(row.numero_factura);
+                if (row.item_id) {
+                    const categoria = row.tipo_item || 'general';
+                    if (!factura.categorias[categoria]) {
+                        factura.categorias[categoria] = [];
+                    }
+                    factura.categorias[categoria].push({
+                        id: row.item_id,
+                        descripcion: row.descripcion,
+                        cantidad: row.cantidad,
+                        precio_unitario: parseFloat(row.precio_unitario),
+                        subtotal: parseFloat(row.item_subtotal),
+                        descuento: parseFloat(row.item_descuento),
+                        total: parseFloat(row.item_total)
+                    });
+                }
+            });
+
+            // Convertir map a array
+            const facturas = Array.from(facturaMap.values());
+
+            // Calcular totales generales
+            const totales = {
+                subtotal_total: facturas.reduce((sum, f) => sum + f.subtotal, 0),
+                descuentos_total: facturas.reduce((sum, f) => sum + f.total_descuentos, 0),
+                impuestos_total: facturas.reduce((sum, f) => sum + f.total_impuestos, 0),
+                total_facturado: facturas.reduce((sum, f) => sum + f.total, 0),
+                saldo_pendiente: saldo.saldo_pendiente,
+                saldo_favor: saldo.saldo_pendiente < 0 ? Math.abs(saldo.saldo_pendiente) : 0
+            };
+
+            res.json({
+                success: true,
+                data: {
+                    paciente,
+                    facturas,
+                    totales,
+                    saldo
+                }
+            });
+
+        } catch (error) {
+            console.error('Error al obtener estado de cuenta detallado:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener estado de cuenta',
+                error: error.message
+            });
+        }
+    }
+
+    /**
      * Generar número de factura
      */
     async generarNumeroFactura() {

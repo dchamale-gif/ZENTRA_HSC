@@ -35,6 +35,14 @@ router.get('/estado-cuenta/:paciente_id', (req, res) => {
 });
 
 /**
+ * GET /api/billing/estado-cuenta-detallado/:paciente_id
+ * Obtener estado de cuenta detallado con items agrupados por categoría
+ */
+router.get('/estado-cuenta-detallado/:paciente_id', (req, res) => {
+    billingMejoradoController.getEstadoCuentaDetallado(req, res);
+});
+
+/**
  * GET /api/saldo-paciente/:paciente_id
  * Obtener saldo del paciente
  */

@@ -67,6 +67,25 @@ const FacturacionMejorada = {
         if (btnAgregarDescuento) {
             btnAgregarDescuento.addEventListener('click', () => this.abrirModalDescuento());
         }
+
+        // Estado de Cuenta
+        const btnVerEstadoCuenta = document.getElementById('btnVerEstadoCuenta');
+        if (btnVerEstadoCuenta) {
+            btnVerEstadoCuenta.addEventListener('click', () => {
+                if (this.state.paciente_seleccionado) {
+                    this.verEstadoCuenta(this.state.paciente_seleccionado.id);
+                }
+            });
+        }
+
+        const btnImprimirEstadoCuenta = document.getElementById('btnImprimirEstadoCuenta');
+        if (btnImprimirEstadoCuenta) {
+            btnImprimirEstadoCuenta.addEventListener('click', () => {
+                if (this.state.paciente_seleccionado) {
+                    this.imprimirEstadoCuentaMejorado(this.state.paciente_seleccionado.id);
+                }
+            });
+        }
     },
 
     // ============================================
@@ -120,6 +139,12 @@ const FacturacionMejorada = {
         document.getElementById('busquedaPaciente').value = nombrePaciente;
         document.getElementById('resultadosBusquedaPaciente').innerHTML = '';
         document.getElementById('pacienteIdFactura').value = pacienteId;
+        
+        // Mostrar sección de estado de cuenta
+        const seccionEstadoCuenta = document.getElementById('seccionEstadoCuenta');
+        if (seccionEstadoCuenta) {
+            seccionEstadoCuenta.style.display = 'block';
+        }
         
         this.cargarSaldoPaciente(pacienteId);
     },
@@ -568,6 +593,368 @@ const FacturacionMejorada = {
     // ============================================
     // ESTADO DE CUENTA
     // ============================================
+
+    async verEstadoCuenta(pacienteId) {
+        try {
+            const response = await fetch(`http://localhost:3011/api/billing/estado-cuenta-detallado/${pacienteId}`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                alert(`Estado de Cuenta de ${result.data.paciente.nombre}\n\nSubtotal: Q${result.data.totales.subtotal_total.toFixed(2)}\nTotal: Q${result.data.totales.total_facturado.toFixed(2)}\nSaldo Pendiente: Q${result.data.totales.saldo_pendiente.toFixed(2)}`);
+            } else {
+                alert('Error: ' + result.message);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al obtener estado de cuenta');
+        }
+    },
+
+    async imprimirEstadoCuentaMejorado(pacienteId) {
+        try {
+            const response = await fetch(`http://localhost:3011/api/billing/estado-cuenta-detallado/${pacienteId}`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                this.generarEstadoCuentaPDFMejorado(result.data);
+            } else {
+                alert('Error: ' + result.message);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al generar estado de cuenta');
+        }
+    },
+
+    async imprimirEstadoCuenta(pacienteId) {
+        try {
+            const response = await fetch(`http://localhost:3011/api/billing/estado-cuenta-detallado/${pacienteId}`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                this.generarEstadoCuentaPDFMejorado(result.data);
+            } else {
+                alert('Error: ' + result.message);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al generar estado de cuenta');
+        }
+    },
+
+    generarEstadoCuentaPDFMejorado(data) {
+        // Mapear categorías a nombres en español
+        const categoriasNombres = {
+            'internamiento': 'INTERNAMIENTO',
+            'medicamentos': 'MEDICAMENTOS',
+            'insumos': 'INSUMOS',
+            'equipo_medico': 'EQUIPO MÉDICO',
+            'examenes': 'EXÁMENES DE LABORATORIO',
+            'honorarios': 'HONORARIOS',
+            'extras': 'EXTRAS',
+            'general': 'SERVICIOS'
+        };
+
+        // Calcular edad del paciente
+        let edad = '';
+        if (data.paciente.fecha_nacimiento) {
+            const hoy = new Date();
+            const nacimiento = new Date(data.paciente.fecha_nacimiento);
+            edad = hoy.getFullYear() - nacimiento.getFullYear();
+        }
+
+        const ventana = window.open('', '_blank', 'width=1000,height=1200');
+
+        let contenidoCategorias = '';
+
+        // Generar secciones por categoría
+        const categoriasOrdenadas = ['internamiento', 'medicamentos', 'insumos', 'equipo_medico', 'examenes', 'honorarios', 'extras', 'general'];
+        
+        for (const categoria of categoriasOrdenadas) {
+            let items = [];
+            
+            // Recopilar items de todas las facturas para esta categoría
+            data.facturas.forEach(factura => {
+                if (factura.categorias[categoria]) {
+                    items = items.concat(factura.categorias[categoria]);
+                }
+            });
+
+            if (items.length > 0) {
+                const totalCategoria = items.reduce((sum, item) => sum + item.total, 0);
+                
+                contenidoCategorias += `
+                    <div style="margin: 20px 0; page-break-inside: avoid;">
+                        <div style="background: #34495e; color: white; padding: 10px; font-weight: bold; border-radius: 4px; margin-bottom: 10px;">
+                            🔹 ${categoriasNombres[categoria] || categoria.toUpperCase()}
+                        </div>
+                        <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+                            <thead>
+                                <tr style="background: #ecf0f1; border-bottom: 2px solid #34495e;">
+                                    <th style="padding: 10px; text-align: left; font-weight: bold; font-size: 11px;">Producto</th>
+                                    <th style="padding: 10px; text-align: center; font-weight: bold; font-size: 11px;">Presentación</th>
+                                    <th style="padding: 10px; text-align: center; font-weight: bold; font-size: 11px;">Cantidad</th>
+                                    <th style="padding: 10px; text-align: right; font-weight: bold; font-size: 11px;">Precio Unitario</th>
+                                    <th style="padding: 10px; text-align: right; font-weight: bold; font-size: 11px;">Descuento</th>
+                                    <th style="padding: 10px; text-align: right; font-weight: bold; font-size: 11px;">Precio c/Desc</th>
+                                    <th style="padding: 10px; text-align: right; font-weight: bold; font-size: 11px;">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${items.map(item => `
+                                    <tr style="border-bottom: 1px solid #ddd; font-size: 12px;">
+                                        <td style="padding: 8px; text-align: left;">${item.descripcion}</td>
+                                        <td style="padding: 8px; text-align: center;">-</td>
+                                        <td style="padding: 8px; text-align: center;">${item.cantidad}</td>
+                                        <td style="padding: 8px; text-align: right;">Q${item.precio_unitario.toFixed(2)}</td>
+                                        <td style="padding: 8px; text-align: right;">${item.descuento > 0 ? 'Q' + item.descuento.toFixed(2) : 'Q 0.00'}</td>
+                                        <td style="padding: 8px; text-align: right;">Q${(item.precio_unitario - (item.descuento / item.cantidad)).toFixed(2)}</td>
+                                        <td style="padding: 8px; text-align: right; font-weight: bold;">Q${item.total.toFixed(2)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                            <tfoot>
+                                <tr style="background: #ecf0f1; font-weight: bold; border-top: 2px solid #34495e;">
+                                    <td colspan="6" style="padding: 10px; text-align: right;">TOTAL ${categoriasNombres[categoria] || categoria.toUpperCase()}:</td>
+                                    <td style="padding: 10px; text-align: right;">Q${totalCategoria.toFixed(2)}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                `;
+            }
+        }
+
+        const html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>Estado de Cuenta - ${data.paciente.nombre}</title>
+                <style>
+                    * { margin: 0; padding: 0; }
+                    body { 
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+                        padding: 20px; 
+                        line-height: 1.5;
+                        color: #333;
+                    }
+                    .container { 
+                        max-width: 950px; 
+                        margin: 0 auto;
+                        background: white;
+                    }
+                    .header { 
+                        text-align: center; 
+                        border-bottom: 3px solid #34495e; 
+                        padding-bottom: 15px; 
+                        margin-bottom: 20px;
+                    }
+                    .header h1 { 
+                        margin: 0; 
+                        font-size: 28px; 
+                        color: #2c3e50;
+                        font-weight: bold;
+                    }
+                    .header h2 { 
+                        margin: 5px 0 0 0; 
+                        font-size: 16px; 
+                        color: #7f8c8d; 
+                    }
+                    .info-section { 
+                        display: grid; 
+                        grid-template-columns: 1fr 1fr; 
+                        gap: 30px; 
+                        margin-bottom: 25px;
+                        padding: 15px;
+                        background: #f8f9fa;
+                        border-radius: 4px;
+                    }
+                    .info-box label { 
+                        display: block; 
+                        font-weight: bold; 
+                        margin-top: 8px; 
+                        font-size: 11px; 
+                        color: #7f8c8d;
+                        text-transform: uppercase;
+                    }
+                    .info-box p { 
+                        margin: 3px 0 0 0;
+                        font-size: 13px;
+                        color: #2c3e50;
+                    }
+                    .info-box p strong { 
+                        font-weight: bold;
+                        font-size: 14px;
+                    }
+                    .total-section { 
+                        margin-top: 30px; 
+                        border-top: 2px solid #34495e; 
+                        padding-top: 15px;
+                        background: #f8f9fa;
+                        padding: 15px;
+                        border-radius: 4px;
+                    }
+                    .total-row { 
+                        display: flex; 
+                        justify-content: space-between; 
+                        padding: 8px 0; 
+                        font-size: 12px; 
+                        border-bottom: 1px solid #ecf0f1;
+                    }
+                    .total-row.subtotal {
+                        font-weight: bold;
+                    }
+                    .total-row.iva {
+                        font-weight: bold;
+                    }
+                    .total-row.grande { 
+                        font-size: 16px; 
+                        font-weight: bold; 
+                        color: white;
+                        background: #34495e;
+                        padding: 12px;
+                        border-radius: 4px;
+                        margin-top: 5px;
+                        border: none;
+                    }
+                    .right { 
+                        text-align: right; 
+                    }
+                    .footer { 
+                        margin-top: 30px; 
+                        text-align: center; 
+                        font-size: 11px; 
+                        color: #7f8c8d; 
+                        border-top: 1px solid #ddd; 
+                        padding-top: 15px;
+                    }
+                    .resumen-financiero {
+                        margin: 20px 0;
+                        padding: 15px;
+                        background: #ecf0f1;
+                        border-left: 4px solid #34495e;
+                        border-radius: 4px;
+                    }
+                    .resumen-financiero h3 {
+                        font-size: 13px;
+                        color: #34495e;
+                        margin-bottom: 10px;
+                        font-weight: bold;
+                    }
+                    .saldo-favor {
+                        color: #27ae60;
+                        font-weight: bold;
+                    }
+                    .saldo-deuda {
+                        color: #e74c3c;
+                        font-weight: bold;
+                    }
+                    @media print {
+                        body { padding: 0; }
+                        .page-break { page-break-before: always; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <!-- ENCABEZADO -->
+                    <div class="header">
+                        <h1>ESTADO DE CUENTA</h1>
+                        <h2>Clínica / Centro Médico - Psiquiatría Santa Clara</h2>
+                    </div>
+
+                    <!-- INFORMACIÓN DEL PACIENTE -->
+                    <div class="info-section">
+                        <div class="info-box">
+                            <label>Paciente:</label>
+                            <p><strong>${data.paciente.nombre} ${data.paciente.apellidoPaterno} ${data.paciente.apellidoMaterno || ''}</strong></p>
+                            <label>DPI:</label>
+                            <p>${data.paciente.dpi || 'N/A'}</p>
+                            <label>Teléfono:</label>
+                            <p>${data.paciente.telefono || 'N/A'}</p>
+                        </div>
+                        <div class="info-box">
+                            <label>Edad:</label>
+                            <p><strong>${edad || 'N/A'} años</strong></p>
+                            <label>Estado de Cuenta al:</label>
+                            <p>${new Date().toLocaleDateString('es-GT', { year: 'numeric', month: '2-digit', day: '2-digit' })}</p>
+                            <label>Período:</label>
+                            <p>Del 01 de enero al ${new Date().toLocaleDateString('es-GT', { year: 'numeric', month: '2-digit', day: '2-digit' })}</p>
+                        </div>
+                    </div>
+
+                    <!-- CONTENIDO DE CATEGORÍAS -->
+                    ${contenidoCategorias}
+
+                    <!-- RESUMEN FINANCIERO -->
+                    <div class="resumen-financiero">
+                        <h3>📊 RESUMEN FINANCIERO</h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; font-size: 12px;">
+                            <div>
+                                <div class="total-row subtotal">
+                                    <span>Subtotal:</span>
+                                    <strong>Q${data.totales.subtotal_total.toFixed(2)}</strong>
+                                </div>
+                                <div class="total-row">
+                                    <span>Descuentos:</span>
+                                    <strong>Q${data.totales.descuentos_total.toFixed(2)}</strong>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="total-row iva">
+                                    <span>IVA (12%):</span>
+                                    <strong>Q${data.totales.impuestos_total.toFixed(2)}</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TOTALES -->
+                    <div class="total-section">
+                        <div class="total-row grande">
+                            <span>TOTAL FACTURADO:</span>
+                            <strong class="right">Q${data.totales.total_facturado.toFixed(2)}</strong>
+                        </div>
+                        <div class="total-row" style="margin-top: 15px; padding: 12px; background: white; border-radius: 4px;">
+                            <span>Saldo Pendiente:</span>
+                            <strong class="right ${data.totales.saldo_pendiente > 0 ? 'saldo-deuda' : 'saldo-favor'}">
+                                Q${Math.abs(data.totales.saldo_pendiente).toFixed(2)}
+                            </strong>
+                        </div>
+                        ${data.totales.saldo_favor > 0 ? `
+                            <div class="total-row" style="padding: 12px; background: #d5f4e6; border-radius: 4px; margin-top: 8px;">
+                                <span>💚 Saldo a Favor del Paciente:</span>
+                                <strong class="right saldo-favor">Q${data.totales.saldo_favor.toFixed(2)}</strong>
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <!-- PIE DE PÁGINA -->
+                    <div class="footer">
+                        <p>📌 Nota: Los descuentos reflejan apoyos obligatorios al paciente. Gracias por permítir cuidar su bienestar.</p>
+                        <p style="margin-top: 10px;">Estado de cuenta generado automáticamente • ${new Date().toLocaleString('es-GT')}</p>
+                        <p style="margin-top: 5px;">Psiquiatría Santa Clara • PBX: (502) 2334-4545 • www.psiquiatriasantaclara.com</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+
+        ventana.document.write(html);
+        ventana.document.close();
+        
+        // Auto-print (opcional)
+        setTimeout(() => {
+            ventana.print();
+        }, 250);
+    },
 
     async imprimirEstadoCuenta(pacienteId) {
         try {
