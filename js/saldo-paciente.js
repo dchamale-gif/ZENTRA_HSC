@@ -93,7 +93,27 @@ const SaldoPacienteModule = {
         const container = document.getElementById('saldosPacientesTableContainer');
         if (!container) return;
 
-        let filtered = [...this.state.saldosPacientes];
+        console.log('🔄 Renderizando saldos...');
+        console.log('Pacientes:', this.state.pacientes);
+        console.log('Saldos:', this.state.saldosPacientes);
+
+        // Si no hay saldos pero hay pacientes, mostrar pacientes sin saldos
+        let dataToShow = [];
+        if (this.state.saldosPacientes.length > 0) {
+            dataToShow = [...this.state.saldosPacientes];
+        } else if (this.state.pacientes.length > 0) {
+            // Crear saldos vacíos desde pacientes
+            dataToShow = this.state.pacientes.map(p => ({
+                pacienteId: p.id,
+                totalAcumulado: 0,
+                totalAbonos: 0,
+                saldoPendiente: 0,
+                ultimaTransaccion: '-'
+            }));
+            console.log('✅ Creados saldos desde pacientes:', dataToShow);
+        }
+
+        let filtered = [...dataToShow];
 
         // Filtro por estado
         if (this.filtroEstado === 'deudores') {
@@ -115,7 +135,8 @@ const SaldoPacienteModule = {
         }
 
         if (filtered.length === 0) {
-            container.innerHTML = '<div class="empty-state"><p>No hay datos de saldo registrados</p></div>';
+            container.innerHTML = '<div class="empty-state"><p>No hay pacientes registrados</p></div>';
+            console.warn('⚠️ Sin datos para mostrar');
             return;
         }
 
