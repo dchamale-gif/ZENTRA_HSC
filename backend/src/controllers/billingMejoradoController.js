@@ -217,7 +217,7 @@ class BillingMejoradoController {
 
             // Obtener datos del paciente
             const queryPaciente = `
-                SELECT id, nombre, apellidoPaterno, apellidoMaterno, dpi, telefono
+                SELECT id, nombre, apellido_paterno, apellido_materno, dpi, telefono
                 FROM pacientes
                 WHERE id = $1
             `;
@@ -494,7 +494,7 @@ class BillingMejoradoController {
 
             // Obtener datos del paciente
             const queryPaciente = `
-                SELECT id, nombre, apellidoPaterno, apellidoMaterno, dpi, telefono, fecha_nacimiento
+                SELECT id, nombre, apellido_paterno, apellido_materno, dpi, telefono, fecha_nacimiento
                 FROM pacientes
                 WHERE id = $1
             `;
