@@ -73,7 +73,7 @@ const SaldoPacienteModule = {
             const saldos = [];
             for (const paciente of this.state.pacientes) {
                 try {
-                    const resSaldo = await fetch(`http://localhost:3011/api/billing/saldo/${paciente.id}`, {
+                    const resSaldo = await fetch(`http://localhost:3011/api/billing/saldo-paciente/${paciente.id}`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
                     if (resSaldo.ok) {
