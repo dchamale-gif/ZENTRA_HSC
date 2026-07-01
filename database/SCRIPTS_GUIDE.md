@@ -241,6 +241,63 @@ Rol:        admin (acceso total)
 
 ---
 
+## ⭐ NUEVO: Estado de Cuenta - Facturación Mejorada
+
+### 7. `estado-de-cuenta-migration.sql` 📈
+**Script para agregar Estado de Cuenta (NUEVO - 2026-07-01)**
+
+```bash
+psql -U postgres -d zentra_med -f database/estado-de-cuenta-migration.sql
+```
+
+Hace:
+- ✅ Agrega campo `tipo_item` a tabla `venta_items`
+- ✅ Agrega campos a tabla `ventas` para facturación mejorada
+- ✅ Crea tabla `pacientes_saldo` para gestionar saldos
+- ✅ Crea tabla `movimientos_paciente` para historial
+- ✅ Crea índices para performance
+- ✅ Inicializa datos de saldo para pacientes existentes
+
+**¿Para qué sirve?**
+- Ver e imprimir "Estados de Cuenta" detallados por categoría
+- Mostrar saldos pendientes del paciente
+- Agrupar servicios por tipo: Internamiento, Medicamentos, Insumos, Equipo Médico, Exámenes, Honorarios, Extras
+
+**Interfaz:**
+- Facturación Mejorada → Seleccionar paciente → "Estado de Cuenta del Paciente"
+- Botones: "📄 Ver Estado de Cuenta" y "🖨️ Imprimir Estado de Cuenta"
+
+**Estado:** ✅ Nuevo, incluido en esta versión
+
+---
+
+## 📊 ORDEN DE EJECUCIÓN RECOMENDADO
+
+Para una instalación **limpia** (primera vez):
+
+```bash
+# 1. Schema base (si es primera vez)
+psql -U postgres -d zentra_med -f database/schema.sql
+
+# 2. Login y autenticación
+psql -U postgres -d zentra_med -f database/migration-login-setup.sql
+
+# 3. ⭐ NUEVO: Estado de Cuenta (si quieres usar el módulo de facturación)
+psql -U postgres -d zentra_med -f database/estado-de-cuenta-migration.sql
+
+# 4. Datos de ejemplo para pruebas (opcional)
+psql -U postgres -d zentra_med -f database/facturacion-datos-ejemplo.sql
+```
+
+Para una actualización en un sistema **existente**:
+
+```bash
+# Solo ejecuta esto (agrega nuevas campos sin borrar datos)
+psql -U postgres -d zentra_med -f database/estado-de-cuenta-migration.sql
+```
+
+---
+
 ## 🐛 TROUBLESHOOTING
 
 ### "No such file or directory: migration-login-setup.sql"
