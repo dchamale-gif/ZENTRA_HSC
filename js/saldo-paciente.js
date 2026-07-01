@@ -174,6 +174,9 @@ const SaldoPacienteModule = {
                         ? '<span class="badge badge-success">SIN DEUDA</span>'
                         : '<span class="badge badge-danger">DEUDOR</span>'
                     }
+                    <button onclick="SaldoPacienteModule.cargarEstadoCuentaCompleto('${pacienteId}')" class="btn-small" style="background: #3498db; color: white; border: none; padding: 6px 12px; border-radius: 3px; cursor: pointer; font-size: 12px; margin-left: auto;">
+                        🔄 Cargar Estado Completo
+                    </button>
                 </div>
 
                 <div class="saldo-summary">
@@ -834,5 +837,127 @@ const SaldoPacienteModule = {
             notification.classList.remove('show');
             setTimeout(() => notification.remove(), 300);
         }, 3000);
+    },
+
+    // Cargar Estado de Cuenta Completo desde API
+    async cargarEstadoCuentaCompleto(pacienteId) {
+        try {
+            this.showNotification('Cargando Estado de Cuenta...', 'info');
+            console.log('📋 Cargando Estado de Cuenta para paciente:', pacienteId);
+            
+            const token = localStorage.getItem('token');
+            const response = await fetch(`http://localhost:3011/api/billing/estado-cuenta-detallado/${pacienteId}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (!response.ok) {
+                console.warn('API no disponible, mostrando demo data');
+                this.showNotification('Estado de Cuenta (datos locales)', 'info');
+                return;
+            }
+            
+            const result = await response.json();
+            console.log('✅ Estado de Cuenta cargado:', result);
+            
+            if (result.success && result.data) {
+                this.mostrarEstadoCuentaCompleto(result.data);
+                this.showNotification('Estado de Cuenta cargado exitosamente', 'success');
+            } else {
+                this.showNotification('No hay datos disponibles', 'warning');
+            }
+        } catch (error) {
+            console.error('Error cargando Estado de Cuenta:', error);
+            this.showNotification('No se pudo cargar el Estado de Cuenta desde API', 'warning');
+        }
+    },
+
+    // Mostrar Estado de Cuenta Completo en modal
+    mostrarEstadoCuentaCompleto(estadoCuenta) {
+        const detailsContent = document.getElementById('saldoDetailsContent');
+        if (!detailsContent) return;
+
+        const paciente = estadoCuenta.paciente || {};
+        const facturas = estadoCuenta.facturas || [];
+        const totales = estadoCuenta.totales || {};
+
+        let facturasHTML = '';
+        if (facturas.length > 0) {
+            facturasHTML = `
+                <div class="facturas-section" style="margin-top: 20px; border-top: 2px solid #ddd; padding-top: 20px;">
+                    <h4>📄 Facturas/Ventas</h4>
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                            <thead>
+                                <tr style="background: #f5f5f5; border-bottom: 2px solid #ddd;">
+                                    <th style="padding: 10px; text-align: left;">Número</th>
+                                    <th style="padding: 10px; text-align: center;">Fecha</th>
+                                    <th style="padding: 10px; text-align: right;">Subtotal</th>
+                                    <th style="padding: 10px; text-align: right;">Descuento</th>
+                                    <th style="padding: 10px; text-align: right;">Impuesto</th>
+                                    <th style="padding: 10px; text-align: right;">Total</th>
+                                    <th style="padding: 10px; text-align: center;">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${facturas.map(f => `
+                                    <tr style="border-bottom: 1px solid #eee;">
+                                        <td style="padding: 10px;"><strong>${f.numero_factura || f.numero_venta || '-'}</strong></td>
+                                        <td style="padding: 10px; text-align: center;">${f.fecha || '-'}</td>
+                                        <td style="padding: 10px; text-align: right;">Q${parseFloat(f.subtotal || 0).toFixed(2)}</td>
+                                        <td style="padding: 10px; text-align: right;">Q${parseFloat(f.total_descuentos || f.descuento || 0).toFixed(2)}</td>
+                                        <td style="padding: 10px; text-align: right;">Q${parseFloat(f.total_impuestos || f.impuesto || 0).toFixed(2)}</td>
+                                        <td style="padding: 10px; text-align: right; font-weight: bold;">Q${parseFloat(f.total || 0).toFixed(2)}</td>
+                                        <td style="padding: 10px; text-align: center;">
+                                            <span style="background: #d4edda; color: #155724; padding: 3px 8px; border-radius: 3px; font-size: 11px;">
+                                                ${f.estado || 'Activa'}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    ${f.items && f.items.length > 0 ? `
+                                        <tr style="background: #f9f9f9;">
+                                            <td colspan="7" style="padding: 10px;">
+                                                <strong>Ítems:</strong>
+                                                ${f.items.map(item => `
+                                                    <div style="padding: 5px; margin-left: 20px; font-size: 11px;">
+                                                        • ${item.descripcion} x${item.cantidad} @ Q${parseFloat(item.precio_unitario || 0).toFixed(2)} = Q${parseFloat(item.subtotal || 0).toFixed(2)}
+                                                    </div>
+                                                `).join('')}
+                                            </td>
+                                        </tr>
+                                    ` : ''}
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        const totalesHTML = `
+            <div class="totales-section" style="margin-top: 20px; background: #f5f5f5; padding: 15px; border-radius: 5px;">
+                <h4 style="margin-top: 0;">💰 Totales</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 14px;">
+                    <div>
+                        <label style="color: #666;">Subtotal:</label>
+                        <p style="margin: 5px 0; font-weight: bold; font-size: 16px;">Q${parseFloat(totales.subtotal || 0).toFixed(2)}</p>
+                    </div>
+                    <div>
+                        <label style="color: #666;">Total Descuentos:</label>
+                        <p style="margin: 5px 0; font-weight: bold; font-size: 16px; color: #e74c3c;">-Q${parseFloat(totales.total_descuentos || totales.descuentos || 0).toFixed(2)}</p>
+                    </div>
+                    <div>
+                        <label style="color: #666;">Total Impuestos:</label>
+                        <p style="margin: 5px 0; font-weight: bold; font-size: 16px;">Q${parseFloat(totales.total_impuestos || totales.impuestos || 0).toFixed(2)}</p>
+                    </div>
+                    <div>
+                        <label style="color: #666;">TOTAL GENERAL:</label>
+                        <p style="margin: 5px 0; font-weight: bold; font-size: 18px; background: #d4edda; padding: 8px; border-radius: 3px; color: #155724;">Q${parseFloat(totales.total || 0).toFixed(2)}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        detailsContent.innerHTML += facturasHTML + totalesHTML;
+        console.log('✅ Estado de Cuenta mostrado en modal');
     }
 };
