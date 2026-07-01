@@ -1237,7 +1237,7 @@ const demoData = {
     // Datos de ejemplo: Pacientes
     pacientes: [
         {
-            id: 'PAC_001',
+            id: 1001,
             nombre: 'Juan',
             apellido_paterno: 'López',
             apellido_materno: 'Rodríguez',
@@ -1258,7 +1258,7 @@ const demoData = {
             estado: 'activo'
         },
         {
-            id: 'PAC_002',
+            id: 1002,
             nombre: 'María',
             apellido_paterno: 'García',
             apellido_materno: 'Morales',
@@ -1279,7 +1279,7 @@ const demoData = {
             estado: 'activo'
         },
         {
-            id: 'PAC_003',
+            id: 1003,
             nombre: 'Carlos',
             apellido_paterno: 'Pérez',
             apellido_materno: 'López',
@@ -1300,7 +1300,7 @@ const demoData = {
             estado: 'activo'
         },
         {
-            id: 'PAC_004',
+            id: 1004,
             nombre: 'Ana',
             apellido_paterno: 'Martínez',
             apellido_materno: 'Díaz',
@@ -1321,7 +1321,7 @@ const demoData = {
             estado: 'activo'
         },
         {
-            id: 'PAC_005',
+            id: 1005,
             nombre: 'Roberto',
             apellido_paterno: 'Sánchez',
             apellido_materno: 'Gómez',
@@ -1346,7 +1346,7 @@ const demoData = {
     // Datos de ejemplo: Saldos de Pacientes
     saldosPacientes: [
         {
-            pacienteId: 'PAC_001',
+            pacienteId: 1001,
             saldoPendiente: 1250.00,
             totalAcumulado: 3500.00,
             abonosRealizados: 2250.00,
@@ -1354,7 +1354,7 @@ const demoData = {
             estado: 'deudor'
         },
         {
-            pacienteId: 'PAC_002',
+            pacienteId: 1002,
             saldoPendiente: 0.00,
             totalAcumulado: 850.00,
             abonosRealizados: 850.00,
@@ -1362,7 +1362,7 @@ const demoData = {
             estado: 'pagado'
         },
         {
-            pacienteId: 'PAC_003',
+            pacienteId: 1003,
             saldoPendiente: 3750.50,
             totalAcumulado: 5200.50,
             abonosRealizados: 1450.00,
@@ -1370,7 +1370,7 @@ const demoData = {
             estado: 'deudor'
         },
         {
-            pacienteId: 'PAC_004',
+            pacienteId: 1004,
             saldoPendiente: 450.75,
             totalAcumulado: 1200.75,
             abonosRealizados: 750.00,
@@ -1378,7 +1378,7 @@ const demoData = {
             estado: 'deudor'
         },
         {
-            pacienteId: 'PAC_005',
+            pacienteId: 1005,
             saldoPendiente: 0.00,
             totalAcumulado: 2100.00,
             abonosRealizados: 2100.00,
@@ -1391,7 +1391,7 @@ const demoData = {
     movimientosPaciente: [
         {
             id: 'MOV_001',
-            pacienteId: 'PAC_001',
+            pacienteId: 1001,
             tipo: 'cargo',
             descripcion: 'Consulta Psiquiátrica',
             monto: 500.00,
@@ -1402,7 +1402,7 @@ const demoData = {
         },
         {
             id: 'MOV_002',
-            pacienteId: 'PAC_001',
+            pacienteId: 1001,
             tipo: 'abono',
             descripcion: 'Pago parcial',
             monto: 500.00,
@@ -1413,7 +1413,7 @@ const demoData = {
         },
         {
             id: 'MOV_003',
-            pacienteId: 'PAC_003',
+            pacienteId: 1003,
             tipo: 'cargo',
             descripcion: 'Internamiento (3 días)',
             monto: 2000.00,
@@ -1424,7 +1424,7 @@ const demoData = {
         },
         {
             id: 'MOV_004',
-            pacienteId: 'PAC_003',
+            pacienteId: 1003,
             tipo: 'abono',
             descripcion: 'Abono a cuenta',
             monto: 1000.00,
@@ -1435,7 +1435,7 @@ const demoData = {
         },
         {
             id: 'MOV_005',
-            pacienteId: 'PAC_002',
+            pacienteId: 1002,
             tipo: 'cargo',
             descripcion: 'Medicamentos',
             monto: 350.00,
@@ -1446,7 +1446,7 @@ const demoData = {
         },
         {
             id: 'MOV_006',
-            pacienteId: 'PAC_002',
+            pacienteId: 1002,
             tipo: 'abono',
             descripcion: 'Pago completo',
             monto: 850.00,
@@ -1457,7 +1457,7 @@ const demoData = {
         },
         {
             id: 'MOV_007',
-            pacienteId: 'PAC_004',
+            pacienteId: 1004,
             tipo: 'cargo',
             descripcion: 'Consulta + Laboratorio',
             monto: 450.75,
@@ -1468,7 +1468,7 @@ const demoData = {
         },
         {
             id: 'MOV_008',
-            pacienteId: 'PAC_005',
+            pacienteId: 1005,
             tipo: 'abono',
             descripcion: 'Pago total',
             monto: 2100.00,
