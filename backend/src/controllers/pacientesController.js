@@ -5,11 +5,11 @@ const getPacientes = async (req, res) => {
   try {
     console.log('📋 Intentando obtener pacientes...');
     const result = await pool.query(
-      `SELECT id, cedula, nombre, apellido, edad, genero, tipo_sangre, 
-              telefono, email, activo, created_at
+      `SELECT id, nombre, apellido_paterno, apellido_materno, edad, genero, 
+              telefono, email, estado, created_at
        FROM pacientes 
-       WHERE activo = true
-       ORDER BY apellido, nombre
+       WHERE estado = 'activo'
+       ORDER BY apellido_paterno, nombre
        LIMIT 100`
     );
 
@@ -34,9 +34,10 @@ const getPacienteById = async (req, res) => {
     const { id } = req.params;
 
     const result = await pool.query(
-      `SELECT id, cedula, nombre, apellido, edad, genero, tipo_sangre, 
-              telefono, email, direccion, ciudad, alergias, enfermedades_cronicas,
-              contacto_emergencia, activo, created_at, updated_at
+      `SELECT id, nombre, apellido_paterno, apellido_materno, edad, 
+              fecha_nacimiento, genero, dpi, telefono, email, 
+              direccion, colonia, zona, municipio, departamento,
+              estado_civil, profesion, ocupacion, estado, created_at, updated_at
        FROM pacientes 
        WHERE id = $1`,
       [id]
@@ -58,35 +59,41 @@ const getPacienteById = async (req, res) => {
 // CREAR paciente
 const createPaciente = async (req, res) => {
   try {
-    const { cedula, nombre, apellido, edad, genero, tipo_sangre, 
-            telefono, email, direccion, ciudad, alergias, 
-            enfermedades_cronicas, contacto_emergencia } = req.body;
+    const { nombre, apellido_paterno, apellido_materno, edad, fecha_nacimiento,
+            genero, dpi, telefono, email, direccion, colonia, zona, 
+            municipio, departamento, estado_civil, profesion, ocupacion } = req.body;
 
     // Validar campos requeridos
-    if (!cedula || !nombre || !apellido) {
-      return res.status(400).json({ error: 'Cédula, nombre y apellido son requeridos' });
+    if (!nombre || !apellido_paterno) {
+      return res.status(400).json({ error: 'Nombre y apellido paterno son requeridos' });
     }
 
-    // Verificar que cédula sea única
-    const existing = await pool.query(
-      'SELECT id FROM pacientes WHERE cedula = $1',
-      [cedula]
-    );
-
-    if (existing.rows.length > 0) {
-      return res.status(409).json({ error: 'La cédula ya está registrada' });
+    // Verificar que DPI sea único (si se proporciona)
+    if (dpi) {
+      const existing = await pool.query(
+        'SELECT id FROM pacientes WHERE dpi = $1',
+        [dpi]
+      );
+      if (existing.rows.length > 0) {
+        return res.status(409).json({ error: 'El DPI ya está registrado' });
+      }
     }
+
+    // Generar ID único
+    const paciente_id = `PAC_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
     const result = await pool.query(
       `INSERT INTO pacientes 
-       (cedula, nombre, apellido, edad, genero, tipo_sangre, telefono, email, 
-        direccion, ciudad, alergias, enfermedades_cronicas, contacto_emergencia, 
-        activo, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, true, NOW(), NOW())
-       RETURNING id, cedula, nombre, apellido, email, telefono`,
-      [cedula, nombre, apellido, edad || null, genero || null, tipo_sangre || null,
-       telefono || null, email || null, direccion || null, ciudad || null,
-       alergias || null, enfermedades_cronicas || null, contacto_emergencia || null]
+       (id, nombre, apellido_paterno, apellido_materno, edad, fecha_nacimiento,
+        genero, dpi, telefono, email, direccion, colonia, zona, 
+        municipio, departamento, estado_civil, profesion, ocupacion, estado, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'activo', NOW(), NOW())
+       RETURNING id, nombre, apellido_paterno, apellido_materno, email, telefono`,
+      [paciente_id, nombre, apellido_paterno, apellido_materno || null, edad || null, 
+       fecha_nacimiento || null, genero || null, dpi || null, telefono || null, 
+       email || null, direccion || null, colonia || null, zona || null, 
+       municipio || null, departamento || null, estado_civil || null, 
+       profesion || null, ocupacion || null]
     );
 
     res.status(201).json({
@@ -103,8 +110,9 @@ const createPaciente = async (req, res) => {
 const updatePaciente = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, apellido, edad, genero, tipo_sangre, telefono, email,
-            direccion, ciudad, alergias, enfermedades_cronicas, contacto_emergencia } = req.body;
+    const { nombre, apellido_paterno, apellido_materno, edad, fecha_nacimiento,
+            genero, dpi, telefono, email, direccion, colonia, zona, 
+            municipio, departamento, estado_civil, profesion, ocupacion } = req.body;
 
     // Verificar que el paciente existe
     const existing = await pool.query('SELECT id FROM pacientes WHERE id = $1', [id]);
@@ -115,22 +123,28 @@ const updatePaciente = async (req, res) => {
     const result = await pool.query(
       `UPDATE pacientes 
        SET nombre = COALESCE($1, nombre),
-           apellido = COALESCE($2, apellido),
-           edad = COALESCE($3, edad),
-           genero = COALESCE($4, genero),
-           tipo_sangre = COALESCE($5, tipo_sangre),
-           telefono = COALESCE($6, telefono),
-           email = COALESCE($7, email),
-           direccion = COALESCE($8, direccion),
-           ciudad = COALESCE($9, ciudad),
-           alergias = COALESCE($10, alergias),
-           enfermedades_cronicas = COALESCE($11, enfermedades_cronicas),
-           contacto_emergencia = COALESCE($12, contacto_emergencia),
+           apellido_paterno = COALESCE($2, apellido_paterno),
+           apellido_materno = COALESCE($3, apellido_materno),
+           edad = COALESCE($4, edad),
+           fecha_nacimiento = COALESCE($5, fecha_nacimiento),
+           genero = COALESCE($6, genero),
+           dpi = COALESCE($7, dpi),
+           telefono = COALESCE($8, telefono),
+           email = COALESCE($9, email),
+           direccion = COALESCE($10, direccion),
+           colonia = COALESCE($11, colonia),
+           zona = COALESCE($12, zona),
+           municipio = COALESCE($13, municipio),
+           departamento = COALESCE($14, departamento),
+           estado_civil = COALESCE($15, estado_civil),
+           profesion = COALESCE($16, profesion),
+           ocupacion = COALESCE($17, ocupacion),
            updated_at = NOW()
-       WHERE id = $13
-       RETURNING id, cedula, nombre, apellido, email, telefono, edad, genero`,
-      [nombre, apellido, edad, genero, tipo_sangre, telefono, email,
-       direccion, ciudad, alergias, enfermedades_cronicas, contacto_emergencia, id]
+       WHERE id = $18
+       RETURNING id, nombre, apellido_paterno, apellido_materno, email, telefono, edad, genero`,
+      [nombre, apellido_paterno, apellido_materno, edad, fecha_nacimiento,
+       genero, dpi, telefono, email, direccion, colonia, zona, 
+       municipio, departamento, estado_civil, profesion, ocupacion, id]
     );
 
     res.status(200).json({
@@ -149,8 +163,8 @@ const deletePaciente = async (req, res) => {
     const { id } = req.params;
 
     const result = await pool.query(
-      'UPDATE pacientes SET activo = false, updated_at = NOW() WHERE id = $1 RETURNING id, nombre, apellido',
-      [id]
+      'UPDATE pacientes SET estado = $1, updated_at = NOW() WHERE id = $2 RETURNING id, nombre, apellido_paterno',
+      ['inactivo', id]
     );
 
     if (result.rows.length === 0) {
