@@ -521,17 +521,17 @@ class BillingMejoradoController {
             // Obtener todas las facturas con sus items agrupados por categoría
             const queryFacturas = `
                 SELECT 
-                    v.id, v.numero_factura, v.fecha, v.subtotal, 
-                    v.total_descuentos, v.total_impuestos, v.total,
+                    v.id, v.numero_venta as numero_factura, v.fecha, v.subtotal, 
+                    v.descuento as total_descuentos, v.impuesto as total_impuestos, v.total,
                     vi.id as item_id, vi.descripcion, vi.cantidad, 
                     vi.precio_unitario, vi.subtotal as item_subtotal,
-                    COALESCE(vi.descuento, 0) as item_descuento,
-                    COALESCE(vi.total, vi.subtotal - COALESCE(vi.descuento, 0)) as item_total,
-                    COALESCE(vi.tipo_item, 'general') as tipo_item
+                    COALESCE(0, 0) as item_descuento,
+                    COALESCE(vi.total, vi.subtotal) as item_total,
+                    'general' as tipo_item
                 FROM ventas v
                 LEFT JOIN venta_items vi ON v.id = vi.venta_id
                 WHERE v.paciente_id = $1
-                ORDER BY v.fecha DESC, vi.tipo_item, vi.descripcion
+                ORDER BY v.fecha DESC, vi.descripcion
             `;
             const resFacturas = await db.query(queryFacturas, [paciente_id]);
 
