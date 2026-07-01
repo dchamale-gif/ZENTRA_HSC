@@ -1,8 +1,9 @@
 -- ============================================
--- DATOS DE EJEMPLO: MÓDULO DE FACTURACIÓN
+-- DATOS DE EJEMPLO: MÓDULO DE FACTURACIÓN COMPLETO
 -- Fecha: 2026-07-01
 -- Base de Datos: PostgreSQL
 -- Descripción: Inserta datos completos para facturación
+-- IMPORTANTE: Inserta medicinas, facturas Y sus items
 -- ============================================
 
 \set ON_ERROR_STOP off
@@ -12,113 +13,27 @@
 -- ============================================
 
 BEGIN;
-INSERT INTO medicinas (id, nombre, descripcion, precio, stock_disponible, stock_minimo, fabricante, lote, fecha_vencimiento, activo, created_at, updated_at)
-VALUES ('MED-001', 'Amoxicilina 500mg', 'Antibiótico - 30 cápsulas', 150.00, 100, 10, 'FarmaLab', 'AMOX2026', '2027-06-30', true, NOW(), NOW())
-ON CONFLICT (id) DO NOTHING;
-COMMIT;
-
-BEGIN;
-INSERT INTO medicinas (id, nombre, descripcion, precio, stock_disponible, stock_minimo, fabricante, lote, fecha_vencimiento, activo, created_at, updated_at)
-VALUES ('MED-002', 'Ibuprofeno 400mg', 'Analgésico - 50 tabletas', 85.00, 150, 20, 'MediCare', 'IBU2026', '2027-08-15', true, NOW(), NOW())
-ON CONFLICT (id) DO NOTHING;
-COMMIT;
-
-BEGIN;
-INSERT INTO medicinas (id, nombre, descripcion, precio, stock_disponible, stock_minimo, fabricante, lote, fecha_vencimiento, activo, created_at, updated_at)
-VALUES ('MED-003', 'Paracetamol 500mg', 'Antipirético - 60 tabletas', 65.00, 200, 30, 'HealthCare', 'PAR2026', '2027-10-20', true, NOW(), NOW())
-ON CONFLICT (id) DO NOTHING;
-COMMIT;
-
-BEGIN;
-INSERT INTO medicinas (id, nombre, descripcion, precio, stock_disponible, stock_minimo, fabricante, lote, fecha_vencimiento, activo, created_at, updated_at)
-VALUES ('MED-004', 'Vitamina D 1000UI', 'Suplemento - 100 cápsulas', 120.00, 80, 15, 'Nutragenix', 'VIT2026', '2027-12-01', true, NOW(), NOW())
-ON CONFLICT (id) DO NOTHING;
-COMMIT;
-
-BEGIN;
-INSERT INTO medicinas (id, nombre, descripcion, precio, stock_disponible, stock_minimo, fabricante, lote, fecha_vencimiento, activo, created_at, updated_at)
-VALUES ('MED-005', 'Metformina 500mg', 'Antidiabético - 60 tabletas', 200.00, 50, 10, 'DiabetoCare', 'MET2026', '2027-07-15', true, NOW(), NOW())
-ON CONFLICT (id) DO NOTHING;
-COMMIT;
-
-BEGIN;
-INSERT INTO medicinas (id, nombre, descripcion, precio, stock_disponible, stock_minimo, fabricante, lote, fecha_vencimiento, activo, created_at, updated_at)
-VALUES ('MED-006', 'Lisinopril 10mg', 'Antihipertensivo - 30 tabletas', 180.00, 60, 10, 'CardioPlus', 'LIS2026', '2027-09-30', true, NOW(), NOW())
-ON CONFLICT (id) DO NOTHING;
-COMMIT;
-
-BEGIN;
-INSERT INTO medicinas (id, nombre, descripcion, precio, stock_disponible, stock_minimo, fabricante, lote, fecha_vencimiento, activo, created_at, updated_at)
-VALUES ('MED-007', 'Simvastatina 20mg', 'Hipolipemiante - 30 tabletas', 220.00, 40, 8, 'LipidCare', 'SIM2026', '2027-08-20', true, NOW(), NOW())
-ON CONFLICT (id) DO NOTHING;
-COMMIT;
-
-BEGIN;
-INSERT INTO medicinas (id, nombre, descripcion, precio, stock_disponible, stock_minimo, fabricante, lote, fecha_vencimiento, activo, created_at, updated_at)
-VALUES ('MED-008', 'Omeprazol 20mg', 'Gastroprotector - 28 cápsulas', 140.00, 90, 15, 'GastroCare', 'OMP2026', '2027-11-10', true, NOW(), NOW())
-ON CONFLICT (id) DO NOTHING;
-COMMIT;
-
-BEGIN;
-INSERT INTO medicinas (id, nombre, descripcion, precio, stock_disponible, stock_minimo, fabricante, lote, fecha_vencimiento, activo, created_at, updated_at)
-VALUES ('MED-009', 'Atorvastatina 40mg', 'Antilipidémico - 30 tabletas', 240.00, 35, 8, 'CholesteroLow', 'ATV2026', '2027-09-05', true, NOW(), NOW())
-ON CONFLICT (id) DO NOTHING;
-COMMIT;
-
-BEGIN;
-INSERT INTO medicinas (id, nombre, descripcion, precio, stock_disponible, stock_minimo, fabricante, lote, fecha_vencimiento, activo, created_at, updated_at)
-VALUES ('MED-010', 'Fluoxetina 20mg', 'Antidepresivo - 30 cápsulas', 190.00, 55, 10, 'MindCare', 'FLU2026', '2027-10-25', true, NOW(), NOW())
-ON CONFLICT (id) DO NOTHING;
+INSERT INTO medicinas (id, nombre, descripcion, principio_activo, concentracion, forma_farmaceutica, cantidad, cantidad_minima, precio_costo, precio_venta, lote, fecha_vencimiento, activo, created_at, updated_at)
+VALUES 
+    ('MED-001', 'Amoxicilina 500mg', 'Antibiótico - 30 cápsulas', 'Amoxicilina', '500mg', 'Capsula', 100, 10, 95.00, 150.00, 'AMOX2026', '2027-06-30', true, NOW(), NOW()),
+    ('MED-002', 'Ibuprofeno 400mg', 'Analgésico - 50 tabletas', 'Ibuprofeno', '400mg', 'Tableta', 150, 20, 50.00, 85.00, 'IBU2026', '2027-08-15', true, NOW(), NOW()),
+    ('MED-003', 'Paracetamol 500mg', 'Antipirético - 60 tabletas', 'Paracetamol', '500mg', 'Tableta', 200, 30, 35.00, 65.00, 'PAR2026', '2027-10-20', true, NOW(), NOW()),
+    ('MED-004', 'Vitamina D 1000UI', 'Suplemento - 100 cápsulas', 'Colecalciferol', '1000UI', 'Capsula', 80, 15, 75.00, 120.00, 'VIT2026', '2027-12-01', true, NOW(), NOW()),
+    ('MED-005', 'Metformina 500mg', 'Antidiabético - 60 tabletas', 'Metformina', '500mg', 'Tableta', 50, 10, 125.00, 200.00, 'MET2026', '2027-07-15', true, NOW(), NOW()),
+    ('MED-006', 'Lisinopril 10mg', 'Antihipertensivo - 30 tabletas', 'Lisinopril', '10mg', 'Tableta', 60, 10, 110.00, 180.00, 'LIS2026', '2027-09-30', true, NOW(), NOW()),
+    ('MED-007', 'Simvastatina 20mg', 'Hipolipemiante - 30 tabletas', 'Simvastatina', '20mg', 'Tableta', 40, 8, 140.00, 220.00, 'SIM2026', '2027-08-20', true, NOW(), NOW()),
+    ('MED-008', 'Omeprazol 20mg', 'Gastroprotector - 28 cápsulas', 'Omeprazol', '20mg', 'Capsula', 90, 15, 85.00, 140.00, 'OMP2026', '2027-11-10', true, NOW(), NOW()),
+    ('MED-009', 'Atorvastatina 40mg', 'Antilipidémico - 30 tabletas', 'Atorvastatina', '40mg', 'Tableta', 35, 8, 150.00, 240.00, 'ATV2026', '2027-09-05', true, NOW(), NOW()),
+    ('MED-010', 'Fluoxetina 20mg', 'Antidepresivo - 30 cápsulas', 'Fluoxetina', '20mg', 'Capsula', 55, 10, 115.00, 190.00, 'FLU2026', '2027-10-25', true, NOW(), NOW())
+ON CONFLICT (id) DO UPDATE SET
+    nombre = EXCLUDED.nombre,
+    descripcion = EXCLUDED.descripcion,
+    precio_venta = EXCLUDED.precio_venta,
+    updated_at = NOW();
 COMMIT;
 
 -- ============================================
--- 2. DESCUENTOS PREDEFINIDOS
--- ============================================
-
-BEGIN;
-INSERT INTO descuentos (id, nombre, descripcion, tipo_descuento, valor, minimo_aplicable, maximo_uso, usos_realizados, codigo_promocion, activo, fecha_inicio, fecha_fin, created_at, updated_at)
-VALUES ('DESC-001-VOL10', 'Descuento por Volumen 10%', 'Aplicable a compras mayores a Q500', 'porcentaje', 10.00, 500.00, NULL, 0, 'VOLUMEN10', true, '2026-06-01', '2026-12-31', NOW(), NOW())
-ON CONFLICT (id) DO NOTHING;
-COMMIT;
-
-BEGIN;
-INSERT INTO descuentos (id, nombre, descripcion, tipo_descuento, valor, minimo_aplicable, maximo_uso, usos_realizados, codigo_promocion, activo, fecha_inicio, fecha_fin, created_at, updated_at)
-VALUES ('DESC-002-VOL15', 'Descuento por Volumen 15%', 'Aplicable a compras mayores a Q1000', 'porcentaje', 15.00, 1000.00, NULL, 0, 'VOLUMEN15', true, '2026-06-01', '2026-12-31', NOW(), NOW())
-ON CONFLICT (id) DO NOTHING;
-COMMIT;
-
-BEGIN;
-INSERT INTO descuentos (id, nombre, descripcion, tipo_descuento, valor, minimo_aplicable, maximo_uso, usos_realizados, codigo_promocion, activo, fecha_inicio, fecha_fin, created_at, updated_at)
-VALUES ('DESC-003-VIP', 'Descuento Cliente VIP 20%', 'Descuento exclusivo para clientes VIP', 'porcentaje', 20.00, 0.00, NULL, 0, 'CLIENTEVIP', true, '2026-06-01', '2026-12-31', NOW(), NOW())
-ON CONFLICT (id) DO NOTHING;
-COMMIT;
-
-BEGIN;
-INSERT INTO descuentos (id, nombre, descripcion, tipo_descuento, valor, minimo_aplicable, maximo_uso, usos_realizados, codigo_promocion, activo, fecha_inicio, fecha_fin, created_at, updated_at)
-VALUES ('DESC-004-PROMO50', 'Promoción Q50 de Descuento', 'Descuento especial de Q50', 'fijo', 50.00, 200.00, 100, 0, 'PROMO50', true, '2026-06-01', '2026-07-31', NOW(), NOW())
-ON CONFLICT (id) DO NOTHING;
-COMMIT;
-
-BEGIN;
-INSERT INTO descuentos (id, nombre, descripcion, tipo_descuento, valor, minimo_aplicable, maximo_uso, usos_realizados, codigo_promocion, activo, fecha_inicio, fecha_fin, created_at, updated_at)
-VALUES ('DESC-005-PROMO100', 'Mega Descuento Q100', 'Gran descuento de Q100', 'fijo', 100.00, 500.00, 50, 0, 'MEGA100', true, '2026-06-01', '2026-07-31', NOW(), NOW())
-ON CONFLICT (id) DO NOTHING;
-COMMIT;
-
-BEGIN;
-INSERT INTO descuentos (id, nombre, descripcion, tipo_descuento, valor, minimo_aplicable, maximo_uso, usos_realizados, codigo_promocion, activo, fecha_inicio, fecha_fin, created_at, updated_at)
-VALUES ('DESC-006-AFILIADO', 'Descuento Afiliado 5%', 'Descuento para pacientes afiliados', 'porcentaje', 5.00, 0.00, NULL, 0, 'AFILIADO', true, '2026-06-01', '2026-12-31', NOW(), NOW())
-ON CONFLICT (id) DO NOTHING;
-COMMIT;
-
-BEGIN;
-INSERT INTO descuentos (id, nombre, descripcion, tipo_descuento, valor, minimo_aplicable, maximo_uso, usos_realizados, codigo_promocion, activo, fecha_inicio, fecha_fin, created_at, updated_at)
-VALUES ('DESC-007-BULK', 'Descuento Compra al Granel 25%', 'Descuento por compra importante', 'porcentaje', 25.00, 2000.00, NULL, 0, 'BULKBUY', true, '2026-06-01', '2026-12-31', NOW(), NOW())
-ON CONFLICT (id) DO NOTHING;
-COMMIT;
-
--- ============================================
--- 3. PACIENTE ADICIONAL
+-- 2. PACIENTE ADICIONAL (si no existe)
 -- ============================================
 
 BEGIN;
@@ -128,73 +43,105 @@ ON CONFLICT (id) DO NOTHING;
 COMMIT;
 
 -- ============================================
--- 4. FACTURAS DE EJEMPLO (1001-1005 del setup anterior)
+-- 3. FACTURAS (VENTAS) - SIN items aún
 -- ============================================
 
 BEGIN;
-INSERT INTO ventas (paciente_id, subtotal, descuento, impuesto, total, total_descuentos, base_impuesto, total_impuestos, tipo_factura, estado, created_at, updated_at)
-VALUES (1001, 500.00, 0.00, 50.00, 550.00, 0.00, 500.00, 50.00, 'normal', 'completada', NOW(), NOW())
-ON CONFLICT DO NOTHING;
-COMMIT;
-
-BEGIN;
-INSERT INTO ventas (paciente_id, subtotal, descuento, impuesto, total, total_descuentos, base_impuesto, total_impuestos, tipo_factura, estado, created_at, updated_at)
-VALUES (1002, 1200.00, 120.00, 129.60, 1089.60, 120.00, 1080.00, 129.60, 'normal', 'completada', NOW(), NOW())
-ON CONFLICT DO NOTHING;
-COMMIT;
-
-BEGIN;
-INSERT INTO ventas (paciente_id, subtotal, descuento, impuesto, total, total_descuentos, base_impuesto, total_impuestos, tipo_factura, estado, created_at, updated_at)
-VALUES (1003, 2500.00, 375.00, 255.00, 2380.00, 375.00, 2125.00, 255.00, 'normal', 'completada', NOW(), NOW())
-ON CONFLICT DO NOTHING;
-COMMIT;
-
-BEGIN;
-INSERT INTO ventas (paciente_id, subtotal, descuento, impuesto, total, total_descuentos, base_impuesto, total_impuestos, tipo_factura, estado, created_at, updated_at)
-VALUES (1004, 300.00, 15.00, 34.20, 319.20, 15.00, 285.00, 34.20, 'normal', 'completada', NOW(), NOW())
-ON CONFLICT DO NOTHING;
-COMMIT;
-
-BEGIN;
-INSERT INTO ventas (paciente_id, subtotal, descuento, impuesto, total, total_descuentos, base_impuesto, total_impuestos, tipo_factura, estado, created_at, updated_at)
-VALUES (1005, 3000.00, 750.00, 270.00, 2520.00, 750.00, 2250.00, 270.00, 'normal', 'completada', NOW(), NOW())
-ON CONFLICT DO NOTHING;
-COMMIT;
-
-BEGIN;
-INSERT INTO ventas (paciente_id, subtotal, descuento, impuesto, total, total_descuentos, base_impuesto, total_impuestos, tipo_factura, estado, created_at, updated_at)
-VALUES (1006, 800.00, 100.00, 84.00, 784.00, 100.00, 700.00, 84.00, 'normal', 'completada', NOW(), NOW())
-ON CONFLICT DO NOTHING;
+INSERT INTO ventas (id, numero_venta, paciente_id, fecha, subtotal, descuento, impuesto, total, metodo_pago, estado, created_at, updated_at)
+VALUES 
+    ('VEN-7001', 'FAC-7001', 1001, '2026-06-15', 500.00, 0.00, 50.00, 550.00, 'efectivo', 'completada', NOW(), NOW()),
+    ('VEN-7002', 'FAC-7002', 1002, '2026-06-16', 1200.00, 120.00, 129.60, 1089.60, 'efectivo', 'completada', NOW(), NOW()),
+    ('VEN-7003', 'FAC-7003', 1003, '2026-06-17', 2500.00, 375.00, 255.00, 2380.00, 'efectivo', 'completada', NOW(), NOW()),
+    ('VEN-7004', 'FAC-7004', 1004, '2026-06-18', 300.00, 15.00, 34.20, 319.20, 'efectivo', 'completada', NOW(), NOW()),
+    ('VEN-7005', 'FAC-7005', 1005, '2026-06-19', 3000.00, 750.00, 270.00, 2520.00, 'efectivo', 'completada', NOW(), NOW()),
+    ('VEN-7006', 'FAC-7006', 1006, '2026-06-20', 800.00, 100.00, 84.00, 784.00, 'efectivo', 'completada', NOW(), NOW())
+ON CONFLICT (id) DO NOTHING;
 COMMIT;
 
 -- ============================================
--- 5. ACTUALIZAR SALDOS DESPUÉS DE PAGOS
+-- 4. ITEMS DE LAS FACTURAS (VENTA_ITEMS) - CRÍTICO
 -- ============================================
 
+-- Factura 7001: Paciente 1001
 BEGIN;
-UPDATE pacientes_saldo SET saldo_pendiente = 260.00, total_deuda = 560.00, usuario_actualizo = 'FACTURACION', updated_at = NOW() WHERE paciente_id = 1001;
+INSERT INTO venta_items (id, venta_id, descripcion, cantidad, precio_unitario, subtotal, created_at)
+VALUES 
+    ('ITEM-7001-01', 'VEN-7001', 'Amoxicilina 500mg', 2, 150.00, 300.00, NOW()),
+    ('ITEM-7001-02', 'VEN-7001', 'Paracetamol 500mg', 4, 50.00, 200.00, NOW())
+ON CONFLICT (id) DO NOTHING;
 COMMIT;
 
+-- Factura 7002: Paciente 1002
 BEGIN;
-UPDATE pacientes_saldo SET saldo_pendiente = 0.00, total_deuda = 1089.60, usuario_actualizo = 'FACTURACION', updated_at = NOW() WHERE paciente_id = 1002;
+INSERT INTO venta_items (id, venta_id, descripcion, cantidad, precio_unitario, subtotal, created_at)
+VALUES 
+    ('ITEM-7002-01', 'VEN-7002', 'Ibuprofeno 400mg', 8, 85.00, 680.00, NOW()),
+    ('ITEM-7002-02', 'VEN-7002', 'Vitamina D 1000UI', 5, 120.00, 600.00, NOW()),
+    ('ITEM-7002-03', 'VEN-7002', 'Metformina 500mg', 2, 200.00, 400.00, NOW())
+ON CONFLICT (id) DO NOTHING;
 COMMIT;
 
+-- Factura 7003: Paciente 1003
 BEGIN;
-UPDATE pacientes_saldo SET saldo_pendiente = 880.00, total_deuda = 2380.00, usuario_actualizo = 'FACTURACION', updated_at = NOW() WHERE paciente_id = 1003;
+INSERT INTO venta_items (id, venta_id, descripcion, cantidad, precio_unitario, subtotal, created_at)
+VALUES 
+    ('ITEM-7003-01', 'VEN-7003', 'Lisinopril 10mg', 4, 180.00, 720.00, NOW()),
+    ('ITEM-7003-02', 'VEN-7003', 'Simvastatina 20mg', 6, 220.00, 1320.00, NOW()),
+    ('ITEM-7003-03', 'VEN-7003', 'Omeprazol 20mg', 8, 140.00, 1120.00, NOW()),
+    ('ITEM-7003-04', 'VEN-7003', 'Atorvastatina 40mg', 3, 240.00, 720.00, NOW())
+ON CONFLICT (id) DO NOTHING;
 COMMIT;
 
+-- Factura 7004: Paciente 1004
 BEGIN;
-UPDATE pacientes_saldo SET saldo_pendiente = 0.00, total_deuda = 319.20, usuario_actualizo = 'FACTURACION', updated_at = NOW() WHERE paciente_id = 1004;
+INSERT INTO venta_items (id, venta_id, descripcion, cantidad, precio_unitario, subtotal, created_at)
+VALUES 
+    ('ITEM-7004-01', 'VEN-7004', 'Paracetamol 500mg', 3, 65.00, 195.00, NOW()),
+    ('ITEM-7004-02', 'VEN-7004', 'Fluoxetina 20mg', 2, 190.00, 380.00, NOW()),
+    ('ITEM-7004-03', 'VEN-7004', 'Vitamina D 1000UI', 1, 120.00, 120.00, NOW())
+ON CONFLICT (id) DO NOTHING;
 COMMIT;
 
+-- Factura 7005: Paciente 1005
 BEGIN;
-UPDATE pacientes_saldo SET saldo_pendiente = 2520.00, total_deuda = 2520.00, usuario_actualizo = 'FACTURACION', updated_at = NOW() WHERE paciente_id = 1005;
+INSERT INTO venta_items (id, venta_id, descripcion, cantidad, precio_unitario, subtotal, created_at)
+VALUES 
+    ('ITEM-7005-01', 'VEN-7005', 'Amoxicilina 500mg', 10, 150.00, 1500.00, NOW()),
+    ('ITEM-7005-02', 'VEN-7005', 'Metformina 500mg', 5, 200.00, 1000.00, NOW()),
+    ('ITEM-7005-03', 'VEN-7005', 'Lisinopril 10mg', 3, 180.00, 540.00, NOW()),
+    ('ITEM-7005-04', 'VEN-7005', 'Fluoxetina 20mg', 4, 190.00, 760.00, NOW()),
+    ('ITEM-7005-05', 'VEN-7005', 'Omeprazol 20mg', 5, 140.00, 700.00, NOW())
+ON CONFLICT (id) DO NOTHING;
 COMMIT;
+
+-- Factura 7006: Paciente 1006
+BEGIN;
+INSERT INTO venta_items (id, venta_id, descripcion, cantidad, precio_unitario, subtotal, created_at)
+VALUES 
+    ('ITEM-7006-01', 'VEN-7006', 'Ibuprofeno 400mg', 6, 85.00, 510.00, NOW()),
+    ('ITEM-7006-02', 'VEN-7006', 'Simvastatina 20mg', 2, 220.00, 440.00, NOW()),
+    ('ITEM-7006-03', 'VEN-7006', 'Atorvastatina 40mg', 1, 240.00, 240.00, NOW())
+ON CONFLICT (id) DO NOTHING;
+COMMIT;
+
+-- ============================================
+-- 5. ACTUALIZAR SALDOS DE PACIENTES
+-- ============================================
 
 BEGIN;
 INSERT INTO pacientes_saldo (paciente_id, saldo_pendiente, total_deuda, usuario_actualizo, created_at, updated_at)
-VALUES (1006, 284.00, 784.00, 'FACTURACION', NOW(), NOW())
-ON CONFLICT (paciente_id) DO UPDATE SET saldo_pendiente = EXCLUDED.saldo_pendiente, total_deuda = EXCLUDED.total_deuda, updated_at = NOW();
+VALUES 
+    (1001, 260.00, 560.00, 'FACTURACION', NOW(), NOW()),
+    (1002, 0.00, 1089.60, 'FACTURACION', NOW(), NOW()),
+    (1003, 880.00, 2380.00, 'FACTURACION', NOW(), NOW()),
+    (1004, 0.00, 319.20, 'FACTURACION', NOW(), NOW()),
+    (1005, 2520.00, 2520.00, 'FACTURACION', NOW(), NOW()),
+    (1006, 284.00, 784.00, 'FACTURACION', NOW(), NOW())
+ON CONFLICT (paciente_id) DO UPDATE SET
+    saldo_pendiente = EXCLUDED.saldo_pendiente,
+    total_deuda = EXCLUDED.total_deuda,
+    usuario_actualizo = EXCLUDED.usuario_actualizo,
+    updated_at = NOW();
 COMMIT;
 
 -- ============================================
@@ -206,9 +153,9 @@ COMMIT;
 SELECT E'\n====================================';
 SELECT 'DATOS DE FACTURACIÓN CARGADOS' as status;
 SELECT '====================================' as status;
-SELECT COUNT(*) as "Medicinas" FROM medicinas WHERE id LIKE 'MED-%';
-SELECT COUNT(*) as "Descuentos" FROM descuentos WHERE id LIKE 'DESC-%';
-SELECT COUNT(*) as "Facturas" FROM ventas WHERE paciente_id BETWEEN 1001 AND 1006;
-SELECT COUNT(*) as "Saldos Actualizados" FROM pacientes_saldo WHERE paciente_id BETWEEN 1001 AND 1006;
-SELECT E'\n✅ Datos de facturación cargados exitosamente' as resultado;
+SELECT COUNT(*) as "Total Medicinas" FROM medicinas WHERE id LIKE 'MED-%';
+SELECT COUNT(*) as "Total Facturas" FROM ventas WHERE paciente_id BETWEEN 1001 AND 1006;
+SELECT COUNT(*) as "Total Items en Facturas" FROM venta_items WHERE venta_id LIKE 'VEN-700%';
+SELECT COUNT(*) as "Total Saldos Actualizados" FROM pacientes_saldo WHERE paciente_id BETWEEN 1001 AND 1006;
+SELECT E'\n✅ LISTO - Los datos aparecerán en Estados de Cuenta' as resultado;
 SELECT '====================================' as status;
