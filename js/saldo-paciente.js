@@ -596,194 +596,351 @@ const SaldoPacienteModule = {
             return;
         }
 
-        const ventana = window.open('', '_blank', 'width=700,height=600');
-        const fecha = new Date().toLocaleDateString('es-GT');
-        const hora = new Date().toLocaleTimeString('es-GT');
+        const ventana = window.open('', '_blank', 'width=850,height=900');
+        const fechaActual = new Date();
+        const fechaFormato = fechaActual.toLocaleDateString('es-GT', { year: 'numeric', month: '2-digit', day: '2-digit' });
+        const apellidos = `${pacient.apellido_paterno || pacient.apellidoPaterno || ''} ${pacient.apellido_materno || pacient.apellidoMaterno || ''}`.trim();
 
         const html = `
             <!DOCTYPE html>
             <html>
             <head>
                 <meta charset="utf-8">
-                <title>Estado de Saldo - ${pacient.nombre}</title>
+                <title>ESTADO DE CUENTA - ${pacient.nombre}</title>
                 <style>
-                    * { margin: 0; padding: 0; }
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
                     body { 
-                        font-family: 'Arial', sans-serif; 
-                        padding: 20px;
+                        font-family: 'Segoe UI', Arial, sans-serif; 
+                        padding: 40px;
                         background: white;
+                        color: #333;
                     }
                     .container {
-                        max-width: 650px;
+                        max-width: 900px;
                         margin: 0 auto;
-                        border: 1px solid #ddd;
-                        padding: 30px;
-                        border-radius: 5px;
                     }
-                    .header {
-                        text-align: center;
-                        border-bottom: 3px solid #34495e;
+                    .header-top {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        border-bottom: 3px solid #0066cc;
                         padding-bottom: 15px;
-                        margin-bottom: 25px;
-                    }
-                    .header h1 {
-                        color: #34495e;
-                        font-size: 28px;
-                        margin-bottom: 5px;
-                    }
-                    .header p {
-                        color: #7f8c8d;
-                        font-size: 12px;
-                    }
-                    .paciente-info {
-                        background: #ecf0f1;
-                        padding: 15px;
-                        border-radius: 4px;
                         margin-bottom: 20px;
                     }
-                    .info-row {
+                    .logo-section {
+                        text-align: left;
+                        flex: 1;
+                    }
+                    .logo-circle {
+                        width: 60px;
+                        height: 60px;
+                        border: 2px solid #0066cc;
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 28px;
+                        margin-bottom: 8px;
+                    }
+                    .institution {
+                        font-size: 11px;
+                        font-weight: bold;
+                        color: #0066cc;
+                        line-height: 1.3;
+                    }
+                    .title {
+                        text-align: center;
+                        flex: 1;
+                    }
+                    .title h1 {
+                        font-size: 32px;
+                        font-weight: bold;
+                        color: #333;
+                        letter-spacing: 2px;
+                    }
+                    .expediente {
+                        text-align: right;
+                        flex: 1;
+                        font-size: 13px;
+                    }
+                    .expediente-num {
+                        font-weight: bold;
+                        color: #0066cc;
+                        font-size: 14px;
+                    }
+                    .patient-info {
+                        display: grid;
+                        grid-template-columns: 1fr 1fr 1fr;
+                        gap: 20px;
+                        margin: 25px 0;
+                        padding: 20px;
+                        background: #f9f9f9;
+                        border: 1px solid #ddd;
+                        border-radius: 6px;
+                    }
+                    .info-block {
+                        border-left: 3px solid #0066cc;
+                        padding-left: 12px;
+                    }
+                    .info-block-icon {
+                        font-size: 18px;
+                        margin-bottom: 6px;
+                    }
+                    .info-label {
+                        font-size: 11px;
+                        color: #0066cc;
+                        font-weight: bold;
+                        text-transform: uppercase;
+                        margin-bottom: 4px;
+                    }
+                    .info-value {
+                        font-size: 14px;
+                        color: #333;
+                        font-weight: 600;
+                    }
+                    .section-title {
+                        background: #0066cc;
+                        color: white;
+                        padding: 12px 15px;
+                        font-weight: bold;
+                        font-size: 13px;
+                        text-transform: uppercase;
+                        border-radius: 4px 4px 0 0;
+                        margin-top: 25px;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                    }
+                    table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-bottom: 25px;
+                    }
+                    table thead {
+                        background: #f0f0f0;
+                    }
+                    table th {
+                        padding: 12px;
+                        text-align: left;
+                        font-size: 12px;
+                        font-weight: bold;
+                        color: #333;
+                        border-bottom: 2px solid #ddd;
+                        text-transform: uppercase;
+                    }
+                    table td {
+                        padding: 12px;
+                        font-size: 13px;
+                        border-bottom: 1px solid #eee;
+                    }
+                    .amount {
+                        text-align: right;
+                        font-family: 'Courier New', monospace;
+                    }
+                    .summary-section {
+                        display: grid;
+                        grid-template-columns: 2fr 1fr;
+                        gap: 30px;
+                        margin-top: 30px;
+                    }
+                    .summary-box {
+                        background: #f9f9f9;
+                        padding: 20px;
+                        border: 1px solid #ddd;
+                        border-radius: 6px;
+                    }
+                    .summary-title {
+                        font-weight: bold;
+                        color: #0066cc;
+                        font-size: 12px;
+                        text-transform: uppercase;
+                        margin-bottom: 15px;
+                        border-bottom: 2px solid #0066cc;
+                        padding-bottom: 8px;
+                    }
+                    .summary-row {
                         display: flex;
                         justify-content: space-between;
                         margin-bottom: 8px;
-                        font-size: 14px;
+                        font-size: 13px;
                     }
-                    .info-label {
-                        font-weight: bold;
-                        color: #2c3e50;
-                    }
-                    .info-value {
-                        color: #34495e;
-                    }
-                    .saldos-section {
-                        margin-top: 30px;
-                    }
-                    .saldos-section h3 {
-                        color: #34495e;
-                        border-bottom: 2px solid #3498db;
-                        padding-bottom: 8px;
-                        margin-bottom: 20px;
-                        font-size: 16px;
-                    }
-                    .saldo-item {
-                        display: flex;
-                        justify-content: space-between;
-                        padding: 12px;
-                        border-bottom: 1px solid #ecf0f1;
-                        font-size: 14px;
-                    }
-                    .saldo-item:last-child {
-                        border-bottom: none;
-                    }
-                    .saldo-label {
+                    .summary-label {
                         font-weight: 600;
-                        color: #2c3e50;
+                        color: #333;
                     }
-                    .saldo-value {
+                    .summary-value {
                         text-align: right;
+                        font-family: 'Courier New', monospace;
+                    }
+                    .total-box {
+                        background: #0066cc;
+                        color: white;
+                        padding: 25px;
+                        border-radius: 6px;
+                        text-align: center;
+                    }
+                    .total-label {
+                        font-size: 12px;
+                        text-transform: uppercase;
+                        opacity: 0.9;
+                        margin-bottom: 8px;
+                    }
+                    .total-amount {
+                        font-size: 32px;
                         font-weight: bold;
-                        font-size: 16px;
+                        margin-bottom: 8px;
+                        font-family: 'Courier New', monospace;
                     }
-                    .saldo-deuda {
-                        color: #e74c3c;
-                    }
-                    .saldo-pagado {
-                        color: #27ae60;
+                    .total-note {
+                        font-size: 11px;
+                        opacity: 0.8;
+                        border-top: 1px solid rgba(255,255,255,0.3);
+                        padding-top: 8px;
+                        margin-top: 8px;
                     }
                     .footer {
-                        text-align: center;
-                        margin-top: 30px;
-                        padding-top: 15px;
+                        margin-top: 40px;
+                        padding-top: 20px;
                         border-top: 1px solid #ddd;
-                        color: #7f8c8d;
+                        text-align: center;
                         font-size: 11px;
+                        color: #666;
                     }
-                    .estado-badge {
+                    .status-badge {
                         display: inline-block;
-                        padding: 5px 15px;
-                        border-radius: 20px;
+                        padding: 4px 10px;
+                        border-radius: 12px;
+                        font-size: 11px;
                         font-weight: bold;
-                        font-size: 12px;
-                        margin-top: 10px;
                     }
-                    .estado-deudor {
-                        background: #ffe6e6;
-                        color: #c0392b;
+                    .status-deudor {
+                        background: #ffcccc;
+                        color: #cc0000;
                     }
-                    .estado-pagado {
-                        background: #e6ffe6;
-                        color: #27ae60;
+                    .status-pagado {
+                        background: #ccffcc;
+                        color: #00cc00;
                     }
                     @media print {
-                        body { padding: 0; }
-                        .container { border: none; padding: 0; }
-                        .footer { display: none; }
+                        body { padding: 20px; }
+                        .footer { display: block; }
                     }
                 </style>
             </head>
             <body>
                 <div class="container">
-                    <div class="header">
-                        <h1>ESTADO DE SALDO</h1>
-                        <p>Comprobante de Saldo Actual del Paciente</p>
-                    </div>
-
-                    <div class="paciente-info">
-                        <div class="info-row">
-                            <span class="info-label">Paciente:</span>
-                            <span class="info-value">${pacient.nombre} ${pacient.apellido_paterno || pacient.apellidoPaterno || ''} ${pacient.apellido_materno || pacient.apellidoMaterno || ''}</span>
+                    <!-- HEADER -->
+                    <div class="header-top">
+                        <div class="logo-section">
+                            <div class="logo-circle">🏥</div>
+                            <div class="institution">
+                                SISTEMA CONTABLE<br>
+                                Gestión Integral
+                            </div>
                         </div>
-                        <div class="info-row">
-                            <span class="info-label">Documento:</span>
-                            <span class="info-value">${pacient.dpi || pacient.cedula || 'N/A'}</span>
+                        <div class="title">
+                            <h1>ESTADO DE CUENTA</h1>
                         </div>
-                        <div class="info-row">
-                            <span class="info-label">Teléfono:</span>
-                            <span class="info-value">${pacient.telefono || 'N/A'}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Correo:</span>
-                            <span class="info-value">${pacient.correo || 'N/A'}</span>
+                        <div class="expediente">
+                            Expediente:<br>
+                            <div class="expediente-num">${pacienteIdNum.toString().padStart(4, '0')}</div>
                         </div>
                     </div>
 
-                    <div class="saldos-section">
-                        <h3>INFORMACIÓN DE SALDO</h3>
-                        
-                        <div class="saldo-item">
-                            <span class="saldo-label">Total Acumulado:</span>
-                            <span class="saldo-value">$${parseFloat(saldo.totalAcumulado).toFixed(2)}</span>
+                    <!-- INFORMACIÓN DEL PACIENTE -->
+                    <div class="patient-info">
+                        <div class="info-block">
+                            <div class="info-block-icon">👤</div>
+                            <div class="info-label">Paciente:</div>
+                            <div class="info-value">${pacient.nombre} ${apellidos}</div>
                         </div>
-
-                        <div class="saldo-item">
-                            <span class="saldo-label">Total Abonos:</span>
-                            <span class="saldo-value">$${parseFloat(saldo.totalAbonos).toFixed(2)}</span>
+                        <div class="info-block">
+                            <div class="info-block-icon">📋</div>
+                            <div class="info-label">Documento:</div>
+                            <div class="info-value">${pacient.dpi || pacient.cedula || 'N/A'}</div>
                         </div>
-                        
-                        <div class="saldo-item">
-                            <span class="saldo-label">Saldo Pendiente:</span>
-                            <span class="saldo-value saldo-${saldo.saldoPendiente > 0 ? 'deuda' : 'pagado'}">
-                                $${parseFloat(saldo.saldoPendiente).toFixed(2)}
-                            </span>
-                        </div>
-
-                        <div class="saldo-item">
-                            <span class="saldo-label">Estado:</span>
-                            <span class="saldo-value">
-                                <div class="estado-badge ${saldo.saldoPendiente === 0 ? 'estado-pagado' : 'estado-deudor'}">
-                                    ${saldo.saldoPendiente === 0 ? '✓ PAGADO' : '⚠ DEUDOR'}
-                                </div>
-                            </span>
-                        </div>
-
-                        <div class="saldo-item">
-                            <span class="saldo-label">Última Transacción:</span>
-                            <span class="info-value">${saldo.ultimaTransaccion || 'N/A'}</span>
+                        <div class="info-block">
+                            <div class="info-block-icon">📅</div>
+                            <div class="info-label">Estado de Cuenta al:</div>
+                            <div class="info-value">${fechaFormato}</div>
                         </div>
                     </div>
 
+                    <!-- TABLA DE SALDO -->
+                    <div class="section-title">📊 ESTADO ACTUAL</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Concepto</th>
+                                <th class="amount">Monto (Q)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Total Deuda Acumulada</strong></td>
+                                <td class="amount"><strong>Q${parseFloat(saldo.totalAcumulado || saldo.total_deuda).toFixed(2)}</strong></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Abonos Realizados</strong></td>
+                                <td class="amount"><strong style="color: #27ae60;">Q${parseFloat(saldo.abonosRealizados || saldo.totalAbonos || 0).toFixed(2)}</strong></td>
+                            </tr>
+                            <tr style="background: #f0f0f0; font-weight: bold;">
+                                <td><strong>Saldo Pendiente</strong></td>
+                                <td class="amount" style="color: ${saldo.saldoPendiente > 0 ? '#e74c3c' : '#27ae60'};"><strong>Q${parseFloat(saldo.saldoPendiente).toFixed(2)}</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- RESUMEN Y TOTAL -->
+                    <div class="summary-section">
+                        <div class="summary-box">
+                            <div class="summary-title">📌 Resumen Financiero</div>
+                            <div class="summary-row">
+                                <span class="summary-label">Subtotal:</span>
+                                <span class="summary-value">Q${parseFloat(saldo.totalAcumulado || saldo.total_deuda).toFixed(2)}</span>
+                            </div>
+                            <div class="summary-row">
+                                <span class="summary-label">Descuentos:</span>
+                                <span class="summary-value">Q0.00</span>
+                            </div>
+                            <div class="summary-row">
+                                <span class="summary-label">IVA (12%):</span>
+                                <span class="summary-value">Q${(parseFloat(saldo.totalAcumulado || saldo.total_deuda) * 0.12).toFixed(2)}</span>
+                            </div>
+                            <div class="summary-row" style="font-weight: bold; border-top: 2px solid #ddd; padding-top: 8px; margin-top: 8px;">
+                                <span class="summary-label">TOTAL A PAGAR:</span>
+                                <span class="summary-value" style="color: #0066cc; font-size: 15px;">Q${parseFloat(saldo.saldoPendiente).toFixed(2)}</span>
+                            </div>
+                            <div class="summary-row">
+                                <span class="summary-label">Abonos:</span>
+                                <span class="summary-value" style="color: #27ae60;">(Q${parseFloat(saldo.abonosRealizados || saldo.totalAbonos || 0).toFixed(2)})</span>
+                            </div>
+                            <div class="summary-row" style="color: ${saldo.saldoPendiente > 0 ? '#e74c3c' : '#27ae60'}; font-weight: bold; border-top: 1px solid #ddd; padding-top: 8px; margin-top: 8px;">
+                                <span>Saldo a Favor del Paciente:</span>
+                                <span class="summary-value">Q${Math.max(0, saldo.saldoPendiente).toFixed(2)}</span>
+                            </div>
+                        </div>
+
+                        <div class="total-box">
+                            <div class="total-label">TOTAL A PAGAR</div>
+                            <div class="total-amount">Q${parseFloat(saldo.saldoPendiente).toFixed(2)}</div>
+                            <div class="total-note">
+                                ${saldo.saldoPendiente === 0 ? '✓ SALDO PAGADO' : '⚠ DEUDA PENDIENTE'}
+                            </div>
+                            <div class="status-badge ${saldo.saldoPendiente === 0 ? 'status-pagado' : 'status-deudor'}" style="margin-top: 12px;">
+                                ${saldo.saldoPendiente === 0 ? '✓ PAGADO' : '⚠ DEUDOR'}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- FOOTER -->
                     <div class="footer">
-                        <p>Documento emitido: ${fecha} a las ${hora}</p>
-                        <p>Este comprobante certifica el estado actual del saldo del paciente</p>
+                        <p><strong>Sistema de Gestión Integral</strong></p>
+                        <p>Documento generado automáticamente - ${fechaFormato}</p>
+                        <p style="margin-top: 10px; font-size: 10px; color: #999;">
+                            Este estado de cuenta refleja el saldo actual al momento de su emisión.
+                            Para cualquier consulta, contacte a administración.
+                        </p>
                     </div>
                 </div>
             </body>
@@ -792,7 +949,7 @@ const SaldoPacienteModule = {
 
         ventana.document.write(html);
         ventana.document.close();
-        ventana.print();
+        setTimeout(() => ventana.print(), 500);
     },
 
     // Guardar en DB (localStorage)
