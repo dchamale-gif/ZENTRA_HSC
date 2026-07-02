@@ -849,18 +849,15 @@ const SaldoPacienteModule = {
 
                     <!-- INFORMACIÓN DEL PACIENTE -->
                     <div class="patient-info">
-                        <div class="info-block">
-                            <div class="info-block-icon">👤</div>
+                        < class="info-block">
                             <div class="info-label">Paciente:</div>
                             <div class="info-value">${pacient.nombre} ${apellidos}</div>
                         </div>
                         <div class="info-block">
-                            <div class="info-block-icon">📋</div>
                             <div class="info-label">Documento:</div>
                             <div class="info-value">${pacient.dpi || pacient.cedula || 'N/A'}</div>
                         </div>
                         <div class="info-block">
-                            <div class="info-block-icon">📅</div>
                             <div class="info-label">Estado de Cuenta al:</div>
                             <div class="info-value">${fechaFormato}</div>
                         </div>
