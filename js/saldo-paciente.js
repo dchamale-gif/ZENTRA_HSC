@@ -866,8 +866,8 @@ const SaldoPacienteModule = {
                         </div>
                     </div>
 
-                    <!-- TABLA DE SALDO -->
-                    <div class="section-title">📊 ESTADO ACTUAL</div>
+                    <!-- TABLA DE SALDO CON CONCEPTOS -->
+                    <div class="section-title">🏥 INTERNAMIENTO</div>
                     <table>
                         <thead>
                             <tr>
@@ -877,16 +877,132 @@ const SaldoPacienteModule = {
                         </thead>
                         <tbody>
                             <tr>
-                                <td><strong>Total Deuda Acumulada</strong></td>
-                                <td class="amount"><strong>Q${parseFloat(saldo.totalAcumulado || saldo.total_deuda).toFixed(2)}</strong></td>
+                                <td>Hospitalización</td>
+                                <td class="amount">Q 0.00</td>
                             </tr>
+                            <tr style="font-weight: bold; background: #f9f9f9;">
+                                <td style="text-align: right;">TOTAL INTERNAMIENTO</td>
+                                <td class="amount">Q 0.00</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="section-title">💊 MEDICAMENTOS</div>
+                    <table>
+                        <thead>
                             <tr>
-                                <td><strong>Abonos Realizados</strong></td>
-                                <td class="amount"><strong style="color: #27ae60;">Q${parseFloat(saldo.abonosRealizados || saldo.totalAbonos || 0).toFixed(2)}</strong></td>
+                                <th>Concepto</th>
+                                <th class="amount">Monto (Q)</th>
                             </tr>
-                            <tr style="background: #f0f0f0; font-weight: bold;">
-                                <td><strong>Saldo Pendiente</strong></td>
-                                <td class="amount" style="color: ${saldo.saldoPendiente > 0 ? '#e74c3c' : '#27ae60'};"><strong>Q${parseFloat(saldo.saldoPendiente).toFixed(2)}</strong></td>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Medicinas y Suministros</td>
+                                <td class="amount">Q 0.00</td>
+                            </tr>
+                            <tr style="font-weight: bold; background: #f9f9f9;">
+                                <td style="text-align: right;">TOTAL MEDICAMENTOS</td>
+                                <td class="amount">Q 0.00</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="section-title">📦 INSUMOS</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Concepto</th>
+                                <th class="amount">Monto (Q)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Insumos Médicos</td>
+                                <td class="amount">Q 0.00</td>
+                            </tr>
+                            <tr style="font-weight: bold; background: #f9f9f9;">
+                                <td style="text-align: right;">TOTAL INSUMOS</td>
+                                <td class="amount">Q 0.00</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="section-title">⚙️ EQUIPO MÉDICO</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Concepto</th>
+                                <th class="amount">Monto (Q)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Uso de Equipos</td>
+                                <td class="amount">Q 0.00</td>
+                            </tr>
+                            <tr style="font-weight: bold; background: #f9f9f9;">
+                                <td style="text-align: right;">TOTAL EQUIPO MÉDICO</td>
+                                <td class="amount">Q 0.00</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="section-title">🔬 EXÁMENES DE LABORATORIO</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Concepto</th>
+                                <th class="amount">Monto (Q)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Análisis y Pruebas</td>
+                                <td class="amount">Q 0.00</td>
+                            </tr>
+                            <tr style="font-weight: bold; background: #f9f9f9;">
+                                <td style="text-align: right;">TOTAL EXÁMENES</td>
+                                <td class="amount">Q 0.00</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="section-title">👨‍⚕️ HONORARIOS</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Concepto</th>
+                                <th class="amount">Monto (Q)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Honorarios Profesionales</td>
+                                <td class="amount">Q 0.00</td>
+                            </tr>
+                            <tr style="font-weight: bold; background: #f9f9f9;">
+                                <td style="text-align: right;">TOTAL HONORARIOS</td>
+                                <td class="amount">Q 0.00</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="section-title">➕ EXTRAS</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Concepto</th>
+                                <th class="amount">Monto (Q)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Servicios Adicionales</td>
+                                <td class="amount">Q 0.00</td>
+                            </tr>
+                            <tr style="font-weight: bold; background: #f9f9f9;">
+                                <td style="text-align: right;">TOTAL EXTRAS</td>
+                                <td class="amount">Q 0.00</td>
                             </tr>
                         </tbody>
                     </table>
