@@ -679,24 +679,32 @@ const SaldoPacienteModule = {
                         border-radius: 6px;
                     }
                     .info-block {
-                        border-left: 3px solid #0066cc;
-                        padding-left: 12px;
+                        display: flex;
+                        align-items: flex-start;
+                        gap: 8px;
+                        border: none;
+                        padding-left: 0;
                     }
                     .info-block-icon {
-                        font-size: 18px;
-                        margin-bottom: 6px;
+                        font-size: 20px;
+                        margin-top: 2px;
+                        flex-shrink: 0;
+                    }
+                    .info-block-content {
+                        flex: 1;
                     }
                     .info-label {
-                        font-size: 11px;
+                        font-size: 10px;
                         color: #0066cc;
                         font-weight: bold;
                         text-transform: uppercase;
-                        margin-bottom: 4px;
+                        margin-bottom: 2px;
+                        letter-spacing: 0.5px;
                     }
                     .info-value {
-                        font-size: 14px;
+                        font-size: 13px;
                         color: #333;
-                        font-weight: 600;
+                        font-weight: 500;
                     }
                     .section-title {
                         background: #0066cc;
@@ -832,7 +840,7 @@ const SaldoPacienteModule = {
                     <!-- HEADER -->
                     <div class="header-top">
                         <div class="logo-section">
-                            <div class="logo-circle">�</div>
+                            <div class="logo-circle">🏥</div>
                             <div class="institution">
                                 PSIQUIATRÍA<br>
                                 SANTA CLARA<br>
@@ -866,7 +874,7 @@ const SaldoPacienteModule = {
                             <div class="info-value">${fechaFormato}</div>
                         </div>
                         <div class="info-block">
-                            <div class="info-block-icon">🎂</div>
+                            <div class="info-block-icon">📋</div>
                             <div class="info-label">Edad:</div>
                             <div class="info-value">${pacient.edad || 'N/A'} años</div>
                         </div>
@@ -876,7 +884,7 @@ const SaldoPacienteModule = {
                             <div class="info-value">${pacient.fecha_ingreso || pacient.fechaIngreso || 'N/A'}</div>
                         </div>
                         <div class="info-block">
-                            <div class="info-block-icon">📊</div>
+                            <div class="info-block-icon">�</div>
                             <div class="info-label">Período:</div>
                             <div class="info-value">Del período actual</div>
                         </div>
