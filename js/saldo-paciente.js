@@ -674,8 +674,8 @@ const SaldoPacienteModule = {
                         gap: 20px;
                         margin: 25px 0;
                         padding: 20px;
-                        background: #f9f9f9;
-                        border: 1px solid #ddd;
+                        background: white;
+                        border: 2px solid #0066cc;
                         border-radius: 6px;
                     }
                     .info-block {
@@ -832,10 +832,11 @@ const SaldoPacienteModule = {
                     <!-- HEADER -->
                     <div class="header-top">
                         <div class="logo-section">
-                            <div class="logo-circle">🏥</div>
+                            <div class="logo-circle">�</div>
                             <div class="institution">
-                                SISTEMA CONTABLE<br>
-                                Gestión Integral
+                                PSIQUIATRÍA<br>
+                                SANTA CLARA<br>
+                                <span style="font-size: 10px; font-weight: normal;">Bienestar Integral</span>
                             </div>
                         </div>
                         <div class="title">
@@ -855,14 +856,29 @@ const SaldoPacienteModule = {
                             <div class="info-value">${pacient.nombre} ${apellidos}</div>
                         </div>
                         <div class="info-block">
-                            <div class="info-block-icon">📋</div>
-                            <div class="info-label">Documento:</div>
-                            <div class="info-value">${pacient.dpi || pacient.cedula || 'N/A'}</div>
+                            <div class="info-block-icon">👨‍⚕️</div>
+                            <div class="info-label">Médico:</div>
+                            <div class="info-value">${pacient.medico || 'N/A'}</div>
                         </div>
                         <div class="info-block">
                             <div class="info-block-icon">📅</div>
                             <div class="info-label">Estado de Cuenta al:</div>
                             <div class="info-value">${fechaFormato}</div>
+                        </div>
+                        <div class="info-block">
+                            <div class="info-block-icon">🎂</div>
+                            <div class="info-label">Edad:</div>
+                            <div class="info-value">${pacient.edad || 'N/A'} años</div>
+                        </div>
+                        <div class="info-block">
+                            <div class="info-block-icon">📋</div>
+                            <div class="info-label">Fecha de Ingreso:</div>
+                            <div class="info-value">${pacient.fecha_ingreso || pacient.fechaIngreso || 'N/A'}</div>
+                        </div>
+                        <div class="info-block">
+                            <div class="info-block-icon">📊</div>
+                            <div class="info-label">Período:</div>
+                            <div class="info-value">Del período actual</div>
                         </div>
                     </div>
 
