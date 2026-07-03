@@ -629,80 +629,84 @@ const SaldoPacienteModule = {
                     }
                     .logo-section {
                         text-align: left;
-                        flex: 1;
+                        flex: 0 0 auto;
                     }
                     .logo-circle {
-                        width: 60px;
-                        height: 60px;
-                        border: 2px solid #0066cc;
+                        width: 80px;
+                        height: 80px;
+                        border: 3px solid #0066cc;
                         border-radius: 50%;
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        font-size: 28px;
+                        font-size: 40px;
                         margin-bottom: 8px;
+                        background: white;
                     }
                     .institution {
-                        font-size: 11px;
+                        font-size: 12px;
                         font-weight: bold;
                         color: #0066cc;
-                        line-height: 1.3;
+                        line-height: 1.2;
+                        text-align: center;
                     }
                     .title {
                         text-align: center;
                         flex: 1;
+                        padding: 0 30px;
                     }
                     .title h1 {
-                        font-size: 32px;
+                        font-size: 42px;
                         font-weight: bold;
-                        color: #333;
-                        letter-spacing: 2px;
+                        color: #000;
+                        letter-spacing: 1px;
+                        line-height: 1.2;
                     }
                     .expediente {
                         text-align: right;
-                        flex: 1;
+                        flex: 0 0 auto;
                         font-size: 13px;
                     }
                     .expediente-num {
                         font-weight: bold;
                         color: #0066cc;
-                        font-size: 14px;
+                        font-size: 20px;
                     }
                     .patient-info {
                         display: grid;
                         grid-template-columns: 1fr 1fr 1fr;
-                        gap: 20px;
+                        gap: 0;
                         margin: 25px 0;
                         padding: 20px;
                         background: white;
                         border: 2px solid #0066cc;
-                        border-radius: 6px;
+                        border-radius: 8px;
                     }
                     .info-block {
                         display: flex;
-                        align-items: center;
-                        gap: 12px;
+                        align-items: flex-start;
+                        gap: 10px;
                         border: none;
-                        padding-left: 0;
+                        padding: 0 15px;
+                        border-right: 2px solid #0066cc;
+                    }
+                    .info-block:last-child {
+                        border-right: none;
                     }
                     .info-block-icon {
-                        font-size: 24px;
+                        font-size: 18px;
                         flex-shrink: 0;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        width: 32px;
-                        height: 32px;
+                        margin-top: 2px;
                     }
                     .info-block-content {
                         flex: 1;
                     }
                     .info-label {
-                        font-size: 10px;
+                        font-size: 11px;
                         color: #0066cc;
                         font-weight: bold;
                         text-transform: uppercase;
-                        margin-bottom: 2px;
+                        margin-bottom: 4px;
                         letter-spacing: 0.5px;
                     }
                     .info-value {
@@ -844,15 +848,15 @@ const SaldoPacienteModule = {
                     <!-- HEADER -->
                     <div class="header-top">
                         <div class="logo-section">
-                            <div class="logo-circle">🏥</div>
+                            <div class="logo-circle">�</div>
                             <div class="institution">
                                 PSIQUIATRÍA<br>
                                 SANTA CLARA<br>
-                                <span style="font-size: 10px; font-weight: normal;">Bienestar Integral</span>
+                                <span style="font-size: 11px; font-weight: normal;">Bienestar Integral</span>
                             </div>
                         </div>
                         <div class="title">
-                            <h1>ESTADO DE CUENTA</h1>
+                            <h1>ESTADO DE<br>CUENTA</h1>
                         </div>
                         <div class="expediente">
                             Expediente:<br>
@@ -860,37 +864,49 @@ const SaldoPacienteModule = {
                         </div>
                     </div>
 
-                    <!-- INFORMACIÓN DEL PACIENTE -->
+                                        <!-- INFORMACIÓN DEL PACIENTE -->
                     <div class="patient-info">
                         <div class="info-block">
-                            <div class="info-block-icon">�</div>
-                            <div class="info-label">Paciente:</div>
-                            <div class="info-value">${pacient.nombre} ${apellidos}</div>
+                            <div class="info-block-icon">ℹ️</div>
+                            <div class="info-block-content">
+                                <div class="info-label">Paciente:</div>
+                                <div class="info-value">${pacient.nombre} ${apellidos}</div>
+                            </div>
                         </div>
                         <div class="info-block">
-                            <div class="info-block-icon">👨‍⚕️</div>
-                            <div class="info-label">Médico:</div>
-                            <div class="info-value">${pacient.medico || 'N/A'}</div>
+                            <div class="info-block-icon">👤</div>
+                            <div class="info-block-content">
+                                <div class="info-label">Médico:</div>
+                                <div class="info-value">${pacient.medico || 'N/A'}</div>
+                            </div>
                         </div>
                         <div class="info-block">
                             <div class="info-block-icon">📅</div>
-                            <div class="info-label">Estado de Cuenta al:</div>
-                            <div class="info-value">${fechaFormato}</div>
+                            <div class="info-block-content">
+                                <div class="info-label">Estado de Cuenta al:</div>
+                                <div class="info-value">${fechaFormato}</div>
+                            </div>
                         </div>
                         <div class="info-block">
                             <div class="info-block-icon">📋</div>
-                            <div class="info-label">Edad:</div>
-                            <div class="info-value">${pacient.edad || 'N/A'} años</div>
+                            <div class="info-block-content">
+                                <div class="info-label">Edad:</div>
+                                <div class="info-value">${pacient.edad || 'N/A'} años</div>
+                            </div>
                         </div>
                         <div class="info-block">
                             <div class="info-block-icon">📋</div>
-                            <div class="info-label">Fecha de Ingreso:</div>
-                            <div class="info-value">${pacient.fecha_ingreso || pacient.fechaIngreso || 'N/A'}</div>
+                            <div class="info-block-content">
+                                <div class="info-label">Fecha de Ingreso:</div>
+                                <div class="info-value">${pacient.fecha_ingreso || pacient.fechaIngreso || 'N/A'}</div>
+                            </div>
                         </div>
                         <div class="info-block">
                             <div class="info-block-icon">📄</div>
-                            <div class="info-label">Período:</div>
-                            <div class="info-value">Del período actual</div>
+                            <div class="info-block-content">
+                                <div class="info-label">Período:</div>
+                                <div class="info-value">Del período actual</div>
+                            </div>
                         </div>
                     </div>
 
