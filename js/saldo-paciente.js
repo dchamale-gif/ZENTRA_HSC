@@ -680,15 +680,19 @@ const SaldoPacienteModule = {
                     }
                     .info-block {
                         display: flex;
-                        align-items: flex-start;
-                        gap: 8px;
+                        align-items: center;
+                        gap: 12px;
                         border: none;
                         padding-left: 0;
                     }
                     .info-block-icon {
-                        font-size: 20px;
-                        margin-top: 2px;
+                        font-size: 24px;
                         flex-shrink: 0;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        width: 32px;
+                        height: 32px;
                     }
                     .info-block-content {
                         flex: 1;
@@ -859,7 +863,7 @@ const SaldoPacienteModule = {
                     <!-- INFORMACIÓN DEL PACIENTE -->
                     <div class="patient-info">
                         <div class="info-block">
-                            <div class="info-block-icon">👤</div>
+                            <div class="info-block-icon">�</div>
                             <div class="info-label">Paciente:</div>
                             <div class="info-value">${pacient.nombre} ${apellidos}</div>
                         </div>
@@ -884,7 +888,7 @@ const SaldoPacienteModule = {
                             <div class="info-value">${pacient.fecha_ingreso || pacient.fechaIngreso || 'N/A'}</div>
                         </div>
                         <div class="info-block">
-                            <div class="info-block-icon">�</div>
+                            <div class="info-block-icon">📄</div>
                             <div class="info-label">Período:</div>
                             <div class="info-value">Del período actual</div>
                         </div>
