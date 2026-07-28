@@ -40,60 +40,94 @@ const DashboardFinancieroModule = {
 
     // Cargar datos desde la API
     async loadData() {
+        // Inicializar datos por defecto
+        this.state.datos = {
+            ingresos: 0,
+            egresos: 0,
+            ganancia: 0,
+            flujoActual: 0,
+            margenNeto: 0,
+            ventasDelDia: 0,
+            gastosDelDia: 0,
+            numeroTransacciones: 0,
+            ventasDelMes: 0
+        };
+        this.state.historico = [];
+        this.state.categoriaGastos = [];
+        this.state.categoriaIngresos = [];
+
         try {
             // Obtener resumen financiero
             const summaryResponse = await fetch('/api/reports/financial-summary', {
                 headers: this.getAuthHeaders()
             });
-            const summaryData = await summaryResponse.json();
-
-            if (summaryData.success) {
-                this.state.datos = {
-                    ingresos: summaryData.data.ingresos,
-                    egresos: summaryData.data.egresos,
-                    ganancia: summaryData.data.ganancia,
-                    flujoActual: summaryData.data.ganancia,
-                    margenNeto: summaryData.data.margenNeto,
-                    ventasDelDia: 0,
-                    gastosDelDia: 0,
-                    numeroTransacciones: summaryData.data.numeroTransacciones,
-                    ventasDelMes: summaryData.data.ingresos
-                };
+            
+            if (summaryResponse.ok) {
+                const summaryData = await summaryResponse.json();
+                if (summaryData.success && summaryData.data) {
+                    this.state.datos = {
+                        ingresos: summaryData.data.ingresos || 0,
+                        egresos: summaryData.data.egresos || 0,
+                        ganancia: summaryData.data.ganancia || 0,
+                        flujoActual: summaryData.data.ganancia || 0,
+                        margenNeto: summaryData.data.margenNeto || 0,
+                        ventasDelDia: 0,
+                        gastosDelDia: 0,
+                        numeroTransacciones: summaryData.data.numeroTransacciones || 0,
+                        ventasDelMes: summaryData.data.ingresos || 0
+                    };
+                }
             }
+        } catch (error) {
+            console.warn('No se pudo cargar resumen financiero, usando datos por defecto:', error.message);
+        }
 
+        try {
             // Obtener datos mensuales históricos
             const monthlyResponse = await fetch('/api/reports/monthly-data?months=12', {
                 headers: this.getAuthHeaders()
             });
-            const monthlyData = await monthlyResponse.json();
-
-            if (monthlyData.success) {
-                this.state.historico = monthlyData.data;
+            
+            if (monthlyResponse.ok) {
+                const monthlyData = await monthlyResponse.json();
+                if (monthlyData.success && Array.isArray(monthlyData.data)) {
+                    this.state.historico = monthlyData.data;
+                }
             }
+        } catch (error) {
+            console.warn('No se pudo cargar datos históricos:', error.message);
+        }
 
+        try {
             // Obtener categorías de gastos
             const expenseResponse = await fetch('/api/reports/expenses-by-category', {
                 headers: this.getAuthHeaders()
             });
-            const expenseData = await expenseResponse.json();
-
-            if (expenseData.success) {
-                this.state.categoriaGastos = expenseData.data;
+            
+            if (expenseResponse.ok) {
+                const expenseData = await expenseResponse.json();
+                if (expenseData.success && Array.isArray(expenseData.data)) {
+                    this.state.categoriaGastos = expenseData.data;
+                }
             }
+        } catch (error) {
+            console.warn('No se pudo cargar categorías de gastos:', error.message);
+        }
 
+        try {
             // Obtener categorías de ingresos
             const incomeResponse = await fetch('/api/reports/income-by-category', {
                 headers: this.getAuthHeaders()
             });
-            const incomeData = await incomeResponse.json();
-
-            if (incomeData.success) {
-                this.state.categoriaIngresos = incomeData.data;
+            
+            if (incomeResponse.ok) {
+                const incomeData = await incomeResponse.json();
+                if (incomeData.success && Array.isArray(incomeData.data)) {
+                    this.state.categoriaIngresos = incomeData.data;
+                }
             }
-
         } catch (error) {
-            console.error('Error al cargar datos del dashboard:', error);
-            this.showErrorNotification('Error al cargar datos del dashboard');
+            console.warn('No se pudo cargar categorías de ingresos:', error.message);
         }
     },
 
@@ -139,6 +173,12 @@ const DashboardFinancieroModule = {
         const canvas = document.getElementById('incomeExpenseChart');
         if (!canvas) return;
 
+        // Validar que hay datos históricos
+        if (!this.state.historico || this.state.historico.length === 0) {
+            canvas.innerHTML = '<p class="text-muted">Sin datos históricos</p>';
+            return;
+        }
+
         const ctx = canvas.getContext('2d');
         if (window.incomeExpenseChart && typeof window.incomeExpenseChart.destroy === 'function') {
             window.incomeExpenseChart.destroy();
@@ -181,6 +221,12 @@ const DashboardFinancieroModule = {
         const canvas = document.getElementById('cashFlowChart');
         if (!canvas) return;
 
+        // Validar que hay datos históricos
+        if (!this.state.historico || this.state.historico.length === 0) {
+            canvas.innerHTML = '<p class="text-muted">Sin datos históricos</p>';
+            return;
+        }
+
         const ctx = canvas.getContext('2d');
         if (window.cashFlowChart && typeof window.cashFlowChart.destroy === 'function') {
             window.cashFlowChart.destroy();
@@ -222,6 +268,12 @@ const DashboardFinancieroModule = {
         const canvas = document.getElementById('marginChart');
         if (!canvas) return;
 
+        // Validar que hay datos
+        if (!this.state.historico || this.state.historico.length === 0 || !this.state.datos) {
+            canvas.innerHTML = '<p class="text-muted">Sin datos de márgenes</p>';
+            return;
+        }
+
         const ctx = canvas.getContext('2d');
         if (window.marginChart && typeof window.marginChart.destroy === 'function') {
             window.marginChart.destroy();
@@ -235,7 +287,7 @@ const DashboardFinancieroModule = {
                 labels: ['Ganancia Neta', 'Costo de Venta'],
                 datasets: [
                     {
-                        data: [this.state.datos.ganancia, this.state.datos.egresos],
+                        data: [this.state.datos.ganancia || 0, this.state.datos.egresos || 0],
                         backgroundColor: ['#4CAF50', '#FF6B6B'],
                         borderRadius: 5
                     }
@@ -385,18 +437,46 @@ const DashboardFinancieroModule = {
         const container = document.getElementById('financialKPIs');
         if (!container) return;
 
-        // Calcular cambios porcentuales vs mes anterior
-        const hist = this.state.historico;
-        const mesActual = hist[hist.length - 1];
-        const mesAnterior = hist[hist.length - 2];
+        // Validar que estado.datos existe
+        if (!this.state.datos) {
+            this.state.datos = {
+                ingresos: 0,
+                egresos: 0,
+                ganancia: 0,
+                margenNeto: 0
+            };
+        }
 
-        const cambioIngresos = ((mesActual.ingresos - mesAnterior.ingresos) / mesAnterior.ingresos * 100).toFixed(1);
-        const cambioEgresos = ((mesActual.egresos - mesAnterior.egresos) / mesAnterior.egresos * 100).toFixed(1);
-        const cambioGanancia = ((mesActual.ganancia - mesAnterior.ganancia) / mesAnterior.ganancia * 100).toFixed(1);
-        
-        const margenActual = (mesActual.ganancia / mesActual.ingresos * 100).toFixed(1);
-        const margenAnterior = (mesAnterior.ganancia / mesAnterior.ingresos * 100).toFixed(1);
-        const cambioMargen = (margenActual - margenAnterior).toFixed(1);
+        // Calcular cambios porcentuales vs mes anterior
+        let cambioIngresos = 'N/A';
+        let cambioEgresos = 'N/A';
+        let cambioGanancia = 'N/A';
+        let margenActual = 'N/A';
+        let cambioMargen = 'N/A';
+
+        // Solo calcular si hay al menos 2 meses en el histórico
+        if (this.state.historico && this.state.historico.length >= 2) {
+            const hist = this.state.historico;
+            const mesActual = hist[hist.length - 1];
+            const mesAnterior = hist[hist.length - 2];
+
+            if (mesAnterior && mesAnterior.ingresos > 0) {
+                cambioIngresos = ((mesActual.ingresos - mesAnterior.ingresos) / mesAnterior.ingresos * 100).toFixed(1);
+            }
+            if (mesAnterior && mesAnterior.egresos > 0) {
+                cambioEgresos = ((mesActual.egresos - mesAnterior.egresos) / mesAnterior.egresos * 100).toFixed(1);
+            }
+            if (mesAnterior && mesAnterior.ganancia > 0) {
+                cambioGanancia = ((mesActual.ganancia - mesAnterior.ganancia) / mesAnterior.ganancia * 100).toFixed(1);
+            }
+            if (mesActual && mesActual.ingresos > 0) {
+                margenActual = (mesActual.ganancia / mesActual.ingresos * 100).toFixed(1);
+            }
+            if (mesAnterior && mesAnterior.ingresos > 0) {
+                const margenAnterior = (mesAnterior.ganancia / mesAnterior.ingresos * 100);
+                cambioMargen = (margenActual - margenAnterior).toFixed(1);
+            }
+        }
 
         const claseEgreso = cambioEgresos < 0 ? 'positive' : 'negative';
 
@@ -406,9 +486,9 @@ const DashboardFinancieroModule = {
                     <h3>Ingresos Totales</h3>
                     <i class="fas fa-arrow-up"></i>
                 </div>
-                <div class="kpi-value">Q.${this.state.datos.ingresos.toLocaleString()}</div>
-                <div class="kpi-change positive">
-                    <i class="fas fa-arrow-up"></i> ${cambioIngresos}% vs mes anterior
+                <div class="kpi-value">Q.${(this.state.datos.ingresos || 0).toLocaleString()}</div>
+                <div class="kpi-change ${cambioIngresos >= 0 ? 'positive' : 'negative'}">
+                    <i class="fas fa-arrow-${cambioIngresos >= 0 ? 'up' : 'down'}"></i> ${cambioIngresos}% vs mes anterior
                 </div>
             </div>
 
@@ -417,9 +497,9 @@ const DashboardFinancieroModule = {
                     <h3>Egresos Totales</h3>
                     <i class="fas fa-arrow-down"></i>
                 </div>
-                <div class="kpi-value">Q.${this.state.datos.egresos.toLocaleString()}</div>
+                <div class="kpi-value">Q.${(this.state.datos.egresos || 0).toLocaleString()}</div>
                 <div class="kpi-change ${claseEgreso}">
-                    <i class="fas fa-arrow-${cambioEgresos < 0 ? 'down' : 'up'}"></i> ${Math.abs(cambioEgresos)}% vs mes anterior
+                    <i class="fas fa-arrow-${cambioEgresos < 0 ? 'down' : 'up'}"></i> ${typeof cambioEgresos === 'string' ? cambioEgresos : Math.abs(cambioEgresos)}% vs mes anterior
                 </div>
             </div>
 
@@ -428,9 +508,9 @@ const DashboardFinancieroModule = {
                     <h3>Ganancia Neta</h3>
                     <i class="fas fa-money-bill-wave"></i>
                 </div>
-                <div class="kpi-value">Q.${this.state.datos.ganancia.toLocaleString()}</div>
-                <div class="kpi-change positive">
-                    <i class="fas fa-arrow-up"></i> ${cambioGanancia}% vs mes anterior
+                <div class="kpi-value">Q.${(this.state.datos.ganancia || 0).toLocaleString()}</div>
+                <div class="kpi-change ${cambioGanancia >= 0 ? 'positive' : 'negative'}">
+                    <i class="fas fa-arrow-${cambioGanancia >= 0 ? 'up' : 'down'}"></i> ${cambioGanancia}% vs mes anterior
                 </div>
             </div>
 
@@ -440,8 +520,8 @@ const DashboardFinancieroModule = {
                     <i class="fas fa-percentage"></i>
                 </div>
                 <div class="kpi-value">${margenActual}%</div>
-                <div class="kpi-change ${cambioMargen > 0 ? 'positive' : 'negative'}">
-                    <i class="fas fa-arrow-${cambioMargen > 0 ? 'up' : 'down'}"></i> ${Math.abs(cambioMargen)}pp vs mes anterior
+                <div class="kpi-change ${cambioMargen !== 'N/A' && cambioMargen > 0 ? 'positive' : 'negative'}">
+                    <i class="fas fa-arrow-${cambioMargen !== 'N/A' && cambioMargen > 0 ? 'up' : 'down'}"></i> ${cambioMargen}pp vs mes anterior
                 </div>
             </div>
         `;
