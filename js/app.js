@@ -53,7 +53,9 @@ function initializeApp() {
     CuentasPorCobrarModule.init();
     EstadosDeCuentaModule.init();
     DashboardFinancieroModule.init();
-    ReportsModule.init();
+    if (typeof ReportsModule !== 'undefined' && ReportsModule.init) {
+        try { ReportsModule.init(); } catch(e) { console.warn('ReportsModule init error:', e); }
+    }
     
     // Initialize Agenda Modules (with checks)
     if (typeof AgendaAvanzadaModule !== 'undefined' && AgendaAvanzadaModule.init) {

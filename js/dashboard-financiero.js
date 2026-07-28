@@ -121,6 +121,11 @@ const DashboardFinancieroModule = {
 
     // Renderizar gráficos
     renderCharts() {
+        // Inicializar datos vacíos si no existen
+        if (!this.state.historico) this.state.historico = [];
+        if (!this.state.categoriaGastos) this.state.categoriaGastos = [];
+        if (!this.state.categoriaIngresos) this.state.categoriaIngresos = [];
+        
         this.renderIncomeExpenseChart();
         this.renderCashFlowChart();
         this.renderMarginChart();
@@ -260,6 +265,12 @@ const DashboardFinancieroModule = {
         const container = document.getElementById('gastosCategoriaChart');
         if (!container) return;
 
+        // Inicializar si no existe
+        if (!this.state.categoriaGastos || this.state.categoriaGastos.length === 0) {
+            container.innerHTML = '<p class="text-muted">Sin datos de gastos</p>';
+            return;
+        }
+
         // Limpiar contenedor si ya existe un canvas
         const existingCanvas = container.querySelector('canvas');
         if (existingCanvas) {
@@ -313,6 +324,12 @@ const DashboardFinancieroModule = {
     renderIncomeCategoryChart() {
         const container = document.getElementById('ingresoCategoriaChart');
         if (!container) return;
+
+        // Inicializar si no existe
+        if (!this.state.categoriaIngresos || this.state.categoriaIngresos.length === 0) {
+            container.innerHTML = '<p class="text-muted">Sin datos de ingresos</p>';
+            return;
+        }
 
         // Limpiar contenedor si ya existe un canvas
         const existingCanvas = container.querySelector('canvas');
