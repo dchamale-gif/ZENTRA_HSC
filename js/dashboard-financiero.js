@@ -57,57 +57,46 @@ const DashboardFinancieroModule = {
         this.state.categoriaIngresos = [];
 
         try {
-            // Obtener resumen financiero
-            const summaryResponse = await fetch('/api/reports/financial-summary', {
-                headers: this.getAuthHeaders()
-            });
-            
-            if (summaryResponse.ok) {
-                const summaryData = await summaryResponse.json();
-                if (summaryData.success && summaryData.data) {
-                    this.state.datos = {
-                        ingresos: summaryData.data.ingresos || 0,
-                        egresos: summaryData.data.egresos || 0,
-                        ganancia: summaryData.data.ganancia || 0,
-                        flujoActual: summaryData.data.ganancia || 0,
-                        margenNeto: summaryData.data.margenNeto || 0,
-                        ventasDelDia: 0,
-                        gastosDelDia: 0,
-                        numeroTransacciones: summaryData.data.numeroTransacciones || 0,
-                        ventasDelMes: summaryData.data.ingresos || 0
-                    };
-                }
+            // Obtener resumen financiero usando APIHelper
+            const summaryData = await APIHelper.fetchFinancialSummary();
+            if (summaryData) {
+                this.state.datos = {
+                    ingresos: summaryData.ingresos || 0,
+                    egresos: summaryData.egresos || 0,
+                    ganancia: summaryData.ganancia || 0,
+                    flujoActual: summaryData.ganancia || 0,
+                    margenNeto: summaryData.margenNeto || 0,
+                    ventasDelDia: 0,
+                    gastosDelDia: 0,
+                    numeroTransacciones: summaryData.numeroTransacciones || 0,
+                    ventasDelMes: summaryData.ingresos || 0
+                };
             }
         } catch (error) {
             console.warn('No se pudo cargar resumen financiero, usando datos por defecto:', error.message);
         }
 
         try {
-            // Obtener datos mensuales históricos
-            const monthlyResponse = await fetch('/api/reports/monthly-data?months=12', {
-                headers: this.getAuthHeaders()
-            });
-            
-            if (monthlyResponse.ok) {
-                const monthlyData = await monthlyResponse.json();
-                if (monthlyData.success && Array.isArray(monthlyData.data)) {
-                    this.state.historico = monthlyData.data;
-                }
+            // Obtener datos mensuales históricos usando APIHelper
+            const monthlyData = await APIHelper.fetchMonthlyData(12);
+            if (Array.isArray(monthlyData)) {
+                this.state.historico = monthlyData;
             }
         } catch (error) {
             console.warn('No se pudo cargar datos históricos:', error.message);
         }
 
         try {
-            // Obtener categorías de gastos
-            const expenseResponse = await fetch('/api/reports/expenses-by-category', {
-                headers: this.getAuthHeaders()
-            });
+            // Obtener categorías de gastos - usar fetch con URL correcta de APIHelper
+            const expenseData = await fetch(
+                APIHelper.baseURL + '/reports/expenses-by-category',
+                { headers: this.getAuthHeaders() }
+            );
             
-            if (expenseResponse.ok) {
-                const expenseData = await expenseResponse.json();
-                if (expenseData.success && Array.isArray(expenseData.data)) {
-                    this.state.categoriaGastos = expenseData.data;
+            if (expenseData.ok) {
+                const data = await expenseData.json();
+                if (data.success && Array.isArray(data.data)) {
+                    this.state.categoriaGastos = data.data;
                 }
             }
         } catch (error) {
@@ -115,19 +104,22 @@ const DashboardFinancieroModule = {
         }
 
         try {
-            // Obtener categorías de ingresos
-            const incomeResponse = await fetch('/api/reports/income-by-category', {
-                headers: this.getAuthHeaders()
-            });
+            // Obtener categorías de ingresos - usar fetch con URL correcta de APIHelper
+            const incomeData = await fetch(
+                APIHelper.baseURL + '/reports/income-by-category',
+                { headers: this.getAuthHeaders() }
+            );
             
-            if (incomeResponse.ok) {
-                const incomeData = await incomeResponse.json();
-                if (incomeData.success && Array.isArray(incomeData.data)) {
-                    this.state.categoriaIngresos = incomeData.data;
+            if (incomeData.ok) {
+                const data = await incomeData.json();
+                if (data.success && Array.isArray(data.data)) {
+                    this.state.categoriaIngresos = data.data;
                 }
             }
         } catch (error) {
             console.warn('No se pudo cargar categorías de ingresos:', error.message);
+        }
+    },
         }
     },
 
