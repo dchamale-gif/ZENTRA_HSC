@@ -60,44 +60,40 @@ const AgendaModule = {
         }
     },
 
-    // Cargar datos
-    loadData() {
-        this.state.doctores = [
-            { id: 1, nombre: 'Dr. Juan García', especialidad: 'Cardiología', horarioInicio: '08:00', horarioFin: '17:00' },
-            { id: 2, nombre: 'Dra. María López', especialidad: 'Dermatología', horarioInicio: '09:00', horarioFin: '18:00' },
-            { id: 3, nombre: 'Dr. Roberto Martínez', especialidad: 'Neurología', horarioInicio: '08:30', horarioFin: '16:30' }
-        ];
+    // Cargar datos desde API
+    async loadData() {
+        try {
+            // Cargar doctores
+            const doctorsResponse = await fetch('/api/doctors', {
+                headers: this.getAuthHeaders()
+            });
+            const doctorsData = await doctorsResponse.json();
+            
+            if (doctorsData.success) {
+                this.state.doctores = doctorsData.data;
+            }
 
-        this.state.especialidades = [
-            { id: 1, nombre: 'Cardiología', icon: 'fa-heart' },
-            { id: 2, nombre: 'Dermatología', icon: 'fa-spa' },
-            { id: 3, nombre: 'Neurología', icon: 'fa-brain' },
-            { id: 4, nombre: 'Pediatría', icon: 'fa-child' },
-            { id: 5, nombre: 'Oftalmología', icon: 'fa-eye' }
-        ];
+            // Cargar especialidades
+            const specialtiesResponse = await fetch('/api/doctors/specialties/list', {
+                headers: this.getAuthHeaders()
+            });
+            const specialtiesData = await specialtiesResponse.json();
+            
+            if (specialtiesData.success) {
+                this.state.especialidades = specialtiesData.data.map(s => s.nombre);
+            }
 
-        this.state.citas = [
-            {
-                id: 'CIT-001',
-                paciente: 'Juan Pérez',
-                doctor: 'Dr. Juan García',
-                especialidad: 'Cardiología',
-                fecha: '2026-05-10',
-                hora: '10:00',
-                estado: 'Confirmada',
-                email: 'juan@example.com',
-                telefono: '584121234567'
-            },
-            {
-                id: 'CIT-002',
-                paciente: 'María García',
-                doctor: 'Dra. María López',
-                especialidad: 'Dermatología',
-                fecha: '2026-05-10',
-                hora: '14:30',
-                estado: 'Pendiente',
-                email: 'maria@example.com',
-                telefono: '584125678901'
+            // Cargar citas del día
+            const appointmentsResponse = await fetch('/api/appointments/today', {
+                headers: this.getAuthHeaders()
+            });
+            const appointmentsData = await appointmentsResponse.json();
+            
+            if (appointmentsData.success) {
+                this.state.citas = appointmentsData.data;
+            }
+        } catch (error) {
+            console.error('Error al cargar datos:', error);
             }
         ];
     },
@@ -374,5 +370,14 @@ const AgendaModule = {
     getTodayAppointments() {
         const today = new Date().toISOString().split('T')[0];
         return this.state.citas.filter(c => c.fecha === today && c.estado !== 'Cancelada');
+    },
+
+    // Obtener headers de autenticación
+    getAuthHeaders() {
+        const token = localStorage.getItem('auth_token');
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        };
     }
 };

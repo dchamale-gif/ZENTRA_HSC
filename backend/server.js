@@ -10,6 +10,11 @@ const medicinasRoutes = require('./src/routes/medicinas');
 const proveedoresRoutes = require('./src/routes/proveedores');
 const codigosArticulosRoutes = require('./src/routes/codigos-articulos');
 const billingRoutes = require('./src/routes/billing');
+const reportsRoutes = require('./src/routes/reports');
+const doctorsRoutes = require('./src/routes/doctors');
+const appointmentsRoutes = require('./src/routes/appointments');
+const expensesRoutes = require('./src/routes/expenses');
+const receivablesRoutes = require('./src/routes/receivables');
 
 // Importar middleware
 const { auditMiddleware } = require('./src/middleware/audit');
@@ -74,6 +79,21 @@ app.use('/api/proveedores', proveedoresRoutes);
 
 // Facturación
 app.use('/api/billing', billingRoutes);
+Doctores y especialidades
+app.use('/api/doctors', doctorsRoutes);
+
+// Citas y agenda
+app.use('/api/appointments', appointmentsRoutes);
+
+// Gastos y servicios
+app.use('/api/expenses', expensesRoutes);
+
+// Cuentas por cobrar
+app.use('/api/receivables', receivablesRoutes);
+
+// 
+// Reportes y Dashboards
+app.use('/api/reports', reportsRoutes);
 
 // ====================================
 // MANEJO DE ERRORES

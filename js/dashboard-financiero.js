@@ -16,8 +16,12 @@ const DashboardFinancieroModule = {
 
     init() {
         this.setupEventListeners();
-        this.loadData();
-        this.renderCharts();
+        this.loadData().then(() => {
+            this.renderCharts();
+        }).catch(error => {
+            console.error('Error al inicializar dashboard:', error);
+            this.renderCharts(); // Renderizar con datos vacíos si hay error
+        });
         console.log('Dashboard Financiero inicializado');
     },
 
@@ -34,84 +38,86 @@ const DashboardFinancieroModule = {
         }
     },
 
-    // Cargar datos
-    loadData() {
-        this.state.datos = {
-            ingresos: 412152,
-            egresos: 189696,
-            ganancia: 222456,
-            flujoActual: 32760,
-            margenNeto: 53.9,
-            ventasDelDia: 26910,
-            gastosDelDia: 9672,
-            numeroTransacciones: 187,
-            ventasDelMes: 412152
-        };
+    // Cargar datos desde la API
+    async loadData() {
+        try {
+            // Obtener resumen financiero
+            const summaryResponse = await fetch('/api/reports/financial-summary', {
+                headers: this.getAuthHeaders()
+            });
+            const summaryData = await summaryResponse.json();
 
-        this.state.historico = [
-            { 
-                mes: 'Enero', 
-                ingresos: 273000, 
-                egresos: 140400, 
-                ganancia: 132600,
-                ventas: 42,
-                transacciones: 156
-            },
-            { 
-                mes: 'Febrero', 
-                ingresos: 327600, 
-                egresos: 156000, 
-                ganancia: 171600,
-                ventas: 58,
-                transacciones: 168
-            },
-            { 
-                mes: 'Marzo', 
-                ingresos: 351000, 
-                egresos: 163800, 
-                ganancia: 187200,
-                ventas: 63,
-                transacciones: 175
-            },
-            { 
-                mes: 'Abril', 
-                ingresos: 378300, 
-                egresos: 173940, 
-                ganancia: 204360,
-                ventas: 72,
-                transacciones: 182
-            },
-            { 
-                mes: 'Mayo', 
-                ingresos: 412152, 
-                egresos: 189696, 
-                ganancia: 222456,
-                ventas: 81,
-                transacciones: 187
+            if (summaryData.success) {
+                this.state.datos = {
+                    ingresos: summaryData.data.ingresos,
+                    egresos: summaryData.data.egresos,
+                    ganancia: summaryData.data.ganancia,
+                    flujoActual: summaryData.data.ganancia,
+                    margenNeto: summaryData.data.margenNeto,
+                    ventasDelDia: 0,
+                    gastosDelDia: 0,
+                    numeroTransacciones: summaryData.data.numeroTransacciones,
+                    ventasDelMes: summaryData.data.ingresos
+                };
             }
-        ];
 
-        // Datos adicionales por categoría
-        this.state.categoriaGastos = [
-            { nombre: 'Compras', monto: 97500, porcentaje: 51.4 },
-            { nombre: 'Nómina', monto: 53040, porcentaje: 27.9 },
-            { nombre: 'Servicios', monto: 21840, porcentaje: 11.5 },
-            { nombre: 'Otros', monto: 17316, porcentaje: 9.2 }
-        ];
+            // Obtener datos mensuales históricos
+            const monthlyResponse = await fetch('/api/reports/monthly-data?months=12', {
+                headers: this.getAuthHeaders()
+            });
+            const monthlyData = await monthlyResponse.json();
 
-        this.state.categoriaIngresos = [
-            { nombre: 'Ventas Directas', monto: 296160, porcentaje: 71.8 },
-            { nombre: 'Servicios', monto: 81900, porcentaje: 19.8 },
-            { nombre: 'Otros Ingresos', monto: 33852, porcentaje: 8.4 }
-        ];
+            if (monthlyData.success) {
+                this.state.historico = monthlyData.data;
+            }
 
-        // Proyecciones
-        this.state.proyecciones = {
-            junio: 438360,
-            julio: 466440,
-            agosto: 495310
+            // Obtener categorías de gastos
+            const expenseResponse = await fetch('/api/reports/expenses-by-category', {
+                headers: this.getAuthHeaders()
+            });
+            const expenseData = await expenseResponse.json();
+
+            if (expenseData.success) {
+                this.state.categoriaGastos = expenseData.data;
+            }
+
+            // Obtener categorías de ingresos
+            const incomeResponse = await fetch('/api/reports/income-by-category', {
+                headers: this.getAuthHeaders()
+            });
+            const incomeData = await incomeResponse.json();
+
+            if (incomeData.success) {
+                this.state.categoriaIngresos = incomeData.data;
+            }
+
+        } catch (error) {
+            console.error('Error al cargar datos del dashboard:', error);
+            this.showErrorNotification('Error al cargar datos del dashboard');
+        }
+    },
+
+    // Obtener headers de autenticación
+    getAuthHeaders() {
+        const token = localStorage.getItem('auth_token');
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
         };
     },
+
+    // Mostrar notificación de error
+    showErrorNotification(message) {
+        const notif = document.getElementById('notification');
+        if (notif) {
+            notif.textContent = message;
+            notif.className = 'alert alert-danger';
+            notif.style.display = 'block';
+            setTimeout(() => {
+                notif.style.display = 'none';
+            }, 3000);
+        }
+    }
 
     // Renderizar gráficos
     renderCharts() {

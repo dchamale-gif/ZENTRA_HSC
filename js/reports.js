@@ -17,9 +17,9 @@ const ReportsModule = {
     init() {
         this.setupEventListeners();
         // Generar reporte inicial después de que el DOM esté listo
-        setTimeout(() => {
+        setTimeout(async () => {
             this.setDefaultDates();
-            this.generateReport();
+            await this.generateReport();
         }, 100);
         console.log('Módulo de Reportes inicializado');
     },
@@ -230,33 +230,91 @@ const ReportsModule = {
     },
 
     // Generar reporte consolidado
-    generateReport() {
-        if (this.state.periodoSeleccionado === 'personalizado') {
-            const startDate = document.getElementById('reportStartDate')?.value;
-            const endDate = document.getElementById('reportEndDate')?.value;
-            
-            if (!startDate || !endDate) {
-                alert('Por favor selecciona fecha de inicio y fin');
-                return;
+    async generateReport() {
+        try {
+            if (this.state.periodoSeleccionado === 'personalizado') {
+                const startDate = document.getElementById('reportStartDate')?.value;
+                const endDate = document.getElementById('reportEndDate')?.value;
+                
+                if (!startDate || !endDate) {
+                    alert('Por favor selecciona fecha de inicio y fin');
+                    return;
+                }
+                
+                this.state.fechaInicio = new Date(startDate);
+                this.state.fechaFin = new Date(endDate);
+            } else {
+                this.setDefaultDates();
             }
-            
-            this.state.fechaInicio = new Date(startDate);
-            this.state.fechaFin = new Date(endDate);
-        } else {
-            this.setDefaultDates();
+
+            // Formatear fechas para la API
+            const startDateStr = this.formatDateForAPI(this.state.fechaInicio);
+            const endDateStr = this.formatDateForAPI(this.state.fechaFin);
+
+            // Obtener datos del servidor
+            const response = await fetch(`/api/reports/financial-summary?startDate=${startDateStr}&endDate=${endDateStr}`, {
+                headers: this.getAuthHeaders()
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                const reportData = data.data;
+                
+                // Construir resumen compatible con el formato existente
+                const resumen = {
+                    totalGastos: reportData.egresos,
+                    totalIngresos: reportData.ingresos,
+                    totalCostos: 0,
+                    ganancia: reportData.ganancia,
+                    margenNeto: reportData.margenNeto,
+                    detalles: {
+                        ventas: {
+                            cantidad: reportData.numeroTransacciones || 0,
+                            total: reportData.ingresos,
+                            promedio: reportData.numeroTransacciones > 0 ? reportData.ingresos / reportData.numeroTransacciones : 0
+                        },
+                        compras: {
+                            cantidad: reportData.numeroCompras || 0,
+                            total: reportData.egresos,
+                            promedio: reportData.numeroCompras > 0 ? reportData.egresos / reportData.numeroCompras : 0
+                        }
+                    }
+                };
+
+                this.state.reporteGenerado = {
+                    datos: {},
+                    resumen: resumen,
+                    generadoEn: new Date()
+                };
+
+                this.renderReport();
+            } else {
+                this.showNotification('Error al generar reporte', 'error');
+            }
+        } catch (error) {
+            console.error('Error al generar reporte:', error);
+            this.showNotification('Error al generar reporte: ' + error.message, 'error');
         }
-
-        const datos = this.getConsolidatedData();
-        const resumen = this.calcularResumen(datos);
-        
-        this.state.reporteGenerado = {
-            datos,
-            resumen,
-            generadoEn: new Date()
-        };
-
-        this.renderReport();
     },
+
+    // Formatear fecha para API (YYYY-MM-DD)
+    formatDateForAPI(date) {
+        const d = new Date(date);
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${year}-${month}-${day}`;
+    },
+
+    // Obtener headers de autenticación
+    getAuthHeaders() {
+        const token = localStorage.getItem('auth_token');
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        };
+    }
 
     // Calcular resumen del reporte
     calcularResumen(datos) {
