@@ -117,7 +117,7 @@ const DashboardFinancieroModule = {
                 notif.style.display = 'none';
             }, 3000);
         }
-    }
+    },
 
     // Renderizar gráficos
     renderCharts() {
