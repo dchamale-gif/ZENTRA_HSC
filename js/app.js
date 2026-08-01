@@ -52,7 +52,9 @@ function initializeApp() {
     CajaModule.init();
     CuentasPorCobrarModule.init();
     EstadosDeCuentaModule.init();
-    DashboardFinancieroModule.init();
+    if (typeof DashboardFinancieroModule !== 'undefined' && DashboardFinancieroModule.init) {
+        try { DashboardFinancieroModule.init(); } catch(e) { console.warn('DashboardFinancieroModule init error:', e); }
+    }
     if (typeof ReportsModule !== 'undefined' && ReportsModule.init) {
         try { ReportsModule.init(); } catch(e) { console.warn('ReportsModule init error:', e); }
     }
