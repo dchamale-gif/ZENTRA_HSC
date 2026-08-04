@@ -15,7 +15,7 @@ class AuthManager {
     getApiBaseUrl() {
         // Si estamos en desarrollo local
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-            return 'http://localhost:3000';
+            return 'http://localhost:3011';
         }
         // Si estamos en producción (HTTPS)
         if (window.location.protocol === 'https:') {

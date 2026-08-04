@@ -79,7 +79,8 @@ app.use('/api/proveedores', proveedoresRoutes);
 
 // Facturación
 app.use('/api/billing', billingRoutes);
-Doctores y especialidades
+
+// Doctores y especialidades
 app.use('/api/doctors', doctorsRoutes);
 
 // Citas y agenda
