@@ -46,6 +46,10 @@
                     <i class="fas fa-file-prescription"></i>
                     <span>Órdenes Médicas</span>
                 </a>
+                <a href="#" class="nav-item" data-page="personal">
+                    <i class="fas fa-user-md"></i>
+                    <span>Personal Médico</span>
+                </a>
 
                 <!-- MÓDULO CONTABLE -->
                 <div class="nav-section-title">MÓDULO CONTABLE</div>
@@ -1454,6 +1458,45 @@
 
                     <!-- Tabla de órdenes -->
                     <div class="table-responsive" id="ordenesTable" style="background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <!-- Poblada por JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Personal Médico Page -->
+                <div id="page-personal" class="page">
+                    <div class="page-header">
+                        <h1><i class="fas fa-user-md"></i> Gestión de Personal Médico</h1>
+                        <button class="btn btn-primary" id="btnNuevoPersonal">
+                            <i class="fas fa-user-plus"></i> Registrar Personal
+                        </button>
+                    </div>
+
+                    <!-- Filtros -->
+                    <div class="filter-panel">
+                        <div class="filter-row">
+                            <input type="text" id="searchPersonal" class="form-input" placeholder="Buscar por nombre, email o licencia...">
+                            <select id="filterEspecialidadPersonal" class="form-input">
+                                <option value="">Todas las especialidades</option>
+                                <option value="1">Psiquiatría General</option>
+                                <option value="2">Psiquiatría Infantil</option>
+                                <option value="3">Psicología Clínica</option>
+                                <option value="4">Terapia Cognitivo-Conductual</option>
+                                <option value="5">Adicciones y Rehabilitación</option>
+                                <option value="6">Psiquiatría Forense</option>
+                            </select>
+                            <select id="filterEstadoPersonal" class="form-input">
+                                <option value="activos">Activos</option>
+                                <option value="todos">Todos</option>
+                                <option value="inactivos">Inactivos</option>
+                            </select>
+                            <button class="btn btn-outline" onclick="PersonalModule.loadData()">
+                                <i class="fas fa-sync-alt"></i> Actualizar
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tabla de Personal -->
+                    <div class="table-responsive" id="personalTable" style="background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                         <!-- Poblada por JavaScript -->
                     </div>
                 </div>
@@ -4120,6 +4163,92 @@
         </div>
     </div>
 
+    <!-- Modal Personal Médico -->
+    <div id="personalModal" class="modal">
+        <div class="modal-content modal-content-lg">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-plus"></i> Nuevo Personal Médico</h2>
+                <button class="modal-close" onclick="document.getElementById('personalModal').style.display='none'">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-section-title">Información Personal</div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Nombre <span class="required">*</span></label>
+                        <input type="text" id="personalNombre" class="form-input" placeholder="Nombre..." required>
+                    </div>
+                    <div class="form-group">
+                        <label>Apellido Paterno <span class="required">*</span></label>
+                        <input type="text" id="personalApellidoPaterno" class="form-input" placeholder="Apellido paterno..." required>
+                    </div>
+                    <div class="form-group">
+                        <label>Apellido Materno</label>
+                        <input type="text" id="personalApellidoMaterno" class="form-input" placeholder="Apellido materno...">
+                    </div>
+                </div>
+
+                <div class="form-section-title">Información Profesional</div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Especialidad <span class="required">*</span></label>
+                        <select id="personalEspecialidad" class="form-input" required>
+                            <option value="">-- Selecciona especialidad --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Licencia Profesional <span class="required">*</span></label>
+                        <input type="text" id="personalLicencia" class="form-input" placeholder="Número de licencia..." required>
+                    </div>
+                </div>
+
+                <div class="form-section-title">Contacto</div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Email <span class="required">*</span></label>
+                        <input type="email" id="personalEmail" class="form-input" placeholder="email@ejemplo.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Teléfono <span class="required">*</span></label>
+                        <input type="tel" id="personalTelefono" class="form-input" placeholder="+503 7000-0000" required>
+                    </div>
+                </div>
+
+                <div class="form-section-title">Horario Laboral</div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Hora Inicio <span class="required">*</span></label>
+                        <input type="time" id="personalHorarioInicio" class="form-input" value="08:00" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Hora Fin <span class="required">*</span></label>
+                        <input type="time" id="personalHorarioFin" class="form-input" value="16:00" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Estado</label>
+                        <select id="personalEstado" class="form-input">
+                            <option value="activo">Activo</option>
+                            <option value="inactivo">Inactivo</option>
+                            <option value="licencia">En Licencia</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row" style="margin-top: 20px;">
+                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('personalModal').style.display='none'">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="PersonalModule.guardarPersonal()">
+                        <i class="fas fa-save"></i> Guardar Personal
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Script imports -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -4143,6 +4272,7 @@
     <script src="js/saldo-paciente-facturacion-integrado.js"></script>
     <script src="js/hospitalizaciones.js"></script>
     <script src="js/ordenes-medicas.js"></script>
+    <script src="js/personal.js"></script>
     <script src="js/codigos-articulos.js"></script>
     <script src="js/caja-integrada.js"></script>
     <script src="js/compras.js"></script>
