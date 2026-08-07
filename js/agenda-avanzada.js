@@ -105,28 +105,35 @@ const AgendaAvanzadaModule = {
 
     // Cargar datos iniciales
     loadData() {
-        // Cargar de localStorage o usar datos por defecto
-        const savedDoctores = localStorage.getItem('agendaDoctores');
-        const savedBloqueos = localStorage.getItem('agendaBloqueos');
-        const savedRestricciones = localStorage.getItem('agendaRestricciones');
-        const savedCitas = localStorage.getItem('agendaCitas');
+        try {
+            // Intentar cargar de API primero
+            this.loadCitasFromAPI();
+        } catch (error) {
+            console.warn('Error cargando de API, usando localStorage:', error);
+            
+            // Fallback a localStorage
+            const savedDoctores = localStorage.getItem('agendaDoctores');
+            const savedBloqueos = localStorage.getItem('agendaBloqueos');
+            const savedRestricciones = localStorage.getItem('agendaRestricciones');
+            const savedCitas = localStorage.getItem('agendaCitas');
 
-        if (savedDoctores) {
-            this.state.doctores = JSON.parse(savedDoctores);
-        } else {
-            this.loadDefaultDoctores();
-        }
+            if (savedDoctores) {
+                this.state.doctores = JSON.parse(savedDoctores);
+            } else {
+                this.loadDefaultDoctores();
+            }
 
-        if (savedBloqueos) {
-            this.state.bloqueoPersonal = JSON.parse(savedBloqueos);
-        }
+            if (savedBloqueos) {
+                this.state.bloqueoPersonal = JSON.parse(savedBloqueos);
+            }
 
-        if (savedRestricciones) {
-            this.state.restriccionesDoctor = JSON.parse(savedRestricciones);
-        }
+            if (savedRestricciones) {
+                this.state.restriccionesDoctor = JSON.parse(savedRestricciones);
+            }
 
-        if (savedCitas) {
-            this.state.citas = JSON.parse(savedCitas);
+            if (savedCitas) {
+                this.state.citas = JSON.parse(savedCitas);
+            }
         }
 
         this.state.especialidades = [
@@ -140,6 +147,36 @@ const AgendaAvanzadaModule = {
 
         // Inicializar restricciones por defecto
         this.initDefaultRestricciones();
+    },
+
+    // Cargar citas desde API
+    loadCitasFromAPI() {
+        const token = authManager?.getToken?.();
+        const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
+
+        if (!token) {
+            throw new Error('No hay token de autenticación');
+        }
+
+        // Para ahora, cargar de localStorage como fallback
+        const savedCitas = localStorage.getItem('agendaCitas');
+        const savedDoctores = localStorage.getItem('agendaDoctores');
+
+        if (savedCitas) {
+            this.state.citas = JSON.parse(savedCitas);
+        }
+
+        if (savedDoctores) {
+            this.state.doctores = JSON.parse(savedDoctores);
+        } else {
+            this.loadDefaultDoctores();
+        }
+
+        // En el futuro, reemplazar con llamadas reales a API:
+        // fetch(`${apiBase}/citas`, { headers: { Authorization: `Bearer ${token}` } })
+        //     .then(r => r.json())
+        //     .then(data => this.state.citas = data.citas || [])
+        //     .catch(() => { /* fallback */ });
     },
 
     // Doctores por defecto
@@ -560,7 +597,7 @@ const AgendaAvanzadaModule = {
         }
     },
     
-    // Búsqueda de pacientes
+    // Búsqueda de pacientes - MEJORADA
     handlePatientSearch(searchTerm) {
         const suggestionsDiv = document.getElementById('patientSuggestions');
         if (!suggestionsDiv) return;
@@ -570,17 +607,29 @@ const AgendaAvanzadaModule = {
             return;
         }
         
-        // Obtener pacientes del módulo PacientesModule
+        // Obtener pacientes del módulo PacientesModule con normalización
         let pacientes = [];
         if (typeof PacientesModule !== 'undefined' && PacientesModule.state && PacientesModule.state.pacientes) {
             pacientes = PacientesModule.state.pacientes;
         }
         
-        const filtered = pacientes.filter(p => 
-            p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (p.cedula && p.cedula.includes(searchTerm)) ||
-            (p.email && p.email.toLowerCase().includes(searchTerm.toLowerCase()))
-        ).slice(0, 8);
+        const searchLower = searchTerm.toLowerCase();
+        const filtered = pacientes.filter(p => {
+            // Usar campos normalizados (camelCase)
+            const nombre = (p.nombre || '').toLowerCase();
+            const apellidoPaterno = (p.apellidoPaterno || p.apellido_paterno || '').toLowerCase();
+            const apellidoMaterno = (p.apellidoMaterno || p.apellido_materno || '').toLowerCase();
+            const dpi = (p.dpi || p.cedula || '').toLowerCase();
+            const email = (p.email || '').toLowerCase();
+            const telefono = (p.telefono || '').toLowerCase();
+            
+            return nombre.includes(searchLower) ||
+                   apellidoPaterno.includes(searchLower) ||
+                   apellidoMaterno.includes(searchLower) ||
+                   dpi.includes(searchLower) ||
+                   email.includes(searchLower) ||
+                   telefono.includes(searchLower);
+        }).slice(0, 8);
         
         if (filtered.length === 0) {
             suggestionsDiv.innerHTML = '<div style="padding: 10px; color: #999;">No hay pacientes que coincidan</div>';
@@ -588,12 +637,21 @@ const AgendaAvanzadaModule = {
             return;
         }
         
-        suggestionsDiv.innerHTML = filtered.map(p => `
-            <div style="padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; background: white;" onclick="selectPatientFromAgenda('${p.id}', '${p.nombre.replace(/'/g, '\\\'')}', '${(p.email || '').replace(/'/g, '\\\'')}', '${(p.telefono || '').replace(/'/g, '\\\'')}')" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
-                <strong>${p.nombre}</strong>
-                <div style="font-size: 12px; color: #666;">${p.cedula || 'Sin cédula'} | ${p.email || 'Sin email'}</div>
-            </div>
-        `).join('');
+        suggestionsDiv.innerHTML = filtered.map(p => {
+            const nombreCompleto = `${p.nombre || ''} ${p.apellidoPaterno || p.apellido_paterno || ''} ${p.apellidoMaterno || p.apellido_materno || ''}`.trim();
+            const dpi = p.dpi || p.cedula || 'Sin DPI';
+            const email = p.email || 'Sin email';
+            
+            return `
+                <div style="padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; background: white;" 
+                     onclick="AgendaAvanzadaModule.selectPatient('${p.id}', '${nombreCompleto.replace(/'/g, '\\\'')}', '${email.replace(/'/g, '\\\'')}', '${(p.telefono || '').replace(/'/g, '\\\'')}')" 
+                     onmouseover="this.style.background='#f5f5f5'" 
+                     onmouseout="this.style.background='white'">
+                    <strong>${nombreCompleto}</strong>
+                    <div style="font-size: 12px; color: #666;">${dpi} | ${email}</div>
+                </div>
+            `;
+        }).join('');
         
         suggestionsDiv.style.display = 'block';
     },
@@ -627,73 +685,194 @@ const AgendaAvanzadaModule = {
         alert(`✓ Paciente creado: ${nombre}\\n\\nPuedes completar más datos después de la consulta.`);
     },
 
-    // Guardar cita
+    // Guardar cita CON VALIDACIONES MEJORADAS
     saveAppointment() {
-        const patientName = document.getElementById('patientName')?.value;
-        const patientId = document.getElementById('patientId')?.value;
-        const email = document.getElementById('patientEmail')?.value;
-        const phone = document.getElementById('patientPhone')?.value;
+        const patientName = document.getElementById('patientName')?.value?.trim();
+        const patientId = document.getElementById('patientId')?.value?.trim();
+        const email = document.getElementById('patientEmail')?.value?.trim();
+        const phone = document.getElementById('patientPhone')?.value?.trim();
         const specialtyId = document.getElementById('appointmentSpecialty')?.value;
         const doctorId = document.getElementById('appointmentDoctor')?.value;
         const dateStr = document.getElementById('appointmentDate')?.value;
         const time = document.getElementById('appointmentTime')?.value;
-        const conditions = document.getElementById('appointmentConditions')?.value;
-        const notes = document.getElementById('appointmentNotes')?.value;
+        const conditions = document.getElementById('appointmentConditions')?.value?.trim();
+        const notes = document.getElementById('appointmentNotes')?.value?.trim();
 
-        if (!patientName || !doctorId || !dateStr || !time || !conditions) {
-            alert('Por favor completa todos los campos obligatorios');
+        // Validación de campos obligatorios
+        if (!patientName) {
+            AlertasModule.mostrarError('Nombre del paciente es obligatorio');
+            return;
+        }
+        if (!doctorId) {
+            AlertasModule.mostrarError('Selecciona un doctor');
+            return;
+        }
+        if (!dateStr) {
+            AlertasModule.mostrarError('Selecciona una fecha');
+            return;
+        }
+        if (!time) {
+            AlertasModule.mostrarError('Selecciona una hora');
+            return;
+        }
+        if (!conditions) {
+            AlertasModule.mostrarError('Describe la condición/motivo de la consulta');
             return;
         }
 
-        // Validar disponibilidad
-        const citaExistente = this.state.citas.some(c =>
-            c.doctorId === doctorId &&
-            c.fecha === dateStr &&
-            c.hora === time &&
-            c.estado !== 'Cancelada'
-        );
-
-        if (citaExistente) {
-            alert('Esa hora ya está ocupada');
+        // Validación de fecha (no puede ser en el pasado)
+        const appointmentDate = new Date(dateStr);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (appointmentDate < today) {
+            AlertasModule.mostrarError('No puedes agendar citas en fechas pasadas');
             return;
         }
 
+        // Validación de disponibilidad del doctor
+        const validationResult = this.validateAvailability(doctorId, dateStr, time);
+        if (!validationResult.available) {
+            AlertasModule.mostrarError(validationResult.message);
+            return;
+        }
+
+        // Crear nueva cita
         const doctor = this.state.doctores.find(d => d.id === doctorId);
         const specialty = this.state.especialidades.find(e => e.id == specialtyId);
 
         const newAppointment = {
             id: `CIT-${Date.now()}`,
-            pacienteId: patientId,
+            pacienteId: patientId || `PAC-TEMP-${Date.now()}`,
             paciente: patientName,
-            email: email,
-            telefono: phone,
+            email: email || '',
+            telefono: phone || '',
             doctorId: doctorId,
             doctorNombre: doctor?.nombre,
             doctorColor: doctor?.color,
             doctorBgColor: doctor?.bgColor,
-            especialidad: specialty?.nombre,
-            especialidadId: specialtyId,
+            especialidad: specialty?.nombre || 'Sin especialidad',
+            especialidadId: specialtyId || 0,
             especialidadColor: specialty?.color,
             especialidadBgColor: specialty?.bgColor,
             fecha: dateStr,
             hora: time,
             condiciones: conditions,
-            notas: notes,
+            notas: notes || '',
             estado: 'Pendiente',
-            fechaCreacion: new Date().toISOString()
+            fechaCreacion: new Date().toISOString(),
+            confirmada: false
         };
 
+        // Agregar a state
         this.state.citas.push(newAppointment);
+        
+        // Guardar a localStorage
         this.saveCitasToStorage();
+        
+        // Intentar guardar a API
+        this.saveCitaToAPI(newAppointment);
+        
+        // Actualizar vista
         this.renderCalendar();
 
+        // Cerrar modal
         const modal = document.getElementById('appointmentModal');
         if (modal) {
             modal.style.display = 'none';
         }
 
-        alert('✓ Cita agendada correctamente para ' + patientName);
+        AlertasModule.mostrarExito(`✓ Cita agendada para ${patientName} el ${dateStr} a las ${time}`);
         this.sendConfirmationEmail(newAppointment);
+    },
+
+    // Validar disponibilidad del doctor
+    validateAvailability(doctorId, dateStr, timeStr) {
+        const doctor = this.state.doctores.find(d => d.id === doctorId);
+        
+        // Verificar que el doctor existe
+        if (!doctor) {
+            return { available: false, message: 'El doctor seleccionado no existe' };
+        }
+
+        // Verificar que la fecha es válida
+        const date = new Date(dateStr);
+        if (isNaN(date)) {
+            return { available: false, message: 'Fecha inválida' };
+        }
+
+        // Verificar el día de la semana
+        const dayName = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'][date.getDay()];
+        const horarios = doctor.horariosLaborales?.[dayName];
+
+        if (!horarios || !horarios.inicio) {
+            return { available: false, message: `El doctor no atiende los ${dayName}s` };
+        }
+
+        // Verificar si hay bloqueo de personal (vacaciones, permisos)
+        const enBloqueo = this.state.bloqueoPersonal.some(bloqueo =>
+            bloqueo.doctorId === doctorId &&
+            this.isFechaEnRango(dateStr, bloqueo.fechaInicio, bloqueo.fechaFin)
+        );
+
+        if (enBloqueo) {
+            return { available: false, message: `El doctor no está disponible en esa fecha (bloqueo de personal)` };
+        }
+
+        // Verificar disponibilidad de la hora específica
+        const citaExistente = this.state.citas.some(c =>
+            c.doctorId === doctorId &&
+            c.fecha === dateStr &&
+            c.hora === timeStr &&
+            c.estado !== 'Cancelada'
+        );
+
+        if (citaExistente) {
+            return { available: false, message: `Esa hora (${timeStr}) ya está reservada` };
+        }
+
+        // Verificar rango horario
+        const [appHour, appMin] = timeStr.split(':').map(Number);
+        const [startHour, startMin] = horarios.inicio.split(':').map(Number);
+        const [endHour, endMin] = horarios.fin.split(':').map(Number);
+
+        const appTime = appHour * 60 + appMin;
+        const startTime = startHour * 60 + startMin;
+        const endTime = endHour * 60 + endMin;
+
+        if (appTime < startTime || appTime >= endTime) {
+            return { available: false, message: `Hora fuera del horario laboral (${horarios.inicio} - ${horarios.fin})` };
+        }
+
+        return { available: true, message: 'Disponible' };
+    },
+
+    // Guardar cita a API
+    saveCitaToAPI(appointment) {
+        try {
+            const token = authManager?.getToken?.();
+            const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
+
+            if (!token) {
+                console.warn('No hay token, cita solo guardada en localStorage');
+                return;
+            }
+
+            // Para futuro: integrar con API real
+            // fetch(`${apiBase}/citas`, {
+            //     method: 'POST',
+            //     headers: {
+            //         'Authorization': `Bearer ${token}`,
+            //         'Content-Type': 'application/json'
+            //     },
+            //     body: JSON.stringify(appointment)
+            // })
+            // .then(r => r.json())
+            // .catch(e => console.warn('Error guardando a API:', e));
+
+            console.log('Cita guardada en localStorage (API no disponible aún)');
+        } catch (error) {
+            console.warn('Error intentando guardar a API:', error);
+        }
     },
 
     // Confirmar cita
@@ -701,13 +880,17 @@ const AgendaAvanzadaModule = {
         const appointment = this.state.citas.find(c => c.id === appointmentId);
         if (appointment) {
             appointment.estado = 'Confirmada';
+            appointment.confirmada = true;
             appointment.fechaConfirmacion = new Date().toISOString();
+            
             this.saveCitasToStorage();
+            this.updateCitaInAPI(appointment);
             this.renderCalendar();
+            
             if (this.state.selectedDate) {
                 this.displayAppointmentsForDate(this.state.selectedDate);
             }
-            alert('✓ Cita confirmada para ' + appointment.paciente);
+            AlertasModule.mostrarExito(`✓ Cita confirmada para ${appointment.paciente}`);
         }
     },
 
@@ -715,8 +898,31 @@ const AgendaAvanzadaModule = {
     editAppointment(appointmentId) {
         const appointment = this.state.citas.find(c => c.id === appointmentId);
         if (appointment) {
-            console.log('Editando cita:', appointment);
-            alert('Funcionalidad de edición en desarrollo');
+            // Llenar el formulario modal con los datos de la cita
+            document.getElementById('patientName').value = appointment.paciente;
+            document.getElementById('patientId').value = appointment.pacienteId;
+            document.getElementById('patientEmail').value = appointment.email;
+            document.getElementById('patientPhone').value = appointment.telefono;
+            document.getElementById('appointmentSpecialty').value = appointment.especialidadId;
+            document.getElementById('appointmentDoctor').value = appointment.doctorId;
+            document.getElementById('appointmentDate').value = appointment.fecha;
+            document.getElementById('appointmentTime').value = appointment.hora;
+            document.getElementById('appointmentConditions').value = appointment.condiciones;
+            document.getElementById('appointmentNotes').value = appointment.notas || '';
+            
+            // Guardar el ID de la cita siendo editada
+            const modal = document.getElementById('appointmentModal');
+            if (modal) {
+                modal.dataset.editingAppointmentId = appointmentId;
+                modal.style.display = 'block';
+            }
+            
+            // Cambiar botón de "Crear" a "Actualizar"
+            const saveBtn = document.querySelector('[onclick*="AgendaAvanzadaModule.saveAppointment"]') || 
+                          document.querySelector('button:contains("Guardar")');
+            if (saveBtn) {
+                saveBtn.textContent = '✏️ Actualizar Cita';
+            }
         }
     },
 
@@ -727,13 +933,43 @@ const AgendaAvanzadaModule = {
             if (appointment) {
                 appointment.estado = 'Cancelada';
                 appointment.fechaCancelacion = new Date().toISOString();
+                
                 this.saveCitasToStorage();
+                this.updateCitaInAPI(appointment);
                 this.renderCalendar();
+                
                 if (this.state.selectedDate) {
                     this.displayAppointmentsForDate(this.state.selectedDate);
                 }
-                alert('✓ Cita cancelada');
+                AlertasModule.mostrarExito('✓ Cita cancelada');
             }
+        }
+    },
+
+    // Actualizar cita en API
+    updateCitaInAPI(appointment) {
+        try {
+            const token = authManager?.getToken?.();
+            const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
+
+            if (!token) {
+                console.warn('No hay token, cambio solo en localStorage');
+                return;
+            }
+
+            // Para futuro: integrar con API real
+            // fetch(`${apiBase}/citas/${appointment.id}`, {
+            //     method: 'PUT',
+            //     headers: {
+            //         'Authorization': `Bearer ${token}`,
+            //         'Content-Type': 'application/json'
+            //     },
+            //     body: JSON.stringify(appointment)
+            // })
+            // .then(r => r.json())
+            // .catch(e => console.warn('Error actualizando en API:', e));
+        } catch (error) {
+            console.warn('Error intentando actualizar en API:', error);
         }
     },
 

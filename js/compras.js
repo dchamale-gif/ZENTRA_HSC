@@ -177,47 +177,68 @@ const ComprasModule = {
 
     // Guardar compra
     savePurchase() {
-        const type = document.getElementById('purchaseType')?.value;
-        const provider = document.getElementById('purchaseProvider')?.value;
-        const total = document.getElementById('purchaseTotal')?.value;
-        const date = document.getElementById('purchaseDate')?.value;
+        // Validar datos del formulario
+        const provider = document.getElementById('purchaseProvider')?.value?.trim();
+        const date = document.getElementById('purchaseDate')?.value?.trim();
+        const total = document.getElementById('purchaseTotal')?.value?.trim();
+        const type = document.getElementById('purchaseType')?.value?.trim();
 
-        if (!type || !provider || !total || !date) {
-            alert('Por favor, completa todos los campos obligatorios');
+        if (!provider || !date || !total || !type) {
+            alert('❌ Por favor, completa todos los campos obligatorios:\n- Proveedor\n- Fecha\n- Total\n- Tipo de Compra');
             return;
         }
 
+        // Validar que total sea un número válido
+        const totalNum = parseFloat(total);
+        if (isNaN(totalNum) || totalNum <= 0) {
+            alert('❌ El total debe ser un número mayor a 0');
+            return;
+        }
+
+        // Crear nueva compra
         const newPurchase = {
             id: `OC-${Date.now()}`,
             proveedor: provider,
             fecha: date,
-            total: parseFloat(total),
+            total: totalNum,
             estado: 'Pendiente',
+            tipo: type,
             items: [],
-            tipo: type
+            createdAt: new Date().toISOString()
         };
 
+        // Agregar a estado
         this.state.compras.push(newPurchase);
+        
+        // Guardar en localStorage
+        localStorage.setItem('compras', JSON.stringify(this.state.compras));
         
         // Crear alerta para la compra
         if (window.AlertasModule) {
             AlertasModule.crearAlerta({
                 tipo: 'compra',
                 titulo: `Nueva compra registrada: ${provider}`,
-                descripcion: `Compra de $${total} registrada el ${date}`,
+                descripcion: `Compra de $${totalNum.toFixed(2)} registrada el ${date}`,
                 prioridad: 'media',
                 referencia: newPurchase.id,
                 referenciaType: 'compra'
             });
         }
         
-        this.refreshTable();
+        // Limpiar formulario y cerrar modal
+        const form = document.getElementById('purchaseForm');
+        if (form) form.reset();
         
         const modal = document.getElementById('purchaseModal');
         if (modal) {
             modal.style.display = 'none';
         }
-        alert('Compra registrada correctamente');
+        
+        // Actualizar tabla
+        this.refreshTable();
+        
+        console.log('✅ Compra registrada correctamente:', newPurchase.id);
+        alert(`✅ Compra registrada correctamente (${newPurchase.id})`);
     },
 
     // Filtrar compras

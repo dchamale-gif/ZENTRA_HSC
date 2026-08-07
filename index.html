@@ -42,6 +42,10 @@
                     <i class="fas fa-hospital-user"></i>
                     <span>Hospitalizaciones</span>
                 </a>
+                <a href="#" class="nav-item" data-page="ordenes-medicas">
+                    <i class="fas fa-file-prescription"></i>
+                    <span>Órdenes Médicas</span>
+                </a>
 
                 <!-- MÓDULO CONTABLE -->
                 <div class="nav-section-title">MÓDULO CONTABLE</div>
@@ -295,6 +299,12 @@
                             <option value="todos">Todos los Pacientes</option>
                             <option value="cliente">Solo Clientes</option>
                             <option value="no-cliente">No Clientes</option>
+                            <option value="">--- ORDENAMIENTO ---</option>
+                            <option value="alfabetico-asc">Alfabético (A-Z)</option>
+                            <option value="alfabetico-desc">Alfabético (Z-A)</option>
+                            <option value="">--- ESTADO DE PAGO ---</option>
+                            <option value="deudor">Con Saldo Pendiente</option>
+                            <option value="pagado">Pagados</option>
                         </select>
                     </div>
 
@@ -537,12 +547,14 @@
                                 <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                                     <div style="font-weight: bold; color: #2c3e50; margin-bottom: 15px;">📌 Filtros</div>
                                     <div style="margin-bottom: 15px;">
-                                        <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">Estado</label>
-                                        <select id="filterEstado" onchange="SaldoPacienteFacturacion.actualizarTabla()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                        <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">Filtros</label>
+                                        <select id="filterEstado" onchange="SaldoPacienteModule.renderSaldosPacientes()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                                             <option value="todos">Todos</option>
-                                            <option value="deudores">Deudores</option>
+                                            <option value="deudores">Solo Deudores</option>
                                             <option value="pagados">Pagados</option>
-                                            <option value="morosos">Morosos (+30 días)</option>
+                                            <option value="">--- ORDENAMIENTO ---</option>
+                                            <option value="alfabetico-asc">Alfabético (A-Z)</option>
+                                            <option value="alfabetico-desc">Alfabético (Z-A)</option>
                                         </select>
                                     </div>
                                 </div>
@@ -1247,26 +1259,68 @@
                 <!-- Caja Page -->
                 <div id="page-caja" class="page">
                     <div class="page-header">
-                        <h1>Gestión de Caja</h1>
+                        <h1>📦 Gestión de Caja</h1>
+                        <button class="btn btn-primary" onclick="CajaModule.openMovementModal()">
+                            <i class="fas fa-plus"></i> Nuevo Movimiento
+                        </button>
                     </div>
+                    
                     <div id="cashStatus" class="cash-status-container"></div>
-                    <div class="cash-content">
-                        <div class="form-group">
-                            <label>Saldo Inicial</label>
-                            <input type="number" id="saldoInicial" class="form-input" placeholder="0.00" step="0.01">
+                    
+                    <!-- Filtros y Búsqueda -->
+                    <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                            <div>
+                                <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">🔍 Buscar</label>
+                                <input type="text" id="searchMovimientos" placeholder="Cliente, referencia o descripción..." class="form-input">
+                            </div>
+                            <div>
+                                <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">📋 Tipo</label>
+                                <select id="filterTipoMovimiento" class="form-input">
+                                    <option value="todos">Todos</option>
+                                    <option value="Ingreso">Ingresos</option>
+                                    <option value="Egreso">Egresos</option>
+                                    <option value="Transferencia">Transferencias</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">📅 Fecha</label>
+                                <select id="filterFechaMovimiento" class="form-input">
+                                    <option value="todos">Todos los períodos</option>
+                                    <option value="hoy">Hoy</option>
+                                    <option value="semana">Última semana</option>
+                                    <option value="mes">Último mes</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: flex-end;">
+                                <button class="btn btn-secondary" onclick="CajaModule.loadData()" style="width: 100%;">
+                                    <i class="fas fa-sync"></i> Actualizar
+                                </button>
+                            </div>
                         </div>
-                        <table id="movementsTable">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Fecha</th>
-                                    <th>Descripción</th>
-                                    <th>Tipo</th>
-                                    <th>Monto</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
+                    </div>
+
+                    <div class="cash-content">
+                        <div class="table-responsive">
+                            <table id="movementsTable" class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Fecha y Hora</th>
+                                        <th>Descripción</th>
+                                        <th>Cliente</th>
+                                        <th>Referencia</th>
+                                        <th>Tipo</th>
+                                        <th class="text-right">Monto</th>
+                                        <th>Usuario</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td colspan="9" class="text-center">Cargando...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
@@ -1353,6 +1407,54 @@
                             <h3>Ingresos por Categoría</h3>
                             <div id="ingresoCategoriaChart"></div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Órdenes Médicas Page -->
+                <div id="page-ordenes-medicas" class="page">
+                    <div class="page-header">
+                        <h1><i class="fas fa-file-medical-alt"></i> Órdenes Médicas</h1>
+                        <button class="btn btn-primary" id="btnNuevaOrdenMedica">
+                            <i class="fas fa-plus"></i> Nueva Orden
+                        </button>
+                    </div>
+
+                    <!-- Filtros y Búsqueda -->
+                    <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                            <div>
+                                <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">🔍 Buscar</label>
+                                <input type="text" id="searchOrdenMedica" placeholder="Paciente, ID orden o descripción..." class="form-input">
+                            </div>
+                            <div>
+                                <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">📋 Estado</label>
+                                <select id="filterEstadoOrden" class="form-input">
+                                    <option value="todos">Todos</option>
+                                    <option value="pendiente">Pendiente</option>
+                                    <option value="completada">Completada</option>
+                                    <option value="cancelada">Cancelada</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">📅 Fecha</label>
+                                <select id="filterFechaOrden" class="form-input">
+                                    <option value="todos">Todos los períodos</option>
+                                    <option value="hoy">Hoy</option>
+                                    <option value="semana">Última semana</option>
+                                    <option value="mes">Último mes</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: flex-end;">
+                                <button class="btn btn-secondary" onclick="OrdenesmedicasModule.loadData()" style="width: 100%;">
+                                    <i class="fas fa-sync"></i> Actualizar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tabla de órdenes -->
+                    <div class="table-responsive" id="ordenesTable" style="background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <!-- Poblada por JavaScript -->
                     </div>
                 </div>
 
@@ -3023,8 +3125,8 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="CajaIntegradaModule.closeMovimientoModal()">Cancelar</button>
-                <button class="btn btn-primary" id="saveMovimientoCajaBtn">
+                <button class="btn btn-secondary" onclick="document.getElementById('movimientoCajaModal').style.display='none'">Cancelar</button>
+                <button class="btn btn-primary" onclick="CajaModule.addMovement()">
                     <i class="fas fa-save"></i> Registrar Movimiento
                 </button>
             </div>
@@ -3945,12 +4047,86 @@
         </div>
     </div>
 
+    <!-- Modal Orden Médica -->
+    <div id="ordenMedicaModal" class="modal">
+        <div class="modal-content modal-content-lg">
+            <div class="modal-header">
+                <h2><i class="fas fa-file-medical-alt"></i> Nueva Orden Médica</h2>
+                <button class="modal-close" onclick="document.getElementById('ordenMedicaModal').style.display='none'">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-section-title">Información General</div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Paciente <span class="required">*</span></label>
+                        <select id="ordenPacienteId" class="form-input" required>
+                            <option value="">-- Selecciona un paciente --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Doctor <span class="required">*</span></label>
+                        <input type="text" id="ordenDoctor" class="form-input" placeholder="Nombre del doctor..." required>
+                    </div>
+                </div>
+
+                <div class="form-section-title">Descripción de la Orden</div>
+
+                <div class="form-row">
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label>Descripción <span class="required">*</span></label>
+                        <textarea id="ordenDescripcion" class="form-input" placeholder="Motivo de la orden médica..." rows="3" required></textarea>
+                    </div>
+                </div>
+
+                <div class="form-section-title">Servicios Solicitados</div>
+
+                <div class="form-row">
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label>Agregar Servicio</label>
+                        <div style="display: flex; gap: 10px;">
+                            <select id="serviciosDisponibles" class="form-input" style="flex: 1;">
+                                <option value="">-- Selecciona servicio --</option>
+                            </select>
+                            <button type="button" class="btn btn-primary" onclick="OrdenesmedicasModule.agregarServicio()">
+                                <i class="fas fa-plus"></i> Agregar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row" id="serviciosSeleccionados" style="grid-column: 1 / -1; margin-top: 15px; padding: 15px; background: #f9f9f9; border-radius: 4px;">
+                    <p style="text-align: center; color: #999;">No hay servicios seleccionados</p>
+                </div>
+
+                <div class="form-section-title">Notas Adicionales</div>
+
+                <div class="form-row">
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label>Notas (Opcional)</label>
+                        <textarea id="ordenNotas" class="form-input" placeholder="Observaciones o instrucciones especiales..." rows="2"></textarea>
+                    </div>
+                </div>
+
+                <div class="form-row" style="margin-top: 20px;">
+                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('ordenMedicaModal').style.display='none'">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="OrdenesmedicasModule.guardarOrden()">
+                        <i class="fas fa-save"></i> Guardar Orden
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Script imports -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="js/config.js"></script>
+    <script src="js/data-normalizer.js"></script>
     <script src="js/file-utils.js"></script>
     <script src="data/demo-data.js"></script>
     <script src="js/api-helper.js"></script>
@@ -3966,6 +4142,7 @@
     <script src="js/saldo-paciente.js"></script>
     <script src="js/saldo-paciente-facturacion-integrado.js"></script>
     <script src="js/hospitalizaciones.js"></script>
+    <script src="js/ordenes-medicas.js"></script>
     <script src="js/codigos-articulos.js"></script>
     <script src="js/caja-integrada.js"></script>
     <script src="js/compras.js"></script>

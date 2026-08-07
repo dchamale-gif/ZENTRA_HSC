@@ -67,6 +67,27 @@ const SaldoPacienteModule = {
             filtered = filtered.filter(s => s.saldoPendiente > 0);
         } else if (this.filtroEstado === 'pagados') {
             filtered = filtered.filter(s => s.saldoPendiente === 0);
+        } else if (this.filtroEstado === 'alfabetico-asc') {
+            // Ordenamiento A-Z
+            filtered.sort((a, b) => {
+                const pacientA = this.state.pacientes.find(p => p.id === parseInt(a.pacienteId, 10));
+                const pacientB = this.state.pacientes.find(p => p.id === parseInt(b.pacienteId, 10));
+                const nameA = `${pacientA?.nombre || ''} ${pacientA?.apellidoPaterno || pacientA?.apellido_paterno || ''}`.toLowerCase().trim();
+                const nameB = `${pacientB?.nombre || ''} ${pacientB?.apellidoPaterno || pacientB?.apellido_paterno || ''}`.toLowerCase().trim();
+                return nameA.localeCompare(nameB, 'es');
+            });
+        } else if (this.filtroEstado === 'alfabetico-desc') {
+            // Ordenamiento Z-A
+            filtered.sort((a, b) => {
+                const pacientA = this.state.pacientes.find(p => p.id === parseInt(a.pacienteId, 10));
+                const pacientB = this.state.pacientes.find(p => p.id === parseInt(b.pacienteId, 10));
+                const nameA = `${pacientA?.nombre || ''} ${pacientA?.apellidoPaterno || pacientA?.apellido_paterno || ''}`.toLowerCase().trim();
+                const nameB = `${pacientB?.nombre || ''} ${pacientB?.apellidoPaterno || pacientB?.apellido_paterno || ''}`.toLowerCase().trim();
+                return nameB.localeCompare(nameA, 'es');
+            });
+        } else {
+            // Ordenamiento por defecto: por saldo pendiente (mayor primero)
+            filtered.sort((a, b) => b.saldoPendiente - a.saldoPendiente);
         }
 
         // Búsqueda
@@ -85,7 +106,7 @@ const SaldoPacienteModule = {
         tbody.innerHTML = '';
         
         if (filtered.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center">No hay pacientes registrados</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center" style="padding: 20px; color: #999;">No hay pacientes registrados</td></tr>';
             return;
         }
 

@@ -37,21 +37,55 @@ const HospitalizacionesModule = {
         }
     },
 
-    // Cargar datos
+    // Cargar datos CON SOPORTE A API
     loadData() {
+        try {
+            // Intentar cargar de API
+            this.loadDataFromAPI();
+        } catch (error) {
+            console.warn('Error cargando de API, usando localStorage:', error);
+            
+            // Fallback a localStorage y datos demo
+            const demoData = window.DemoData || {};
+            this.state.pacientes = JSON.parse(JSON.stringify(demoData.pacientes || []));
+            
+            const hospFromStorage = localStorage.getItem('hospitalizaciones');
+            if (hospFromStorage) {
+                this.state.hospitalizaciones = JSON.parse(hospFromStorage);
+            } else {
+                this.state.hospitalizaciones = JSON.parse(JSON.stringify(demoData.hospitalizaciones || []));
+            }
+        }
+        
+        this.render();
+    },
+
+    // Cargar datos desde API
+    loadDataFromAPI() {
+        const token = authManager?.getToken?.();
+        const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
+
+        if (!token) {
+            throw new Error('No hay token de autenticación');
+        }
+
+        // Para ahora, usar localStorage como fallback
         const demoData = window.DemoData || {};
         this.state.pacientes = JSON.parse(JSON.stringify(demoData.pacientes || []));
         
-        // Cargar hospitalizaciones desde localStorage si existen
         const hospFromStorage = localStorage.getItem('hospitalizaciones');
         if (hospFromStorage) {
             this.state.hospitalizaciones = JSON.parse(hospFromStorage);
         } else {
-            // Cargar demo data si existe
             this.state.hospitalizaciones = JSON.parse(JSON.stringify(demoData.hospitalizaciones || []));
         }
-        
-        this.render();
+
+        // En futuro: integrar con API real
+        // fetch(`${apiBase}/camas/disponibles`, { 
+        //     headers: { Authorization: `Bearer ${token}` }
+        // }).then(r => r.json()).then(data => {
+        //     // Procesar camas disponibles
+        // }).catch(e => console.warn('Error:', e));
     },
 
     // Guardar datos a localStorage
@@ -597,10 +631,19 @@ const HospitalizacionesModule = {
         document.body.appendChild(modal);
     },
 
-    // Renderizar pacientes disponibles para hospitalización
+    // Renderizar pacientes disponibles para hospitalización - MEJORADO
     renderPacientesSeleccionables(camaId) {
-        // Filtrar pacientes que no están hospitalizados o que están dados de alta
-        const pacientesDisponibles = this.state.pacientes.filter(p => {
+        // Obtener pacientes del módulo PacientesModule con normalización
+        let pacientesDisponibles = [];
+        
+        if (typeof PacientesModule !== 'undefined' && PacientesModule.state && PacientesModule.state.pacientes) {
+            pacientesDisponibles = PacientesModule.state.pacientes;
+        } else {
+            pacientesDisponibles = this.state.pacientes || [];
+        }
+        
+        // Filtrar pacientes que no están hospitalizados o están dados de alta
+        pacientesDisponibles = pacientesDisponibles.filter(p => {
             const yaHospitalizado = this.state.hospitalizaciones.find(h => 
                 h.pacienteId === p.id && h.estado === 'activa'
             );
@@ -608,21 +651,32 @@ const HospitalizacionesModule = {
         });
 
         let html = '';
+        if (pacientesDisponibles.length === 0) {
+            html = '<div style="text-align: center; color: #999; padding: 20px;"><i class="fas fa-info-circle"></i> No hay pacientes disponibles</div>';
+            return html;
+        }
+
         pacientesDisponibles.forEach(paciente => {
+            // Usar campos normalizados (camelCase), con fallback a snake_case
+            const nombre = paciente.nombre || '';
+            const apellidoPaterno = paciente.apellidoPaterno || paciente.apellido_paterno || '';
+            const apellidoMaterno = paciente.apellidoMaterno || paciente.apellido_materno || '';
+            const dpi = paciente.dpi || paciente.cedula || '';
+            const edad = paciente.edad || 'N/A';
+            const genero = paciente.genero || paciente.sexo || 'N/A';
+            
+            const nombreCompleto = `${nombre} ${apellidoPaterno} ${apellidoMaterno}`.trim();
+            
             html += `
                 <div style="border: 1px solid #ddd; padding: 12px; border-radius: 5px; cursor: pointer; transition: all 0.2s;"
                      onclick="HospitalizacionesModule.openDatosHospitalizacion('${paciente.id}', '${camaId}')"
                      onmouseover="this.style.background='#f5f5f5'; this.style.borderColor='#2196F3';"
                      onmouseout="this.style.background='white'; this.style.borderColor='#ddd';">
-                    <strong>${paciente.nombre} ${paciente.apellido}</strong><br>
-                    <small>Cédula: ${paciente.cedula} | Edad: ${paciente.edad} años | ${paciente.genero}</small>
+                    <strong>${nombreCompleto}</strong><br>
+                    <small>DPI: ${dpi} | Edad: ${edad} años | ${genero}</small>
                 </div>
             `;
         });
-
-        if (pacientesDisponibles.length === 0) {
-            html = '<div style="text-align: center; color: #999; padding: 20px;"><i class="fas fa-info-circle"></i> No hay pacientes disponibles</div>';
-        }
 
         return html;
     },
@@ -689,26 +743,56 @@ const HospitalizacionesModule = {
         document.body.appendChild(modal);
     },
 
-    // Confirmar hospitalización
+    // Confirmar hospitalización CON VALIDACIONES MEJORADAS
     confirmarHospitalizacion(pacienteId, camaId) {
-        const diagnostico = document.getElementById('hospDiagnostico').value;
-        const observaciones = document.getElementById('hospObservaciones').value;
+        const diagnostico = document.getElementById('hospDiagnostico')?.value?.trim();
+        const observaciones = document.getElementById('hospObservaciones')?.value?.trim();
 
-        if (!diagnostico.trim()) {
-            alert('Por favor ingresa el diagnóstico');
+        // Validación de campos obligatorios
+        if (!diagnostico) {
+            AlertasModule.mostrarError('El diagnóstico es obligatorio');
             return;
         }
 
-        // Validar que el paciente no esté ya hospitalizado
+        if (diagnostico.length < 10) {
+            AlertasModule.mostrarError('El diagnóstico debe tener al menos 10 caracteres');
+            return;
+        }
+
+        // Validar que la cama existe
+        if (!camaId || typeof camaId !== 'string' || !camaId.includes('-')) {
+            AlertasModule.mostrarError('Cama inválida');
+            return;
+        }
+
+        // Validar que el paciente existe
+        const paciente = this.state.pacientes.find(p => p.id === pacienteId);
+        if (!paciente) {
+            AlertasModule.mostrarError('Paciente no encontrado');
+            return;
+        }
+
+        // Validar que no está ya hospitalizado
         const yaHospitalizado = this.state.hospitalizaciones.find(h => 
             h.pacienteId === pacienteId && h.estado === 'activa'
         );
         
         if (yaHospitalizado) {
-            alert('Este paciente ya está hospitalizado. Por favor verifica su estado actual.');
+            AlertasModule.mostrarError(`${paciente.nombre} ya está hospitalizado en ${yaHospitalizado.habitacion}`);
             return;
         }
 
+        // Validar que la cama esté disponible
+        const camaOcupada = this.state.hospitalizaciones.find(h =>
+            h.cama === camaId && h.estado === 'activa'
+        );
+
+        if (camaOcupada) {
+            AlertasModule.mostrarError('La cama ya está ocupada. Por favor recarga y intenta con otra cama');
+            return;
+        }
+
+        // Crear registro de hospitalización
         const habInfo = camaId.split('-');
         const hospitalizacion = {
             id: this.generateId('HOSP'),
@@ -716,19 +800,59 @@ const HospitalizacionesModule = {
             habitacion: `${habInfo[0]}-${habInfo[1]}`,
             cama: camaId,
             fechaIngreso: new Date().toISOString().split('T')[0],
+            horaIngreso: new Date().toTimeString().split(' ')[0],
             diagnostico: diagnostico,
-            observaciones: observaciones,
-            estado: 'activa'
+            observaciones: observaciones || '',
+            estado: 'activa',
+            medico: 'Dr. (Asignado)',
+            seguimiento: []
         };
 
+        // Agregar a estado
         this.state.hospitalizaciones.push(hospitalizacion);
+        
+        // Guardar a localStorage
         this.saveToDB();
+        
+        // Intentar guardar a API
+        this.saveHospitalizacionToAPI(hospitalizacion);
+        
+        // Actualizar vista
         this.render();
 
         // Cerrar modal
         document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
 
-        this.showNotification('Paciente hospitalizado exitosamente', 'success');
+        AlertasModule.mostrarExito(`✓ ${paciente.nombre} ha sido ingresado exitosamente`);
+    },
+
+    // Guardar hospitalización a API
+    saveHospitalizacionToAPI(hospitalizacion) {
+        try {
+            const token = authManager?.getToken?.();
+            const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
+
+            if (!token) {
+                console.warn('No hay token, hospitalización solo guardada en localStorage');
+                return;
+            }
+
+            // Para futuro: integrar con API real
+            // fetch(`${apiBase}/hospitalizaciones/ingresos`, {
+            //     method: 'POST',
+            //     headers: {
+            //         'Authorization': `Bearer ${token}`,
+            //         'Content-Type': 'application/json'
+            //     },
+            //     body: JSON.stringify(hospitalizacion)
+            // })
+            // .then(r => r.json())
+            // .catch(e => console.warn('Error guardando a API:', e));
+
+            console.log('Hospitalización guardada en localStorage (API no disponible aún)');
+        } catch (error) {
+            console.warn('Error intentando guardar a API:', error);
+        }
     },
 
     // Abrir modal para agregar desde cama libre
@@ -736,17 +860,57 @@ const HospitalizacionesModule = {
         this.openPacienteModal(camaId);
     },
 
-    // Dar de alta a un paciente
+    // Dar de alta a un paciente CON VALIDACIONES
     darDeAlta(hospitalizacionId) {
-        if (confirm('¿Deseas dar de alta a este paciente?')) {
-            const hosp = this.state.hospitalizaciones.find(h => h.id === hospitalizacionId);
-            if (hosp) {
-                hosp.estado = 'alta';
-                hosp.fechaAlta = new Date().toISOString().split('T')[0];
-                this.saveToDB();
-                this.render();
-                this.showNotification('Paciente dado de alta', 'success');
+        const hosp = this.state.hospitalizaciones.find(h => h.id === hospitalizacionId);
+        if (!hosp) {
+            AlertasModule.mostrarError('Hospitalización no encontrada');
+            return;
+        }
+
+        const paciente = this.state.pacientes.find(p => p.id === hosp.pacienteId);
+        if (!paciente) {
+            AlertasModule.mostrarError('Paciente no encontrado');
+            return;
+        }
+
+        if (confirm(`¿Deseas dar de alta a ${paciente.nombre}?`)) {
+            hosp.estado = 'alta';
+            hosp.fechaAlta = new Date().toISOString().split('T')[0];
+            hosp.horaAlta = new Date().toTimeString().split(' ')[0];
+            
+            this.saveToDB();
+            this.updateHospitalizacionInAPI(hosp);
+            this.render();
+            
+            AlertasModule.mostrarExito(`✓ ${paciente.nombre} ha sido dado de alta`);
+        }
+    },
+
+    // Actualizar hospitalización en API
+    updateHospitalizacionInAPI(hospitalizacion) {
+        try {
+            const token = authManager?.getToken?.();
+            const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
+
+            if (!token) {
+                console.warn('No hay token, cambio solo en localStorage');
+                return;
             }
+
+            // Para futuro: integrar con API real
+            // fetch(`${apiBase}/hospitalizaciones/ingresos/${hospitalizacion.id}`, {
+            //     method: 'PUT',
+            //     headers: {
+            //         'Authorization': `Bearer ${token}`,
+            //         'Content-Type': 'application/json'
+            //     },
+            //     body: JSON.stringify(hospitalizacion)
+            // })
+            // .then(r => r.json())
+            // .catch(e => console.warn('Error actualizando en API:', e));
+        } catch (error) {
+            console.warn('Error intentando actualizar en API:', error);
         }
     },
 

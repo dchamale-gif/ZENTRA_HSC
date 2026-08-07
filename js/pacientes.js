@@ -121,7 +121,8 @@ const PacientesModule = {
             }
 
             const data = await response.json();
-            this.state.pacientes = data.pacientes || [];
+            // Normalizar datos del backend (snake_case → camelCase)
+            this.state.pacientes = DataNormalizer.normalizePacientes(data.pacientes || []);
             this.renderPacientes();
             
             console.log(`✅ ${this.state.pacientes.length} pacientes cargados desde BD`);
@@ -134,7 +135,8 @@ const PacientesModule = {
     // Cargar datos demo locales
     loadDemoData() {
         const demoData = window.DemoData || {};
-        this.state.pacientes = JSON.parse(JSON.stringify(demoData.pacientes || []));
+        // Normalizar datos demo también
+        this.state.pacientes = DataNormalizer.normalizePacientes(JSON.parse(JSON.stringify(demoData.pacientes || [])));
         this.renderPacientes();
         console.log(`✅ ${this.state.pacientes.length} pacientes cargados desde datos demo`);
     },
@@ -452,41 +454,27 @@ const PacientesModule = {
             return;
         }
 
-        // Mapear datos del formulario a lo que espera la API
-        const apiData = {
-            cedula: cedula,
+        // Mapear datos del formulario a camelCase
+        const pacientData = {
+            id: id || undefined,
             nombre: document.getElementById('pacientNombre').value.trim(),
-            apellido: (document.getElementById('pacientApellidoPaterno').value.trim() + ' ' + 
-                       document.getElementById('pacientApellidoMaterno').value.trim()).trim(),
+            apellidoPaterno: document.getElementById('pacientApellidoPaterno').value.trim(),
+            apellidoMaterno: document.getElementById('pacientApellidoMaterno').value.trim(),
             edad: parseInt(document.getElementById('pacientEdad').value) || null,
             genero: document.getElementById('pacientGenero').value || null,
-            tipo_sangre: null,
+            dpi: cedula,
             telefono: document.getElementById('pacientTelefono').value.trim() || null,
             email: document.getElementById('pacientEmail').value.trim() || null,
             direccion: document.getElementById('pacientDireccion').value.trim() || null,
-            ciudad: document.getElementById('municipio').value.trim() || null,
-            alergias: document.getElementById('especificacionAlergia').value.trim() || null,
-            enfermedades_cronicas: document.getElementById('especificacionCronica').value.trim() || null,
-            contacto_emergencia: document.getElementById('emergenciaNombre').value.trim() || null,
-            emergenciaTelefono: document.getElementById('emergenciaTelefono').value.trim() || null,
-            emergenciaParentesco: document.getElementById('emergenciaParentesco').value.trim() || null,
-            emergenciaDireccion: document.getElementById('emergenciaDireccion').value.trim() || null,
-            emergenciaNombre2: document.getElementById('emergenciaNombre2').value.trim() || null,
-            emergenciaTelefono2: document.getElementById('emergenciaTelefono2').value.trim() || null,
-            emergenciaParentesco2: document.getElementById('emergenciaParentesco2').value.trim() || null,
-            emergenciaDireccion2: document.getElementById('emergenciaDireccion2').value.trim() || null,
-            tuvoEmbarazosHist: document.getElementById('tuvoEmbarazosHist').checked || false,
-            cantidadEmbarazosHist: parseInt(document.getElementById('cantidadEmbarazosHist').value) || null,
-            diasPeriodoHist: parseInt(document.getElementById('diasPeriodoHist').value) || null,
-            requiereFisioterapia: document.getElementById('requiereFisioterapia').checked || false,
-            requiereNutricion: document.getElementById('requiereNutricion').checked || false,
-            tuvoEmbarazos: document.getElementById('tuvoEmbarazos').checked || false,
-            cantidadEmbarazos: parseInt(document.getElementById('cantidadEmbarazos').value) || null,
-            diasPeriodo: parseInt(document.getElementById('diasPeriodo').value) || null,
-            referencia: document.getElementById('referencia').value || null,
-            pacienteRefierenombre: document.getElementById('pacienteRefierenombre').value.trim() || null,
-            profesion: document.getElementById('profesion').value || null
+            municipio: document.getElementById('municipio').value.trim() || null,
+            estadoCivil: document.getElementById('estadoCivil').value.trim() || null,
+            profesion: document.getElementById('profesion').value.trim() || null,
+            ocupacion: document.getElementById('ocupacion').value.trim() || null,
+            fechaNacimiento: document.getElementById('pacientFechaNacimiento').value || null
         };
+
+        // Convertir a snake_case para el backend usando el normalizador
+        const apiData = DataNormalizer.denormalizePaciente(pacientData);
 
         try {
             const token = authManager.getToken();
@@ -834,20 +822,68 @@ const PacientesModule = {
             filtered = filtered.filter(p => p.isCliente);
         } else if (this.filtroActivo === 'no-cliente') {
             filtered = filtered.filter(p => !p.isCliente);
+        } else if (this.filtroActivo === 'deudor') {
+            // Filtrar por pacientes con saldo pendiente
+            filtered = filtered.filter(p => {
+                const saldo = SaldoPacienteModule?.state?.saldosPacientes?.find(s => s.pacienteId == p.id);
+                return saldo && saldo.saldoPendiente > 0;
+            });
+        } else if (this.filtroActivo === 'pagado') {
+            // Filtrar por pacientes sin saldo pendiente
+            filtered = filtered.filter(p => {
+                const saldo = SaldoPacienteModule?.state?.saldosPacientes?.find(s => s.pacienteId == p.id);
+                return !saldo || saldo.saldoPendiente === 0;
+            });
         }
 
-        // Búsqueda
+        // Búsqueda - usar campos normalizados (camelCase)
         if (this.searchTerm) {
             filtered = filtered.filter(p =>
-                p.nombre.toLowerCase().includes(this.searchTerm) ||
-                p.apellido.toLowerCase().includes(this.searchTerm) ||
-                p.cedula.includes(this.searchTerm) ||
-                p.email.toLowerCase().includes(this.searchTerm)
+                (p.nombre && p.nombre.toLowerCase().includes(this.searchTerm)) ||
+                (p.apellidoPaterno && p.apellidoPaterno.toLowerCase().includes(this.searchTerm)) ||
+                (p.apellidoMaterno && p.apellidoMaterno.toLowerCase().includes(this.searchTerm)) ||
+                (p.dpi && p.dpi.includes(this.searchTerm)) ||
+                (p.email && p.email.toLowerCase().includes(this.searchTerm)) ||
+                (p.telefono && p.telefono.includes(this.searchTerm))
             );
         }
 
+        // ORDENAMIENTO
+        if (this.filtroActivo === 'alfabetico-asc') {
+            filtered.sort((a, b) => {
+                const nameA = `${a.nombre} ${a.apellidoPaterno}`.toLowerCase().trim();
+                const nameB = `${b.nombre} ${b.apellidoPaterno}`.toLowerCase().trim();
+                return nameA.localeCompare(nameB, 'es');
+            });
+        } else if (this.filtroActivo === 'alfabetico-desc') {
+            filtered.sort((a, b) => {
+                const nameA = `${a.nombre} ${a.apellidoPaterno}`.toLowerCase().trim();
+                const nameB = `${b.nombre} ${b.apellidoPaterno}`.toLowerCase().trim();
+                return nameB.localeCompare(nameA, 'es');
+            });
+        } else {
+            // Ordenamiento por defecto: apellido + nombre
+            filtered.sort((a, b) => {
+                const nameA = `${a.apellidoPaterno} ${a.nombre}`.toLowerCase().trim();
+                const nameB = `${b.apellidoPaterno} ${b.nombre}`.toLowerCase().trim();
+                return nameA.localeCompare(nameB, 'es');
+            });
+        }
+
         if (filtered.length === 0) {
-            container.innerHTML = '<div class="empty-state"><p>No hay pacientes registrados</p></div>';
+            let mensaje = 'No hay pacientes registrados';
+            if (this.searchTerm) {
+                mensaje = `No se encontraron pacientes que coincidan con "${this.searchTerm}"`;
+            } else if (this.filtroActivo === 'cliente') {
+                mensaje = 'No hay clientes registrados';
+            } else if (this.filtroActivo === 'no-cliente') {
+                mensaje = 'No hay pacientes sin vincular a cliente';
+            } else if (this.filtroActivo === 'deudor') {
+                mensaje = 'No hay pacientes con saldo pendiente';
+            } else if (this.filtroActivo === 'pagado') {
+                mensaje = 'No hay pacientes pagados';
+            }
+            container.innerHTML = `<div class="empty-state"><p>✓ ${mensaje}</p></div>`;
             return;
         }
 
@@ -870,6 +906,9 @@ const PacientesModule = {
                         ${filtered.map(pacient => this.renderPacientRow(pacient)).join('')}
                     </tbody>
                 </table>
+            </div>
+            <div style="padding: 15px; background: #f5f5f5; border-top: 1px solid #ddd; border-radius: 0 0 8px 8px; font-size: 14px; color: #666;">
+                <strong>Total:</strong> ${filtered.length} de ${this.state.pacientes.length} pacientes
             </div>
         `;
     },
