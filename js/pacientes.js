@@ -609,8 +609,24 @@ const PacientesModule = {
 
     // Editar paciente
     editPacient(id) {
-        const pacient = this.state.pacientes.find(p => p.id === id);
-        if (!pacient) return;
+        console.log('editPacient called with id:', id, 'type:', typeof id);
+        console.log('Total pacientes en estado:', this.state.pacientes.length);
+        
+        // Convertir id a string por si es número
+        const pacientId = String(id);
+        const pacient = this.state.pacientes.find(p => {
+            const pId = String(p.id);
+            console.log('Comparando:', pId, 'con', pacientId, 'igual?', pId === pacientId);
+            return pId === pacientId;
+        });
+        
+        if (!pacient) {
+            console.error('Paciente no encontrado con id:', id);
+            this.showNotification('❌ Error: Paciente no encontrado', 'error');
+            return;
+        }
+        
+        console.log('Paciente encontrado:', pacient.nombre);
 
         document.getElementById('pacientId').value = pacient.id;
         
@@ -849,8 +865,9 @@ const PacientesModule = {
                 }
                 return response.json();
             }).then(() => {
-                // Eliminar del estado local
-                this.state.pacientes = this.state.pacientes.filter(p => p.id !== id);
+                // Eliminar del estado local - Comparar IDs como strings
+                const pacientId = String(id);
+                this.state.pacientes = this.state.pacientes.filter(p => String(p.id) !== pacientId);
                 this.showNotification('✅ Paciente eliminado exitosamente', 'success');
                 this.renderPacientes();
                 console.log(`✅ Paciente ${id} eliminado de la BD`);
@@ -1130,13 +1147,27 @@ const PacientesModule = {
 
     // Ver detalles del paciente
     viewPacientDetails(id) {
-        const pacient = this.state.pacientes.find(p => p.id === id);
-        if (!pacient) return;
+        console.log('viewPacientDetails called with id:', id, 'type:', typeof id);
+        
+        // Convertir id a string por si es número
+        const pacientId = String(id);
+        const pacient = this.state.pacientes.find(p => String(p.id) === pacientId);
+        
+        if (!pacient) {
+            console.error('Paciente no encontrado con id:', id);
+            this.showNotification('❌ Error: Paciente no encontrado', 'error');
+            return;
+        }
 
         const detailsModal = document.getElementById('pacientDetailsModal');
         const detailsContent = document.getElementById('pacientDetailsContent');
 
-        if (!detailsModal || !detailsContent) return;
+        if (!detailsModal || !detailsContent) {
+            console.error('Modal elements not found');
+            return;
+        }
+
+        console.log('Abriendo detalles para paciente:', pacient.nombre);
 
         const tipoServicioBadge = this.getTipoServicioBadge(pacient.tipoServicio, pacient.clasificacion, pacient.segmentoCOEX);
         const fullName = `${pacient.nombre} ${pacient.apellidoPaterno} ${pacient.apellidoMaterno || ''}`.trim();
