@@ -631,81 +631,88 @@ const PacientesModule = {
             const el = document.getElementById(id);
             if (el) {
                 el.value = value || '';
+                console.log(`✓ Campo llenado [${id}]:`, value);
             } else {
                 console.warn(`Campo no encontrado: ${id}`);
             }
         };
 
-        // Llenar datos básicos
-        fillField('pacientId', pacient.id);
-        
-        // Datos de consulta
-        fillField('fechaPrimerConsulta', pacient.fechaPrimerConsulta);
-        fillField('motivoConsulta', pacient.motivoConsulta);
-        fillField('referencia', pacient.referencia);
-        fillField('pacienteRefierenombre', pacient.pacienteRefierenombre);
-        
-        // Intentar llamar a toggle si existe
-        if (this.toggleNombrePacienteRefiere) {
-            try { this.toggleNombrePacienteRefiere(); } catch(e) { console.warn('toggleNombrePacienteRefiere:', e); }
+        try {
+            // Llenar ID oculto
+            document.getElementById('pacientId').value = pacient.id;
+            
+            // Datos personales básicos
+            fillField('pacientNombre', pacient.nombre);
+            fillField('pacientApellidoPaterno', pacient.apellidoPaterno);
+            fillField('pacientApellidoMaterno', pacient.apellidoMaterno);
+            fillField('pacientEdad', pacient.edad);
+            fillField('pacientFechaNacimiento', pacient.fechaNacimiento);
+            
+            // Género
+            const generoSelect = document.getElementById('pacientGenero');
+            if (generoSelect) {
+                generoSelect.value = pacient.genero || '';
+                console.log('✓ Género establecido:', pacient.genero);
+            }
+            
+            // Dirección
+            fillField('pacientDireccion', pacient.direccion);
+            
+            // Contacto
+            fillField('pacientTelefono', pacient.telefono);
+            fillField('pacientEmail', pacient.email);
+            
+            // Tipo de servicio
+            const tipoServicioSelect = document.getElementById('pacientTipoServicio');
+            if (tipoServicioSelect) {
+                tipoServicioSelect.value = pacient.tipoServicio || '';
+                console.log('✓ Tipo de servicio establecido:', pacient.tipoServicio);
+            }
+            
+            // Clasificación
+            const clasificacionSelect = document.getElementById('pacientClasificacion');
+            if (clasificacionSelect) {
+                clasificacionSelect.value = pacient.clasificacion || '';
+                console.log('✓ Clasificación establecida:', pacient.clasificacion);
+            }
+            
+            // COEX Segmento
+            const coexSelect = document.getElementById('pacientCOEXSegmento');
+            if (coexSelect) {
+                coexSelect.value = pacient.segmentoCOEX || '';
+                console.log('✓ COEX Segmento establecido:', pacient.segmentoCOEX);
+            }
+            
+            // Foto del paciente
+            if (pacient.foto) {
+                document.getElementById('pacientFoto').value = pacient.foto;
+                this.displayPhotoPreview(pacient.foto);
+                const removeBtn = document.getElementById('pacientFotoRemoveBtn');
+                if (removeBtn) removeBtn.style.display = 'inline-block';
+                console.log('✓ Foto establecida');
+            } else {
+                document.getElementById('pacientFoto').value = '';
+                const preview = document.getElementById('pacientFotoPreview');
+                if (preview) preview.innerHTML = '<i class="fas fa-user" style="font-size: 60px; color: #999;"></i>';
+                const removeBtn = document.getElementById('pacientFotoRemoveBtn');
+                if (removeBtn) removeBtn.style.display = 'none';
+            }
+            
+            // Cliente
+            const clienteCheckbox = document.getElementById('pacientIsCliente');
+            if (clienteCheckbox) {
+                clienteCheckbox.checked = pacient.isCliente || false;
+                console.log('✓ Cliente checkbox:', clienteCheckbox.checked);
+            }
+            
+            // Notas
+            fillField('pacientNotas', pacient.notas);
+            
+            console.log('✅ TODOS LOS CAMPOS LLENADOS CORRECTAMENTE');
+        } catch(error) {
+            console.error('❌ Error al llenar formulario:', error);
+            this.showNotification('❌ Error al cargar datos del paciente', 'error');
         }
-        
-        // Identificación personal
-        fillField('pacientNombre', pacient.nombre);
-        fillField('pacientApellidoPaterno', pacient.apellidoPaterno);
-        fillField('pacientApellidoMaterno', pacient.apellidoMaterno);
-        fillField('pacientEdad', pacient.edad);
-        fillField('pacientFechaNacimiento', pacient.fechaNacimiento);
-        fillField('nacionalidad', pacient.nacionalidad);
-        fillField('pacientGenero', pacient.genero);
-        fillField('dpi', pacient.dpi);
-        fillField('documentoIdentificacion', pacient.documentoIdentificacion);
-        
-        // Dirección
-        fillField('pacientDireccion', pacient.direccion);
-        fillField('colonia', pacient.colonia);
-        fillField('zona', pacient.zona);
-        fillField('municipio', pacient.municipio);
-        fillField('departamento', pacient.departamento);
-        
-        // Contacto
-        fillField('pacientTelefono', pacient.telefono);
-        fillField('pacientEmail', pacient.email);
-        fillField('tieneHijos', pacient.tieneHijos);
-        
-        // Información laboral/educativa
-        fillField('estadoCivil', pacient.estadoCivil);
-        fillField('profesion', pacient.profesion);
-        fillField('gradoAcademico', pacient.gradoAcademico);
-        fillField('ocupacion', pacient.ocupacion);
-        
-        // Tipo de servicio
-        fillField('pacientTipoServicio', pacient.tipoServicio);
-        fillField('pacientClasificacion', pacient.clasificacion);
-        fillField('pacientCOEXSegmento', pacient.segmentoCOEX);
-        
-        // Foto del paciente
-        if (pacient.foto) {
-            fillField('pacientFoto', pacient.foto);
-            this.displayPhotoPreview(pacient.foto);
-            const removeBtn = document.getElementById('pacientFotoRemoveBtn');
-            if (removeBtn) removeBtn.style.display = 'inline-block';
-        } else {
-            fillField('pacientFoto', '');
-            const preview = document.getElementById('pacientFotoPreview');
-            if (preview) preview.innerHTML = '<i class="fas fa-user" style="font-size: 60px; color: #999;"></i>';
-            const removeBtn = document.getElementById('pacientFotoRemoveBtn');
-            if (removeBtn) removeBtn.style.display = 'none';
-        }
-        
-        // Cliente
-        const clienteCheckbox = document.getElementById('pacientIsCliente');
-        if (clienteCheckbox) {
-            clienteCheckbox.checked = pacient.isCliente;
-        }
-        
-        // Notas
-        fillField('pacientNotas', pacient.notas);
         
         console.log('✅ Formulario llenado, abriendo modal...');
         this.openPacientModal(false); // false = es edición, no es nuevo
