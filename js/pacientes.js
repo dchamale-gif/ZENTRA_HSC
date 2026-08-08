@@ -497,61 +497,66 @@ const PacientesModule = {
     // Guardar paciente
     async savePacient() {
         const form = document.getElementById('editPacientForm');
-        if (!form) return;
+        if (!form) {
+            console.error('❌ Formulario no encontrado');
+            return;
+        }
 
         // Validar en cliente
         if (!this.validatePacientForm()) {
-            this.showNotification('⚠️ Por favor completa todos los campos requeridos', 'warning');
+            this.showNotification('⚠️ Por favor completa todos los campos requeridos (Nombre, Apellido, Teléfono, Email, Dirección)', 'warning');
+            console.warn('❌ Validación de formulario fallida');
             return;
         }
 
-        const id = document.getElementById('pacientId').value;
-        const cedula = document.getElementById('dpi').value.trim() || document.getElementById('documentoIdentificacion').value.trim();
+        const id = document.getElementById('pacientId').value.trim();
         
-        // Validar cédula única
-        const existeCedula = this.state.pacientes.some(p => 
-            p.cedula === cedula && p.id !== id
-        );
-        if (existeCedula) {
-            this.showNotification('❌ Esta cédula ya existe en el sistema', 'error');
-            return;
-        }
-
-        // Mapear datos del formulario a camelCase
-        const pacientData = {
-            id: id || undefined,
-            nombre: document.getElementById('pacientNombre').value.trim(),
-            apellidoPaterno: document.getElementById('pacientApellidoPaterno').value.trim(),
-            apellidoMaterno: document.getElementById('pacientApellidoMaterno').value.trim(),
-            edad: parseInt(document.getElementById('pacientEdad').value) || null,
-            genero: document.getElementById('pacientGenero').value || null,
-            dpi: cedula,
-            telefono: document.getElementById('pacientTelefono').value.trim() || null,
-            email: document.getElementById('pacientEmail').value.trim() || null,
-            direccion: document.getElementById('pacientDireccion').value.trim() || null,
-            municipio: document.getElementById('municipio').value.trim() || null,
-            estadoCivil: document.getElementById('estadoCivil').value.trim() || null,
-            profesion: document.getElementById('profesion').value.trim() || null,
-            ocupacion: document.getElementById('ocupacion').value.trim() || null,
-            fechaNacimiento: document.getElementById('pacientFechaNacimiento').value || null
-        };
-
-        // Convertir a snake_case para el backend usando el normalizador
-        const apiData = DataNormalizer.denormalizePaciente(pacientData);
-
         try {
+            console.log('📝 Guardando paciente...');
+            
+            // Construir objeto con datos del formulario (SOLO campos que existen en HTML)
+            const pacientData = {
+                nombre: document.getElementById('pacientNombre').value.trim(),
+                apellidoPaterno: document.getElementById('pacientApellidoPaterno').value.trim(),
+                apellidoMaterno: document.getElementById('pacientApellidoMaterno').value.trim() || null,
+                edad: document.getElementById('pacientEdad').value ? parseInt(document.getElementById('pacientEdad').value) : null,
+                genero: document.getElementById('pacientGenero').value || null,
+                fechaNacimiento: document.getElementById('pacientFechaNacimiento').value || null,
+                telefono: document.getElementById('pacientTelefono').value.trim() || null,
+                email: document.getElementById('pacientEmail').value.trim() || null,
+                direccion: document.getElementById('pacientDireccion').value.trim() || null,
+                tipoServicio: document.getElementById('pacientTipoServicio').value || null,
+                clasificacion: document.getElementById('pacientClasificacion').value || null,
+                segmentoCOEX: document.getElementById('pacientCOEXSegmento').value || null,
+                foto: document.getElementById('pacientFoto').value || null,
+                isCliente: document.getElementById('pacientIsCliente').checked || false,
+                notas: document.getElementById('pacientNotas').value.trim() || null
+            };
+
+            console.log('📦 Datos a guardar (camelCase):', JSON.stringify(pacientData, null, 2));
+
+            // Convertir a snake_case para el backend
+            const apiData = DataNormalizer.denormalizePaciente(pacientData);
+            console.log('📦 Datos a guardar (snake_case):', JSON.stringify(apiData, null, 2));
+
+            // Obtener token
             const token = authManager.getToken();
             if (!token) {
                 this.showNotification('❌ No estás autenticado', 'error');
+                console.error('❌ Sin token de autenticación');
                 return;
             }
 
+            // Determinar URL y método
             const url = id 
                 ? `${authManager.apiBaseUrl}/api/pacientes/${id}`
                 : `${authManager.apiBaseUrl}/api/pacientes`;
 
             const method = id ? 'PUT' : 'POST';
+            
+            console.log(`🔗 ${method} ${url}`);
 
+            // Hacer la petición
             const response = await fetch(url, {
                 method: method,
                 headers: {
@@ -561,36 +566,43 @@ const PacientesModule = {
                 body: JSON.stringify(apiData)
             });
 
+            console.log(`📊 Response status: ${response.status}`);
+
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.error || `Error ${response.status}`);
+                throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
             }
 
             const result = await response.json();
+            console.log('✅ Respuesta del servidor:', JSON.stringify(result, null, 2));
             
-            // Guardar/actualizar en estado local
-            const pacientCompleto = id 
-                ? { ...this.state.pacientes.find(p => p.id === id), ...apiData, ...result }
-                : { ...apiData, ...result, id: result.id };
-            
+            // Actualizar estado local
             if (id) {
-                const index = this.state.pacientes.findIndex(p => p.id === id);
+                // Actualizar paciente existente
+                const index = this.state.pacientes.findIndex(p => String(p.id) === String(id));
                 if (index !== -1) {
-                    this.state.pacientes[index] = pacientCompleto;
+                    this.state.pacientes[index] = { ...this.state.pacientes[index], ...result };
+                    console.log('✅ Paciente actualizado en estado local');
                 }
                 this.showNotification('✅ Paciente actualizado correctamente', 'success');
             } else {
-                this.state.pacientes.push(pacientCompleto);
+                // Crear nuevo paciente
+                this.state.pacientes.push(result);
+                console.log('✅ Paciente creado en estado local');
                 this.showNotification('✅ Paciente creado correctamente', 'success');
             }
 
             // Guardar en localStorage
             localStorage.setItem('pacientes', JSON.stringify(this.state.pacientes));
+            console.log('💾 Datos guardados en localStorage');
 
+            // Cerrar modal y recargar datos
             this.closePacientModal();
-            this.loadData(); // Recargar desde BD
+            await this.loadData(); // Recargar desde BD
+            
+            console.log('🎉 Proceso completado exitosamente');
         } catch (error) {
-            console.error('Error guardando paciente:', error);
+            console.error('❌ Error guardando paciente:', error);
             this.showNotification(`❌ Error: ${error.message}`, 'error');
         }
     },
@@ -783,19 +795,28 @@ const PacientesModule = {
 
     // Validar formulario
     validatePacientForm() {
-        const cedula = document.getElementById('pacientCedula').value.trim();
         const nombre = document.getElementById('pacientNombre').value.trim();
-        const apellido = document.getElementById('pacientApellido').value.trim();
+        const apellidoPaterno = document.getElementById('pacientApellidoPaterno').value.trim();
         const telefono = document.getElementById('pacientTelefono').value.trim();
         const email = document.getElementById('pacientEmail').value.trim();
+        const direccion = document.getElementById('pacientDireccion').value.trim();
 
-        if (!cedula || !nombre || !apellido || !telefono || !email) {
+        // Campos requeridos
+        if (!nombre || !apellidoPaterno || !telefono || !email || !direccion) {
+            console.warn('⚠️ Campos requeridos faltando:', {
+                nombre: !nombre,
+                apellidoPaterno: !apellidoPaterno,
+                telefono: !telefono,
+                email: !email,
+                direccion: !direccion
+            });
             return false;
         }
 
         // Validar formato email básico
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (email && !emailRegex.test(email)) {
+            console.warn('⚠️ Formato de email inválido:', email);
             return false;
         }
 
