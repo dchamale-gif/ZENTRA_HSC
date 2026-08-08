@@ -203,31 +203,33 @@ const PacientesModule = {
     },
 
     // Abrir modal de nuevo paciente
-    openPacientModal() {
+    openPacientModal(isNew = true) {
         const modal = document.getElementById('pacientModal');
         const form = document.getElementById('editPacientForm');
         if (!modal || !form) return;
 
-        // Limpiar formulario
-        form.reset();
-        document.getElementById('pacientId').value = '';
-        document.getElementById('pacientIsCliente').checked = false;
-        document.getElementById('clienteSelectionDiv').style.display = 'none';
-        
-        // Limpiar foto
-        this.removePacientPhoto();
-        
-        // Limpiar documentos
-        document.getElementById('pacientDocCategory').value = '';
-        const gallery = document.getElementById('pacientDocumentsGallery');
-        if (gallery) {
-            gallery.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #999;">No hay documentos cargados</p>';
-        }
-        
-        // Limpiar contenedor de archivos
-        const filesContainer = document.getElementById('pacientFilesContainer');
-        if (filesContainer) {
-            filesContainer.innerHTML = '<p style="text-align: center; color: #999;">Guarda el paciente para cargar archivos</p>';
+        // Solo limpiar si es un paciente NUEVO
+        if (isNew) {
+            form.reset();
+            document.getElementById('pacientId').value = '';
+            document.getElementById('pacientIsCliente').checked = false;
+            document.getElementById('clienteSelectionDiv').style.display = 'none';
+            
+            // Limpiar foto
+            this.removePacientPhoto();
+            
+            // Limpiar documentos
+            document.getElementById('pacientDocCategory').value = '';
+            const gallery = document.getElementById('pacientDocumentsGallery');
+            if (gallery) {
+                gallery.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #999;">No hay documentos cargados</p>';
+            }
+            
+            // Limpiar contenedor de archivos
+            const filesContainer = document.getElementById('pacientFilesContainer');
+            if (filesContainer) {
+                filesContainer.innerHTML = '<p style="text-align: center; color: #999;">Guarda el paciente para cargar archivos</p>';
+            }
         }
         
         modal.style.display = 'flex';
@@ -706,7 +708,7 @@ const PacientesModule = {
         fillField('pacientNotas', pacient.notas);
         
         console.log('✅ Formulario llenado, abriendo modal...');
-        this.openPacientModal();
+        this.openPacientModal(false); // false = es edición, no es nuevo
     },
 
     // Eliminar paciente
