@@ -252,9 +252,20 @@ const ReportsModule = {
             const endDateStr = this.formatDateForAPI(this.state.fechaFin);
 
             // Obtener datos del servidor
-            const response = await fetch(`/api/reports/financial-summary?startDate=${startDateStr}&endDate=${endDateStr}`, {
-                headers: this.getAuthHeaders()
+            const token = localStorage.getItem('zentra_token');
+            if (!token) {
+                throw new Error('No hay token de autenticación');
+            }
+            const response = await fetch(`${authManager.apiBaseUrl}/api/reports/financial-summary?startDate=${startDateStr}&endDate=${endDateStr}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
             });
+            
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            }
 
             const data = await response.json();
 

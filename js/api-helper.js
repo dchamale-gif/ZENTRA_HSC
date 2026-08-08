@@ -15,7 +15,11 @@ const APIHelper = {
 
     // Obtener token de autenticación
     getToken() {
-        return localStorage.getItem('auth_token') || '';
+        // Usar authManager si está disponible, sino fallback a localStorage
+        if (typeof authManager !== 'undefined') {
+            return authManager.getToken() || '';
+        }
+        return localStorage.getItem('zentra_token') || '';
     },
 
     // Headers por defecto
