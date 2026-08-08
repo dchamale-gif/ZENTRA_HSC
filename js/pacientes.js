@@ -120,21 +120,32 @@ const PacientesModule = {
         // Event delegation para botones de acción (editar, eliminar, ver)
         const self = this;
         document.addEventListener('click', function(e) {
-            const editBtn = e.target.closest('.btn-edit');
-            const deleteBtn = e.target.closest('.btn-delete');
-            const viewBtn = e.target.closest('.btn-view');
-            const row = e.target.closest('tr[data-pacient-id]');
+            // Primero encuentra el botón más cercano
+            const button = e.target.closest('button.btn-icon');
+            if (!button) return;
 
+            // Luego encuentra la fila más cercana
+            const row = button.closest('tr[data-pacient-id]');
             if (!row) return;
 
             const pacientId = row.getAttribute('data-pacient-id');
-            if (!pacientId) return;
+            if (!pacientId) {
+                console.warn('No pacient ID found');
+                return;
+            }
 
-            if (editBtn) {
+            // Log para debug
+            console.log('Button clicked, pacientId:', pacientId, 'classes:', button.className);
+
+            // Verificar qué tipo de botón se clickeó
+            if (button.classList.contains('btn-edit')) {
+                console.log('Edit button clicked for pacient:', pacientId);
                 self.editPacient(pacientId);
-            } else if (deleteBtn) {
+            } else if (button.classList.contains('btn-delete')) {
+                console.log('Delete button clicked for pacient:', pacientId);
                 self.deletePacient(pacientId);
-            } else if (viewBtn) {
+            } else if (button.classList.contains('btn-view')) {
+                console.log('View button clicked for pacient:', pacientId);
                 self.viewPacientDetails(pacientId);
             }
         });
