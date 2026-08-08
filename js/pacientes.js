@@ -609,70 +609,105 @@ const PacientesModule = {
 
     // Editar paciente
     editPacient(id) {
-        console.log('editPacient called with id:', id, 'type:', typeof id);
-        console.log('Total pacientes en estado:', this.state.pacientes.length);
+        console.log('editPacient called with id:', id);
         
-        // Convertir id a string por si es número
+        // Convertir id a string
         const pacientId = String(id);
-        const pacient = this.state.pacientes.find(p => {
-            const pId = String(p.id);
-            console.log('Comparando:', pId, 'con', pacientId, 'igual?', pId === pacientId);
-            return pId === pacientId;
-        });
+        const pacient = this.state.pacientes.find(p => String(p.id) === pacientId);
         
         if (!pacient) {
-            console.error('Paciente no encontrado con id:', id);
+            console.error('❌ Paciente no encontrado con id:', id);
             this.showNotification('❌ Error: Paciente no encontrado', 'error');
             return;
         }
         
-        console.log('Paciente encontrado:', pacient.nombre);
+        console.log('✅ Paciente encontrado:', pacient.nombre);
+        console.log('Datos del paciente:', JSON.stringify(pacient, null, 2));
 
-        document.getElementById('pacientId').value = pacient.id;
+        // Helper function para llenar campos de forma segura
+        const fillField = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.value = value || '';
+            } else {
+                console.warn(`Campo no encontrado: ${id}`);
+            }
+        };
+
+        // Llenar datos básicos
+        fillField('pacientId', pacient.id);
         
         // Datos de consulta
-        document.getElementById('fechaPrimerConsulta').value = pacient.fechaPrimerConsulta || '';
-        document.getElementById('motivoConsulta').value = pacient.motivoConsulta || '';
-        document.getElementById('referencia').value = pacient.referencia || '';
-        document.getElementById('pacienteRefierenombre').value = pacient.pacienteRefierenombre || '';
-        this.toggleNombrePacienteRefiere();
+        fillField('fechaPrimerConsulta', pacient.fechaPrimerConsulta);
+        fillField('motivoConsulta', pacient.motivoConsulta);
+        fillField('referencia', pacient.referencia);
+        fillField('pacienteRefierenombre', pacient.pacienteRefierenombre);
+        
+        // Intentar llamar a toggle si existe
+        if (this.toggleNombrePacienteRefiere) {
+            try { this.toggleNombrePacienteRefiere(); } catch(e) { console.warn('toggleNombrePacienteRefiere:', e); }
+        }
         
         // Identificación personal
-        document.getElementById('pacientNombre').value = pacient.nombre || '';
-        document.getElementById('pacientApellidoPaterno').value = pacient.apellidoPaterno || '';
-        document.getElementById('pacientApellidoMaterno').value = pacient.apellidoMaterno || '';
-        document.getElementById('pacientEdad').value = pacient.edad || '';
-        document.getElementById('pacientFechaNacimiento').value = pacient.fechaNacimiento || '';
-        document.getElementById('nacionalidad').value = pacient.nacionalidad || '';
-        document.getElementById('pacientGenero').value = pacient.genero || '';
-        document.getElementById('dpi').value = pacient.dpi || '';
-        document.getElementById('documentoIdentificacion').value = pacient.documentoIdentificacion || '';
+        fillField('pacientNombre', pacient.nombre);
+        fillField('pacientApellidoPaterno', pacient.apellidoPaterno);
+        fillField('pacientApellidoMaterno', pacient.apellidoMaterno);
+        fillField('pacientEdad', pacient.edad);
+        fillField('pacientFechaNacimiento', pacient.fechaNacimiento);
+        fillField('nacionalidad', pacient.nacionalidad);
+        fillField('pacientGenero', pacient.genero);
+        fillField('dpi', pacient.dpi);
+        fillField('documentoIdentificacion', pacient.documentoIdentificacion);
         
         // Dirección
-        document.getElementById('pacientDireccion').value = pacient.direccion || '';
-        document.getElementById('colonia').value = pacient.colonia || '';
-        document.getElementById('zona').value = pacient.zona || '';
-        document.getElementById('municipio').value = pacient.municipio || '';
-        document.getElementById('departamento').value = pacient.departamento || '';
+        fillField('pacientDireccion', pacient.direccion);
+        fillField('colonia', pacient.colonia);
+        fillField('zona', pacient.zona);
+        fillField('municipio', pacient.municipio);
+        fillField('departamento', pacient.departamento);
         
         // Contacto
-        document.getElementById('pacientTelefono').value = pacient.telefono || '';
-        document.getElementById('pacientEmail').value = pacient.email || '';
-        document.getElementById('tieneHijos').value = pacient.tieneHijos || '';
+        fillField('pacientTelefono', pacient.telefono);
+        fillField('pacientEmail', pacient.email);
+        fillField('tieneHijos', pacient.tieneHijos);
         
         // Información laboral/educativa
-        document.getElementById('estadoCivil').value = pacient.estadoCivil || '';
-        document.getElementById('profesion').value = pacient.profesion || '';
-        document.getElementById('gradoAcademico').value = pacient.gradoAcademico || '';
-        document.getElementById('ocupacion').value = pacient.ocupacion || '';
+        fillField('estadoCivil', pacient.estadoCivil);
+        fillField('profesion', pacient.profesion);
+        fillField('gradoAcademico', pacient.gradoAcademico);
+        fillField('ocupacion', pacient.ocupacion);
         
         // Tipo de servicio
-        document.getElementById('pacientTipoServicio').value = pacient.tipoServicio || '';
-        document.getElementById('pacientClasificacion').value = pacient.clasificacion || '';
-        document.getElementById('pacientCOEXSegmento').value = pacient.segmentoCOEX || '';
+        fillField('pacientTipoServicio', pacient.tipoServicio);
+        fillField('pacientClasificacion', pacient.clasificacion);
+        fillField('pacientCOEXSegmento', pacient.segmentoCOEX);
         
-        // Lugar de trabajo
-        if (pacient.empresa) {
+        // Foto del paciente
+        if (pacient.foto) {
+            fillField('pacientFoto', pacient.foto);
+            this.displayPhotoPreview(pacient.foto);
+            const removeBtn = document.getElementById('pacientFotoRemoveBtn');
+            if (removeBtn) removeBtn.style.display = 'inline-block';
+        } else {
+            fillField('pacientFoto', '');
+            const preview = document.getElementById('pacientFotoPreview');
+            if (preview) preview.innerHTML = '<i class="fas fa-user" style="font-size: 60px; color: #999;"></i>';
+            const removeBtn = document.getElementById('pacientFotoRemoveBtn');
+            if (removeBtn) removeBtn.style.display = 'none';
+        }
+        
+        // Cliente
+        const clienteCheckbox = document.getElementById('pacientIsCliente');
+        if (clienteCheckbox) {
+            clienteCheckbox.checked = pacient.isCliente;
+        }
+        
+        // Notas
+        fillField('pacientNotas', pacient.notas);
+        
+        console.log('✅ Formulario llenado, abriendo modal...');
+        this.openPacientModal();
+    },
             document.getElementById('empresaNombre').value = pacient.empresa.nombre || '';
             document.getElementById('empresaTelefono').value = pacient.empresa.telefono || '';
             document.getElementById('empresaDireccion').value = pacient.empresa.direccion || '';
@@ -1147,14 +1182,14 @@ const PacientesModule = {
 
     // Ver detalles del paciente
     viewPacientDetails(id) {
-        console.log('viewPacientDetails called with id:', id, 'type:', typeof id);
+        console.log('viewPacientDetails called with id:', id);
         
-        // Convertir id a string por si es número
+        // Convertir id a string
         const pacientId = String(id);
         const pacient = this.state.pacientes.find(p => String(p.id) === pacientId);
         
         if (!pacient) {
-            console.error('Paciente no encontrado con id:', id);
+            console.error('❌ Paciente no encontrado con id:', id);
             this.showNotification('❌ Error: Paciente no encontrado', 'error');
             return;
         }
@@ -1163,13 +1198,87 @@ const PacientesModule = {
         const detailsContent = document.getElementById('pacientDetailsContent');
 
         if (!detailsModal || !detailsContent) {
-            console.error('Modal elements not found');
+            console.error('❌ Modal elements not found');
             return;
         }
 
-        console.log('Abriendo detalles para paciente:', pacient.nombre);
+        console.log('✅ Abriendo detalles para paciente:', pacient.nombre);
 
-        const tipoServicioBadge = this.getTipoServicioBadge(pacient.tipoServicio, pacient.clasificacion, pacient.segmentoCOEX);
+        const fullName = `${pacient.nombre} ${pacient.apellidoPaterno} ${pacient.apellidoMaterno || ''}`.trim();
+
+        let html = `
+            <div class="details-card" style="max-height: 80vh; overflow-y: auto;">
+                <div class="details-header" style="display: flex; gap: 20px; align-items: flex-start; margin-bottom: 20px;">
+                    <div>
+                        ${pacient.foto ? `
+                            <img src="${pacient.foto}" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 3px solid #3498db;">
+                        ` : `
+                            <div style="width: 120px; height: 120px; background: #e8e8e8; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 3px solid #ddd;">
+                                <i class="fas fa-user" style="font-size: 60px; color: #999;"></i>
+                            </div>
+                        `}
+                    </div>
+                    <div>
+                        <h3 style="margin: 0 0 10px 0;">${fullName}</h3>
+                        <p style="margin: 5px 0; color: #666;"><strong>DPI/Pasaporte:</strong> ${pacient.dpi || pacient.pasaporte || 'N/A'}</p>
+                        <p style="margin: 5px 0; color: #666;"><strong>Teléfono:</strong> ${pacient.telefono || 'N/A'}</p>
+                        <p style="margin: 5px 0; color: #666;"><strong>Email:</strong> ${pacient.email || 'N/A'}</p>
+                        <p style="margin: 5px 0; color: #666;"><strong>Estado:</strong> 
+                            ${pacient.isCliente ? '<span class="badge badge-success">Cliente</span>' : '<span class="badge badge-info">No-Cliente</span>'}
+                        </p>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <h4 style="border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 10px;">Información Personal</h4>
+                        <p><strong>Edad:</strong> ${pacient.edad || 'N/A'}</p>
+                        <p><strong>Fecha Nacimiento:</strong> ${pacient.fechaNacimiento || 'N/A'}</p>
+                        <p><strong>Género:</strong> ${pacient.genero || 'N/A'}</p>
+                        <p><strong>Nacionalidad:</strong> ${pacient.nacionalidad || 'N/A'}</p>
+                        <p><strong>Estado Civil:</strong> ${pacient.estadoCivil || 'N/A'}</p>
+                        <p><strong>Tiene Hijos:</strong> ${pacient.tieneHijos || 'N/A'}</p>
+                    </div>
+
+                    <div>
+                        <h4 style="border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 10px;">Información Laboral</h4>
+                        <p><strong>Profesión:</strong> ${pacient.profesion || 'N/A'}</p>
+                        <p><strong>Ocupación:</strong> ${pacient.ocupacion || 'N/A'}</p>
+                        <p><strong>Grado Académico:</strong> ${pacient.gradoAcademico || 'N/A'}</p>
+                        <p><strong>Tipo de Servicio:</strong> ${pacient.tipoServicio || 'N/A'}</p>
+                    </div>
+
+                    <div>
+                        <h4 style="border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 10px;">Dirección</h4>
+                        <p><strong>Dirección:</strong> ${pacient.direccion || 'N/A'}</p>
+                        <p><strong>Colonia:</strong> ${pacient.colonia || 'N/A'}</p>
+                        <p><strong>Zona:</strong> ${pacient.zona || 'N/A'}</p>
+                        <p><strong>Municipio:</strong> ${pacient.municipio || 'N/A'}</p>
+                        <p><strong>Departamento:</strong> ${pacient.departamento || 'N/A'}</p>
+                    </div>
+
+                    <div>
+                        <h4 style="border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 10px;">Información de Consulta</h4>
+                        <p><strong>Fecha Primera Consulta:</strong> ${pacient.fechaPrimerConsulta || 'N/A'}</p>
+                        <p><strong>Motivo de Consulta:</strong> ${pacient.motivoConsulta || 'N/A'}</p>
+                        <p><strong>Referencia:</strong> ${pacient.referencia || 'N/A'}</p>
+                        <p><strong>Registrado:</strong> ${pacient.fechaRegistro || 'N/A'}</p>
+                    </div>
+                </div>
+
+                ${pacient.notas ? `
+                    <div style="margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 5px;">
+                        <h4 style="margin-top: 0;">Notas</h4>
+                        <p>${pacient.notas}</p>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+
+        detailsContent.innerHTML = html;
+        detailsModal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    },
         const fullName = `${pacient.nombre} ${pacient.apellidoPaterno} ${pacient.apellidoMaterno || ''}`.trim();
 
         let html = `
