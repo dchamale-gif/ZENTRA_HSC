@@ -314,7 +314,7 @@ const ReportsModule = {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
         };
-    }
+    },
 
     // Calcular resumen del reporte
     calcularResumen(datos) {

@@ -116,6 +116,37 @@ const PacientesModule = {
             docDragZone.addEventListener('dragleave', (e) => this.handleDragLeave(e, docDragZone));
             docDragZone.addEventListener('drop', (e) => this.handleDocumentDrop(e));
         }
+
+        // Event delegation para botones de acción (editar, eliminar, ver)
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('.btn-edit')) {
+                const row = e.target.closest('tr');
+                if (row) {
+                    const pacientId = row.querySelector('[data-pacient-id]')?.getAttribute('data-pacient-id');
+                    if (pacientId) {
+                        this.editPacient(pacientId);
+                    }
+                }
+            }
+            if (e.target.closest('.btn-delete')) {
+                const row = e.target.closest('tr');
+                if (row) {
+                    const pacientId = row.querySelector('[data-pacient-id]')?.getAttribute('data-pacient-id');
+                    if (pacientId) {
+                        this.deletePacient(pacientId);
+                    }
+                }
+            }
+            if (e.target.closest('.btn-view')) {
+                const row = e.target.closest('tr');
+                if (row) {
+                    const pacientId = row.querySelector('[data-pacient-id]')?.getAttribute('data-pacient-id');
+                    if (pacientId) {
+                        this.viewPacientDetails(pacientId);
+                    }
+                }
+            }
+        });
     },
 
     // Cargar datos desde API
@@ -791,12 +822,46 @@ const PacientesModule = {
 
     // Eliminar paciente
     deletePacient(id) {
-        if (!confirm('¿Estás seguro de que quieres eliminar este paciente?')) return;
+        if (!confirm('¿Estás seguro de que quieres eliminar este paciente? Esta acción no se puede deshacer.')) return;
 
-        this.state.pacientes = this.state.pacientes.filter(p => p.id !== id);
-        this.showNotification('✅ Paciente eliminado', 'success');
-        this.saveToDB();
-        this.renderPacientes();
+        try {
+            const token = authManager.getToken();
+            if (!token) {
+                this.showNotification('❌ Error: No hay token de autenticación', 'error');
+                return;
+            }
+
+            // Mostrar loading
+            const btn = event?.target?.closest('.btn-delete');
+            if (btn) btn.disabled = true;
+
+            fetch(`${authManager.apiBaseUrl}/api/pacientes/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            }).then(response => {
+                if (!response.ok) {
+                    throw new Error(`Error ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            }).then(() => {
+                // Eliminar del estado local
+                this.state.pacientes = this.state.pacientes.filter(p => p.id !== id);
+                this.showNotification('✅ Paciente eliminado exitosamente', 'success');
+                this.renderPacientes();
+                console.log(`✅ Paciente ${id} eliminado de la BD`);
+            }).catch(error => {
+                console.error('❌ Error eliminando paciente:', error);
+                this.showNotification(`❌ Error: No se pudo eliminar el paciente. ${error.message}`, 'error');
+            }).finally(() => {
+                if (btn) btn.disabled = false;
+            });
+        } catch (error) {
+            console.error('❌ Error:', error);
+            this.showNotification(`❌ Error: ${error.message}`, 'error');
+        }
     },
 
     // Vincular/desvincular cliente
@@ -971,7 +1036,7 @@ const PacientesModule = {
         const tipoServicioBadge = this.getTipoServicioBadge(pacient.tipoServicio, pacient.clasificacion, pacient.segmentoCOEX);
 
         return `
-            <tr>
+            <tr data-pacient-id="${pacient.id}">
                 <td><strong>${pacient.dpi || pacient.pasaporte || 'N/A'}</strong></td>
                 <td>${fullName}</td>
                 <td>${pacient.telefono || 'N/A'}</td>
@@ -980,13 +1045,13 @@ const PacientesModule = {
                 <td>${tipoTag}</td>
                 <td>${pacient.fechaRegistro}</td>
                 <td class="actions">
-                    <button class="btn-icon btn-edit" title="Editar" onclick="PacientesModule.editPacient('${pacient.id}')">
+                    <button class="btn-icon btn-edit" title="Editar" type="button">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button class="btn-icon btn-delete" title="Eliminar" onclick="PacientesModule.deletePacient('${pacient.id}')">
+                    <button class="btn-icon btn-delete" title="Eliminar" type="button">
                         <i class="fas fa-trash"></i>
                     </button>
-                    <button class="btn-icon btn-view" title="Ver Detalles" onclick="PacientesModule.viewPacientDetails('${pacient.id}')">
+                    <button class="btn-icon btn-view" title="Ver Detalles" type="button">
                         <i class="fas fa-eye"></i>
                     </button>
                 </td>

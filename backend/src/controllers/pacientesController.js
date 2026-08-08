@@ -9,8 +9,7 @@ const getPacientes = async (req, res) => {
               telefono, email, estado, created_at
        FROM pacientes 
        WHERE estado = 'activo'
-       ORDER BY apellido_paterno, nombre
-       LIMIT 100`
+       ORDER BY apellido_paterno, nombre`
     );
 
     console.log(`✅ ${result.rows.length} pacientes obtenidos`);

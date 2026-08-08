@@ -834,6 +834,7 @@ class GastosServiciosModule {
             alert('Pago registrado exitosamente');
         }
     }
+}
 
 // Inicializar módulo globalmente
 let gastosModule;

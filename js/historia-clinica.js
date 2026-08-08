@@ -130,7 +130,6 @@ const HistoriaClinicaModule = {
             this.state.pacientes = [];
         }
     },
-    },
 
     // Renderizar lista de pacientes
     renderPacientes() {

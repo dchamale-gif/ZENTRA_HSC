@@ -96,20 +96,20 @@ function initializeApp() {
     setupResponsive();
     updateCurrentDate();
     
-    // Initialize Admin Modules
-    PacientesModule.init();
-    MedicinasModule.init();
-    HistoriaClinicaModule.init();
-    SaldoPacienteModule.init();
-    HospitalizacionesModule.init();
-    CodigosArticulosModule.init();
-    CajaIntegradaModule.init();
-    ComprasModule.init();
-    AlertasModule.init();
-    VentasModule.init();
-    CajaModule.init();
-    CuentasPorCobrarModule.init();
-    EstadosDeCuentaModule.init();
+    // Initialize Admin Modules (with safety checks)
+    try { if (typeof PacientesModule !== 'undefined') PacientesModule.init(); } catch(e) { console.warn('PacientesModule error:', e); }
+    try { if (typeof MedicinasModule !== 'undefined') MedicinasModule.init(); } catch(e) { console.warn('MedicinasModule error:', e); }
+    try { if (typeof HistoriaClinicaModule !== 'undefined') HistoriaClinicaModule.init(); } catch(e) { console.warn('HistoriaClinicaModule error:', e); }
+    try { if (typeof SaldoPacienteModule !== 'undefined') SaldoPacienteModule.init(); } catch(e) { console.warn('SaldoPacienteModule error:', e); }
+    try { if (typeof HospitalizacionesModule !== 'undefined') HospitalizacionesModule.init(); } catch(e) { console.warn('HospitalizacionesModule error:', e); }
+    try { if (typeof CodigosArticulosModule !== 'undefined') CodigosArticulosModule.init(); } catch(e) { console.warn('CodigosArticulosModule error:', e); }
+    try { if (typeof CajaIntegradaModule !== 'undefined') CajaIntegradaModule.init(); } catch(e) { console.warn('CajaIntegradaModule error:', e); }
+    try { if (typeof ComprasModule !== 'undefined') ComprasModule.init(); } catch(e) { console.warn('ComprasModule error:', e); }
+    try { if (typeof AlertasModule !== 'undefined') AlertasModule.init(); } catch(e) { console.warn('AlertasModule error:', e); }
+    try { if (typeof VentasModule !== 'undefined') VentasModule.init(); } catch(e) { console.warn('VentasModule error:', e); }
+    try { if (typeof CajaModule !== 'undefined') CajaModule.init(); } catch(e) { console.warn('CajaModule error:', e); }
+    try { if (typeof CuentasPorCobrarModule !== 'undefined') CuentasPorCobrarModule.init(); } catch(e) { console.warn('CuentasPorCobrarModule error:', e); }
+    try { if (typeof EstadosDeCuentaModule !== 'undefined') EstadosDeCuentaModule.init(); } catch(e) { console.warn('EstadosDeCuentaModule error:', e); }
     if (typeof DashboardFinancieroModule !== 'undefined' && DashboardFinancieroModule.init) {
         try { DashboardFinancieroModule.init(); } catch(e) { console.warn('DashboardFinancieroModule init error:', e); }
     }

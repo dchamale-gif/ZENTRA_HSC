@@ -120,8 +120,6 @@ const DashboardFinancieroModule = {
             console.warn('No se pudo cargar categorías de ingresos:', error.message);
         }
     },
-        }
-    },
 
     // Obtener headers de autenticación
     getAuthHeaders() {

@@ -66,7 +66,7 @@ const AgendaAPIModule = {
             if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
             return response.json();
         });
-    },,
+    },
 
     // POST Request
     post(endpoint, data = {}) {
