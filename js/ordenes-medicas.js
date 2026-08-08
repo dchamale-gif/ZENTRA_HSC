@@ -806,6 +806,15 @@ const OrdenesmedicasModule = {
         setTimeout(() => {
             ventana.print();
         }, 250);
+    },
+
+    // Mostrar notificación
+    showNotification(message, type = 'info') {
+        if (typeof AlertasModule !== 'undefined' && AlertasModule.showNotification) {
+            AlertasModule.showNotification(message, type);
+        } else {
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
     }
 };
 
