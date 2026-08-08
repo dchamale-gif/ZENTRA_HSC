@@ -164,7 +164,7 @@ const HistoriaClinicaModule = {
                 ${filtered.map(pacient => this.renderPacientCard(pacient)).join('')}
             </div>
         `;
-    }
+    },
 
     // Renderizar tarjeta de paciente
     renderPacientCard(pacient) {

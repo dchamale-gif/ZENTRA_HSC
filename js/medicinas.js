@@ -599,7 +599,7 @@ const MedicinasModule = {
                     return `<option value="${m.id}">${m.nombre} (${cantidad} unid.)</option>`;
                 })
                 .join('');
-    }
+    },
 
     // Agregar medicina a la lista de asignación
     addMedicineToList() {
