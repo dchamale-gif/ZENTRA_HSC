@@ -37,18 +37,54 @@ const SaldoPacienteModule = {
                 this.renderSaldosPacientes();
             });
         }
+
+        // Event listener para guardar pago
+        const savePaymentBtn = document.getElementById('savePaymentBtn');
+        if (savePaymentBtn) {
+            savePaymentBtn.addEventListener('click', () => this.savePayment());
+        }
+
+        // Event listener para cerrar modal (close-btn)
+        const closeBtn = document.querySelector('#paymentModal .close-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => this.closePaymentModal());
+        }
     },
 
     // Cargar datos
     loadData() {
         try {
-            const demoData = window.DemoData || {};
-            this.state.pacientes = JSON.parse(JSON.stringify(demoData.pacientes || []));
-            this.state.saldosPacientes = JSON.parse(JSON.stringify(demoData.saldosPacientes || []));
-            this.state.movimientosPaciente = JSON.parse(JSON.stringify(demoData.movimientosPaciente || []));
+            // Cargar pacientes SOLO desde PacientesModule
+            if (typeof PacientesModule !== 'undefined' && PacientesModule.state && PacientesModule.state.pacientes) {
+                this.state.pacientes = JSON.parse(JSON.stringify(PacientesModule.state.pacientes));
+            } else {
+                console.error('❌ ERROR: PacientesModule no disponible. Verifica que esté inicializado.');
+                this.showNotification('❌ Error: Base de datos de pacientes no disponible', 'error');
+                return;
+            }
+            
+            // Cargar saldos desde localStorage
+            const saldosFromStorage = localStorage.getItem('saldosPacientes');
+            if (saldosFromStorage) {
+                this.state.saldosPacientes = JSON.parse(saldosFromStorage);
+            } else {
+                console.warn('⚠️ No hay datos de saldos en localStorage');
+                this.state.saldosPacientes = [];
+            }
+            
+            // Cargar movimientos desde localStorage
+            const movimientosFromStorage = localStorage.getItem('movimientosPaciente');
+            if (movimientosFromStorage) {
+                this.state.movimientosPaciente = JSON.parse(movimientosFromStorage);
+            } else {
+                console.warn('⚠️ No hay datos de movimientos en localStorage');
+                this.state.movimientosPaciente = [];
+            }
+            
             this.renderSaldosPacientes();
         } catch (error) {
-            console.error('Error cargando datos de saldos:', error);
+            console.error('❌ Error cargando datos de saldos:', error);
+            this.showNotification(`❌ Error al cargar datos: ${error.message}`, 'error');
         }
     },
 
@@ -368,12 +404,24 @@ const SaldoPacienteModule = {
         const select = document.getElementById('paymentPacienteSelect');
         if (!select) return;
 
+        // Cargar SOLO desde PacientesModule
+        if (!this.state.pacientes || this.state.pacientes.length === 0) {
+            console.error('❌ ERROR: No hay pacientes disponibles');
+            select.innerHTML = '<option value="">❌ Error: No hay pacientes disponibles</option>';
+            return;
+        }
+
         select.innerHTML = '<option value="">-- Selecciona un paciente --</option>' +
             this.state.pacientes
-                .filter(p => p.estado === 'activo')
-                .map(p => `<option value="${p.id}">${p.nombre} ${p.apellido_paterno || p.apellido || ''} (${p.dpi || p.cedula})</option>`)
+                .filter(p => p.estado === 'activo' || !p.estado)
+                .map(p => {
+                    const fullName = `${p.nombre} ${p.apellidoPaterno || p.apellido_paterno || ''} ${p.apellidoMaterno || ''}`;
+                    const cedula = p.dpi || p.cedula || p.pasaporte || 'S/N';
+                    return `<option value="${p.id}">${fullName} (${cedula})</option>`;
+                })
                 .join('');
 
+        // Agregar event listener para cargar info de saldo
         select.addEventListener('change', (e) => {
             if (e.target.value) {
                 this.loadSaldoInfo(e.target.value);

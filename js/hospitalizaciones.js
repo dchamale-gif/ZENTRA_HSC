@@ -45,15 +45,22 @@ const HospitalizacionesModule = {
         } catch (error) {
             console.warn('Error cargando de API, usando localStorage:', error);
             
-            // Fallback a localStorage y datos demo
-            const demoData = window.DemoData || {};
-            this.state.pacientes = JSON.parse(JSON.stringify(demoData.pacientes || []));
+            // Cargar desde localStorage o mostrar error
+            const pacientesFromStorage = localStorage.getItem('pacientes');
+            if (pacientesFromStorage) {
+                this.state.pacientes = JSON.parse(pacientesFromStorage);
+            } else {
+                console.error('❌ ERROR: PacientesModule no disponible y no hay datos en localStorage');
+                this.showNotification('❌ Error: No hay pacientes disponibles', 'error');
+                this.state.pacientes = [];
+            }
             
             const hospFromStorage = localStorage.getItem('hospitalizaciones');
             if (hospFromStorage) {
                 this.state.hospitalizaciones = JSON.parse(hospFromStorage);
             } else {
-                this.state.hospitalizaciones = JSON.parse(JSON.stringify(demoData.hospitalizaciones || []));
+                console.warn('⚠️ No hay hospitalizaciones en localStorage');
+                this.state.hospitalizaciones = [];
             }
         }
         
@@ -69,15 +76,19 @@ const HospitalizacionesModule = {
             throw new Error('No hay token de autenticación');
         }
 
-        // Para ahora, usar localStorage como fallback
-        const demoData = window.DemoData || {};
-        this.state.pacientes = JSON.parse(JSON.stringify(demoData.pacientes || []));
+        // Cargar pacientes desde PacientesModule
+        if (PacientesModule && PacientesModule.state && PacientesModule.state.pacientes) {
+            this.state.pacientes = JSON.parse(JSON.stringify(PacientesModule.state.pacientes));
+        } else {
+            console.error('❌ ERROR: PacientesModule no disponible');
+            this.showNotification('❌ Error: No se puede acceder a la base de datos de pacientes', 'error');
+        }
         
         const hospFromStorage = localStorage.getItem('hospitalizaciones');
         if (hospFromStorage) {
             this.state.hospitalizaciones = JSON.parse(hospFromStorage);
         } else {
-            this.state.hospitalizaciones = JSON.parse(JSON.stringify(demoData.hospitalizaciones || []));
+            console.warn('⚠️ No hay hospitalizaciones registradas en localStorage');
         }
 
         // En futuro: integrar con API real

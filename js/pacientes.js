@@ -8,8 +8,17 @@ const PacientesModule = {
     state: {
         pacientes: [],
         clientes: [],
-        filtroActivo: 'todos', // todos, cliente, no-cliente
-        searchTerm: ''
+        filtroTipo: 'todos',        // todos, cliente, no-cliente
+        filtroOrden: 'default',     // default, alfabetico-asc, alfabetico-desc
+        filtroPago: 'todos',        // todos, deudor, pagado
+        searchTerm: '',
+        stats: {
+            total: 0,
+            clientes: 0,
+            noClientes: 0,
+            deudores: 0,
+            pagados: 0
+        }
     },
     documentosTemporales: {}, // Almacena documentos antes de guardar
 
@@ -40,10 +49,26 @@ const PacientesModule = {
             });
         }
 
-        const filterSelect = document.getElementById('filterPacient');
-        if (filterSelect) {
-            filterSelect.addEventListener('change', (e) => {
-                this.filtroActivo = e.target.value;
+        const filterTipo = document.getElementById('filterPacient');
+        if (filterTipo) {
+            filterTipo.addEventListener('change', (e) => {
+                this.state.filtroTipo = e.target.value;
+                this.renderPacientes();
+            });
+        }
+
+        const filterOrden = document.getElementById('filterOrden');
+        if (filterOrden) {
+            filterOrden.addEventListener('change', (e) => {
+                this.state.filtroOrden = e.target.value;
+                this.renderPacientes();
+            });
+        }
+
+        const filtroPago = document.getElementById('filterPago');
+        if (filtroPago) {
+            filtroPago.addEventListener('change', (e) => {
+                this.state.filtroPago = e.target.value;
                 this.renderPacientes();
             });
         }
@@ -103,8 +128,10 @@ const PacientesModule = {
 
             const token = authManager.getToken();
             if (!token) {
-                console.warn('⚠️ No hay token de autenticación. Cargando datos demo...');
-                this.loadDemoData();
+                console.error('❌ ERROR: No hay token de autenticación');
+                this.showNotification('❌ Error: No hay token de autenticación. Por favor inicia sesión.', 'error');
+                this.state.pacientes = [];
+                this.renderPacientes();
                 return;
             }
 
@@ -127,18 +154,19 @@ const PacientesModule = {
             
             console.log(`✅ ${this.state.pacientes.length} pacientes cargados desde BD`);
         } catch (error) {
-            console.warn('⚠️ Error cargando pacientes desde API:', error.message);
-            this.loadDemoData();
+            console.error('❌ Error cargando pacientes desde API:', error.message);
+            this.showNotification(`❌ Error: No se puede acceder a la base de datos de pacientes. ${error.message}`, 'error');
+            this.state.pacientes = [];
+            this.renderPacientes();
         }
     },
 
     // Cargar datos demo locales
     loadDemoData() {
-        const demoData = window.DemoData || {};
-        // Normalizar datos demo también
-        this.state.pacientes = DataNormalizer.normalizePacientes(JSON.parse(JSON.stringify(demoData.pacientes || [])));
+        console.error('❌ ERROR: No hay datos de pacientes disponibles en localStorage');
+        this.showNotification('❌ Error: No se puede acceder a la base de datos de pacientes', 'error');
+        this.state.pacientes = [];
         this.renderPacientes();
-        console.log(`✅ ${this.state.pacientes.length} pacientes cargados desde datos demo`);
     },
 
     // Abrir modal de nuevo paciente
@@ -817,18 +845,25 @@ const PacientesModule = {
 
         let filtered = [...this.state.pacientes];
 
-        // Filtro por tipo
-        if (this.filtroActivo === 'cliente') {
+        // Calcular estadísticas
+        this.calculateStats();
+        this.renderStats();
+
+        // FILTRO POR TIPO (Cliente / No-Cliente)
+        if (this.state.filtroTipo === 'cliente') {
             filtered = filtered.filter(p => p.isCliente);
-        } else if (this.filtroActivo === 'no-cliente') {
+        } else if (this.state.filtroTipo === 'no-cliente') {
             filtered = filtered.filter(p => !p.isCliente);
-        } else if (this.filtroActivo === 'deudor') {
+        }
+
+        // FILTRO POR ESTADO DE PAGO (Deudor / Pagado)
+        if (this.state.filtroPago === 'deudor') {
             // Filtrar por pacientes con saldo pendiente
             filtered = filtered.filter(p => {
                 const saldo = SaldoPacienteModule?.state?.saldosPacientes?.find(s => s.pacienteId == p.id);
                 return saldo && saldo.saldoPendiente > 0;
             });
-        } else if (this.filtroActivo === 'pagado') {
+        } else if (this.state.filtroPago === 'pagado') {
             // Filtrar por pacientes sin saldo pendiente
             filtered = filtered.filter(p => {
                 const saldo = SaldoPacienteModule?.state?.saldosPacientes?.find(s => s.pacienteId == p.id);
@@ -836,7 +871,7 @@ const PacientesModule = {
             });
         }
 
-        // Búsqueda - usar campos normalizados (camelCase)
+        // BÚSQUEDA - usar campos normalizados (camelCase)
         if (this.searchTerm) {
             filtered = filtered.filter(p =>
                 (p.nombre && p.nombre.toLowerCase().includes(this.searchTerm)) ||
@@ -849,13 +884,13 @@ const PacientesModule = {
         }
 
         // ORDENAMIENTO
-        if (this.filtroActivo === 'alfabetico-asc') {
+        if (this.state.filtroOrden === 'alfabetico-asc') {
             filtered.sort((a, b) => {
                 const nameA = `${a.nombre} ${a.apellidoPaterno}`.toLowerCase().trim();
                 const nameB = `${b.nombre} ${b.apellidoPaterno}`.toLowerCase().trim();
                 return nameA.localeCompare(nameB, 'es');
             });
-        } else if (this.filtroActivo === 'alfabetico-desc') {
+        } else if (this.state.filtroOrden === 'alfabetico-desc') {
             filtered.sort((a, b) => {
                 const nameA = `${a.nombre} ${a.apellidoPaterno}`.toLowerCase().trim();
                 const nameB = `${b.nombre} ${b.apellidoPaterno}`.toLowerCase().trim();
@@ -872,18 +907,32 @@ const PacientesModule = {
 
         if (filtered.length === 0) {
             let mensaje = 'No hay pacientes registrados';
+            let icon = '👥';
+            
             if (this.searchTerm) {
                 mensaje = `No se encontraron pacientes que coincidan con "${this.searchTerm}"`;
-            } else if (this.filtroActivo === 'cliente') {
+                icon = '🔍';
+            } else if (this.state.filtroTipo === 'cliente') {
                 mensaje = 'No hay clientes registrados';
-            } else if (this.filtroActivo === 'no-cliente') {
+                icon = '👤';
+            } else if (this.state.filtroTipo === 'no-cliente') {
                 mensaje = 'No hay pacientes sin vincular a cliente';
-            } else if (this.filtroActivo === 'deudor') {
+                icon = '❌';
+            } else if (this.state.filtroPago === 'deudor') {
                 mensaje = 'No hay pacientes con saldo pendiente';
-            } else if (this.filtroActivo === 'pagado') {
+                icon = '✓';
+            } else if (this.state.filtroPago === 'pagado') {
                 mensaje = 'No hay pacientes pagados';
+                icon = '💰';
             }
-            container.innerHTML = `<div class="empty-state"><p>✓ ${mensaje}</p></div>`;
+            
+            container.innerHTML = `
+                <div style="text-align: center; padding: 60px 40px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <div style="font-size: 48px; margin-bottom: 15px;">${icon}</div>
+                    <p style="font-size: 18px; color: #333; margin: 10px 0; font-weight: 600;">${mensaje}</p>
+                    <small style="color: #999;">Intenta ajustar los filtros o crear un nuevo paciente</small>
+                </div>
+            `;
             return;
         }
 
@@ -942,6 +991,73 @@ const PacientesModule = {
                     </button>
                 </td>
             </tr>
+        `;
+    },
+
+    // Calcular estadísticas de pacientes
+    calculateStats() {
+        const stats = {
+            total: this.state.pacientes.length,
+            clientes: this.state.pacientes.filter(p => p.isCliente).length,
+            noClientes: this.state.pacientes.filter(p => !p.isCliente).length,
+            deudores: 0,
+            pagados: 0
+        };
+
+        if (typeof SaldoPacienteModule !== 'undefined' && SaldoPacienteModule?.state?.saldosPacientes) {
+            stats.deudores = this.state.pacientes.filter(p => {
+                const saldo = SaldoPacienteModule.state.saldosPacientes.find(s => s.pacienteId == p.id);
+                return saldo && saldo.saldoPendiente > 0;
+            }).length;
+            
+            stats.pagados = this.state.pacientes.filter(p => {
+                const saldo = SaldoPacienteModule.state.saldosPacientes.find(s => s.pacienteId == p.id);
+                return !saldo || saldo.saldoPendiente === 0;
+            }).length;
+        }
+
+        this.state.stats = stats;
+    },
+
+    // Renderizar estadísticas
+    renderStats() {
+        const container = document.getElementById('pacientesStats');
+        if (!container) return;
+
+        const stats = this.state.stats;
+        
+        container.innerHTML = `
+            <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <div style="font-size: 12px; font-weight: 600; opacity: 0.9; margin-bottom: 8px;">
+                    <i class="fas fa-users"></i> TOTAL DE PACIENTES
+                </div>
+                <div style="font-size: 32px; font-weight: 700; margin: 0;">${stats.total}</div>
+                <small style="opacity: 0.8;">Registrados en el sistema</small>
+            </div>
+
+            <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <div style="font-size: 12px; font-weight: 600; opacity: 0.9; margin-bottom: 8px;">
+                    <i class="fas fa-check-circle"></i> CLIENTES
+                </div>
+                <div style="font-size: 32px; font-weight: 700; margin: 0;">${stats.clientes}</div>
+                <small style="opacity: 0.8;">${stats.clientes > 0 ? ((stats.clientes / stats.total * 100).toFixed(1) + '%') : '0%'}</small>
+            </div>
+
+            <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <div style="font-size: 12px; font-weight: 600; opacity: 0.9; margin-bottom: 8px;">
+                    <i class="fas fa-credit-card"></i> CON SALDO PENDIENTE
+                </div>
+                <div style="font-size: 32px; font-weight: 700; margin: 0;">${stats.deudores}</div>
+                <small style="opacity: 0.8;">${stats.deudores > 0 ? ((stats.deudores / stats.total * 100).toFixed(1) + '%') : '0%'}</small>
+            </div>
+
+            <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <div style="font-size: 12px; font-weight: 600; opacity: 0.9; margin-bottom: 8px;">
+                    <i class="fas fa-check"></i> PAGADOS
+                </div>
+                <div style="font-size: 32px; font-weight: 700; margin: 0;">${stats.pagados}</div>
+                <small style="opacity: 0.8;">${stats.pagados > 0 ? ((stats.pagados / stats.total * 100).toFixed(1) + '%') : '0%'}</small>
+            </div>
         `;
     },
 

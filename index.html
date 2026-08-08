@@ -297,20 +297,54 @@
                         </button>
                     </div>
 
-                    <div class="pacients-filters">
-                        <input type="text" id="searchPacient" class="form-input" placeholder="Buscar por nombre, cédula o email...">
-                        <select id="filterPacient" class="form-input">
-                            <option value="todos">Todos los Pacientes</option>
-                            <option value="cliente">Solo Clientes</option>
-                            <option value="no-cliente">No Clientes</option>
-                            <option value="">--- ORDENAMIENTO ---</option>
-                            <option value="alfabetico-asc">Alfabético (A-Z)</option>
-                            <option value="alfabetico-desc">Alfabético (Z-A)</option>
-                            <option value="">--- ESTADO DE PAGO ---</option>
-                            <option value="deudor">Con Saldo Pendiente</option>
-                            <option value="pagado">Pagados</option>
-                        </select>
+                    <div class="pacients-filters" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                        <input type="text" id="searchPacient" class="form-input" placeholder="Buscar por nombre, cédula o email..." style="grid-column: 1 / -1;">
+                        
+                        <div style="display: flex; flex-direction: column;">
+                            <label style="font-size: 12px; font-weight: 600; color: #667eea; margin-bottom: 5px;">
+                                <i class="fas fa-filter"></i> Tipo de Paciente
+                            </label>
+                            <select id="filterPacient" class="form-input">
+                                <option value="todos">✓ Todos (Ver cantidad)</option>
+                                <option value="cliente">👤 Solo Clientes</option>
+                                <option value="no-cliente">👥 No Clientes</option>
+                            </select>
+                        </div>
+                        
+                        <div style="display: flex; flex-direction: column;">
+                            <label style="font-size: 12px; font-weight: 600; color: #667eea; margin-bottom: 5px;">
+                                <i class="fas fa-sort"></i> Ordenar
+                            </label>
+                            <select id="filterOrden" class="form-input">
+                                <option value="default">Por Defecto (Apellido)</option>
+                                <option value="alfabetico-asc">A-Z (Alfabético)</option>
+                                <option value="alfabetico-desc">Z-A (Alfabético)</option>
+                            </select>
+                        </div>
+                        
+                        <div style="display: flex; flex-direction: column;">
+                            <label style="font-size: 12px; font-weight: 600; color: #667eea; margin-bottom: 5px;">
+                                <i class="fas fa-credit-card"></i> Estado de Pago
+                            </label>
+                            <select id="filterPago" class="form-input">
+                                <option value="todos">Todos</option>
+                                <option value="deudor">💳 Con Saldo Pendiente</option>
+                                <option value="pagado">✓ Pagados</option>
+                            </select>
+                        </div>
+                        
+                        <div style="display: flex; flex-direction: column;">
+                            <label style="font-size: 12px; font-weight: 600; color: #667eea; margin-bottom: 5px;">
+                                <i class="fas fa-sync-alt"></i> Actualizar
+                            </label>
+                            <button class="btn btn-outline" onclick="PacientesModule.renderPacientes()" style="padding: 8px 12px; font-size: 12px;">
+                                <i class="fas fa-refresh"></i> Refrescar
+                            </button>
+                        </div>
                     </div>
+                    
+                    <!-- Estadísticas de Pacientes -->
+                    <div id="pacientesStats" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px;"></div>
 
                     <div id="pacientesTableContainer" class="table-responsive">
                         <!-- Poblada por JavaScript -->

@@ -19,14 +19,14 @@ class GastosServiciosModule {
     }
 
     init() {
-        // Cargar datos del localStorage o usar demoData
+        // Cargar datos del localStorage
         const savedData = localStorage.getItem('gastosServiciosData');
         if (savedData) {
             try {
                 const data = JSON.parse(savedData);
                 this.state = { ...this.state, ...data };
             } catch (e) {
-                console.error('Error parsing saved data:', e);
+                console.error('❌ Error parsing saved data:', e);
                 this.loadDemoData();
             }
         } else {
@@ -36,130 +36,13 @@ class GastosServiciosModule {
     }
 
     loadDemoData() {
-        // Intentar cargar de DemoData
-        if (window.DemoData && window.DemoData.conceptos) {
-            this.state.conceptos = [...window.DemoData.conceptos];
-            this.state.proveedores = [...window.DemoData.proveedores];
-            this.state.pagos = [...window.DemoData.pagos];
-        } else {
-            // Si DemoData no está disponible, usar datos por defecto
-            console.warn('DemoData no disponible, usando datos por defecto');
-            
-            const today = new Date();
-            const dates = [];
-            for (let i = 0; i < 7; i++) {
-                const d = new Date(today);
-                d.setDate(today.getDate() - i);
-                dates.push(d.toISOString().split('T')[0]);
-            }
-            
-            this.state.conceptos = [
-                { id: 'CON-001', nombre: 'EEGSA', descripcion: 'Energía Eléctrica', categoria: 'Servicios Básicos' },
-                { id: 'CON-002', nombre: 'Telefonía', descripcion: 'Servicios de Telefonía', categoria: 'Comunicaciones' },
-                { id: 'CON-003', nombre: 'Internet', descripcion: 'Servicio de Internet', categoria: 'Comunicaciones' },
-                { id: 'CON-004', nombre: 'Agua', descripcion: 'Suministro de Agua', categoria: 'Servicios Básicos' },
-                { id: 'CON-005', nombre: 'Gasolina', descripcion: 'Combustible Vehículos', categoria: 'Transporte' }
-            ];
-            this.state.proveedores = [
-                { id: 'PRV-001', nombre: 'EEGSA', contacto: 'Gerente de Ventas', referencia: 'Energía Eléctrica de Guatemala', telefono: '2206-6500', estado: 'activo', fechaAlta: new Date().toISOString().split('T')[0] },
-                { id: 'PRV-002', nombre: 'Claro Guatemala', contacto: 'Representante Comercial', referencia: 'Telefonía', telefono: '1200-1200', estado: 'activo', fechaAlta: new Date().toISOString().split('T')[0] },
-                { id: 'PRV-003', nombre: 'EMAYA', contacto: 'Jefe de Servicio al Cliente', referencia: 'Agua', telefono: '2221-2000', estado: 'activo', fechaAlta: new Date().toISOString().split('T')[0] },
-                { id: 'PRV-004', nombre: 'Shell Guatemala', contacto: 'Ejecutivo de Cuenta', referencia: 'Combustibles', telefono: '2384-7000', estado: 'activo', fechaAlta: new Date().toISOString().split('T')[0] }
-            ];
-            this.state.pagos = [
-                { id: 'PAG-001', fecha: dates[0], concepto: 'CON-001', proveedor: 'PRV-001', monto: 1560, numeroFactura: 'FAC-2024-001', requisicion: 'REQ-2024-001', referencia: 'Ref#001', estado: 'pagado' },
-                { id: 'PAG-002', fecha: dates[1], concepto: 'CON-002', proveedor: 'PRV-002', monto: 780, numeroFactura: 'FAC-2024-002', requisicion: '', referencia: 'Ref#002', estado: 'pagado' },
-                { id: 'PAG-003', fecha: dates[2], concepto: 'CON-003', proveedor: 'PRV-002', monto: 390, numeroFactura: 'FAC-2024-003', requisicion: 'LOTE-001', referencia: 'Ref#003', estado: 'pagado' },
-                { id: 'PAG-004', fecha: dates[3], concepto: 'CON-001', proveedor: 'PRV-001', monto: 1560, numeroFactura: 'FAC-2024-004', requisicion: 'REQ-2024-002', referencia: 'Ref#004', estado: 'pagado' },
-                { id: 'PAG-005', fecha: dates[4], concepto: 'CON-004', proveedor: 'PRV-003', monto: 468, numeroFactura: 'FAC-2024-005', requisicion: '', referencia: 'Ref#005', estado: 'pagado' },
-                { id: 'PAG-006', fecha: dates[5], concepto: 'CON-002', proveedor: 'PRV-002', monto: 624, numeroFactura: 'FAC-2024-006', requisicion: 'LOTE-002', referencia: 'Ref#006', estado: 'pagado' },
-                { id: 'PAG-007', fecha: dates[6], concepto: 'CON-005', proveedor: 'PRV-004', monto: 2340, numeroFactura: 'FAC-2024-007', requisicion: 'REQ-2024-003', referencia: 'Ref#007', estado: 'pagado' }
-            ];
-            
-            // Proveedores médicos/sanitarios
-            if (!this.state.proveedores.some(p => p.id === 'PRV-MED-001')) {
-                this.state.proveedores.push(
-                    { id: 'PRV-MED-001', nombre: 'Farmacia La Salud', contacto: 'Gerente Ventas', referencia: 'Medicamentos y Suministros', telefono: '2385-5000', estado: 'activo', fechaAlta: new Date().toISOString().split('T')[0] },
-                    { id: 'PRV-MED-002', nombre: 'Laboratorio Clínico Central', contacto: 'Jefe de Servicio', referencia: 'Análisis y Pruebas', telefono: '2220-3500', estado: 'activo', fechaAlta: new Date().toISOString().split('T')[0] },
-                    { id: 'PRV-MED-003', nombre: 'Servicios de Encamamiento Plus', contacto: 'Coordinador', referencia: 'Hospedaje Hospital', telefono: '2400-7800', estado: 'activo', fechaAlta: new Date().toISOString().split('T')[0] }
-                );
-            }
-            
-            // Cuentas por pagar demo con líneas de concepto
-            const proximoVencimiento = new Date();
-            proximoVencimiento.setDate(proximoVencimiento.getDate() + 15);
-            const vencimiento2 = new Date();
-            vencimiento2.setDate(vencimiento2.getDate() + 30);
-            
-            this.state.cuentasPorPagar = [
-                { 
-                    id: 'CPP-001', 
-                    proveedor: 'PRV-MED-001', 
-                    concepto: 'Medicamentos', 
-                    monto: 2500, 
-                    saldo: 2500, 
-                    fecha: dates[3], 
-                    vencimiento: proximoVencimiento.toISOString().split('T')[0], 
-                    numeroFactura: 'FAC-FARM-2024-015', 
-                    estado: 'pendiente', 
-                    lineas: [
-                        { id: 'L1', concepto: 'Antibióticos (Amoxicilina)', cantidad: 50, unitario: 25, subtotal: 1250 },
-                        { id: 'L2', concepto: 'Analgésicos (Ibuprofeno)', cantidad: 100, unitario: 5.50, subtotal: 550 },
-                        { id: 'L3', concepto: 'Vitaminas B12', cantidad: 20, unitario: 36, subtotal: 720 }
-                    ],
-                    pagos: [] 
-                },
-                { 
-                    id: 'CPP-002', 
-                    proveedor: 'PRV-MED-002', 
-                    concepto: 'Análisis de Laboratorio', 
-                    monto: 1200, 
-                    saldo: 800, 
-                    fecha: dates[4], 
-                    vencimiento: proximoVencimiento.toISOString().split('T')[0], 
-                    numeroFactura: 'FAC-LAB-2024-016', 
-                    estado: 'parcial', 
-                    lineas: [
-                        { id: 'L1', concepto: 'Hemograma completo', cantidad: 15, unitario: 45, subtotal: 675 },
-                        { id: 'L2', concepto: 'Química sanguínea', cantidad: 10, unitario: 52.50, subtotal: 525 }
-                    ],
-                    pagos: [{ id: 'PAG-P1', monto: 400, fecha: dates[2] }] 
-                },
-                { 
-                    id: 'CPP-003', 
-                    proveedor: 'PRV-MED-003', 
-                    concepto: 'Encamamiento Hospitalario', 
-                    monto: 950, 
-                    saldo: 0, 
-                    fecha: dates[5], 
-                    vencimiento: dates[0], 
-                    numeroFactura: 'FAC-ENC-2024-017', 
-                    estado: 'pagada', 
-                    lineas: [
-                        { id: 'L1', concepto: 'Cama estándar (5 noches)', cantidad: 5, unitario: 150, subtotal: 750 },
-                        { id: 'L2', concepto: 'Servicios de enfermería', cantidad: 1, unitario: 200, subtotal: 200 }
-                    ],
-                    pagos: [{ id: 'PAG-P2', monto: 950, fecha: dates[1] }] 
-                },
-                { 
-                    id: 'CPP-004', 
-                    proveedor: 'PRV-MED-001', 
-                    concepto: 'Medicamentos Especiales', 
-                    monto: 3600, 
-                    saldo: 3600, 
-                    fecha: dates[6], 
-                    vencimiento: vencimiento2.toISOString().split('T')[0], 
-                    numeroFactura: 'FAC-FARM-2024-018', 
-                    estado: 'pendiente', 
-                    lineas: [
-                        { id: 'L1', concepto: 'Insulina NPH (frascos)', cantidad: 12, unitario: 200, subtotal: 2400 },
-                        { id: 'L2', concepto: 'Metformina 850mg', cantidad: 60, unitario: 20, subtotal: 1200 }
-                    ],
-                    pagos: [] 
-                }
-            ];
-        }
-        this.save();
+        console.error('❌ ERROR: No hay datos de gastos disponibles en localStorage');
+        this.showNotification('❌ Error: No se puede acceder a los datos de gastos. Verifica la base de datos.', 'error');
+        this.state.conceptos = [];
+        this.state.proveedores = [];
+        this.state.pagos = [];
+        this.state.gastos = [];
+        this.state.cuentasPorPagar = [];
     }
 
     setDefaultPeriod() {
@@ -329,20 +212,32 @@ class GastosServiciosModule {
         const reportGastos = this.generateGastosReport();
         const totalGastos = reportGastos.totalGeneral;
 
-        // Ventas (desde demo data o localStorage)
+        // Ventas (desde localStorage)
         let totalVentas = 0;
-        if (window.DemoData && window.DemoData.transactions) {
-            totalVentas = window.DemoData.transactions
-                .filter(t => t.type === 'Venta')
-                .reduce((sum, t) => sum + (t.amount || 0), 0);
+        const ventasData = localStorage.getItem('ventas');
+        if (ventasData) {
+            try {
+                const ventas = JSON.parse(ventasData);
+                totalVentas = ventas
+                    .filter(v => v.fecha >= this.state.fechaInicio && v.fecha <= this.state.fechaFin)
+                    .reduce((sum, v) => sum + (v.monto || v.total || 0), 0);
+            } catch (e) {
+                console.warn('⚠️ No hay datos de ventas disponibles');
+            }
         }
 
         // Compras
         let totalCompras = 0;
-        if (window.DemoData && window.DemoData.transactions) {
-            totalCompras = window.DemoData.transactions
-                .filter(t => t.type === 'Compra')
-                .reduce((sum, t) => sum + (t.amount || 0), 0);
+        const comprasData = localStorage.getItem('compras');
+        if (comprasData) {
+            try {
+                const compras = JSON.parse(comprasData);
+                totalCompras = compras
+                    .filter(c => c.fecha >= this.state.fechaInicio && c.fecha <= this.state.fechaFin)
+                    .reduce((sum, c) => sum + (c.monto || c.total || 0), 0);
+            } catch (e) {
+                console.warn('⚠️ No hay datos de compras disponibles');
+            }
         }
 
         return {

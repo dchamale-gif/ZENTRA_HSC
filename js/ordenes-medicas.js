@@ -99,12 +99,13 @@ const OrdenesmedicasModule = {
 
     // Cargar datos desde localStorage
     loadDataFromLocalStorage() {
-        // Cargar pacientes del módulo PacientesModule
+        // Cargar pacientes SOLO del módulo PacientesModule
         if (typeof PacientesModule !== 'undefined' && PacientesModule.state && PacientesModule.state.pacientes) {
             this.state.pacientes = PacientesModule.state.pacientes;
         } else {
-            const demoData = window.DemoData || {};
-            this.state.pacientes = JSON.parse(JSON.stringify(demoData.pacientes || []));
+            console.error('❌ ERROR: PacientesModule no disponible');
+            this.showNotification('❌ Error: Base de datos de pacientes no disponible', 'error');
+            this.state.pacientes = [];
         }
 
         // Cargar órdenes desde localStorage

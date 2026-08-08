@@ -77,22 +77,59 @@ const HistoriaClinicaModule = {
 
     // Cargar datos
     loadData() {
-        const demoData = window.DemoData || {};
-        this.state.pacientes = JSON.parse(JSON.stringify(demoData.pacientes || []));
-        this.state.medicinas = JSON.parse(JSON.stringify(demoData.medicinas || []));
-        this.state.medicamentosAsignados = JSON.parse(JSON.stringify(demoData.medicamentosAsignados || []));
-        
-        // Cargar historial clínico desde localStorage si existe, sino desde DemoData
-        const historiasFromStorage = localStorage.getItem('historiasClinicas');
-        if (historiasFromStorage) {
-            this.state.historiasClinicas = JSON.parse(historiasFromStorage);
-        } else {
-            this.state.historiasClinicas = JSON.parse(JSON.stringify(demoData.historiasClinicas || []));
+        try {
+            // Cargar pacientes SOLO desde PacientesModule
+            if (typeof PacientesModule !== 'undefined' && PacientesModule.state && PacientesModule.state.pacientes) {
+                this.state.pacientes = JSON.parse(JSON.stringify(PacientesModule.state.pacientes));
+            } else {
+                console.error('❌ ERROR: PacientesModule no disponible. Verifica que esté inicializado.');
+                this.showNotification('❌ Error: Base de datos de pacientes no disponible', 'error');
+                this.state.pacientes = [];
+                return;
+            }
+            
+            // Cargar historial clínico desde localStorage
+            const historiasFromStorage = localStorage.getItem('historiasClinicas');
+            if (historiasFromStorage) {
+                this.state.historiasClinicas = JSON.parse(historiasFromStorage);
+            } else {
+                console.warn('⚠️ No hay historias clínicas en localStorage');
+                this.state.historiasClinicas = [];
+            }
+            
+            // Cargar medicamentos asignados desde localStorage
+            const medicamentosFromStorage = localStorage.getItem('medicamentosAsignados');
+            if (medicamentosFromStorage) {
+                this.state.medicamentosAsignados = JSON.parse(medicamentosFromStorage);
+            } else {
+                console.warn('⚠️ No hay medicamentos asignados en localStorage');
+                this.state.medicamentosAsignados = [];
+            }
+            
+            // Cargar medicinas SOLO desde MedicinasModule o localStorage
+            if (typeof MedicinasModule !== 'undefined' && MedicinasModule.state && MedicinasModule.state.medicinas) {
+                this.state.medicinas = JSON.parse(JSON.stringify(MedicinasModule.state.medicinas));
+            } else {
+                const medicinasFromStorage = localStorage.getItem('medicinas');
+                if (medicinasFromStorage) {
+                    this.state.medicinas = JSON.parse(medicinasFromStorage);
+                } else {
+                    console.warn('⚠️ No hay medicinas disponibles');
+                    this.state.medicinas = [];
+                }
+            }
+            
+            // Datos opcionales (pueden estar vacíos)
+            this.state.medicos = [];
+            this.state.prescripciones = [];
+            
+            this.renderPacientes();
+        } catch (error) {
+            console.error('❌ Error cargando datos de historia clínica:', error);
+            this.showNotification(`❌ Error al cargar datos: ${error.message}`, 'error');
+            this.state.pacientes = [];
         }
-        
-        this.state.medicos = JSON.parse(JSON.stringify(demoData.medicos || []));
-        this.state.prescripciones = JSON.parse(JSON.stringify(demoData.prescripciones || []));
-        this.renderPacientes();
+    },
     },
 
     // Renderizar lista de pacientes
@@ -104,16 +141,18 @@ const HistoriaClinicaModule = {
 
         // Filtro por estado
         if (this.filtroEstado === 'activos') {
-            filtered = filtered.filter(p => p.estado === 'activo');
+            filtered = filtered.filter(p => p.estado === 'activo' || !p.estado);
         }
 
-        // Búsqueda
+        // Búsqueda - soportar ambas estructuras (nombre/apellido y apellidoPaterno/apellidoMaterno)
         if (this.searchTerm) {
-            filtered = filtered.filter(p =>
-                p.nombre.toLowerCase().includes(this.searchTerm) ||
-                p.apellido.toLowerCase().includes(this.searchTerm) ||
-                p.cedula.includes(this.searchTerm)
-            );
+            filtered = filtered.filter(p => {
+                const fullName = `${p.nombre || ''} ${p.apellidoPaterno || ''} ${p.apellidoMaterno || ''} ${p.apellido || ''}`.toLowerCase();
+                const dpi = (p.dpi || p.cedula || '');
+                const email = (p.email || '').toLowerCase();
+                const telefono = (p.telefono || '');
+                return fullName.includes(this.searchTerm) || dpi.includes(this.searchTerm) || email.includes(this.searchTerm) || telefono.includes(this.searchTerm);
+            });
         }
 
         if (filtered.length === 0) {
@@ -126,7 +165,7 @@ const HistoriaClinicaModule = {
                 ${filtered.map(pacient => this.renderPacientCard(pacient)).join('')}
             </div>
         `;
-    },
+    }
 
     // Renderizar tarjeta de paciente
     renderPacientCard(pacient) {
@@ -159,9 +198,28 @@ const HistoriaClinicaModule = {
 
     // Seleccionar paciente
     selectPacient(pacienteId) {
-        this.state.pacienteSeleccionado = this.state.pacientes.find(p => p.id === pacienteId);
-        if (this.state.pacienteSeleccionado) {
+        // Intentar obtener del estado actual primero
+        let paciente = this.state.pacientes.find(p => p.id === pacienteId);
+        
+        // Si no existe, intentar desde PacientesModule (datos más actualizados)
+        if (!paciente && typeof PacientesModule !== 'undefined' && PacientesModule.state) {
+            paciente = PacientesModule.state.pacientes.find(p => p.id === pacienteId);
+            if (paciente) {
+                // Actualizar local state
+                const idx = this.state.pacientes.findIndex(p => p.id === pacienteId);
+                if (idx >= 0) {
+                    this.state.pacientes[idx] = JSON.parse(JSON.stringify(paciente));
+                } else {
+                    this.state.pacientes.push(JSON.parse(JSON.stringify(paciente)));
+                }
+            }
+        }
+        
+        if (paciente) {
+            this.state.pacienteSeleccionado = JSON.parse(JSON.stringify(paciente));
             this.renderHistoriaClinica();
+        } else {
+            console.warn(`Paciente con ID ${pacienteId} no encontrado`);
         }
     },
 
@@ -530,8 +588,16 @@ const HistoriaClinicaModule = {
 
     // Cargar lista de médicos en select
     loadMedicos() {
-        const demoData = window.DemoData || {};
-        const medicos = demoData.medicos || [];
+        let medicos = [];
+        
+        // Intentar cargar desde PersonalModule
+        if (PersonalModule && PersonalModule.state && PersonalModule.state.personal) {
+            medicos = PersonalModule.state.personal.filter(p => p.tipo === 'Médico' || p.especialidad);
+        } else {
+            console.error('❌ ERROR: PersonalModule no disponible');
+            this.showNotification('⚠️ Aviso: No se pudo cargar la lista de médicos', 'warning');
+        }
+        
         const select = document.getElementById('prescMedico');
         
         if (!select) return;
@@ -540,7 +606,7 @@ const HistoriaClinicaModule = {
         medicos.forEach(med => {
             const option = document.createElement('option');
             option.value = med.id;
-            option.textContent = med.nombre || med.nombreCompleto;
+            option.textContent = med.nombre || med.nombreCompleto || med.apellidoPaterno;
             select.appendChild(option);
         });
     },
@@ -603,8 +669,16 @@ const HistoriaClinicaModule = {
         const row = document.getElementById(rowId);
         if (!row) return;
         
-        const demoData = window.DemoData || {};
-        const medicinas = demoData.medicinas || [];
+        let medicinas = [];
+        
+        // Intentar cargar desde MedicinasModule
+        if (MedicinasModule && MedicinasModule.state && MedicinasModule.state.medicinas) {
+            medicinas = MedicinasModule.state.medicinas;
+        } else {
+            console.error('❌ ERROR: MedicinasModule no disponible');
+            this.showNotification('❌ Error: No se puede cargar la lista de medicinas', 'error');
+            return;
+        }
         
         if (medicinas.length === 0) {
             this.showNotification('⚠️ No hay medicinas disponibles', 'warning');
@@ -706,11 +780,20 @@ const HistoriaClinicaModule = {
             return;
         }
         
-        const demoData = window.DemoData || {};
-        const medicinas = demoData.medicinas || [];
+        let medicinas = [];
+        
+        // Intentar cargar desde MedicinasModule
+        if (MedicinasModule && MedicinasModule.state && MedicinasModule.state.medicinas) {
+            medicinas = MedicinasModule.state.medicinas;
+        } else {
+            console.error('❌ ERROR: MedicinasModule no disponible');
+            dropdown.innerHTML = '<div style="padding: 8px; color: red; text-align: center;">❌ Error cargando medicinas</div>';
+            dropdown.style.display = 'block';
+            return;
+        }
         
         const filtered = medicinas.filter(med => 
-            med.nombre.toLowerCase().includes(searchTerm)
+            (med.nombre || '').toLowerCase().includes(searchTerm)
         );
         
         if (filtered.length === 0) {
@@ -872,34 +955,15 @@ const HistoriaClinicaModule = {
             estado: prescripcion.estado
         });
 
-        // Actualizar en Demo Data
-        if (window.DemoData && window.DemoData.historiasClinicas) {
-            const demoHistoria = window.DemoData.historiasClinicas.find(h => h.pacienteId === prescripcion.pacienteId);
-            if (demoHistoria) {
-                if (!demoHistoria.prescripciones) {
-                    demoHistoria.prescripciones = [];
-                }
-                demoHistoria.prescripciones.push({
-                    id: prescripcion.id,
-                    diagnostico: prescripcion.diagnostico,
-                    medicinas: prescripcion.medicinas,
-                    fecha: prescripcion.fecha,
-                    medicoId: prescripcion.medicoId,
-                    estado: prescripcion.estado
-                });
-            }
-        }
-
+        // Prescripción guardada en historial local
+        console.log(`✅ Prescripción guardada para paciente ${prescripcion.pacienteId}`);
         this.saveToDB();
     },
 
     // Registrar movimientos de stock
     registrarMovimientosStock(medicinas, prescripcionId) {
-        const demoData = window.DemoData || {};
-        
-        if (!demoData.movimientosStock) {
-            demoData.movimientosStock = [];
-        }
+        // Registrar movimientos en localStorage
+        let movimientosStock = JSON.parse(localStorage.getItem('movimientosStock') || '[]');
 
         medicinas.forEach(medicina => {
             // Crear movimiento de salida (prescripción)
@@ -919,30 +983,16 @@ const HistoriaClinicaModule = {
                 subtotal: medicina.subtotal
             };
 
-            demoData.movimientosStock.push(movimiento);
-
-            // Descontar del stock disponible (si la medicina existe en medicinas)
-            if (demoData.medicinas) {
-                const med = demoData.medicinas.find(m => m.id === medicina.medicineId);
-                if (med && med.cantidad) {
-                    med.cantidad -= medicina.cantidad;
-                }
-            }
+            movimientosStock.push(movimiento);
         });
 
-        // Actualizar Demo Data
-        if (window.DemoData) {
-            window.DemoData.movimientosStock = demoData.movimientosStock;
-            if (demoData.medicinas) {
-                window.DemoData.medicinas = demoData.medicinas;
-            }
-        }
+        // Guardar en localStorage
+        localStorage.setItem('movimientosStock', JSON.stringify(movimientosStock));
+        console.log(`✅ ${medicinas.length} movimientos de stock registrados`);
     },
 
     // Cargar monto a paciente (Sincronización con Saldo)
     cargarMontoAPaciente(pacienteId, monto, prescripcionId, descripcion) {
-        const demoData = window.DemoData || {};
-        
         // Crear movimiento
         const nuevoMovimiento = {
             id: 'MOV-' + Date.now(),
@@ -956,17 +1006,15 @@ const HistoriaClinicaModule = {
             hospitalizado: true
         };
         
-        if (!demoData.movimientosPaciente) {
-            demoData.movimientosPaciente = [];
-        }
-        demoData.movimientosPaciente.push(nuevoMovimiento);
+        // Guardar en localStorage
+        let movimientos = JSON.parse(localStorage.getItem('movimientosPaciente') || '[]');
+        movimientos.push(nuevoMovimiento);
+        localStorage.setItem('movimientosPaciente', JSON.stringify(movimientos));
         
         // Actualizar/crear saldo
-        if (!demoData.saldosPacientes) {
-            demoData.saldosPacientes = [];
-        }
+        let saldos = JSON.parse(localStorage.getItem('saldosPacientes') || '[]');
         
-        let saldo = demoData.saldosPacientes.find(s => s.pacienteId === pacienteId);
+        let saldo = saldos.find(s => s.pacienteId === pacienteId);
         if (saldo) {
             saldo.totalAcumulado = (saldo.totalAcumulado || 0) + monto;
             saldo.saldoPendiente = (saldo.saldoPendiente || 0) + monto;
@@ -978,14 +1026,17 @@ const HistoriaClinicaModule = {
                 saldoPendiente: monto,
                 ultimaTransaccion: new Date().toISOString().split('T')[0]
             };
-            demoData.saldosPacientes.push(saldo);
+            saldos.push(saldo);
         }
         
-        // Actualizar Demo Data globalmente
-        if (window.DemoData) {
-            window.DemoData.movimientosPaciente = demoData.movimientosPaciente;
-            window.DemoData.saldosPacientes = demoData.saldosPacientes;
+        localStorage.setItem('saldosPacientes', JSON.stringify(saldos));
+        
+        // Sincronizar con SaldoPacienteModule si está disponible
+        if (SaldoPacienteModule && SaldoPacienteModule.loadData) {
+            SaldoPacienteModule.loadData();
         }
+        
+        console.log(`✅ Cargo de ${monto} registrado para paciente ${pacienteId}`);
     },
 
     // Mostrar notificación

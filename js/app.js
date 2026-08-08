@@ -7,6 +7,64 @@ let currentPage = 'dashboard';
 let charts = {};
 
 // ============================================
+// FUNCIONES AUXILIARES PARA CARGA DE DATOS
+// ============================================
+
+function getProductsData() {
+    const stored = localStorage.getItem('products');
+    if (stored) {
+        try {
+            return JSON.parse(stored);
+        } catch (e) {
+            console.error('Error loading products from localStorage:', e);
+            return [];
+        }
+    }
+    return [];
+}
+
+function getTransactionsData() {
+    const stored = localStorage.getItem('transactions');
+    if (stored) {
+        try {
+            return JSON.parse(stored);
+        } catch (e) {
+            console.error('Error loading transactions from localStorage:', e);
+            return [];
+        }
+    }
+    return [];
+}
+
+function getSalesChartData() {
+    const transactions = getTransactionsData();
+    // Agrupar ventas por día
+    const salesByDay = {};
+    transactions
+        .filter(t => t.type === 'Venta')
+        .forEach(t => {
+            const date = t.date || new Date().toISOString().split('T')[0];
+            salesByDay[date] = (salesByDay[date] || 0) + t.amount;
+        });
+    
+    return Object.entries(salesByDay)
+        .sort((a, b) => new Date(a[0]) - new Date(b[0]))
+        .slice(-7) // Últimos 7 días
+        .map(([day, sales]) => ({ day, sales }));
+}
+
+function getInventoryChartData() {
+    const products = getProductsData();
+    // Agrupar por categoría
+    const byCategory = {};
+    products.forEach(p => {
+        byCategory[p.category] = (byCategory[p.category] || 0) + p.stock;
+    });
+    
+    return Object.entries(byCategory).map(([category, value]) => ({ category, value }));
+}
+
+// ============================================
 // PROTECCIÓN DE AUTENTICACIÓN
 // ============================================
 
@@ -380,13 +438,14 @@ function initializeDashboardCharts() {
     // Sales Chart
     const salesCtx = document.getElementById('salesChart');
     if (salesCtx) {
+        const salesData = getSalesChartData();
         charts.sales = new Chart(salesCtx, {
             type: 'line',
             data: {
-                labels: demoData.salesByDay.map(d => d.day),
+                labels: salesData.map(d => d.day),
                 datasets: [{
                     label: 'Ventas ($)',
-                    data: demoData.salesByDay.map(d => d.sales),
+                    data: salesData.map(d => d.sales),
                     borderColor: '#1e3a8a',
                     backgroundColor: 'rgba(30, 58, 138, 0.1)',
                     borderWidth: 3,
@@ -426,12 +485,13 @@ function initializeDashboardCharts() {
     // Inventory Distribution Chart
     const inventoryCtx = document.getElementById('inventoryChart');
     if (inventoryCtx) {
+        const inventoryData = getInventoryChartData();
         charts.inventory = new Chart(inventoryCtx, {
             type: 'doughnut',
             data: {
-                labels: demoData.inventoryByCategory.map(d => d.category),
+                labels: inventoryData.map(d => d.category),
                 datasets: [{
-                    data: demoData.inventoryByCategory.map(d => d.value),
+                    data: inventoryData.map(d => d.value),
                     backgroundColor: [
                         '#1e3a8a',
                         '#0891b2',
@@ -460,7 +520,7 @@ function populateRecentTransactions() {
     if (!tbody) return;
 
     tbody.innerHTML = '';
-    const recentTransactions = demoData.transactions.slice(0, 5);
+    const recentTransactions = getTransactionsData().slice(0, 5);
 
     recentTransactions.forEach(transaction => {
         const row = document.createElement('tr');
@@ -508,7 +568,7 @@ function populateInventoryTable() {
 
     tbody.innerHTML = '';
 
-    demoData.products.forEach(product => {
+    getProductsData().forEach(product => {
         const row = document.createElement('tr');
         const status = getProductStatus(product.stock, product.minStock);
         const statusClass = getProductStatusClass(product.stock, product.minStock);
@@ -538,7 +598,7 @@ function filterInventory() {
     const tbody = document.getElementById('inventoryTable');
     if (!tbody) return;
 
-    let filteredProducts = demoData.products.filter(product => {
+    let filteredProducts = getProductsData().filter(product => {
         const matchSearch = product.name.toLowerCase().includes(searchTerm) ||
                            product.id.toLowerCase().includes(searchTerm);
         const matchCategory = category === '' || product.category === category;
@@ -609,7 +669,7 @@ function populateTransactionsTable() {
 
     tbody.innerHTML = '';
 
-    demoData.transactions.forEach(transaction => {
+    getTransactionsData().forEach(transaction => {
         const product = getProduct(transaction.productId);
         const row = document.createElement('tr');
 
@@ -648,7 +708,7 @@ function filterTransactions() {
     const tbody = document.getElementById('transactionsTable');
     if (!tbody) return;
 
-    let filteredTransactions = demoData.transactions.filter(transaction => {
+    let filteredTransactions = getTransactionsData().filter(transaction => {
         const matchType = type === '' || transaction.type === type;
         const transactionDate = new Date(transaction.date);
         const matchDateFrom = dateFrom === '' || new Date(transaction.date) >= new Date(dateFrom);
@@ -695,7 +755,7 @@ function filterTransactions() {
 }
 
 function viewTransaction(transactionId) {
-    const transaction = demoData.transactions.find(t => t.id === transactionId);
+    const transaction = getTransactionsData().find(t => t.id === transactionId);
     const product = getProduct(transaction.productId);
     
     if (transaction) {
@@ -793,7 +853,7 @@ function populateProductsDropdown() {
         select.remove(1);
     }
 
-    demoData.products.forEach(product => {
+    getProductsData().forEach(product => {
         const option = document.createElement('option');
         option.value = product.id;
         option.textContent = `${product.name} - Stock: ${product.stock}`;
@@ -946,8 +1006,9 @@ function saveTransaction() {
     }
 
     // Create new transaction
+    const transactions = getTransactionsData();
     const newTransaction = {
-        id: 'TRN' + String(demoData.transactions.length + 1).padStart(3, '0'),
+        id: 'TRN' + String(transactions.length + 1).padStart(3, '0'),
         date: date,
         type: type,
         description: description,
@@ -957,16 +1018,22 @@ function saveTransaction() {
         productId: productId
     };
 
-    // Add to data
-    demoData.transactions.unshift(newTransaction);
+    // Add to localStorage
+    transactions.unshift(newTransaction);
+    localStorage.setItem('transactions', JSON.stringify(transactions));
 
     // Update stock based on type
-    if (type === 'Venta') {
-        product.stock -= quantity;
-    } else if (type === 'Compra') {
-        product.stock += quantity;
-    } else if (type === 'Devolución') {
-        product.stock += quantity;
+    const products = getProductsData();
+    const productToUpdate = products.find(p => p.id === productId);
+    if (productToUpdate) {
+        if (type === 'Venta') {
+            productToUpdate.stock -= quantity;
+        } else if (type === 'Compra') {
+            productToUpdate.stock += quantity;
+        } else if (type === 'Devolución') {
+            productToUpdate.stock += quantity;
+        }
+        localStorage.setItem('products', JSON.stringify(products));
     }
 
     // Update table
@@ -998,8 +1065,9 @@ function saveProduct() {
 
     if (name && price && stock) {
         // Create new product
+        const products = getProductsData();
         const newProduct = {
-            id: 'PRD' + String(demoData.products.length + 1).padStart(3, '0'),
+            id: 'PRD' + String(products.length + 1).padStart(3, '0'),
             name: name,
             category: category,
             price: parseFloat(price),
@@ -1008,7 +1076,8 @@ function saveProduct() {
             lastUpdated: new Date().toISOString().split('T')[0]
         };
 
-        demoData.products.push(newProduct);
+        products.push(newProduct);
+        localStorage.setItem('products', JSON.stringify(products));
         populateInventoryTable();
         closeModal(document.getElementById('productModal'));
         
@@ -1299,7 +1368,7 @@ function renderBulkTable() {
         emptyOption.textContent = 'Seleccionar...';
         productSelect.appendChild(emptyOption);
 
-        demoData.products.forEach(product => {
+        getProductsData().forEach(product => {
             const option = document.createElement('option');
             option.value = product.id;
             option.textContent = `${product.name}`;
@@ -1497,7 +1566,7 @@ function processBulkTransactions() {
     checkedTransactions.forEach(row => {
         if (validateBulkRow(row)) {
             // Find product
-            const product = demoData.products.find(p => p.id === row.product);
+            const product = getProductsData().find(p => p.id === row.product);
             if (!product) {
                 row.status = 'error';
                 row.errors.product = 'Producto no encontrado';
@@ -1514,8 +1583,9 @@ function processBulkTransactions() {
             }
 
             // Create transaction
+            const transactions = getTransactionsData();
             const newTransaction = {
-                id: 'TRX' + String(demoData.transactions.length + 1).padStart(4, '0'),
+                id: 'TRX' + String(transactions.length + 1).padStart(4, '0'),
                 type: row.type,
                 product: row.product,
                 quantity: row.quantity,
@@ -1545,7 +1615,8 @@ function processBulkTransactions() {
                 }
             }
 
-            demoData.transactions.push(newTransaction);
+            transactions.push(newTransaction);
+            localStorage.setItem('transactions', JSON.stringify(transactions));
             row.status = 'success';
             validCount++;
         } else {

@@ -162,9 +162,10 @@ const ComprasModule = {
 
     // Cargar proveedores desde datos demo
     loadProveedoresDemo() {
-        const demoData = window.DemoData || {};
-        this.state.proveedores = JSON.parse(JSON.stringify(demoData.proveedores || []));
-        console.log(`✅ ${this.state.proveedores.length} proveedores cargados desde datos demo`);
+        console.error('❌ ERROR: No hay conexión a la API de proveedores');
+        this.showNotification('❌ Error: No se pueden cargar los proveedores. Verifica tu conexión a la base de datos.', 'error');
+        this.state.proveedores = [];
+        this.render();
     },
 
     // Abrir modal de nueva compra

@@ -94,11 +94,9 @@ const CodigosArticulosModule = {
             
             console.log(`✅ ${this.state.articulos.length} artículos cargados desde BD`);
         } catch (error) {
-            console.error('Error cargando artículos:', error);
-            this.showNotification('⚠️ Error cargando artículos. Intenta más tarde.', 'error');
-            // Fallback a demoData si algo falla
-            const demoData = window.DemoData || {};
-            this.state.articulos = JSON.parse(JSON.stringify(demoData.articulos || []));
+            console.error('❌ Error cargando artículos:', error);
+            this.showNotification('❌ Error: No se puede acceder a la base de datos de artículos. Verifica tu conexión.', 'error');
+            this.state.articulos = [];
             this.renderArticulos();
         }
     },

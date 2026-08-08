@@ -81,12 +81,20 @@ const CajaIntegradaModule = {
 
     // Cargar datos
     loadData() {
-        const demoData = window.DemoData || {};
-        this.state.pacientes = JSON.parse(JSON.stringify(demoData.pacientes || []));
-        this.state.saldosPacientes = JSON.parse(JSON.stringify(demoData.saldosPacientes || []));
-        this.state.movimientosCaja = JSON.parse(JSON.stringify(demoData.movimientosCaja || []));
-        
+        // Cargar pacientes desde PacientesModule
+        if (PacientesModule && PacientesModule.state && PacientesModule.state.pacientes) {
+            this.state.pacientes = JSON.parse(JSON.stringify(PacientesModule.state.pacientes));
+        } else {
+            console.error('❌ ERROR: PacientesModule no disponible');
+            this.showNotification('❌ Error: No se puede acceder a la base de datos de pacientes', 'error');
+        }
+
         // Restaurar desde localStorage
+        const saldosFromStorage = localStorage.getItem('saldosPacientes');
+        if (saldosFromStorage) {
+            this.state.saldosPacientes = JSON.parse(saldosFromStorage);
+        }
+
         const movFromStorage = localStorage.getItem('movimientosCaja');
         if (movFromStorage) {
             this.state.movimientosCaja = JSON.parse(movFromStorage);

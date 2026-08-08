@@ -80,7 +80,8 @@ const MedicinasModule = {
         try {
             const token = authManager.getToken();
             if (!token) {
-                console.warn('No hay token de autenticación');
+                console.error('❌ ERROR: No hay token de autenticación');
+                this.showNotification('❌ Error: No autenticado. Por favor inicia sesión.', 'error');
                 return;
             }
 
@@ -93,7 +94,7 @@ const MedicinasModule = {
             });
 
             if (!response.ok) {
-                throw new Error(`Error ${response.status}: ${response.statusText}`);
+                throw new Error(`Error ${response.status}: ${response.statusText}. Verifica tu conexión a la BD.`);
             }
 
             const data = await response.json();
@@ -103,12 +104,9 @@ const MedicinasModule = {
             
             console.log(`✅ ${this.state.medicinas.length} medicinas cargadas desde BD`);
         } catch (error) {
-            console.error('Error cargando medicinas:', error);
-            this.showNotification('⚠️ Error cargando medicinas. Intenta más tarde.', 'error');
-            // Fallback a demoDatas i algo falla
-            const demoData = window.DemoData || {};
-            this.state.medicinas = JSON.parse(JSON.stringify(demoData.medicinas || []));
-            this.extractFamilias();
+            console.error('❌ Error cargando medicinas desde API:', error);
+            this.showNotification(`❌ Error de conexión: ${error.message}`, 'error');
+            this.state.medicinas = [];
             this.renderMedicines();
         }
     },
@@ -529,6 +527,22 @@ const MedicinasModule = {
         form.reset();
         document.getElementById('assignMedicineId').value = '';
         this.state.medicinasSeleccionadas = []; // Reiniciar lista de medicinas
+        
+        // Cargar pacientes SOLO desde PacientesModule
+        if (typeof PacientesModule !== 'undefined' && PacientesModule.state && PacientesModule.state.pacientes) {
+            this.state.pacientes = PacientesModule.state.pacientes;
+        } else {
+            console.error('❌ ERROR: PacientesModule no disponible');
+            this.showNotification('❌ Error: No hay pacientes disponibles', 'error');
+            return;
+        }
+        
+        if (this.state.medicinas.length === 0) {
+            console.error('❌ ERROR: No hay medicinas cargadas');
+            this.showNotification('❌ Error: No hay medicinas disponibles', 'error');
+            return;
+        }
+        
         this.updatePacienteSelect();
         this.updateMedicineSelectForAssign();
         this.displaySelectedMedicines();
@@ -552,9 +566,18 @@ const MedicinasModule = {
         const select = document.getElementById('assignPacienteSelect');
         if (!select) return;
 
+        if (!this.state.pacientes || this.state.pacientes.length === 0) {
+            select.innerHTML = '<option value="">-- No hay pacientes disponibles --</option>';
+            return;
+        }
+
         select.innerHTML = '<option value="">-- Selecciona un paciente --</option>' +
-            this.state.pacientes.filter(p => p.estado === 'activo')
-                .map(p => `<option value="${p.id}">${p.nombre} ${p.apellido} (${p.cedula})</option>`)
+            this.state.pacientes
+                .map(p => {
+                    const fullName = `${p.nombre} ${p.apellidoPaterno} ${p.apellidoMaterno || ''}`.trim();
+                    const cedula = p.dpi || p.pasaporte || 'S/N';
+                    return `<option value="${p.id}">${fullName} (${cedula})</option>`;
+                })
                 .join('');
     },
 
@@ -563,11 +586,20 @@ const MedicinasModule = {
         const select = document.getElementById('assignMedicineSelect');
         if (!select) return;
 
+        if (!this.state.medicinas || this.state.medicinas.length === 0) {
+            select.innerHTML = '<option value="">-- No hay medicinas disponibles --</option>';
+            return;
+        }
+
         select.innerHTML = '<option value="">-- Selecciona una medicina --</option>' +
-            this.state.medicinas.filter(m => m.activa && m.cantidad > 0)
-                .map(m => `<option value="${m.id}">${m.nombre} (${m.cantidad} disp.)</option>`)
+            this.state.medicinas
+                .filter(m => (m.cantidad === undefined || m.cantidad > 0))
+                .map(m => {
+                    const cantidad = m.cantidad || 0;
+                    return `<option value="${m.id}">${m.nombre} (${cantidad} unid.)</option>`;
+                })
                 .join('');
-    },
+    }
 
     // Agregar medicina a la lista de asignación
     addMedicineToList() {
@@ -674,12 +706,10 @@ const MedicinasModule = {
     // Guardar asignación múltiple de medicinas
     saveMedicineAssignment() {
         const pacienteId = document.getElementById('assignPacienteSelect').value;
-        const fechaInicio = document.getElementById('assignFechaInicio').value;
-        const fechaFin = document.getElementById('assignFechaFin').value;
         const notas = document.getElementById('assignNotas').value.trim();
 
-        if (!pacienteId || !fechaInicio) {
-            this.showNotification('⚠️ Por favor selecciona un paciente y fecha de inicio', 'warning');
+        if (!pacienteId) {
+            this.showNotification('⚠️ Por favor selecciona un paciente', 'warning');
             return;
         }
 
@@ -696,20 +726,15 @@ const MedicinasModule = {
             }
         }
 
-        // Verificar stock disponible para todas las medicinas
+        // Crear asignación para cada medicina
         let totalExitoso = 0;
         for (let med of this.state.medicinasSeleccionadas) {
             const medicine = this.state.medicinas.find(m => m.id === med.medicineId);
-            const cantidad = parseInt(med.cantidad) || 0;
+            const cantidad = parseInt(med.cantidad) || 1;
             
             if (!medicine) {
                 this.showNotification(`❌ No se encontró la medicina ${med.medicineName}`, 'error');
-                return;
-            }
-
-            if (medicine.cantidad < cantidad) {
-                this.showNotification(`❌ Stock insuficiente para ${med.medicineName} (disponible: ${medicine.cantidad})`, 'error');
-                return;
+                continue;
             }
 
             // Crear asignación
@@ -717,28 +742,28 @@ const MedicinasModule = {
                 id: this.generateId('ASG'),
                 pacienteId: pacienteId,
                 medicineId: med.medicineId,
+                medicineName: med.medicineName,
                 cantidad: cantidad,
                 dosis: med.dosis,
                 frecuencia: med.frecuencia,
-                fechaInicio: fechaInicio,
-                fechaFin: fechaFin || null,
                 estado: 'activo',
                 notas: notas,
                 fechaAsignacion: new Date().toISOString().split('T')[0]
             };
-
-            // Reducir stock
-            medicine.cantidad -= cantidad;
 
             // Agregar asignación
             this.state.medicamentosAsignados.push(assignmentData);
             totalExitoso++;
         }
 
-        this.showNotification(`✅ ${totalExitoso} medicina(s) asignada(s) al paciente correctamente`, 'success');
-        this.saveToDB();
-        this.closeAssignModal();
-        this.renderMedicines();
+        if (totalExitoso > 0) {
+            this.showNotification(`✅ ${totalExitoso} medicina(s) asignada(s) al paciente correctamente`, 'success');
+            this.saveToDB();
+            this.closeAssignModal();
+            this.renderMedicines();
+        } else {
+            this.showNotification('❌ No se pudieron asignar las medicinas', 'error');
+        }
     },
 
     // Generar ID único
