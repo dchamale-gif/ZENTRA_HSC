@@ -118,33 +118,24 @@ const PacientesModule = {
         }
 
         // Event delegation para botones de acción (editar, eliminar, ver)
-        document.addEventListener('click', (e) => {
-            if (e.target.closest('.btn-edit')) {
-                const row = e.target.closest('tr');
-                if (row) {
-                    const pacientId = row.querySelector('[data-pacient-id]')?.getAttribute('data-pacient-id');
-                    if (pacientId) {
-                        this.editPacient(pacientId);
-                    }
-                }
-            }
-            if (e.target.closest('.btn-delete')) {
-                const row = e.target.closest('tr');
-                if (row) {
-                    const pacientId = row.querySelector('[data-pacient-id]')?.getAttribute('data-pacient-id');
-                    if (pacientId) {
-                        this.deletePacient(pacientId);
-                    }
-                }
-            }
-            if (e.target.closest('.btn-view')) {
-                const row = e.target.closest('tr');
-                if (row) {
-                    const pacientId = row.querySelector('[data-pacient-id]')?.getAttribute('data-pacient-id');
-                    if (pacientId) {
-                        this.viewPacientDetails(pacientId);
-                    }
-                }
+        const self = this;
+        document.addEventListener('click', function(e) {
+            const editBtn = e.target.closest('.btn-edit');
+            const deleteBtn = e.target.closest('.btn-delete');
+            const viewBtn = e.target.closest('.btn-view');
+            const row = e.target.closest('tr[data-pacient-id]');
+
+            if (!row) return;
+
+            const pacientId = row.getAttribute('data-pacient-id');
+            if (!pacientId) return;
+
+            if (editBtn) {
+                self.editPacient(pacientId);
+            } else if (deleteBtn) {
+                self.deletePacient(pacientId);
+            } else if (viewBtn) {
+                self.viewPacientDetails(pacientId);
             }
         });
     },

@@ -374,7 +374,12 @@ const AgendaModule = {
 
     // Obtener headers de autenticación
     getAuthHeaders() {
-        const token = localStorage.getItem('auth_token');
+        let token = '';
+        if (typeof authManager !== 'undefined') {
+            token = authManager.getToken() || '';
+        } else {
+            token = localStorage.getItem('zentra_token') || localStorage.getItem('auth_token') || '';
+        }
         return {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
