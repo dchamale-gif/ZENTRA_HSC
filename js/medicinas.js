@@ -72,6 +72,29 @@ const MedicinasModule = {
         if (closeAssignModal) {
             closeAssignModal.addEventListener('click', () => this.closeAssignModal());
         }
+
+        // Event delegation para botones de la tabla de medicinas
+        const medicinesContainer = document.getElementById('medicinesTableContainer');
+        if (medicinesContainer) {
+            medicinesContainer.addEventListener('click', (e) => {
+                const btn = e.target.closest('button');
+                if (!btn) return;
+
+                const row = btn.closest('tr');
+                if (!row) return;
+
+                const medicineId = row.getAttribute('data-medicine-id');
+                const action = btn.getAttribute('data-action');
+
+                if (action === 'edit') {
+                    this.editMedicine(medicineId);
+                } else if (action === 'delete') {
+                    this.deleteMedicine(medicineId);
+                } else if (action === 'view') {
+                    this.viewMedicineDetails(medicineId);
+                }
+            });
+        }
     },
 
     // Cargar datos
@@ -117,13 +140,17 @@ const MedicinasModule = {
     },
 
     // Abrir modal de nueva medicina
-    openMedicineModal() {
+    openMedicineModal(isNew = true) {
         const modal = document.getElementById('medicineModal');
         const form = document.getElementById('editMedicineForm');
         if (!modal || !form) return;
 
-        form.reset();
-        document.getElementById('medicineId').value = '';
+        // Solo limpiar si es nueva medicina
+        if (isNew) {
+            form.reset();
+            document.getElementById('medicineId').value = '';
+            document.getElementById('medicineActiva').checked = true;
+        }
         
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
@@ -141,43 +168,42 @@ const MedicinasModule = {
     // Guardar medicina
     async saveMedicine() {
         const form = document.getElementById('editMedicineForm');
-        if (!form) return;
+        if (!form) {
+            console.error('❌ Formulario no encontrado');
+            return;
+        }
 
         if (!this.validateMedicineForm()) {
             this.showNotification('⚠️ Por favor completa todos los campos requeridos', 'warning');
             return;
         }
 
-        const id = document.getElementById('medicineId').value;
+        const id = document.getElementById('medicineId').value.trim();
         const codigoBarra = document.getElementById('medicineCodigoBarra').value.trim();
         
-        // Validar código barra único (si es nuevo)
-        if (!id) {
-            const existeCodigoBarra = this.state.medicinas.some(m => 
-                m.codigo_interno === codigoBarra || m.codigo_externo === codigoBarra
-            );
-            if (existeCodigoBarra) {
-                this.showNotification('❌ Este código de barra ya existe', 'error');
-                return;
-            }
-        }
-
-        const medicineData = {
-            nombre: document.getElementById('medicineName').value.trim(),
-            codigo_interno: codigoBarra,
-            codigo_externo: document.getElementById('medicineCodigoBarra').value.trim(),
-            presentacion: document.getElementById('medicinePresentacion').value,
-            concentracion: document.getElementById('medicinePrincipioActivo').value.trim(),
-            precio: parseFloat(document.getElementById('medicinePrecioUnitario').value) || 0,
-            stock: parseInt(document.getElementById('medicineCantidad').value) || 0,
-            stock_minimo: parseInt(document.getElementById('medicineCantidadMinima').value) || 0,
-            vencimiento: document.getElementById('medicineFechaVencimiento').value,
-            proveedor_id: document.getElementById('medicineProveedor').value.trim() || null,
-            descripcion: document.getElementById('medicineContraindicaciones').value.trim() || null,
-            activo: document.getElementById('medicineActiva').checked
-        };
-
         try {
+            console.log('📝 Guardando medicina...');
+            
+            // Construir objeto con datos del formulario
+            const medicineData = {
+                nombre: document.getElementById('medicineName').value.trim(),
+                codigo_externo: codigoBarra,
+                presentacion: document.getElementById('medicinePresentacion').value,
+                concentracion: document.getElementById('medicinePrincipioActivo').value.trim(),
+                precio: parseFloat(document.getElementById('medicinePrecioUnitario').value) || 0,
+                stock: parseInt(document.getElementById('medicineCantidad').value) || 0,
+                stock_minimo: parseInt(document.getElementById('medicineCantidadMinima').value) || 0,
+                vencimiento: document.getElementById('medicineFechaVencimiento').value || null,
+                familia: document.getElementById('medicineFamily').value.trim() || null,
+                subfamilia: document.getElementById('medicineSubfamily').value.trim() || null,
+                lote: document.getElementById('medicineLote').value.trim() || null,
+                proveedor: document.getElementById('medicineProveedor').value.trim() || null,
+                descripcion: document.getElementById('medicineContraindicaciones').value.trim() || null,
+                activo: document.getElementById('medicineActiva').checked
+            };
+
+            console.log('📦 Datos a guardar:', JSON.stringify(medicineData, null, 2));
+
             const token = authManager.getToken();
             if (!token) {
                 this.showNotification('❌ No estás autenticado', 'error');
@@ -189,6 +215,8 @@ const MedicinasModule = {
                 : `${authManager.apiBaseUrl}/api/medicinas`;
 
             const method = id ? 'PUT' : 'POST';
+            
+            console.log(`🔗 ${method} ${url}`);
 
             const response = await fetch(url, {
                 method: method,
@@ -199,12 +227,15 @@ const MedicinasModule = {
                 body: JSON.stringify(medicineData)
             });
 
+            console.log(`📊 Response status: ${response.status}`);
+
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.error || `Error ${response.status}`);
             }
 
             const result = await response.json();
+            console.log('✅ Respuesta del servidor:', JSON.stringify(result, null, 2));
             
             if (id) {
                 this.showNotification('✅ Medicina actualizada correctamente', 'success');
@@ -222,29 +253,60 @@ const MedicinasModule = {
 
     // Editar medicina
     editMedicine(id) {
-        const medicine = this.state.medicinas.find(m => m.id === id);
-        if (!medicine) return;
+        console.log('editMedicine called with id:', id);
+        
+        const medicine = this.state.medicinas.find(m => m.id === id || String(m.id) === String(id));
+        if (!medicine) {
+            console.error('❌ Medicina no encontrada:', id);
+            this.showNotification('❌ Error: Medicina no encontrada', 'error');
+            return;
+        }
 
-        document.getElementById('medicineId').value = medicine.id;
-        document.getElementById('medicineCodigoBarra').value = medicine.codigoBarra;
-        document.getElementById('medicineName').value = medicine.nombre;
-        document.getElementById('medicineFamily').value = medicine.familia;
-        document.getElementById('medicineSubfamily').value = medicine.subfamilia;
-        document.getElementById('medicinePresentacion').value = medicine.presentacion;
-        document.getElementById('medicinePrincipioActivo').value = medicine.principioActivo;
-        document.getElementById('medicineDosis').value = medicine.dosis;
-        document.getElementById('medicineUnidadDosis').value = medicine.unidadDosis;
-        document.getElementById('medicineLote').value = medicine.lote;
-        document.getElementById('medicineFechaVencimiento').value = medicine.fechaVencimiento;
-        document.getElementById('medicineProveedor').value = medicine.proveedor;
-        document.getElementById('medicineCantidad').value = medicine.cantidad;
-        document.getElementById('medicineCantidadMinima').value = medicine.cantidadMinima;
-        document.getElementById('medicinePrecioUnitario').value = medicine.precioUnitario;
-        document.getElementById('medicineContraindicaciones').value = medicine.contraindicaciones;
-        document.getElementById('medicineEfectosSecundarios').value = medicine.efectosSecundarios;
-        document.getElementById('medicineActiva').checked = medicine.activa;
+        console.log('✅ Medicina encontrada:', medicine.nombre);
+        console.log('Datos:', JSON.stringify(medicine, null, 2));
 
-        this.openMedicineModal();
+        // Helper para llenar campos de forma segura
+        const fillField = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.value = value || '';
+                console.log(`✓ Campo llenado [${id}]:`, value);
+            } else {
+                console.warn(`Campo no encontrado: ${id}`);
+            }
+        };
+
+        try {
+            document.getElementById('medicineId').value = medicine.id;
+            fillField('medicineCodigoBarra', medicine.codigo_externo || medicine.codigoBarra);
+            fillField('medicineName', medicine.nombre);
+            fillField('medicineFamily', medicine.familia);
+            fillField('medicineSubfamily', medicine.subfamilia);
+            fillField('medicinePresentacion', medicine.presentacion);
+            fillField('medicinePrincipioActivo', medicine.concentracion || medicine.principioActivo);
+            fillField('medicineDosis', medicine.dosis);
+            fillField('medicineUnidadDosis', medicine.unidadDosis);
+            fillField('medicineLote', medicine.lote);
+            fillField('medicineFechaVencimiento', medicine.vencimiento || medicine.fechaVencimiento);
+            fillField('medicineProveedor', medicine.proveedor);
+            fillField('medicineCantidad', medicine.stock || medicine.cantidad);
+            fillField('medicineCantidadMinima', medicine.stock_minimo || medicine.cantidadMinima);
+            fillField('medicinePrecioUnitario', medicine.precio || medicine.precioUnitario);
+            fillField('medicineContraindicaciones', medicine.descripcion || medicine.contraindicaciones);
+            fillField('medicineEfectosSecundarios', medicine.efectosSecundarios);
+            
+            const activaCheckbox = document.getElementById('medicineActiva');
+            if (activaCheckbox) {
+                activaCheckbox.checked = medicine.activo !== false && medicine.activa !== false;
+                console.log('✓ Activa checkbox:', activaCheckbox.checked);
+            }
+
+            console.log('✅ TODOS LOS CAMPOS LLENADOS');
+            this.openMedicineModal(false); // false = es edición
+        } catch(error) {
+            console.error('❌ Error al llenar formulario:', error);
+            this.showNotification('❌ Error al cargar datos', 'error');
+        }
     },
 
     // Eliminar medicina
@@ -309,10 +371,12 @@ const MedicinasModule = {
         // Búsqueda
         if (this.searchTerm) {
             filtered = filtered.filter(m =>
-                m.nombre.toLowerCase().includes(this.searchTerm) ||
-                m.codigoBarra.includes(this.searchTerm) ||
-                m.familia.toLowerCase().includes(this.searchTerm) ||
-                m.principioActivo.toLowerCase().includes(this.searchTerm)
+                (m.nombre && m.nombre.toLowerCase().includes(this.searchTerm)) ||
+                (m.codigo_externo && m.codigo_externo.includes(this.searchTerm)) ||
+                (m.codigoBarra && m.codigoBarra.includes(this.searchTerm)) ||
+                (m.familia && m.familia.toLowerCase().includes(this.searchTerm)) ||
+                (m.concentracion && m.concentracion.toLowerCase().includes(this.searchTerm)) ||
+                (m.principioActivo && m.principioActivo.toLowerCase().includes(this.searchTerm))
             );
         }
 
@@ -330,7 +394,7 @@ const MedicinasModule = {
                             <th>Nombre</th>
                             <th>Familia</th>
                             <th>Presentación</th>
-                            <th>Dosis</th>
+                            <th>Concentración</th>
                             <th>Stock</th>
                             <th>Vencimiento</th>
                             <th>Estado</th>
@@ -348,33 +412,34 @@ const MedicinasModule = {
     // Renderizar fila de medicina
     renderMedicineRow(medicine) {
         const stockBadge = this.getStockBadge(medicine);
-        const activaBadge = medicine.activa 
+        const activaBadge = medicine.activo || medicine.activa
             ? '<span class="badge badge-success">Activa</span>'
             : '<span class="badge badge-inactive">Inactiva</span>';
         
-        const vencida = this.isExpired(medicine.fechaVencimiento);
+        const fechaVencimiento = medicine.vencimiento || medicine.fechaVencimiento || 'N/A';
+        const vencida = this.isExpired(fechaVencimiento);
         const vencimientoBadge = vencida
             ? '<span class="badge badge-danger">Vencida</span>'
-            : `<span class="badge badge-info">${medicine.fechaVencimiento}</span>`;
+            : `<span class="badge badge-info">${fechaVencimiento}</span>`;
 
         return `
-            <tr>
-                <td><strong>${medicine.codigoBarra}</strong></td>
-                <td>${medicine.nombre}</td>
-                <td>${medicine.familia}</td>
-                <td>${medicine.presentacion}</td>
-                <td>${medicine.dosis} ${medicine.unidadDosis}</td>
+            <tr data-medicine-id="${medicine.id}">
+                <td><strong>${medicine.codigo_externo || medicine.codigoBarra || 'N/A'}</strong></td>
+                <td>${medicine.nombre || 'N/A'}</td>
+                <td>${medicine.familia || 'N/A'}</td>
+                <td>${medicine.presentacion || 'N/A'}</td>
+                <td>${medicine.concentracion || 'N/A'}</td>
                 <td>${stockBadge}</td>
                 <td>${vencimientoBadge}</td>
                 <td>${activaBadge}</td>
                 <td class="actions">
-                    <button class="btn-icon btn-edit" title="Editar" onclick="MedicinasModule.editMedicine('${medicine.id}')">
+                    <button class="btn-icon btn-edit" title="Editar" data-action="edit">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button class="btn-icon btn-delete" title="Eliminar" onclick="MedicinasModule.deleteMedicine('${medicine.id}')">
+                    <button class="btn-icon btn-delete" title="Eliminar" data-action="delete">
                         <i class="fas fa-trash"></i>
                     </button>
-                    <button class="btn-icon btn-view" title="Detalles" onclick="MedicinasModule.viewMedicineDetails('${medicine.id}')">
+                    <button class="btn-icon btn-view" title="Detalles" data-action="view">
                         <i class="fas fa-eye"></i>
                     </button>
                 </td>
@@ -384,12 +449,15 @@ const MedicinasModule = {
 
     // Get stock badge
     getStockBadge(medicine) {
-        if (medicine.cantidad === 0) {
+        const stock = medicine.stock || medicine.cantidad || 0;
+        const stockMinimo = medicine.stock_minimo || medicine.cantidadMinima || 0;
+        
+        if (stock === 0) {
             return '<span class="badge badge-danger">Agotado (0)</span>';
-        } else if (medicine.cantidad <= medicine.cantidadMinima) {
-            return `<span class="badge badge-warning">Bajo ${medicine.cantidad}</span>`;
+        } else if (stock <= stockMinimo) {
+            return `<span class="badge badge-warning">Bajo ${stock}</span>`;
         }
-        return `<span class="badge badge-success">${medicine.cantidad} unid.</span>`;
+        return `<span class="badge badge-success">${stock} unid.</span>`;
     },
 
     // Verificar si está vencida
