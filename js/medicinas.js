@@ -12,7 +12,10 @@ const MedicinasModule = {
         medicamentosAsignados: [], // Medicinas asignadas a pacientes
         filtroActivo: 'todas', // todas, disponibles, agotadas
         searchTerm: '',
+        familiaFiltro: '', // Familia seleccionada para filtro
+        subfamiliaFiltro: '', // Subfamilia seleccionada para filtro
         familiasDisponibles: [],
+        subfamiliasDisponibles: [],
         presentaciones: ['Tabletas', 'Cápsulas', 'Solución Oral', 'Inyectable', 'Crema', 'Polvo', 'Jarabe', 'Grageas'],
         medicinasSeleccionadas: [] // Medicinas temporales para asignación múltiple
     },
@@ -48,6 +51,29 @@ const MedicinasModule = {
         if (filterSelect) {
             filterSelect.addEventListener('change', (e) => {
                 this.filtroActivo = e.target.value;
+                this.renderMedicines();
+            });
+        }
+
+        const filterFamilySelect = document.getElementById('filterMedicineFamily');
+        if (filterFamilySelect) {
+            filterFamilySelect.addEventListener('change', (e) => {
+                this.familiaFiltro = e.target.value;
+                // Resetear subfamilia cuando cambia familia
+                this.subfamiliaFiltro = '';
+                const subfamilySelect = document.getElementById('filterMedicineSubfamily');
+                if (subfamilySelect) {
+                    subfamilySelect.value = '';
+                    this.updateSubfamilyFilter();
+                }
+                this.renderMedicines();
+            });
+        }
+
+        const filterSubfamilySelect = document.getElementById('filterMedicineSubfamily');
+        if (filterSubfamilySelect) {
+            filterSubfamilySelect.addEventListener('change', (e) => {
+                this.subfamiliaFiltro = e.target.value;
                 this.renderMedicines();
             });
         }
@@ -136,7 +162,81 @@ const MedicinasModule = {
 
     // Extraer familias únicas
     extractFamilias() {
-        this.state.familiasDisponibles = [...new Set(this.state.medicinas.map(m => m.familia))].filter(Boolean);
+        // Extraer familias únicas
+        this.state.familiasDisponibles = [...new Set(this.state.medicinas.map(m => m.familia).filter(Boolean))].sort();
+        
+        // Extraer todas las subfamilias disponibles
+        this.state.subfamiliasDisponibles = [...new Set(this.state.medicinas.map(m => m.subfamilia).filter(Boolean))].sort();
+        
+        this.updateFamilyFilters();
+    },
+
+    // Actualizar los selectores de familia y subfamilia
+    updateFamilyFilters() {
+        const familySelect = document.getElementById('filterMedicineFamily');
+        if (familySelect) {
+            // Guardar valor actual
+            const currentFamily = familySelect.value;
+            
+            // Limpiar opciones excepto la primera
+            familySelect.innerHTML = '<option value="">Todas las Familias</option>';
+            
+            // Agregar familias
+            this.state.familiasDisponibles.forEach(familia => {
+                const option = document.createElement('option');
+                option.value = familia;
+                option.textContent = familia;
+                familySelect.appendChild(option);
+            });
+            
+            // Restaurar valor
+            familySelect.value = currentFamily;
+        }
+        
+        this.updateSubfamilyFilter();
+    },
+
+    // Actualizar subfamilias según familia seleccionada
+    updateSubfamilyFilter() {
+        const subfamilySelect = document.getElementById('filterMedicineSubfamily');
+        if (!subfamilySelect) return;
+
+        // Guardar valor actual
+        const currentSubfamily = subfamilySelect.value;
+        
+        // Obtener subfamilias para la familia seleccionada
+        let subfamiliasDisponibles = [];
+        
+        if (this.familiaFiltro) {
+            // Si hay familia seleccionada, mostrar solo subfamilias de esa familia
+            subfamiliasDisponibles = [...new Set(
+                this.state.medicinas
+                    .filter(m => m.familia === this.familiaFiltro)
+                    .map(m => m.subfamilia)
+                    .filter(Boolean)
+            )].sort();
+        } else {
+            // Si no hay familia seleccionada, mostrar todas las subfamilias
+            subfamiliasDisponibles = this.state.subfamiliasDisponibles;
+        }
+        
+        // Limpiar opciones excepto la primera
+        subfamilySelect.innerHTML = '<option value="">Todas las Subfamilias</option>';
+        
+        // Agregar subfamilias
+        subfamiliasDisponibles.forEach(subfamilia => {
+            const option = document.createElement('option');
+            option.value = subfamilia;
+            option.textContent = subfamilia;
+            subfamilySelect.appendChild(option);
+        });
+        
+        // Restaurar valor solo si sigue siendo válido
+        if (subfamiliasDisponibles.includes(currentSubfamily)) {
+            subfamilySelect.value = currentSubfamily;
+        } else {
+            subfamilySelect.value = '';
+        }
     },
 
     // Abrir modal de nueva medicina
@@ -363,9 +463,29 @@ const MedicinasModule = {
 
         // Filtro por disponibilidad
         if (this.filtroActivo === 'disponibles') {
-            filtered = filtered.filter(m => m.cantidad > m.cantidadMinima && m.activa);
+            filtered = filtered.filter(m => {
+                const stock = m.stock || m.cantidad || 0;
+                const stockMinimo = m.stock_minimo || m.cantidadMinima || 0;
+                const activo = m.activo !== false && m.activa !== false;
+                return stock > stockMinimo && activo;
+            });
         } else if (this.filtroActivo === 'agotadas') {
-            filtered = filtered.filter(m => m.cantidad <= m.cantidadMinima || !m.activa);
+            filtered = filtered.filter(m => {
+                const stock = m.stock || m.cantidad || 0;
+                const stockMinimo = m.stock_minimo || m.cantidadMinima || 0;
+                const activo = m.activo !== false && m.activa !== false;
+                return stock <= stockMinimo || !activo;
+            });
+        }
+
+        // Filtro por familia
+        if (this.familiaFiltro) {
+            filtered = filtered.filter(m => m.familia === this.familiaFiltro);
+        }
+
+        // Filtro por subfamilia
+        if (this.subfamiliaFiltro) {
+            filtered = filtered.filter(m => m.subfamilia === this.subfamiliaFiltro);
         }
 
         // Búsqueda
