@@ -60,7 +60,8 @@ const createPaciente = async (req, res) => {
   try {
     const { nombre, apellido_paterno, apellido_materno, edad, fecha_nacimiento,
             genero, dpi, telefono, email, direccion, colonia, zona, 
-            municipio, departamento, estado_civil, profesion, ocupacion } = req.body;
+            municipio, departamento, estado_civil, profesion, ocupacion,
+            clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas } = req.body;
 
     // Validar campos requeridos
     if (!nombre || !apellido_paterno) {
@@ -85,14 +86,16 @@ const createPaciente = async (req, res) => {
       `INSERT INTO pacientes 
        (id, nombre, apellido_paterno, apellido_materno, edad, fecha_nacimiento,
         genero, dpi, telefono, email, direccion, colonia, zona, 
-        municipio, departamento, estado_civil, profesion, ocupacion, estado, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'activo', NOW(), NOW())
-       RETURNING id, nombre, apellido_paterno, apellido_materno, email, telefono`,
+        municipio, departamento, estado_civil, profesion, ocupacion, 
+        clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas, estado, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, 'activo', NOW(), NOW())
+       RETURNING id, nombre, apellido_paterno, apellido_materno, email, telefono, clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas`,
       [paciente_id, nombre, apellido_paterno, apellido_materno || null, edad || null, 
        fecha_nacimiento || null, genero || null, dpi || null, telefono || null, 
        email || null, direccion || null, colonia || null, zona || null, 
        municipio || null, departamento || null, estado_civil || null, 
-       profesion || null, ocupacion || null]
+       profesion || null, ocupacion || null, clasificacion || null, segmento_coex || null,
+       is_cliente || false, tipo_servicio || null, foto || null, notas || null]
     );
 
     res.status(201).json({
@@ -111,7 +114,8 @@ const updatePaciente = async (req, res) => {
     const { id } = req.params;
     const { nombre, apellido_paterno, apellido_materno, edad, fecha_nacimiento,
             genero, dpi, telefono, email, direccion, colonia, zona, 
-            municipio, departamento, estado_civil, profesion, ocupacion } = req.body;
+            municipio, departamento, estado_civil, profesion, ocupacion,
+            clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas } = req.body;
 
     // Verificar que el paciente existe
     const existing = await pool.query('SELECT id FROM pacientes WHERE id = $1', [id]);
@@ -138,12 +142,19 @@ const updatePaciente = async (req, res) => {
            estado_civil = COALESCE($15, estado_civil),
            profesion = COALESCE($16, profesion),
            ocupacion = COALESCE($17, ocupacion),
+           clasificacion = COALESCE($19, clasificacion),
+           segmento_coex = COALESCE($20, segmento_coex),
+           is_cliente = COALESCE($21, is_cliente),
+           tipo_servicio = COALESCE($22, tipo_servicio),
+           foto = COALESCE($23, foto),
+           notas = COALESCE($24, notas),
            updated_at = NOW()
        WHERE id = $18
-       RETURNING id, nombre, apellido_paterno, apellido_materno, email, telefono, edad, genero`,
+       RETURNING id, nombre, apellido_paterno, apellido_materno, email, telefono, edad, genero, clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas`,
       [nombre, apellido_paterno, apellido_materno, edad, fecha_nacimiento,
        genero, dpi, telefono, email, direccion, colonia, zona, 
-       municipio, departamento, estado_civil, profesion, ocupacion, id]
+       municipio, departamento, estado_civil, profesion, ocupacion, id,
+       clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas]
     );
 
     res.status(200).json({

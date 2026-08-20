@@ -120,7 +120,10 @@ const DataNormalizer = {
             estado: paciente.estado,
             is_cliente: paciente.isCliente,
             tipo_servicio: paciente.tipoServicio,
-            foto: paciente.foto
+            clasificacion: paciente.clasificacion,
+            segmento_coex: paciente.segmentoCOEX,
+            foto: paciente.foto,
+            notas: paciente.notas
         };
     }
 };

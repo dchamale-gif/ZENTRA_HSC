@@ -245,15 +245,87 @@ const MedicinasModule = {
         const form = document.getElementById('editMedicineForm');
         if (!modal || !form) return;
 
+        // Llenar selectores de familia y subfamilia
+        this.populateFamilySelectors();
+
         // Solo limpiar si es nueva medicina
         if (isNew) {
             form.reset();
             document.getElementById('medicineId').value = '';
             document.getElementById('medicineActiva').checked = true;
+            document.getElementById('medicineFamily').value = '';
+            document.getElementById('medicineSubfamily').value = '';
+            this.updateMedicineSubfamilySelector(); // Resetear subfamilias
         }
         
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
+    },
+
+    // Llenar selectores de familia y subfamilia
+    populateFamilySelectors() {
+        const familySelect = document.getElementById('medicineFamily');
+        if (!familySelect) return;
+
+        // Guardar valor actual
+        const currentFamily = familySelect.value;
+
+        // Llenar familia
+        familySelect.innerHTML = '<option value="">Seleccionar Familia...</option>';
+        this.state.familiasDisponibles.forEach(familia => {
+            const option = document.createElement('option');
+            option.value = familia;
+            option.textContent = familia;
+            familySelect.appendChild(option);
+        });
+
+        // Restaurar valor
+        familySelect.value = currentFamily;
+
+        // Agregar evento para actualizar subfamilias cuando cambia familia
+        familySelect.addEventListener('change', () => {
+            this.updateMedicineSubfamilySelector();
+        });
+    },
+
+    // Actualizar selector de subfamilia según familia seleccionada en modal
+    updateMedicineSubfamilySelector() {
+        const familySelect = document.getElementById('medicineFamily');
+        const subfamilySelect = document.getElementById('medicineSubfamily');
+        if (!familySelect || !subfamilySelect) return;
+
+        const selectedFamily = familySelect.value;
+        const currentSubfamily = subfamilySelect.value;
+
+        // Obtener subfamilias para la familia seleccionada
+        let subfamiliasDisponibles = [];
+        
+        if (selectedFamily) {
+            subfamiliasDisponibles = [...new Set(
+                this.state.medicinas
+                    .filter(m => m.familia === selectedFamily)
+                    .map(m => m.subfamilia)
+                    .filter(Boolean)
+            )].sort();
+        } else {
+            subfamiliasDisponibles = this.state.subfamiliasDisponibles;
+        }
+
+        // Llenar subfamilia
+        subfamilySelect.innerHTML = '<option value="">Seleccionar Subfamilia...</option>';
+        subfamiliasDisponibles.forEach(subfamilia => {
+            const option = document.createElement('option');
+            option.value = subfamilia;
+            option.textContent = subfamilia;
+            subfamilySelect.appendChild(option);
+        });
+
+        // Restaurar valor si sigue siendo válido
+        if (subfamiliasDisponibles.includes(currentSubfamily)) {
+            subfamilySelect.value = currentSubfamily;
+        } else {
+            subfamilySelect.value = '';
+        }
     },
 
     // Cerrar modal
@@ -402,6 +474,10 @@ const MedicinasModule = {
             }
 
             console.log('✅ TODOS LOS CAMPOS LLENADOS');
+            
+            // Actualizar subfamilias disponibles según la familia seleccionada
+            this.updateMedicineSubfamilySelector();
+            
             this.openMedicineModal(false); // false = es edición
         } catch(error) {
             console.error('❌ Error al llenar formulario:', error);
