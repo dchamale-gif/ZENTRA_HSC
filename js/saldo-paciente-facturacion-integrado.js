@@ -66,9 +66,27 @@ const SaldoPacienteFacturacion = {
 
     loadData() {
         try {
-            this.state.pacientes = JSON.parse(localStorage.getItem('pacientes')) || [];
+            // Cargar pacientes PRIMERO desde PacientesModule
+            if (typeof PacientesModule !== 'undefined' && PacientesModule.state && PacientesModule.state.pacientes) {
+                this.state.pacientes = JSON.parse(JSON.stringify(PacientesModule.state.pacientes));
+                console.log(`✅ Facturación: ${this.state.pacientes.length} pacientes cargados desde PacientesModule`);
+            } else {
+                // Fallback a localStorage
+                console.warn('⚠️ PacientesModule no disponible, usando localStorage...');
+                const pacientesFromStorage = JSON.parse(localStorage.getItem('pacientes')) || [];
+                this.state.pacientes = pacientesFromStorage;
+                if (pacientesFromStorage.length === 0) {
+                    console.error('❌ ERROR: No hay pacientes disponibles');
+                }
+                console.log(`✅ Facturación: ${this.state.pacientes.length} pacientes cargados desde localStorage`);
+            }
+            
             this.state.saldos = JSON.parse(localStorage.getItem('saldosPacientes')) || [];
             this.state.pagos_realizados = JSON.parse(localStorage.getItem('pagosRealizados')) || [];
+            
+            // Llenar selects de pacientes después de cargar datos
+            this.cargarPacientesParaEstado();
+            
             this.cargarDelServidor();
         } catch (error) {
             console.error('Error al cargar datos:', error);
@@ -446,17 +464,25 @@ const SaldoPacienteFacturacion = {
             return;
         }
 
-        const resultados = this.state.pacientes.filter(p =>
-            p.nombre.toLowerCase().includes(termino.toLowerCase()) ||
-            p.apellidoPaterno.toLowerCase().includes(termino.toLowerCase()) ||
-            p.dpi.includes(termino)
-        );
+        const resultados = this.state.pacientes.filter(p => {
+            const nombre = p.nombre || '';
+            const apellidoPaterno = p.apellidoPaterno || p.apellido_paterno || '';
+            const dpi = p.dpi || '';
+            
+            return nombre.toLowerCase().includes(termino.toLowerCase()) ||
+                   apellidoPaterno.toLowerCase().includes(termino.toLowerCase()) ||
+                   dpi.includes(termino);
+        });
 
-        const html = resultados.map(p => `
-            <div class="search-result-item" onclick="SaldoPacienteFacturacion.seleccionarPacienteFactura('${p.id}', '${p.nombre} ${p.apellidoPaterno}')">
-                <strong>${p.nombre} ${p.apellidoPaterno}</strong> - DPI: ${p.dpi}
-            </div>
-        `).join('');
+        const html = resultados.map(p => {
+            const apellidoPaterno = p.apellidoPaterno || p.apellido_paterno || '';
+            const dpi = p.dpi || '';
+            return `
+                <div class="search-result-item" onclick="SaldoPacienteFacturacion.seleccionarPacienteFactura('${p.id}', '${p.nombre} ${apellidoPaterno}')">
+                    <strong>${p.nombre} ${apellidoPaterno}</strong> - DPI: ${dpi}
+                </div>
+            `;
+        }).join('');
 
         document.getElementById('resultadosPacientes').innerHTML = html;
     },
@@ -471,12 +497,20 @@ const SaldoPacienteFacturacion = {
 
         // Mostrar datos en sidebar
         const p = this.state.pacientes.find(pac => pac.id === pacienteId);
+        if (!p) {
+            console.error('Paciente no encontrado:', pacienteId);
+            return;
+        }
+        
         const saldo = this.state.saldos.find(s => s.paciente_id === pacienteId);
+        const apellidoPaterno = p.apellidoPaterno || p.apellido_paterno || '';
+        const dpi = p.dpi || '';
+        const telefono = p.telefono || 'N/A';
 
         document.getElementById('datoPacienteSeleccionado').innerHTML = `
-            <p><strong>${p.nombre} ${p.apellidoPaterno}</strong></p>
-            <p>DPI: ${p.dpi}</p>
-            <p>Teléfono: ${p.telefono || 'N/A'}</p>
+            <p><strong>${p.nombre} ${apellidoPaterno}</strong></p>
+            <p>DPI: ${dpi}</p>
+            <p>Teléfono: ${telefono}</p>
             ${saldo ? `<p style="color: #e74c3c;">Saldo Pendiente: Q${saldo.saldo_pendiente.toFixed(2)}</p>` : ''}
         `;
     },
@@ -822,10 +856,23 @@ const SaldoPacienteFacturacion = {
 
     cargarPacientesParaEstado() {
         const select = document.getElementById('selectPacienteEstado');
+        if (!select) {
+            console.warn('⚠️ selectPacienteEstado no encontrado en el DOM');
+            return;
+        }
+        
+        if (!this.state.pacientes || this.state.pacientes.length === 0) {
+            console.warn('⚠️ No hay pacientes disponibles');
+            select.innerHTML = '<option value="">-- No hay pacientes --</option>';
+            return;
+        }
+        
         select.innerHTML = '<option value="">-- Selecciona paciente --</option>' +
-            this.state.pacientes.map(p => `
-                <option value="${p.id}">${p.nombre} ${p.apellidoPaterno} (${p.dpi})</option>
-            `).join('');
+            this.state.pacientes.map(p => {
+                const apellidoPaterno = p.apellidoPaterno || p.apellido_paterno || '';
+                const dpi = p.dpi || '';
+                return `<option value="${p.id}">${p.nombre} ${apellidoPaterno} (${dpi})</option>`;
+            }).join('');
     },
 
     async cargarEstadoCuenta() {
@@ -926,16 +973,26 @@ const SaldoPacienteFacturacion = {
         const resultados = this.state.saldos.filter(s => {
             const p = this.state.pacientes.find(pac => pac.id === s.paciente_id);
             if (!p || s.saldo_pendiente === 0) return false;
-            return p.nombre.toLowerCase().includes(termino.toLowerCase()) ||
-                   p.apellidoPaterno.toLowerCase().includes(termino.toLowerCase()) ||
-                   p.dpi.includes(termino);
+            
+            const nombre = p.nombre || '';
+            const apellidoPaterno = p.apellidoPaterno || p.apellido_paterno || '';
+            const dpi = p.dpi || '';
+            
+            return nombre.toLowerCase().includes(termino.toLowerCase()) ||
+                   apellidoPaterno.toLowerCase().includes(termino.toLowerCase()) ||
+                   dpi.includes(termino);
         });
 
         const html = resultados.map(s => {
             const p = this.state.pacientes.find(pac => pac.id === s.paciente_id);
+            if (!p) return '';
+            
+            const apellidoPaterno = p.apellidoPaterno || p.apellido_paterno || '';
+            const dpi = p.dpi || '';
+            
             return `
-                <div class="search-result-item" onclick="SaldoPacienteFacturacion.seleccionarPacientePago('${s.paciente_id}', '${p.nombre} ${p.apellidoPaterno}', ${s.saldo_pendiente})">
-                    <strong>${p.nombre} ${p.apellidoPaterno}</strong> - DPI: ${p.dpi}
+                <div class="search-result-item" onclick="SaldoPacienteFacturacion.seleccionarPacientePago('${s.paciente_id}', '${p.nombre} ${apellidoPaterno}', ${s.saldo_pendiente})">
+                    <strong>${p.nombre} ${apellidoPaterno}</strong> - DPI: ${dpi}
                     <br><small>Saldo Pendiente: Q${s.saldo_pendiente.toFixed(2)}</small>
                 </div>
             `;

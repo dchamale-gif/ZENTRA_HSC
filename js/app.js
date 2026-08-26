@@ -101,6 +101,7 @@ function initializeApp() {
     try { if (typeof MedicinasModule !== 'undefined') MedicinasModule.init(); } catch(e) { console.warn('MedicinasModule error:', e); }
     try { if (typeof HistoriaClinicaModule !== 'undefined') HistoriaClinicaModule.init(); } catch(e) { console.warn('HistoriaClinicaModule error:', e); }
     try { if (typeof SaldoPacienteModule !== 'undefined') SaldoPacienteModule.init(); } catch(e) { console.warn('SaldoPacienteModule error:', e); }
+    try { if (typeof SaldoPacienteFacturacion !== 'undefined') SaldoPacienteFacturacion.init(); } catch(e) { console.warn('SaldoPacienteFacturacion error:', e); }
     try { if (typeof HospitalizacionesModule !== 'undefined') HospitalizacionesModule.init(); } catch(e) { console.warn('HospitalizacionesModule error:', e); }
     try { if (typeof CodigosArticulosModule !== 'undefined') CodigosArticulosModule.init(); } catch(e) { console.warn('CodigosArticulosModule error:', e); }
     try { if (typeof CajaIntegradaModule !== 'undefined') CajaIntegradaModule.init(); } catch(e) { console.warn('CajaIntegradaModule error:', e); }
@@ -229,6 +230,11 @@ function navigateToPage(pageId) {
     }
     if (pageId === 'cuentas-por-cobrar') {
         CuentasPorCobrarModule.refreshTable();
+    }
+    if (pageId === 'historia-clinica') {
+        if (typeof HistoriaClinicaModule !== 'undefined') {
+            HistoriaClinicaModule.loadData();
+        }
     }
     if (pageId === 'saldo-paciente') {
         SaldoPacienteModule.renderSaldosPacientes();

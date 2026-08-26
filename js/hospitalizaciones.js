@@ -649,8 +649,15 @@ const HospitalizacionesModule = {
         
         if (typeof PacientesModule !== 'undefined' && PacientesModule.state && PacientesModule.state.pacientes) {
             pacientesDisponibles = PacientesModule.state.pacientes;
+            console.log(`✅ Hospitalizaciones: ${pacientesDisponibles.length} pacientes desde PacientesModule`);
+        } else if (this.state.pacientes && this.state.pacientes.length > 0) {
+            pacientesDisponibles = this.state.pacientes;
+            console.log(`✅ Hospitalizaciones: ${pacientesDisponibles.length} pacientes desde state local`);
         } else {
-            pacientesDisponibles = this.state.pacientes || [];
+            // Fallback a localStorage
+            const pacientesFromStorage = JSON.parse(localStorage.getItem('pacientes')) || [];
+            pacientesDisponibles = pacientesFromStorage;
+            console.log(`✅ Hospitalizaciones: ${pacientesDisponibles.length} pacientes desde localStorage`);
         }
         
         // Filtrar pacientes que no están hospitalizados o están dados de alta
