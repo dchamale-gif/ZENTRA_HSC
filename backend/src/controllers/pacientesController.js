@@ -108,8 +108,21 @@ const createPaciente = async (req, res) => {
       paciente: result.rows[0]
     });
   } catch (error) {
-    console.error('Error en createPaciente:', error);
-    res.status(500).json({ error: 'Error creando paciente' });
+    console.error('Error en createPaciente:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      stack: error.stack
+    });
+    
+    // Retornar error más específico
+    const errorMsg = error.detail || error.message || 'Error creando paciente';
+    const statusCode = error.code === '23505' ? 409 : 500; // 409 para duplicados
+    
+    res.status(statusCode).json({ 
+      error: errorMsg,
+      code: error.code
+    });
   }
 };
 
@@ -167,8 +180,20 @@ const updatePaciente = async (req, res) => {
       paciente: result.rows[0]
     });
   } catch (error) {
-    console.error('Error en updatePaciente:', error);
-    res.status(500).json({ error: 'Error actualizando paciente' });
+    console.error('Error en updatePaciente:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      pacienteId: id
+    });
+    
+    const errorMsg = error.detail || error.message || 'Error actualizando paciente';
+    const statusCode = error.code === '23505' ? 409 : 500;
+    
+    res.status(statusCode).json({ 
+      error: errorMsg,
+      code: error.code
+    });
   }
 };
 

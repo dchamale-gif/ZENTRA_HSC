@@ -521,9 +521,12 @@ const PacientesModule = {
         }
 
         // Validar en cliente
-        if (!this.validatePacientForm()) {
-            this.showNotification('⚠️ Por favor completa todos los campos requeridos (Nombre, Apellido, Teléfono, Dirección)', 'warning');
-            console.warn('❌ Validación de formulario fallida');
+        const validation = this.validatePacientFormDetailed();
+        if (!validation.valid) {
+            const errorMsg = validation.errors.join('\n');
+            this.showNotification(`❌ Validación fallida:\n${errorMsg}`, 'error');
+            console.error('❌ Errores de validación:', validation.errors);
+            alert(`❌ Por favor corrige los siguientes errores:\n\n${errorMsg}`);
             return;
         }
 
@@ -587,8 +590,20 @@ const PacientesModule = {
             console.log(`📊 Response status: ${response.status}`);
 
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
+                let errorDetail = '';
+                try {
+                    const errorData = await response.json();
+                    errorDetail = errorData.error || errorData.message || '';
+                } catch (e) {
+                    errorDetail = `Error ${response.status}: ${response.statusText}`;
+                }
+                console.error('❌ Error HTTP detallado:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    error: errorDetail,
+                    datosEnviados: apiData
+                });
+                throw new Error(errorDetail || `Error ${response.status}: ${response.statusText}`);
             }
 
             const result = await response.json();
@@ -621,7 +636,11 @@ const PacientesModule = {
             console.log('🎉 Proceso completado exitosamente');
         } catch (error) {
             console.error('❌ Error guardando paciente:', error);
-            this.showNotification(`❌ Error: ${error.message}`, 'error');
+            console.error('📋 Stack trace:', error.stack);
+            const errorMsg = error.message || 'Error desconocido';
+            this.showNotification(`❌ Error al guardar paciente:\n${errorMsg}`, 'error');
+            // También mostrar en alert para que sea más visible
+            alert(`⚠️ Error al guardar paciente:\n\n${errorMsg}\n\nRevisa la consola (F12) para más detalles`);
         }
     },
 
@@ -811,7 +830,42 @@ const PacientesModule = {
             this.state.clientes.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
     },
 
-    // Validar formulario
+    // Validar formulario - Versión detallada con errores específicos
+    validatePacientFormDetailed() {
+        const errors = [];
+        
+        const nombre = document.getElementById('pacientNombre').value.trim();
+        const apellidoPaterno = document.getElementById('pacientApellidoPaterno').value.trim();
+        const telefono = document.getElementById('pacientTelefono').value.trim();
+        const direccion = document.getElementById('pacientDireccion').value.trim();
+        const email = document.getElementById('pacientEmail').value.trim();
+
+        // Validar campos requeridos
+        if (!nombre) errors.push('✗ Nombre es requerido');
+        if (!apellidoPaterno) errors.push('✗ Apellido Paterno es requerido');
+        if (!telefono) errors.push('✗ Teléfono es requerido');
+        if (!direccion) errors.push('✗ Dirección es requerida');
+
+        // Validar formato de email (solo si se proporciona)
+        if (email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                errors.push('✗ Email tiene formato inválido (ej: usuario@ejemplo.com)');
+            }
+        }
+
+        // Validar teléfono (mínimo 7 caracteres)
+        if (telefono && telefono.length < 7) {
+            errors.push('✗ Teléfono debe tener al menos 7 dígitos');
+        }
+
+        return {
+            valid: errors.length === 0,
+            errors: errors
+        };
+    },
+
+    // Validar formulario - Versión antigua (se mantiene para compatibilidad)
     validatePacientForm() {
         const nombre = document.getElementById('pacientNombre').value.trim();
         const apellidoPaterno = document.getElementById('pacientApellidoPaterno').value.trim();
