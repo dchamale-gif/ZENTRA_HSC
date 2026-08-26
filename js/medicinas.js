@@ -14,6 +14,7 @@ const MedicinasModule = {
         searchTerm: '',
         familiaFiltro: '', // Familia seleccionada para filtro
         subfamiliaFiltro: '', // Subfamilia seleccionada para filtro
+        ordenActivo: 'default', // Orden de medicinas
         familiasDisponibles: [],
         subfamiliasDisponibles: [],
         presentaciones: ['Tabletas', 'Cápsulas', 'Solución Oral', 'Inyectable', 'Crema', 'Polvo', 'Jarabe', 'Grageas'],
@@ -74,6 +75,14 @@ const MedicinasModule = {
         if (filterSubfamilySelect) {
             filterSubfamilySelect.addEventListener('change', (e) => {
                 this.subfamiliaFiltro = e.target.value;
+                this.renderMedicines();
+            });
+        }
+
+        const filterOrdenSelect = document.getElementById('filterMedicineOrden');
+        if (filterOrdenSelect) {
+            filterOrdenSelect.addEventListener('change', (e) => {
+                this.ordenActivo = e.target.value;
                 this.renderMedicines();
             });
         }
@@ -576,6 +585,26 @@ const MedicinasModule = {
             );
         }
 
+        // Aplicar orden
+        switch(this.ordenActivo) {
+            case 'alfabetico-asc':
+                filtered.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+                break;
+            case 'alfabetico-desc':
+                filtered.sort((a, b) => (b.nombre || '').localeCompare(a.nombre || ''));
+                break;
+            case 'stock-asc':
+                filtered.sort((a, b) => (a.stock || a.cantidad || 0) - (b.stock || b.cantidad || 0));
+                break;
+            case 'stock-desc':
+                filtered.sort((a, b) => (b.stock || b.cantidad || 0) - (a.stock || a.cantidad || 0));
+                break;
+            case 'default':
+            default:
+                // Mantener orden original
+                break;
+        }
+
         if (filtered.length === 0) {
             container.innerHTML = '<div class="empty-state"><p>No hay medicinas registradas</p></div>';
             return;
@@ -589,6 +618,7 @@ const MedicinasModule = {
                             <th>Código</th>
                             <th>Nombre</th>
                             <th>Familia</th>
+                            <th>Subfamilia</th>
                             <th>Presentación</th>
                             <th>Concentración</th>
                             <th>Stock</th>
@@ -623,6 +653,7 @@ const MedicinasModule = {
                 <td><strong>${medicine.codigo_externo || medicine.codigoBarra || 'N/A'}</strong></td>
                 <td>${medicine.nombre || 'N/A'}</td>
                 <td>${medicine.familia || 'N/A'}</td>
+                <td>${medicine.subfamilia || 'N/A'}</td>
                 <td>${medicine.presentacion || 'N/A'}</td>
                 <td>${medicine.concentracion || 'N/A'}</td>
                 <td>${stockBadge}</td>

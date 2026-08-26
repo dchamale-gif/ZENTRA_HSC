@@ -81,11 +81,19 @@ const HistoriaClinicaModule = {
             // Cargar pacientes SOLO desde PacientesModule
             if (typeof PacientesModule !== 'undefined' && PacientesModule.state && PacientesModule.state.pacientes) {
                 this.state.pacientes = JSON.parse(JSON.stringify(PacientesModule.state.pacientes));
+                console.log(`✅ Historia Clínica: ${this.state.pacientes.length} pacientes cargados desde PacientesModule`);
             } else {
-                console.error('❌ ERROR: PacientesModule no disponible. Verifica que esté inicializado.');
-                this.showNotification('❌ Error: Base de datos de pacientes no disponible', 'error');
-                this.state.pacientes = [];
-                return;
+                console.warn('⚠️ PacientesModule no disponible, intentando cargar desde localStorage...');
+                const pacientesFromStorage = localStorage.getItem('pacientes');
+                if (pacientesFromStorage) {
+                    this.state.pacientes = JSON.parse(pacientesFromStorage);
+                    console.log(`✅ Historia Clínica: ${this.state.pacientes.length} pacientes cargados desde localStorage`);
+                } else {
+                    console.error('❌ ERROR: No hay pacientes disponibles');
+                    this.showNotification('❌ Error: Base de datos de pacientes no disponible', 'error');
+                    this.state.pacientes = [];
+                    return;
+                }
             }
             
             // Cargar historial clínico desde localStorage
