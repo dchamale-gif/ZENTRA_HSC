@@ -11,6 +11,8 @@ const PacientesModule = {
         filtroTipo: 'todos',        // todos, cliente, no-cliente
         filtroOrden: 'default',     // default, alfabetico-asc, alfabetico-desc
         filtroPago: 'todos',        // todos, deudor, pagado
+        filtroTipoServicio: '',     // todos, agudo, cronico, coex
+        filtroFecha: '',            // hoy, semana, mes, trimestre, ano
         searchTerm: '',
         stats: {
             total: 0,
@@ -69,6 +71,22 @@ const PacientesModule = {
         if (filtroPago) {
             filtroPago.addEventListener('change', (e) => {
                 this.state.filtroPago = e.target.value;
+                this.renderPacientes();
+            });
+        }
+
+        const filtroTipoServicio = document.getElementById('filterTipoServicio');
+        if (filtroTipoServicio) {
+            filtroTipoServicio.addEventListener('change', (e) => {
+                this.state.filtroTipoServicio = e.target.value;
+                this.renderPacientes();
+            });
+        }
+
+        const filtroFecha = document.getElementById('filterFecha');
+        if (filtroFecha) {
+            filtroFecha.addEventListener('change', (e) => {
+                this.state.filtroFecha = e.target.value;
                 this.renderPacientes();
             });
         }
@@ -504,7 +522,7 @@ const PacientesModule = {
 
         // Validar en cliente
         if (!this.validatePacientForm()) {
-            this.showNotification('⚠️ Por favor completa todos los campos requeridos (Nombre, Apellido, Teléfono, Email, Dirección)', 'warning');
+            this.showNotification('⚠️ Por favor completa todos los campos requeridos (Nombre, Apellido, Teléfono, Dirección)', 'warning');
             console.warn('❌ Validación de formulario fallida');
             return;
         }
@@ -801,19 +819,18 @@ const PacientesModule = {
         const email = document.getElementById('pacientEmail').value.trim();
         const direccion = document.getElementById('pacientDireccion').value.trim();
 
-        // Campos requeridos
-        if (!nombre || !apellidoPaterno || !telefono || !email || !direccion) {
+        // Campos requeridos (email es OPCIONAL)
+        if (!nombre || !apellidoPaterno || !telefono || !direccion) {
             console.warn('⚠️ Campos requeridos faltando:', {
                 nombre: !nombre,
                 apellidoPaterno: !apellidoPaterno,
                 telefono: !telefono,
-                email: !email,
                 direccion: !direccion
             });
             return false;
         }
 
-        // Validar formato email básico
+        // Validar formato email si se proporciona
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (email && !emailRegex.test(email)) {
             console.warn('⚠️ Formato de email inválido:', email);
@@ -853,6 +870,37 @@ const PacientesModule = {
             filtered = filtered.filter(p => {
                 const saldo = SaldoPacienteModule?.state?.saldosPacientes?.find(s => s.pacienteId == p.id);
                 return !saldo || saldo.saldoPendiente === 0;
+            });
+        }
+
+        // FILTRO POR TIPO DE SERVICIO
+        if (this.state.filtroTipoServicio) {
+            filtered = filtered.filter(p => p.tipoServicio === this.state.filtroTipoServicio);
+        }
+
+        // FILTRO POR FECHA
+        if (this.state.filtroFecha) {
+            const ahora = new Date();
+            filtered = filtered.filter(p => {
+                const fechaRegistro = new Date(p.createdAt || p.fechaRegistro);
+                if (!fechaRegistro || isNaN(fechaRegistro)) return true; // Si no hay fecha, incluir
+                
+                const difDias = Math.floor((ahora - fechaRegistro) / (1000 * 60 * 60 * 24));
+                
+                switch(this.state.filtroFecha) {
+                    case 'hoy':
+                        return difDias === 0;
+                    case 'semana':
+                        return difDias <= 7;
+                    case 'mes':
+                        return difDias <= 30;
+                    case 'trimestre':
+                        return difDias <= 90;
+                    case 'ano':
+                        return difDias <= 365;
+                    default:
+                        return true;
+                }
             });
         }
 

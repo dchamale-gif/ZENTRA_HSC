@@ -6,7 +6,10 @@ const getPacientes = async (req, res) => {
     console.log('📋 Intentando obtener pacientes...');
     const result = await pool.query(
       `SELECT id, nombre, apellido_paterno, apellido_materno, edad, genero, 
-              telefono, email, estado, created_at
+              telefono, email, estado, created_at, updated_at,
+              dpi, tipo_servicio, clasificacion, segmento_coex, 
+              nacionalidad, grado_academico, estado_civil, profesion, ocupacion,
+              fecha_nacimiento, foto, notas
        FROM pacientes 
        WHERE estado = 'activo'
        ORDER BY apellido_paterno, nombre`
@@ -36,7 +39,9 @@ const getPacienteById = async (req, res) => {
       `SELECT id, nombre, apellido_paterno, apellido_materno, edad, 
               fecha_nacimiento, genero, dpi, telefono, email, 
               direccion, colonia, zona, municipio, departamento,
-              estado_civil, profesion, ocupacion, estado, created_at, updated_at
+              estado_civil, profesion, ocupacion, nacionalidad, grado_academico,
+              tipo_servicio, clasificacion, segmento_coex, foto, notas,
+              estado, created_at, updated_at
        FROM pacientes 
        WHERE id = $1`,
       [id]

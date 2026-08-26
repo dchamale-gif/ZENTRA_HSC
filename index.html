@@ -297,7 +297,7 @@
                         </button>
                     </div>
 
-                    <div class="pacients-filters" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                    <div class="pacients-filters" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
                         <input type="text" id="searchPacient" class="form-input" placeholder="Buscar por nombre, cédula o email..." style="grid-column: 1 / -1;">
                         
                         <div style="display: flex; flex-direction: column;">
@@ -308,6 +308,18 @@
                                 <option value="todos">✓ Todos (Ver cantidad)</option>
                                 <option value="cliente">👤 Solo Clientes</option>
                                 <option value="no-cliente">👥 No Clientes</option>
+                            </select>
+                        </div>
+                        
+                        <div style="display: flex; flex-direction: column;">
+                            <label style="font-size: 12px; font-weight: 600; color: #667eea; margin-bottom: 5px;">
+                                <i class="fas fa-file-medical"></i> Tipo de Servicio
+                            </label>
+                            <select id="filterTipoServicio" class="form-input">
+                                <option value="">Todos</option>
+                                <option value="agudo">Agudo</option>
+                                <option value="cronico">Crónico</option>
+                                <option value="coex">COEX</option>
                             </select>
                         </div>
                         
@@ -330,6 +342,20 @@
                                 <option value="todos">Todos</option>
                                 <option value="deudor">💳 Con Saldo Pendiente</option>
                                 <option value="pagado">✓ Pagados</option>
+                            </select>
+                        </div>
+
+                        <div style="display: flex; flex-direction: column;">
+                            <label style="font-size: 12px; font-weight: 600; color: #667eea; margin-bottom: 5px;">
+                                <i class="fas fa-calendar"></i> Período
+                            </label>
+                            <select id="filterFecha" class="form-input">
+                                <option value="">Todo el tiempo</option>
+                                <option value="hoy">Hoy</option>
+                                <option value="semana">Última Semana</option>
+                                <option value="mes">Último Mes</option>
+                                <option value="trimestre">Último Trimestre</option>
+                                <option value="ano">Último Año</option>
                             </select>
                         </div>
                         
