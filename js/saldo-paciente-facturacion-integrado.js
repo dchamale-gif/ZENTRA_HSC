@@ -67,18 +67,25 @@ const SaldoPacienteFacturacion = {
     loadData() {
         try {
             // Cargar pacientes PRIMERO desde PacientesModule
-            if (typeof PacientesModule !== 'undefined' && PacientesModule.state && PacientesModule.state.pacientes) {
+            if (typeof PacientesModule !== 'undefined' && 
+                PacientesModule.state && 
+                PacientesModule.state.pacientes && 
+                PacientesModule.state.pacientes.length > 0) {
                 this.state.pacientes = JSON.parse(JSON.stringify(PacientesModule.state.pacientes));
                 console.log(`✅ Facturación: ${this.state.pacientes.length} pacientes cargados desde PacientesModule`);
             } else {
                 // Fallback a localStorage
-                console.warn('⚠️ PacientesModule no disponible, usando localStorage...');
+                console.warn('⚠️ PacientesModule no disponible, intentando localStorage...');
                 const pacientesFromStorage = JSON.parse(localStorage.getItem('pacientes')) || [];
-                this.state.pacientes = pacientesFromStorage;
-                if (pacientesFromStorage.length === 0) {
-                    console.error('❌ ERROR: No hay pacientes disponibles');
+                if (pacientesFromStorage.length > 0) {
+                    this.state.pacientes = pacientesFromStorage;
+                    console.log(`✅ Facturación: ${this.state.pacientes.length} pacientes cargados desde localStorage`);
+                } else {
+                    // Fallback final a API
+                    console.warn('⚠️ localStorage vacío, cargando desde API...');
+                    this.loadDataFromAPI();
+                    return; // Salir aquí, loadDataFromAPI ya carga los datos
                 }
-                console.log(`✅ Facturación: ${this.state.pacientes.length} pacientes cargados desde localStorage`);
             }
             
             this.state.saldos = JSON.parse(localStorage.getItem('saldosPacientes')) || [];
@@ -89,14 +96,50 @@ const SaldoPacienteFacturacion = {
             
             this.cargarDelServidor();
         } catch (error) {
-            console.error('Error al cargar datos:', error);
+            console.error('❌ Error al cargar datos:', error);
+            // Intentar cargar desde API como último recurso
+            this.loadDataFromAPI();
         }
     },
 
-    async cargarDelServidor() {
+    async loadDataFromAPI() {
         try {
-            const token = localStorage.getItem('token');
-            if (!token) return;
+            const token = authManager?.getToken?.();
+            const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
+
+            if (!token) {
+                console.error('❌ No hay token de autenticación');
+                return;
+            }
+
+            console.log('🔄 Cargando pacientes desde API...');
+            const response = await fetch(`${apiBase}/api/pacientes`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            this.state.pacientes = data.pacientes || [];
+            console.log(`✅ Facturación: ${this.state.pacientes.length} pacientes cargados desde API`);
+            
+            // Cargar saldos desde localStorage
+            this.state.saldos = JSON.parse(localStorage.getItem('saldosPacientes')) || [];
+            this.state.pagos_realizados = JSON.parse(localStorage.getItem('pagosRealizados')) || [];
+            
+            // Llenar selects y cargar del servidor
+            this.cargarPacientesParaEstado();
+            this.cargarDelServidor();
+        } catch (error) {
+            console.error('❌ Error cargando de API:', error);
+        }
+    },
 
             // Intentar cargar del servidor, si falla usar datos locales
             const response = await fetch('http://localhost:3011/api/billing/saldos-pacientes', {

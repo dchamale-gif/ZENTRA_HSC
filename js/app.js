@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupLogout();
 });
 
-function initializeApp() {
+async function initializeApp() {
     // Initialize event listeners
     setupNavigation();
     setupModals();
@@ -96,13 +96,32 @@ function initializeApp() {
     setupResponsive();
     updateCurrentDate();
     
-    // Initialize Admin Modules (with safety checks)
-    try { if (typeof PacientesModule !== 'undefined') PacientesModule.init(); } catch(e) { console.warn('PacientesModule error:', e); }
+    // PASO 1: Inicializar PacientesModule primero (es crítico)
+    console.log('🔄 Inicializando PacientesModule...');
+    try { 
+        if (typeof PacientesModule !== 'undefined') {
+            PacientesModule.init();
+            // Esperar a que cargue datos (máx 5 segundos)
+            await waitForPacientesData(5000);
+            console.log('✅ PacientesModule datos cargados');
+        }
+    } catch(e) { 
+        console.warn('⚠️ PacientesModule error:', e); 
+    }
+    
+    // PASO 2: Inicializar MedicinasModule
+    console.log('🔄 Inicializando MedicinasModule...');
     try { if (typeof MedicinasModule !== 'undefined') MedicinasModule.init(); } catch(e) { console.warn('MedicinasModule error:', e); }
+    
+    // PASO 3: Inicializar módulos que dependen de PacientesModule
+    console.log('🔄 Inicializando módulos dependientes...');
     try { if (typeof HistoriaClinicaModule !== 'undefined') HistoriaClinicaModule.init(); } catch(e) { console.warn('HistoriaClinicaModule error:', e); }
     try { if (typeof SaldoPacienteModule !== 'undefined') SaldoPacienteModule.init(); } catch(e) { console.warn('SaldoPacienteModule error:', e); }
     try { if (typeof SaldoPacienteFacturacion !== 'undefined') SaldoPacienteFacturacion.init(); } catch(e) { console.warn('SaldoPacienteFacturacion error:', e); }
     try { if (typeof HospitalizacionesModule !== 'undefined') HospitalizacionesModule.init(); } catch(e) { console.warn('HospitalizacionesModule error:', e); }
+    
+    // PASO 4: Inicializar otros módulos
+    console.log('🔄 Inicializando módulos adicionales...');
     try { if (typeof CodigosArticulosModule !== 'undefined') CodigosArticulosModule.init(); } catch(e) { console.warn('CodigosArticulosModule error:', e); }
     try { if (typeof CajaIntegradaModule !== 'undefined') CajaIntegradaModule.init(); } catch(e) { console.warn('CajaIntegradaModule error:', e); }
     try { if (typeof ComprasModule !== 'undefined') ComprasModule.init(); } catch(e) { console.warn('ComprasModule error:', e); }
@@ -135,7 +154,34 @@ function initializeApp() {
         try { AgendaAPIModule.init(); } catch(e) { console.warn('AgendaAPIModule init error:', e); }
     }
     
+    
     console.log('✅ Sistema inicializado correctamente');
+}
+
+// ============================================
+// FUNCIÓN AUXILIAR: Esperar a que se carguen los pacientes
+// ============================================
+async function waitForPacientesData(maxWaitTime = 5000) {
+    return new Promise((resolve) => {
+        const startTime = Date.now();
+        const checkInterval = setInterval(() => {
+            // Verificar si PacientesModule tiene datos
+            if (typeof PacientesModule !== 'undefined' && 
+                PacientesModule.state && 
+                PacientesModule.state.pacientes &&
+                PacientesModule.state.pacientes.length > 0) {
+                clearInterval(checkInterval);
+                console.log(`✅ PacientesModule datos disponibles: ${PacientesModule.state.pacientes.length} pacientes`);
+                resolve(true);
+            }
+            // Timeout después de maxWaitTime ms
+            else if (Date.now() - startTime > maxWaitTime) {
+                clearInterval(checkInterval);
+                console.warn(`⚠️ Timeout esperando PacientesModule (${maxWaitTime}ms), continuando con inicialización...`);
+                resolve(false);
+            }
+        }, 100); // Verificar cada 100ms
+    });
 }
 
 // ============================================

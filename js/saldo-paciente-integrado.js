@@ -48,26 +48,87 @@ const SaldoPacienteIntegrado = {
     },
 
     loadData() {
-        // Cargar desde localStorage o API
+        // Cargar desde PacientesModule, localStorage o API
         try {
-            const pacientes = JSON.parse(localStorage.getItem('pacientes')) || [];
+            // PASO 1: Intentar desde PacientesModule
+            if (typeof PacientesModule !== 'undefined' && 
+                PacientesModule.state && 
+                PacientesModule.state.pacientes && 
+                PacientesModule.state.pacientes.length > 0) {
+                this.state.pacientes = JSON.parse(JSON.stringify(PacientesModule.state.pacientes));
+                console.log(`✅ Saldo Integrado: ${this.state.pacientes.length} pacientes desde PacientesModule`);
+            } else {
+                // PASO 2: Intentar desde localStorage
+                const pacientes = JSON.parse(localStorage.getItem('pacientes')) || [];
+                if (pacientes.length > 0) {
+                    this.state.pacientes = pacientes;
+                    console.log(`✅ Saldo Integrado: ${this.state.pacientes.length} pacientes desde localStorage`);
+                } else {
+                    // PASO 3: Cargar desde API
+                    console.warn('⚠️ No hay pacientes disponibles, cargando desde API...');
+                    this.loadDataFromAPI();
+                    return; // loadDataFromAPI ya maneja el resto
+                }
+            }
+
             const saldos = JSON.parse(localStorage.getItem('saldosPacientes')) || [];
-            
-            this.state.pacientes = pacientes;
             this.state.saldosPacientes = saldos;
 
             this.renderSaldosPacientes();
             this.cargarSaldosDelServidor();
         } catch (error) {
-            console.error('Error al cargar datos:', error);
+            console.error('❌ Error al cargar datos:', error);
+            this.loadDataFromAPI();
+        }
+    },
+
+    async loadDataFromAPI() {
+        try {
+            const token = authManager?.getToken?.();
+            const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
+
+            if (!token) {
+                console.error('❌ No hay token de autenticación');
+                return;
+            }
+
+            console.log('🔄 Cargando pacientes desde API...');
+            const response = await fetch(`${apiBase}/api/pacientes`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            this.state.pacientes = data.pacientes || [];
+            console.log(`✅ Saldo Integrado: ${this.state.pacientes.length} pacientes desde API`);
+
+            const saldos = JSON.parse(localStorage.getItem('saldosPacientes')) || [];
+            this.state.saldosPacientes = saldos;
+
+            this.renderSaldosPacientes();
+            this.cargarSaldosDelServidor();
+        } catch (error) {
+            console.error('❌ Error cargando desde API:', error);
         }
     },
 
     async cargarSaldosDelServidor() {
         try {
-            const response = await fetch('http://localhost:3011/api/billing/saldos-pacientes', {
+            const token = authManager?.getToken?.();
+            const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
+
+            if (!token) return;
+
+            const response = await fetch(`${apiBase}/api/billing/saldos-pacientes`, {
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': `Bearer ${token}`
                 }
             });
 

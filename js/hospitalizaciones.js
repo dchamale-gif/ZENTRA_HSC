@@ -40,17 +40,19 @@ const HospitalizacionesModule = {
     // Cargar datos CON SOPORTE A API
     loadData() {
         try {
-            // Intentar cargar de API
+            console.log('🔄 Hospitalizaciones: Cargando datos...');
             this.loadDataFromAPI();
+            console.log('✅ Hospitalizaciones: Datos cargados');
         } catch (error) {
-            console.warn('Error cargando de API, usando localStorage:', error);
+            console.warn('⚠️ Error cargando de API, usando fallbacks:', error);
             
             // Cargar desde localStorage o mostrar error
             const pacientesFromStorage = localStorage.getItem('pacientes');
             if (pacientesFromStorage) {
                 this.state.pacientes = JSON.parse(pacientesFromStorage);
+                console.log(`✅ Hospitalizaciones: ${this.state.pacientes.length} pacientes desde localStorage`);
             } else {
-                console.error('❌ ERROR: PacientesModule no disponible y no hay datos en localStorage');
+                console.error('❌ ERROR: No hay pacientes disponibles');
                 this.showNotification('❌ Error: No hay pacientes disponibles', 'error');
                 this.state.pacientes = [];
             }
@@ -68,7 +70,7 @@ const HospitalizacionesModule = {
     },
 
     // Cargar datos desde API
-    loadDataFromAPI() {
+    async loadDataFromAPI() {
         const token = authManager?.getToken?.();
         const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
 
@@ -76,27 +78,47 @@ const HospitalizacionesModule = {
             throw new Error('No hay token de autenticación');
         }
 
-        // Cargar pacientes desde PacientesModule
-        if (PacientesModule && PacientesModule.state && PacientesModule.state.pacientes) {
+        // PASO 1: Cargar pacientes desde PacientesModule (si está disponible)
+        if (typeof PacientesModule !== 'undefined' && 
+            PacientesModule.state && 
+            PacientesModule.state.pacientes && 
+            PacientesModule.state.pacientes.length > 0) {
             this.state.pacientes = JSON.parse(JSON.stringify(PacientesModule.state.pacientes));
+            console.log(`✅ Hospitalizaciones: ${this.state.pacientes.length} pacientes desde PacientesModule`);
         } else {
-            console.error('❌ ERROR: PacientesModule no disponible');
-            this.showNotification('❌ Error: No se puede acceder a la base de datos de pacientes', 'error');
+            // PASO 2: Si PacientesModule no está disponible, cargar directamente desde API
+            console.warn('⚠️ PacientesModule no disponible, cargando de API...');
+            try {
+                const response = await fetch(`${apiBase}/api/pacientes`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Error ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                this.state.pacientes = data.pacientes || [];
+                console.log(`✅ Hospitalizaciones: ${this.state.pacientes.length} pacientes desde API`);
+            } catch (apiError) {
+                console.error('❌ Error cargando pacientes desde API:', apiError);
+                throw apiError;
+            }
         }
         
+        // PASO 3: Cargar hospitalizaciones desde localStorage
         const hospFromStorage = localStorage.getItem('hospitalizaciones');
         if (hospFromStorage) {
             this.state.hospitalizaciones = JSON.parse(hospFromStorage);
+            console.log(`✅ Hospitalizaciones: ${this.state.hospitalizaciones.length} registros cargados`);
         } else {
             console.warn('⚠️ No hay hospitalizaciones registradas en localStorage');
+            this.state.hospitalizaciones = [];
         }
-
-        // En futuro: integrar con API real
-        // fetch(`${apiBase}/camas/disponibles`, { 
-        //     headers: { Authorization: `Bearer ${token}` }
-        // }).then(r => r.json()).then(data => {
-        //     // Procesar camas disponibles
-        // }).catch(e => console.warn('Error:', e));
     },
 
     // Guardar datos a localStorage

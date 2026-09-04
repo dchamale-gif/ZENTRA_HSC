@@ -13,7 +13,23 @@ const EstadosDeCuentaModule = {
     init() {
         this.setupEventListeners();
         this.loadData();
+        this.renderSelects();
         console.log('Módulo de Estados de Cuenta inicializado');
+    },
+
+    // Renderizar selects con datos
+    renderSelects() {
+        const accountFilter = document.getElementById('accountFilter');
+        if (accountFilter) {
+            accountFilter.innerHTML = '<option value="">Selecciona una cuenta...</option>' + 
+                this.state.cuentas.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+        }
+
+        const periodFilter = document.getElementById('periodFilter');
+        if (periodFilter) {
+            periodFilter.innerHTML = '<option value="">Todos los períodos</option>' + 
+                this.state.periodos.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
+        }
     },
 
     // Configurar event listeners
