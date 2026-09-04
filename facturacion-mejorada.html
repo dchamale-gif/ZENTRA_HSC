@@ -53,27 +53,98 @@
             border: 1px solid #ddd;
             border-top: none;
             border-radius: 0 0 4px 4px;
-            max-height: 200px;
+            max-height: 400px;
             overflow-y: auto;
             z-index: 100;
         }
 
         .resultado-paciente {
-            padding: 10px;
+            padding: 12px;
             border-bottom: 1px solid #eee;
             cursor: pointer;
             transition: background 0.2s;
+            font-size: 12px;
         }
 
         .resultado-paciente:hover {
             background: #f0f8ff;
         }
 
+        .resultado-paciente .nombre-paciente {
+            display: block;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .resultado-paciente .dato {
+            display: inline-block;
+            margin-right: 15px;
+            color: #666;
+        }
+
+        .resultado-paciente .dato strong {
+            color: #333;
+            font-weight: 600;
+        }
+
         .resultado-paciente .saldo {
             display: block;
-            font-size: 12px;
-            color: #666;
+            font-size: 11px;
+            color: #27ae60;
             margin-top: 5px;
+            font-weight: bold;
+        }
+
+        /* Filtros */
+        .filtros-paciente {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 15px;
+        }
+
+        .filtros-titulo {
+            font-size: 12px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .filtro-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .filtro-group label {
+            font-size: 11px;
+            font-weight: bold;
+            color: #666;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .filtro-group select,
+        .filtro-group input {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+
+        .btn-filtros {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .btn-filtros .btn {
+            padding: 6px 12px;
+            font-size: 11px;
         }
 
         /* Tabla de items */
@@ -390,6 +461,33 @@
             <!-- Búsqueda de paciente -->
             <div class="seccion-factura">
                 <div class="seccion-titulo">Seleccionar Paciente</div>
+
+                <!-- Filtros -->
+                <div class="filtros-paciente">
+                    <div class="filtros-titulo">Filtros de Búsqueda</div>
+                    <div class="filtro-group">
+                        <div>
+                            <label>Tipo de Servicio</label>
+                            <select id="filtroTipoServicio">
+                                <option value="">-- Todos --</option>
+                                <option value="agudo">Agudo</option>
+                                <option value="cronico">Crónico</option>
+                                <option value="coex">COEX</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Desde (Fecha Registro)</label>
+                            <input type="date" id="filtroFechaDesde">
+                        </div>
+                        <div>
+                            <label>Hasta (Fecha Registro)</label>
+                            <input type="date" id="filtroFechaHasta">
+                        </div>
+                    </div>
+                    <div class="btn-filtros">
+                        <button class="btn btn-info btn-sm" id="btnLimpiarFiltros">Limpiar Filtros</button>
+                    </div>
+                </div>
 
                 <div class="busqueda-paciente">
                     <input type="text" id="busquedaPaciente" placeholder="Buscar por nombre, apellido o DPI...">

@@ -19,6 +19,11 @@ const FacturacionMejorada = {
             total_descuentos: 0,
             total_impuestos: 0,
             total_neto: 0
+        },
+        filtros: {
+            tipo_servicio: '',
+            fecha_desde: '',
+            fecha_hasta: ''
         }
     },
 
@@ -38,6 +43,36 @@ const FacturacionMejorada = {
         const inputBusquedaPaciente = document.getElementById('busquedaPaciente');
         if (inputBusquedaPaciente) {
             inputBusquedaPaciente.addEventListener('input', (e) => this.buscarPaciente(e.target.value));
+        }
+
+        // Filtros
+        const filtroTipoServicio = document.getElementById('filtroTipoServicio');
+        if (filtroTipoServicio) {
+            filtroTipoServicio.addEventListener('change', (e) => {
+                this.state.filtros.tipo_servicio = e.target.value;
+                this.buscarPaciente(document.getElementById('busquedaPaciente')?.value || '');
+            });
+        }
+
+        const filtroFechaDesde = document.getElementById('filtroFechaDesde');
+        if (filtroFechaDesde) {
+            filtroFechaDesde.addEventListener('change', (e) => {
+                this.state.filtros.fecha_desde = e.target.value;
+                this.buscarPaciente(document.getElementById('busquedaPaciente')?.value || '');
+            });
+        }
+
+        const filtroFechaHasta = document.getElementById('filtroFechaHasta');
+        if (filtroFechaHasta) {
+            filtroFechaHasta.addEventListener('change', (e) => {
+                this.state.filtros.fecha_hasta = e.target.value;
+                this.buscarPaciente(document.getElementById('busquedaPaciente')?.value || '');
+            });
+        }
+
+        const btnLimpiarFiltros = document.getElementById('btnLimpiarFiltros');
+        if (btnLimpiarFiltros) {
+            btnLimpiarFiltros.addEventListener('click', () => this.limpiarFiltros());
         }
 
         // Botones principales
@@ -112,26 +147,106 @@ const FacturacionMejorada = {
     },
 
     buscarPaciente(termino) {
-        if (!termino) {
+        if (!termino && !this.state.filtros.tipo_servicio && !this.state.filtros.fecha_desde && !this.state.filtros.fecha_hasta) {
             document.getElementById('resultadosBusquedaPaciente').innerHTML = '';
             return;
         }
 
         const pacientes = this.getPacientes(); // Obtener de localStorage o API
-        const resultados = pacientes.filter(p => 
-            p.nombre.toLowerCase().includes(termino.toLowerCase()) ||
-            p.apellidoPaterno.toLowerCase().includes(termino.toLowerCase()) ||
-            p.dpi.includes(termino)
-        );
+        let resultados = pacientes.filter(p => {
+            // Filtro por texto de búsqueda
+            const coincideTexto = !termino || 
+                p.nombre?.toLowerCase().includes(termino.toLowerCase()) ||
+                p.apellidoPaterno?.toLowerCase().includes(termino.toLowerCase()) ||
+                p.apellidoMaterno?.toLowerCase().includes(termino.toLowerCase()) ||
+                p.dpi?.includes(termino);
 
-        const html = resultados.map(p => `
-            <div class="resultado-paciente" onclick="FacturacionMejorada.seleccionarPaciente('${p.id}', '${p.nombre} ${p.apellidoPaterno}')">
-                <strong>${p.nombre} ${p.apellidoPaterno}</strong> - DPI: ${p.dpi}
-                <span class="saldo" id="saldo-${p.id}"></span>
-            </div>
-        `).join('');
+            // Filtro por tipo de servicio
+            const coincideTipo = !this.state.filtros.tipo_servicio || 
+                p.tipoServicio === this.state.filtros.tipo_servicio;
+
+            // Filtro por fecha de registro
+            let coincideFecha = true;
+            if (this.state.filtros.fecha_desde || this.state.filtros.fecha_hasta) {
+                const fechaPaciente = p.fechaRegistro || p.created_at || p.fecha_registro || '';
+                if (this.state.filtros.fecha_desde && fechaPaciente < this.state.filtros.fecha_desde) {
+                    coincideFecha = false;
+                }
+                if (this.state.filtros.fecha_hasta && fechaPaciente > this.state.filtros.fecha_hasta) {
+                    coincideFecha = false;
+                }
+            }
+
+            return coincideTexto && coincideTipo && coincideFecha;
+        });
+
+        const html = resultados.map(p => {
+            const edad = p.edad || this.calcularEdad(p.fechaNacimiento);
+            const fechaNac = this.formatearFecha(p.fechaNacimiento);
+            const tipoServ = p.tipoServicio || 'No especificado';
+            const estado = p.estadoCivil || 'No especificado';
+            const prof = p.profesion || 'No especificado';
+            const ocup = p.ocupacion || 'No especificado';
+            const nacionalidad = p.nacionalidad || 'No especificado';
+            const gradoAcad = p.gradoAcademico || 'No especificado';
+            const dpi = p.dpi || 'No tiene';
+            
+            return `
+                <div class="resultado-paciente" onclick="FacturacionMejorada.seleccionarPaciente('${p.id}', '${p.nombre || ''} ${p.apellidoPaterno || ''}')">
+                    <span class="nombre-paciente">${p.nombre || ''} ${p.apellidoPaterno || ''} ${p.apellidoMaterno || ''}</span>
+                    <div>
+                        <span class="dato"><strong>DPI:</strong> ${dpi}</span>
+                        <span class="dato"><strong>Edad:</strong> ${edad || '-'}</span>
+                        <span class="dato"><strong>Nacionalidad:</strong> ${nacionalidad}</span>
+                    </div>
+                    <div>
+                        <span class="dato"><strong>F. Nacimiento:</strong> ${fechaNac}</span>
+                        <span class="dato"><strong>Estado:</strong> ${estado}</span>
+                        <span class="dato"><strong>Tipo Servicio:</strong> <strong style="color: #3498db;">${tipoServ}</strong></span>
+                    </div>
+                    <div>
+                        <span class="dato"><strong>Profesión:</strong> ${prof}</span>
+                        <span class="dato"><strong>Ocupación:</strong> ${ocup}</span>
+                        <span class="dato"><strong>Grado Académico:</strong> ${gradoAcad}</span>
+                    </div>
+                    <span class="saldo" id="saldo-${p.id}"></span>
+                </div>
+            `;
+        }).join('');
 
         document.getElementById('resultadosBusquedaPaciente').innerHTML = html;
+    },
+
+    limpiarFiltros() {
+        this.state.filtros = {
+            tipo_servicio: '',
+            fecha_desde: '',
+            fecha_hasta: ''
+        };
+        document.getElementById('filtroTipoServicio').value = '';
+        document.getElementById('filtroFechaDesde').value = '';
+        document.getElementById('filtroFechaHasta').value = '';
+        document.getElementById('busquedaPaciente').value = '';
+        document.getElementById('resultadosBusquedaPaciente').innerHTML = '';
+    },
+
+    formatearFecha(fecha) {
+        if (!fecha) return '-';
+        const d = new Date(fecha);
+        if (isNaN(d.getTime())) return fecha;
+        return d.toLocaleDateString('es-GT');
+    },
+
+    calcularEdad(fechaNacimiento) {
+        if (!fechaNacimiento) return null;
+        const hoy = new Date();
+        const fecha = new Date(fechaNacimiento);
+        let edad = hoy.getFullYear() - fecha.getFullYear();
+        const mes = hoy.getMonth() - fecha.getMonth();
+        if (mes < 0 || (mes === 0 && hoy.getDate() < fecha.getDate())) {
+            edad--;
+        }
+        return edad > 0 ? edad : null;
     },
 
     seleccionarPaciente(pacienteId, nombrePaciente) {
