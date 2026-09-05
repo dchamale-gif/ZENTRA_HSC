@@ -897,6 +897,8 @@ const SaldoPacienteFacturacion = {
     // TAB 3: ESTADOS
     // ============================================
 
+    // DEPRECATED: Funciones antiguas comentadas (usar modal en su lugar)
+    /*
     cargarPacientesParaEstado() {
         const select = document.getElementById('selectPacienteEstado');
         if (!select) {
@@ -939,6 +941,13 @@ const SaldoPacienteFacturacion = {
         } catch (error) {
             alert('Error al cargar estado de cuenta');
         }
+    },
+    */
+
+    // Función auxiliar para cargar pacientes (DEPRECATED pero dejada por si acaso)
+    cargarPacientesParaEstado() {
+        console.debug('ℹ️ Función antigua cargarPacientesParaEstado - usando nuevo modal');
+        // Ya no se necesita, el modal maneja esto
     },
 
     mostrarEstadoCuenta(data) {
@@ -993,14 +1002,16 @@ const SaldoPacienteFacturacion = {
     },
 
     imprimirEstado() {
-        const pacienteId = document.getElementById('selectPacienteEstado').value;
+        const pacienteId = window.pacienteEstadoSeleccionadoId;
         if (!pacienteId) {
-            alert('Selecciona un paciente');
+            alert('Selecciona un paciente primero');
             return;
         }
 
-        // Implementar impresión
-        window.print();
+        // Esperar un poco para asegurar que el contenido está renderizado
+        setTimeout(() => {
+            window.print();
+        }, 500);
     },
 
     // ============================================
@@ -1545,35 +1556,8 @@ const SaldoPacienteFacturacion = {
         try {
             console.log('📄 Cargando Estado de Cuenta para paciente:', pacienteId);
             
-            const token = authManager?.getToken?.();
-            const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011';
-
-            if (!token) {
-                console.warn('⚠️ No autenticado, usando datos locales');
-                this.mostrarEstadoCuentaLocal(pacienteId);
-                return;
-            }
-
-            try {
-                const response = await fetch(`${apiBase}/api/billing/estado-cuenta/${pacienteId}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-
-                if (response?.ok) {
-                    const result = await response.json();
-                    if (result.success || result.data) {
-                        const estadoCuenta = result.data || result;
-                        document.getElementById('estadoCuentaContainer').style.display = 'block';
-                        document.getElementById('estadoCuentaContent').innerHTML = this.renderizarEstadoCuenta(estadoCuenta);
-                        console.log('✅ Estado de Cuenta cargado desde servidor');
-                        return;
-                    }
-                }
-            } catch (fetchError) {
-                console.debug('ℹ️ Servidor no disponible, usando datos locales');
-            }
-
-            // Fallback a datos locales
+            // El endpoint /api/billing/estado-cuenta no existe en el backend
+            // Usar siempre datos locales
             this.mostrarEstadoCuentaLocal(pacienteId);
 
         } catch (error) {
