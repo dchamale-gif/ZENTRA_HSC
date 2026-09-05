@@ -649,23 +649,177 @@ const HospitalizacionesModule = {
         // Cerrar modales anteriores
         document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
 
+        // Almacenar la cama actual en estado temporal
+        this.camaTemporalSeleccionada = camaId;
+
         // Crear modal
         const modal = document.createElement('div');
         modal.className = 'modal-overlay';
         modal.innerHTML = `
-            <div class="modal-dialog" style="max-width: 600px;">
+            <div class="modal-dialog" style="max-width: 900px;">
                 <div class="modal-header">
-                    <h2><i class="fas fa-user-check"></i> Seleccionar Paciente</h2>
+                    <h2><i class="fas fa-user-check"></i> Seleccionar Paciente para Hospitalización</h2>
                     <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">
-                        ${this.renderPacientesSeleccionables(camaId)}
+                    <!-- Filtros -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; background: #f9f9f9; padding: 15px; border-radius: 8px;">
+                        <div>
+                            <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 8px;">
+                                <i class="fas fa-search"></i> Búsqueda
+                            </label>
+                            <input type="text" id="busquedaPacienteHosp" placeholder="Nombre, apellido o DPI..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;" onkeyup="HospitalizacionesModule.filtrarPacientesHosp()">
+                        </div>
+
+                        <div>
+                            <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 8px;">
+                                <i class="fas fa-sync-alt"></i> Limpiar
+                            </label>
+                            <button class="btn btn-sm btn-secondary" onclick="HospitalizacionesModule.limpiarFiltrosHosp()" style="width: 100%; padding: 10px;">Limpiar Filtros</button>
+                        </div>
+                    </div>
+
+                    <!-- Tabla de Pacientes -->
+                    <div class="table-responsive">
+                        <table class="data-table" style="font-size: 13px; width: 100%;">
+                            <thead>
+                                <tr>
+                                    <th>Paciente</th>
+                                    <th>DPI/Cédula</th>
+                                    <th>Edad</th>
+                                    <th class="text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaPacientesHosp">
+                                <tr>
+                                    <td colspan="4" class="text-center" style="padding: 20px; color: #999;">
+                                        <i class="fas fa-spinner fa-spin"></i> Cargando pacientes...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
         `;
         document.body.appendChild(modal);
+        this.cargarPacientesHosp();
+    },
+
+    cargarPacientesHosp() {
+        try {
+            // Obtener pacientes disponibles (no hospitalizados)
+            let pacientes = [];
+            
+            if (typeof PacientesModule !== 'undefined' && 
+                PacientesModule.state?.pacientes?.length > 0) {
+                pacientes = PacientesModule.state.pacientes;
+            } else if (this.state.pacientes && this.state.pacientes.length > 0) {
+                pacientes = this.state.pacientes;
+            }
+
+            // Filtrar pacientes que NO están hospitalizados
+            pacientes = pacientes.filter(p => {
+                const yaHospitalizado = this.state.hospitalizaciones.find(h => 
+                    parseInt(h.pacienteId) === parseInt(p.id) && h.estado === 'activa'
+                );
+                return !yaHospitalizado;
+            });
+
+            this.state.pacientesDispHosp = pacientes;
+            this.filtrarPacientesHosp();
+
+        } catch (error) {
+            console.error('❌ Error cargando pacientes:', error);
+        }
+    },
+
+    filtrarPacientesHosp() {
+        try {
+            const searchTerm = document.getElementById('busquedaPacienteHosp')?.value?.toLowerCase() || '';
+            let pacientesFiltered = [...(this.state.pacientesDispHosp || [])];
+
+            // Aplicar búsqueda
+            if (searchTerm) {
+                pacientesFiltered = pacientesFiltered.filter(p => {
+                    const nombre = `${p.nombre || ''} ${p.apellido_paterno || ''} ${p.apellido_materno || ''}`.toLowerCase();
+                    const dpi = (p.dpi || p.cedula || '').toLowerCase();
+                    return nombre.includes(searchTerm) || dpi.includes(searchTerm);
+                });
+            }
+
+            // Ordenar alfabéticamente
+            pacientesFiltered.sort((a, b) => 
+                `${a.nombre} ${a.apellido_paterno}`.localeCompare(`${b.nombre} ${b.apellido_paterno}`)
+            );
+
+            // Renderizar tabla
+            const tbody = document.getElementById('tablaPacientesHosp');
+            if (!tbody) return;
+
+            if (pacientesFiltered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center" style="padding: 20px; color: #999;">No se encontraron pacientes disponibles</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = pacientesFiltered.map(paciente => {
+                const edad = this.calcularEdad(paciente.fecha_nacimiento || paciente.fechaNacimiento) || 'N/A';
+
+                return `
+                    <tr>
+                        <td>
+                            <div style="font-weight: bold;">${paciente.nombre || ''} ${paciente.apellido_paterno || ''}</div>
+                            <div style="font-size: 11px; color: #999;">${paciente.apellido_materno || ''}</div>
+                        </td>
+                        <td>${paciente.dpi || paciente.cedula || 'N/A'}</td>
+                        <td>${edad} años</td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-success" onclick="HospitalizacionesModule.seleccionarPacienteHosp(${paciente.id}, '${(paciente.nombre || '')} ${(paciente.apellido_paterno || '')}'.trim())" style="padding: 4px 8px; font-size: 11px;">
+                                <i class="fas fa-check"></i> Seleccionar
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+        } catch (error) {
+            console.error('❌ Error filtrando pacientes:', error);
+        }
+    },
+
+    limpiarFiltrosHosp() {
+        document.getElementById('busquedaPacienteHosp').value = '';
+        this.filtrarPacientesHosp();
+    },
+
+    seleccionarPacienteHosp(pacienteId, pacienteNombre) {
+        try {
+            console.log('✅ Paciente seleccionado para hospitalización:', pacienteNombre);
+            
+            const paciente = this.state.pacientesDispHosp.find(p => parseInt(p.id) === parseInt(pacienteId));
+            if (!paciente) return;
+
+            // Cerrar modal
+            document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
+
+            // Abrir modal con datos de hospitalización
+            this.openDatosHospitalizacion(pacienteId, this.camaTemporalSeleccionada);
+            
+        } catch (error) {
+            console.error('❌ Error seleccionando paciente:', error);
+        }
+    },
+
+    calcularEdad(fechaNacimiento) {
+        if (!fechaNacimiento) return null;
+        const hoy = new Date();
+        const fecha = new Date(fechaNacimiento);
+        let edad = hoy.getFullYear() - fecha.getFullYear();
+        const mes = hoy.getMonth() - fecha.getMonth();
+        if (mes < 0 || (mes === 0 && hoy.getDate() < fecha.getDate())) {
+            edad--;
+        }
+        return edad >= 0 ? edad : null;
     },
 
     // Renderizar pacientes disponibles para hospitalización - MEJORADO
