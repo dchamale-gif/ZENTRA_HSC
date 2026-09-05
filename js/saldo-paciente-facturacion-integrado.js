@@ -814,34 +814,57 @@ const SaldoPacienteFacturacion = {
         };
 
         try {
+            console.log('📤 Intentando guardar factura en servidor...');
             const response = await fetch(`${authManager.apiBaseUrl}/api/billing/facturas-mejorada`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${authManager.getToken()}`
                 },
-                body: JSON.stringify(datos)
-            }).catch(() => null);
+                body: JSON.stringify(datos),
+                timeout: 5000
+            }).catch((err) => {
+                console.debug('⚠️ Error en fetch, guardaremos localmente:', err.message);
+                return null;
+            });
 
-            if (response?.ok) {
+            // Si la respuesta es null o no es ok, guardar localmente
+            if (!response || !response.ok) {
+                if (response) {
+                    console.debug(`⚠️ Server respondió con status ${response.status}, guardando localmente...`);
+                } else {
+                    console.debug('⚠️ Servidor no disponible, guardando localmente...');
+                }
+                
+                this.guardarFacturaLocal(datos);
+                alert('✅ Factura guardada localmente');
+                this.imprimirRecibo(datos);
+                this.cancelarFactura();
+                return;
+            }
+
+            // Si la respuesta es ok, intentar procesar
+            try {
                 const result = await response.json();
                 if (result.success) {
                     alert('✅ Factura guardada: ' + result.data.numero_factura);
                     this.imprimirRecibo(result.data);
                     this.cancelarFactura();
                     this.loadData();
+                    return;
                 }
-            } else {
-                // Guardar en localStorage cuando el servidor no está disponible
-                console.log('⚠️ Servidor no disponible, guardando factura localmente');
-                this.guardarFacturaLocal(datos);
-                alert('✅ Factura guardada localmente');
-                this.imprimirRecibo(datos);
-                this.cancelarFactura();
+            } catch (parseError) {
+                console.debug('⚠️ Error parseando respuesta, guardando localmente');
             }
+
+            // Si llegamos aquí, guardar localmente
+            this.guardarFacturaLocal(datos);
+            alert('✅ Factura guardada localmente');
+            this.imprimirRecibo(datos);
+            this.cancelarFactura();
+
         } catch (error) {
-            console.error('Error:', error);
-            // Guardar en localStorage en caso de error
+            console.debug('⚠️ Error general, guardando localmente:', error.message);
             this.guardarFacturaLocal(datos);
             alert('✅ Factura guardada localmente');
             this.imprimirRecibo(datos);
@@ -1135,6 +1158,7 @@ const SaldoPacienteFacturacion = {
         }
 
         try {
+            console.log('📤 Intentando registrar pago en servidor...');
             const response = await fetch(`${authManager.apiBaseUrl}/api/billing/pagos`, {
                 method: 'POST',
                 headers: {
@@ -1142,28 +1166,35 @@ const SaldoPacienteFacturacion = {
                     'Authorization': `Bearer ${authManager.getToken()}`
                 },
                 body: JSON.stringify(datos)
-            }).catch(() => null);
+            }).catch((err) => {
+                console.debug('⚠️ Error en fetch de pago, guardaremos localmente:', err.message);
+                return null;
+            });
 
-            if (response?.ok) {
-                const result = await response.json();
-                if (result.success) {
-                    this.state.pagos_realizados.push(datos);
-                    localStorage.setItem('pagosRealizados', JSON.stringify(this.state.pagos_realizados));
-                    alert('✅ Pago registrado correctamente');
-                    this.cancelarPago();
-                    this.loadData();
-                    this.renderSaldos();
-                }
-            } else {
-                // Guardar localmente
+            if (!response || !response.ok) {
+                console.debug('⚠️ Servidor no disponible para pago, guardando localmente...');
                 this.state.pagos_realizados.push(datos);
                 localStorage.setItem('pagosRealizados', JSON.stringify(this.state.pagos_realizados));
                 alert('✅ Pago guardado localmente');
                 this.cancelarPago();
+                return;
+            }
+
+            const result = await response.json();
+            if (result.success) {
+                this.state.pagos_realizados.push(datos);
+                localStorage.setItem('pagosRealizados', JSON.stringify(this.state.pagos_realizados));
+                alert('✅ Pago registrado correctamente');
+                this.cancelarPago();
+                this.loadData();
+                this.renderSaldos();
             }
         } catch (error) {
-            console.error('Error:', error);
-            alert('Error al registrar pago');
+            console.debug('⚠️ Error registrando pago, guardando localmente:', error.message);
+            this.state.pagos_realizados.push(datos);
+            localStorage.setItem('pagosRealizados', JSON.stringify(this.state.pagos_realizados));
+            alert('✅ Pago guardado localmente');
+            this.cancelarPago();
         }
     },
 
