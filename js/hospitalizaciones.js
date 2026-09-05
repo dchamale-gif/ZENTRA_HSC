@@ -729,10 +729,25 @@ const HospitalizacionesModule = {
     openDatosHospitalizacion(pacienteId, camaId) {
         // Convertir pacienteId a número para coincidencia correcta
         const pacienteIdNum = parseInt(pacienteId);
+        
+        // Validar que tenemos pacientes
+        if (!this.state.pacientes || this.state.pacientes.length === 0) {
+            console.warn('⚠️ No hay pacientes cargados en hospitalizaciones');
+            // Intentar cargar desde PacientesModule
+            if (typeof PacientesModule !== 'undefined' && PacientesModule.state?.pacientes?.length > 0) {
+                this.state.pacientes = PacientesModule.state.pacientes;
+                console.log('✅ Pacientes recarguados desde PacientesModule');
+            } else {
+                AlertasModule?.mostrarError('No se encontraron datos de pacientes');
+                return;
+            }
+        }
+        
         const paciente = this.state.pacientes.find(p => parseInt(p.id) === pacienteIdNum);
         
         if (!paciente) {
-            console.error('❌ Paciente no encontrado:', pacienteId);
+            console.error('❌ Paciente no encontrado con ID:', pacienteIdNum);
+            console.log('📋 Pacientes disponibles:', this.state.pacientes.map(p => ({id: p.id, nombre: p.nombre})));
             AlertasModule?.mostrarError('No se encontró el paciente');
             return;
         }
