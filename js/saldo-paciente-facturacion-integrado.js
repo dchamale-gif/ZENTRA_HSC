@@ -1844,19 +1844,23 @@ const SaldoPacienteFacturacion = {
             // Aplicar búsqueda
             if (searchTerm) {
                 productosFiltered = productosFiltered.filter(p => {
-                    const nombre = (p.concepto || p.nombre || '').toLowerCase();
+                    const nombre = (p.concepto || p.nombre || p.subfamilia || p.familia || '').toLowerCase();
                     const codigo = (p.codigo_venta || p.codigo_compra || '').toLowerCase();
                     const familia = (p.familia || '').toLowerCase();
+                    const subfamilia = (p.subfamilia || '').toLowerCase();
                     return nombre.includes(searchTerm) || 
                            codigo.includes(searchTerm) || 
-                           familia.includes(searchTerm);
+                           familia.includes(searchTerm) || 
+                           subfamilia.includes(searchTerm);
                 });
             }
 
             // Ordenar alfabéticamente
-            productosFiltered.sort((a, b) => 
-                (a.concepto || a.nombre || '').localeCompare(b.concepto || b.nombre || '')
-            );
+            productosFiltered.sort((a, b) => {
+                const nombreA = (a.concepto || a.nombre || a.subfamilia || a.familia || '');
+                const nombreB = (b.concepto || b.nombre || b.subfamilia || b.familia || '');
+                return nombreA.localeCompare(nombreB);
+            });
 
             // Renderizar tabla
             const tbody = document.getElementById('tablaProductosFactura');
@@ -1871,12 +1875,16 @@ const SaldoPacienteFacturacion = {
                 const precioBase = parseFloat(producto.precio || producto.precio_unitario || 0);
                 const familia = producto.familia || 'General';
                 const codigoVenta = producto.codigo_venta || 'N/A';
+                
+                // Prioridad: concepto > nombre > subfamilia > familia
+                const nombreProducto = producto.concepto || producto.nombre || producto.subfamilia || producto.familia || 'Sin especificar';
+                const detalleProducto = (producto.subfamilia && producto.concepto) ? producto.subfamilia : '';
 
                 return `
                     <tr>
                         <td>
-                            <div style="font-weight: bold;">${producto.concepto || producto.nombre || 'Sin nombre'}</div>
-                            <div style="font-size: 11px; color: #999;">${producto.subfamilia || ''}</div>
+                            <div style="font-weight: bold;">${nombreProducto}</div>
+                            ${detalleProducto ? `<div style="font-size: 11px; color: #999;">${detalleProducto}</div>` : ''}
                         </td>
                         <td>${codigoVenta}</td>
                         <td>${familia}</td>
@@ -1884,7 +1892,7 @@ const SaldoPacienteFacturacion = {
                             Q${precioBase.toFixed(2)}
                         </td>
                         <td class="text-center">
-                            <button class="btn btn-sm btn-success" onclick="SaldoPacienteFacturacion.seleccionarProducto('${(producto.concepto || producto.nombre || '').replace(/'/g, "\\'")}', ${precioBase})" style="padding: 4px 8px; font-size: 11px;">
+                            <button class="btn btn-sm btn-success" onclick="SaldoPacienteFacturacion.seleccionarProducto('${nombreProducto.replace(/'/g, "\\'")}', ${precioBase})" style="padding: 4px 8px; font-size: 11px;">
                                 <i class="fas fa-check"></i> Seleccionar
                             </button>
                         </td>
