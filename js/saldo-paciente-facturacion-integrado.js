@@ -847,12 +847,12 @@ const SaldoPacienteFacturacion = {
         this.state.descuentos_actuales = [];
         this.state.paciente_seleccionado = null;
         document.getElementById('pacienteIdFactura').value = '';
-        document.getElementById('busquedaPacienteFactura').value = '';
-        document.getElementById('pacienteSeleccionado').style.display = 'none';
-        document.getElementById('datoPacienteSeleccionado').innerHTML = '<p>No hay paciente seleccionado</p>';
+        document.getElementById('pacienteFacturaSeleccionado').style.display = 'none';
         document.getElementById('descripcionItem').value = '';
         document.getElementById('cantidadItem').value = '1';
         document.getElementById('precioItem').value = '';
+        document.getElementById('productoSeleccionadoFactura').style.display = 'none';
+        document.getElementById('modalBuscaProducto').value = '';
         document.getElementById('metodoPago').value = 'efectivo';
         document.getElementById('observaciones').value = '';
         this.renderItems();
@@ -1745,6 +1745,9 @@ const SaldoPacienteFacturacion = {
             const paciente = this.state.pacientes.find(p => p.id === pacienteId);
             if (!paciente) return;
 
+            // Almacenar en estado
+            this.state.paciente_seleccionado = paciente;
+            
             // Almacenar ID
             document.getElementById('pacienteIdFactura').value = pacienteId;
 
