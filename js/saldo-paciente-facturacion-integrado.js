@@ -146,8 +146,8 @@ const SaldoPacienteFacturacion = {
             const token = authManager?.getToken?.();
             if (!token) return;
 
-            const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
-            const url = `${apiBase}/billing/saldos-pacientes`;
+            const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011';
+            const url = `${apiBase}/api/billing/saldos-pacientes`;
 
             // Intentar cargar del servidor con timeout, si falla usar datos locales
             const controller = new AbortController();
