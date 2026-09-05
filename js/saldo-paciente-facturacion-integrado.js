@@ -141,6 +141,9 @@ const SaldoPacienteFacturacion = {
         }
     },
 
+    async cargarDelServidor() {
+        try {
+            const token = authManager?.getToken?.();
             // Intentar cargar del servidor, si falla usar datos locales
             const response = await fetch('http://localhost:3011/api/billing/saldos-pacientes', {
                 headers: { 'Authorization': `Bearer ${token}` }
