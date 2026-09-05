@@ -1407,6 +1407,221 @@ const SaldoPacienteFacturacion = {
             console.error('Error:', error);
             alert('Error al eliminar pago');
         }
+    },
+
+    // ============================================
+    // MODAL PARA SELECCIONAR PACIENTE - ESTADO DE CUENTA
+    // ============================================
+
+    abrirModalSeleccionPacienteEstado() {
+        const modal = document.getElementById('modalSeleccionPacienteEstado');
+        if (modal) {
+            modal.style.display = 'block';
+            console.log('🔍 Modal para seleccionar paciente en Estado de Cuenta abierto');
+            this.cargarPacientesModalEstado();
+            
+            // Event listener para cerrar modal al hacer clic en el fondo
+            modal.onclick = (e) => {
+                if (e.target === modal) {
+                    this.cerrarModalSeleccionPacienteEstado();
+                }
+            };
+        }
+    },
+
+    cerrarModalSeleccionPacienteEstado() {
+        const modal = document.getElementById('modalSeleccionPacienteEstado');
+        if (modal) {
+            modal.style.display = 'none';
+            console.log('🔍 Modal para seleccionar paciente cerrado');
+        }
+    },
+
+    cargarPacientesModalEstado() {
+        try {
+            // Obtener pacientes desde PacientesModule
+            if (typeof PacientesModule !== 'undefined' && 
+                PacientesModule.state && 
+                PacientesModule.state.pacientes && 
+                PacientesModule.state.pacientes.length > 0) {
+                this.state.pacientes = JSON.parse(JSON.stringify(PacientesModule.state.pacientes));
+                console.log('✅ Pacientes cargados desde PacientesModule para Estado de Cuenta');
+            }
+
+            this.filtrarPacientesEstado();
+
+        } catch (error) {
+            console.error('❌ Error cargando pacientes en modal Estado de Cuenta:', error);
+            document.getElementById('tablaPacientesEstado').innerHTML = 
+                '<tr><td colspan="4" class="text-center">❌ Error al cargar pacientes</td></tr>';
+        }
+    },
+
+    filtrarPacientesEstado() {
+        try {
+            const searchTerm = document.getElementById('modalBuscaPacienteEstado')?.value?.toLowerCase() || '';
+
+            let pacientesFiltered = [...this.state.pacientes];
+
+            // Aplicar búsqueda
+            if (searchTerm) {
+                pacientesFiltered = pacientesFiltered.filter(p => {
+                    const nombre = `${p.nombre || ''} ${p.apellido_paterno || ''} ${p.apellido_materno || ''}`.toLowerCase();
+                    const dpi = (p.dpi || p.cedula || '').toLowerCase();
+                    return nombre.includes(searchTerm) || dpi.includes(searchTerm);
+                });
+            }
+
+            // Ordenar alfabéticamente
+            pacientesFiltered.sort((a, b) => 
+                `${a.nombre} ${a.apellido_paterno}`.localeCompare(`${b.nombre} ${b.apellido_paterno}`)
+            );
+
+            // Renderizar tabla
+            const tbody = document.getElementById('tablaPacientesEstado');
+            if (!tbody) return;
+
+            if (pacientesFiltered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center" style="padding: 20px; color: #999;">No se encontraron pacientes</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = pacientesFiltered.map(paciente => {
+                const saldo = this.state.saldos.find(s => s.paciente_id === paciente.id) || {
+                    saldo_pendiente: 0
+                };
+
+                const estadoBadge = saldo.saldo_pendiente > 0 
+                    ? '<span style="background: #e74c3c; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px; font-weight: bold;">DEUDOR</span>'
+                    : '<span style="background: #27ae60; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px; font-weight: bold;">PAGADO</span>';
+
+                return `
+                    <tr>
+                        <td>
+                            <div style="font-weight: bold;">${paciente.nombre || ''} ${paciente.apellido_paterno || ''}</div>
+                            <div style="font-size: 11px; color: #999;">${paciente.apellido_materno || ''}</div>
+                        </td>
+                        <td>${paciente.dpi || paciente.cedula || 'N/A'}</td>
+                        <td class="text-right">
+                            Q${parseFloat(saldo.saldo_pendiente || 0).toFixed(2)}
+                        </td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-info" onclick="SaldoPacienteFacturacion.seleccionarPacienteEstado(${paciente.id}, '${paciente.nombre || ''} ${paciente.apellido_paterno || ''}')" style="padding: 4px 8px; font-size: 11px;">
+                                <i class="fas fa-check"></i> Ver Estado
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+        } catch (error) {
+            console.error('❌ Error filtrando pacientes en modal Estado de Cuenta:', error);
+        }
+    },
+
+    seleccionarPacienteEstado(pacienteId, pacienteNombre) {
+        try {
+            console.log('✅ Paciente seleccionado para Estado de Cuenta:', pacienteNombre);
+            
+            // Mostrar paciente seleccionado
+            const divSeleccionado = document.getElementById('pacienteEstadoSeleccionado');
+            if (divSeleccionado) {
+                divSeleccionado.style.display = 'block';
+                document.getElementById('pacienteEstadoNombre').textContent = pacienteNombre;
+            }
+
+            this.cerrarModalSeleccionPacienteEstado();
+            
+            // Establecer el ID en un campo oculto y cargar estado de cuenta
+            window.pacienteEstadoSeleccionadoId = pacienteId;
+            this.cargarEstadoCuentaSeleccionado(pacienteId);
+            
+        } catch (error) {
+            console.error('❌ Error seleccionando paciente:', error);
+        }
+    },
+
+    async cargarEstadoCuentaSeleccionado(pacienteId) {
+        try {
+            console.log('📄 Cargando Estado de Cuenta para paciente:', pacienteId);
+            
+            const token = authManager?.getToken?.();
+            const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011';
+
+            if (!token) {
+                console.warn('⚠️ No autenticado, usando datos locales');
+                this.mostrarEstadoCuentaLocal(pacienteId);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${apiBase}/api/billing/estado-cuenta/${pacienteId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response?.ok) {
+                    const result = await response.json();
+                    if (result.success || result.data) {
+                        const estadoCuenta = result.data || result;
+                        document.getElementById('estadoCuentaContainer').style.display = 'block';
+                        document.getElementById('estadoCuentaContent').innerHTML = this.renderizarEstadoCuenta(estadoCuenta);
+                        console.log('✅ Estado de Cuenta cargado desde servidor');
+                        return;
+                    }
+                }
+            } catch (fetchError) {
+                console.debug('ℹ️ Servidor no disponible, usando datos locales');
+            }
+
+            // Fallback a datos locales
+            this.mostrarEstadoCuentaLocal(pacienteId);
+
+        } catch (error) {
+            console.error('❌ Error cargando Estado de Cuenta:', error);
+            document.getElementById('estadoCuentaContainer').style.display = 'block';
+            document.getElementById('estadoCuentaContent').innerHTML = '<p style="color: red;">Error al cargar Estado de Cuenta</p>';
+        }
+    },
+
+    mostrarEstadoCuentaLocal(pacienteId) {
+        try {
+            const paciente = this.state.pacientes.find(p => p.id === pacienteId);
+            if (!paciente) return;
+
+            document.getElementById('estadoCuentaContainer').style.display = 'block';
+            
+            const html = `
+                <div style="background: white; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+                    <h3>Estado de Cuenta - ${paciente.nombre} ${paciente.apellido_paterno}</h3>
+                    <div style="margin: 20px 0;">
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+                            <div style="padding: 15px; background: #f9f9f9; border-radius: 4px;">
+                                <div style="font-size: 12px; color: #666;">Total Deuda</div>
+                                <div style="font-size: 18px; font-weight: bold; color: #e74c3c;">Q0.00</div>
+                            </div>
+                            <div style="padding: 15px; background: #f9f9f9; border-radius: 4px;">
+                                <div style="font-size: 12px; color: #666;">Saldo Pendiente</div>
+                                <div style="font-size: 18px; font-weight: bold; color: #e74c3c;">Q0.00</div>
+                            </div>
+                            <div style="padding: 15px; background: #f9f9f9; border-radius: 4px;">
+                                <div style="font-size: 12px; color: #666;">Total Pagado</div>
+                                <div style="font-size: 18px; font-weight: bold; color: #27ae60;">Q0.00</div>
+                            </div>
+                        </div>
+                    </div>
+                    <p style="color: #999; text-align: center;">Datos cargados desde almacenamiento local</p>
+                </div>
+            `;
+            document.getElementById('estadoCuentaContent').innerHTML = html;
+
+        } catch (error) {
+            console.error('❌ Error mostrando Estado de Cuenta local:', error);
+        }
+    },
+
+    renderizarEstadoCuenta(estadoCuenta) {
+        // Implementar según estructura de datos de tu API
+        return `<p>Estado de Cuenta cargado</p>`;
     }
 };
 

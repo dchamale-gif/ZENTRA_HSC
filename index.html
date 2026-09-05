@@ -835,14 +835,60 @@
                     <!-- TAB 3: ESTADOS DE CUENTA -->
                     <div id="estados" class="tab-content">
                         <div style="margin-bottom: 20px;">
-                            <label style="display: block; font-weight: bold; margin-bottom: 5px;">Selecciona un Paciente para ver su Estado de Cuenta</label>
-                            <select id="selectPacienteEstado" onchange="SaldoPacienteFacturacion.cargarEstadoCuenta()" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                                <option value="">-- Selecciona paciente --</option>
-                            </select>
+                            <label style="display: block; font-weight: bold; margin-bottom: 10px;">Selecciona un Paciente para ver su Estado de Cuenta</label>
+                            <button class="btn btn-primary" onclick="SaldoPacienteFacturacion.abrirModalSeleccionPacienteEstado()" style="width: 100%; padding: 12px;">
+                                <i class="fas fa-search"></i> Buscar Paciente
+                            </button>
+                            <div id="pacienteEstadoSeleccionado" style="margin-top: 15px; padding: 10px; background: #f0f0f0; border-radius: 4px; display: none;">
+                                <div style="font-weight: bold; color: #2c3e50;">Paciente Seleccionado:</div>
+                                <div id="pacienteEstadoNombre" style="font-size: 14px; margin-top: 5px;"></div>
+                            </div>
                         </div>
                         <div id="estadoCuentaContainer" style="display: none;">
                             <button class="btn btn-info" onclick="SaldoPacienteFacturacion.imprimirEstado()">🖨️ Imprimir Estado de Cuenta</button>
                             <div id="estadoCuentaContent" style="margin-top: 20px;"></div>
+                        </div>
+                    </div>
+
+                    <!-- MODAL: SELECCIONAR PACIENTE PARA ESTADO DE CUENTA -->
+                    <div id="modalSeleccionPacienteEstado" style="display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+                        <div style="background-color: white; margin: 5% auto; padding: 0; border-radius: 8px; width: 95%; max-width: 900px; max-height: 90vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                            <!-- Header -->
+                            <div style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                                <h2 style="margin: 0; font-size: 18px;">
+                                    <i class="fas fa-file-invoice-dollar"></i> Seleccionar Paciente para Estado de Cuenta
+                                </h2>
+                                <button onclick="SaldoPacienteFacturacion.cerrarModalSeleccionPacienteEstado()" style="background: none; border: none; color: white; font-size: 28px; cursor: pointer;">&times;</button>
+                            </div>
+
+                            <!-- Body -->
+                            <div style="padding: 20px;">
+                                <!-- Filtro de búsqueda -->
+                                <div style="margin-bottom: 20px;">
+                                    <input type="text" id="modalBuscaPacienteEstado" placeholder="Buscar por nombre, apellido o DPI..." style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" onkeyup="SaldoPacienteFacturacion.filtrarPacientesEstado()">
+                                </div>
+
+                                <!-- Tabla de Pacientes -->
+                                <div class="table-responsive">
+                                    <table class="data-table" style="font-size: 13px; width: 100%;">
+                                        <thead>
+                                            <tr>
+                                                <th>Paciente</th>
+                                                <th>DPI/Cédula</th>
+                                                <th class="text-right">Saldo Pendiente</th>
+                                                <th class="text-center">Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tablaPacientesEstado">
+                                            <tr>
+                                                <td colspan="4" class="text-center" style="padding: 20px; color: #999;">
+                                                    <i class="fas fa-spinner fa-spin"></i> Cargando pacientes...
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
