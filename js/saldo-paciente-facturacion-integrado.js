@@ -143,36 +143,10 @@ const SaldoPacienteFacturacion = {
 
     async cargarDelServidor() {
         try {
-            const token = authManager?.getToken?.();
-            if (!token) return;
-
-            const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011';
-            const url = `${apiBase}/api/billing/saldos-pacientes`;
-
-            // Intentar cargar del servidor con timeout, si falla usar datos locales
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000);
-
-            try {
-                const response = await fetch(url, {
-                    headers: { 'Authorization': `Bearer ${token}` },
-                    signal: controller.signal
-                });
-
-                clearTimeout(timeoutId);
-
-                if (response?.ok) {
-                    const result = await response.json();
-                    if (result.success) {
-                        this.state.saldos = result.data;
-                        console.log('✅ Saldos cargados desde servidor');
-                    }
-                }
-            } catch (fetchError) {
-                clearTimeout(timeoutId);
-                // Falló la conexión - usar datos locales silenciosamente
-                console.debug('ℹ️ Servidor no disponible, usando datos locales');
-            }
+            // Nota: El endpoint /api/billing/saldos-pacientes no existe en el backend
+            // El módulo funciona con datos locales (localStorage)
+            // Los datos de saldos ya fueron cargados desde localStorage en loadData()
+            console.debug('ℹ️ Usando datos de saldos desde localStorage');
         } catch (error) {
             console.debug('ℹ️ Usando datos locales - servidor no disponible');
         }

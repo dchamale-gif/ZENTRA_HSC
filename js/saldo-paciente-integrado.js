@@ -121,24 +121,12 @@ const SaldoPacienteIntegrado = {
 
     async cargarSaldosDelServidor() {
         try {
-            const token = authManager?.getToken?.();
-            const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
-
-            if (!token) return;
-
-            const response = await fetch(`${apiBase}/api/billing/saldos-pacientes`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            const result = await response.json();
-            if (result.success) {
-                this.state.saldosPacientes = result.data;
-                this.renderSaldosPacientes();
-            }
+            // Nota: El endpoint /api/billing/saldos-pacientes no existe en el backend
+            // El módulo funciona con datos locales (localStorage)
+            // Los datos de saldos ya fueron cargados desde localStorage en loadData()
+            console.debug('ℹ️ Usando datos de saldos desde localStorage');
         } catch (error) {
-            console.error('Error al cargar saldos del servidor:', error);
+            console.debug('ℹ️ Usando datos locales - servidor no disponible');
         }
     },
 
