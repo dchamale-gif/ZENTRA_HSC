@@ -18,6 +18,19 @@ const SaldoPacienteModule = {
         this.setupEventListeners();
         this.loadData();
         console.log('Módulo de Saldo del Paciente inicializado');
+        
+        // Re-renderizar después de un pequeño delay para asegurar que PacientesModule está listo
+        setTimeout(() => {
+            console.log('🔄 Verificando datos de pacientes...');
+            if (typeof PacientesModule !== 'undefined' && 
+                PacientesModule.state && 
+                PacientesModule.state.pacientes && 
+                PacientesModule.state.pacientes.length > this.state.pacientes.length) {
+                console.log('✅ Actualizando pacientes desde PacientesModule');
+                this.state.pacientes = JSON.parse(JSON.stringify(PacientesModule.state.pacientes));
+                this.renderSaldosPacientes();
+            }
+        }, 2000);
     },
 
     // Configurar event listeners
@@ -150,6 +163,26 @@ const SaldoPacienteModule = {
             return;
         }
 
+        // Si no hay pacientes, mostrar mensaje
+        if (!this.state.pacientes || this.state.pacientes.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center" style="padding: 20px; color: #999;">No hay pacientes registrados</td></tr>';
+            console.warn('⚠️ No hay pacientes en state');
+            return;
+        }
+
+        // NUEVO: Si no hay saldosPacientes, crearlos a partir de los pacientes
+        if (!this.state.saldosPacientes || this.state.saldosPacientes.length === 0) {
+            console.log('🔄 Generando saldos desde pacientes...');
+            this.state.saldosPacientes = this.state.pacientes.map(p => ({
+                pacienteId: p.id,
+                saldoPendiente: 0,
+                totalAcumulado: 0,
+                abonosRealizados: 0,
+                ultimaTransaccion: new Date().toLocaleDateString('es-GT'),
+                totalAbonos: 0
+            }));
+        }
+
         let filtered = [...this.state.saldosPacientes];
 
         // Filtro por estado
@@ -200,6 +233,7 @@ const SaldoPacienteModule = {
             return;
         }
 
+        console.log(`📊 Mostrando ${filtered.length} pacientes`);
         // Renderizar filas de la tabla
         tbody.innerHTML = filtered.map(saldo => this.renderSaldoRow(saldo)).join('');
     },

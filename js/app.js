@@ -185,6 +185,32 @@ async function waitForPacientesData(maxWaitTime = 5000) {
 }
 
 // ============================================
+// SWITCH TAB - PARA SALDO PACIENTE
+// ============================================
+function switchTab(tabName) {
+    // Intentar usar SaldoPacienteFacturacion si está disponible
+    if (typeof SaldoPacienteFacturacion !== 'undefined' && SaldoPacienteFacturacion.switchTab) {
+        SaldoPacienteFacturacion.switchTab(tabName);
+        return;
+    }
+    
+    // Fallback: implementación simple de switch de tabs
+    const allTabs = document.querySelectorAll('.tab-content');
+    const allButtons = document.querySelectorAll('.tab-btn');
+    
+    allTabs.forEach(tab => tab.classList.remove('active'));
+    allButtons.forEach(btn => btn.classList.remove('active'));
+    
+    const targetTab = document.getElementById(tabName);
+    if (targetTab) {
+        targetTab.classList.add('active');
+    }
+    
+    // Marcar el botón activo
+    document.querySelector(`[onclick="switchTab('${tabName}')"]`)?.classList.add('active');
+}
+
+// ============================================
 // NAVEGACIÓN
 // ============================================
 
