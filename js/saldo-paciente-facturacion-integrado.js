@@ -265,6 +265,11 @@ const SaldoPacienteFacturacion = {
         const pacientesDeudores = this.state.saldos.filter(s => s.saldo_pendiente > 0).length;
 
         const resumen = document.getElementById('resumenSaldos');
+        if (!resumen) {
+            console.warn('⚠️ Elemento resumenSaldos no encontrado en HTML');
+            return;
+        }
+
         resumen.innerHTML = `
             <div class="saldo-item">
                 <div class="saldo-label">Total Deuda General</div>
