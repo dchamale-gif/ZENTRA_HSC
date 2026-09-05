@@ -254,9 +254,13 @@ const HospitalizacionesModule = {
     // Abrir modal para la razón del traslado
     openModalTraslado(hospId, pacienteId, camaOrigen, camaDestino) {
         const hosp = this.state.hospitalizaciones.find(h => h.id === hospId);
-        const paciente = this.state.pacientes.find(p => p.id === pacienteId);
+        const pacienteIdNum = parseInt(pacienteId);
+        const paciente = this.state.pacientes.find(p => parseInt(p.id) === pacienteIdNum);
 
-        if (!hosp || !paciente) return;
+        if (!hosp || !paciente) {
+            console.error('❌ No se encontró hospitalización o paciente');
+            return;
+        }
 
         const camaOrigenInfo = camaOrigen.split('-');
         const camaDestinoInfo = camaDestino.split('-');
@@ -723,7 +727,16 @@ const HospitalizacionesModule = {
 
     // Abrir modal final para datos de hospitalización
     openDatosHospitalizacion(pacienteId, camaId) {
-        const paciente = this.state.pacientes.find(p => p.id === pacienteId);
+        // Convertir pacienteId a número para coincidencia correcta
+        const pacienteIdNum = parseInt(pacienteId);
+        const paciente = this.state.pacientes.find(p => parseInt(p.id) === pacienteIdNum);
+        
+        if (!paciente) {
+            console.error('❌ Paciente no encontrado:', pacienteId);
+            AlertasModule?.mostrarError('No se encontró el paciente');
+            return;
+        }
+
         const habInfo = camaId.split('-');
         const piso = habInfo[0];
         const habitacion = habInfo[1];
@@ -732,7 +745,7 @@ const HospitalizacionesModule = {
         // Obtener diagnóstico previo si existe en la historia clínica
         let diagnosticoPrevio = '';
         if (window.HistoriaClinicaModule && window.HistoriaClinicaModule.state) {
-            const historia = window.HistoriaClinicaModule.state.historiasClinicas?.find(h => h.pacienteId === pacienteId);
+            const historia = window.HistoriaClinicaModule.state.historiasClinicas?.find(h => parseInt(h.pacienteId) === pacienteIdNum);
             if (historia && historia.prescripciones && historia.prescripciones.length > 0) {
                 // Obtener el diagnóstico de la prescripción más reciente
                 const ultimaPrescripcion = historia.prescripciones[historia.prescripciones.length - 1];
@@ -746,6 +759,7 @@ const HospitalizacionesModule = {
         // Crear modal
         const modal = document.createElement('div');
         modal.className = 'modal-overlay';
+        const apellido = paciente.apellido || `${paciente.apellido_paterno || ''} ${paciente.apellido_materno || ''}`.trim();
         modal.innerHTML = `
             <div class="modal-dialog" style="max-width: 500px;">
                 <div class="modal-header">
@@ -756,7 +770,7 @@ const HospitalizacionesModule = {
                     <form id="hospForm">
                         <div class="form-group">
                             <label><strong>Paciente</strong></label>
-                            <input type="text" class="form-input" value="${paciente.nombre} ${paciente.apellido}" readonly>
+                            <input type="text" class="form-input" value="${paciente.nombre} ${apellido}" readonly>
                         </div>
                         <div class="form-group">
                             <label><strong>Ubicación</strong></label>
@@ -805,8 +819,9 @@ const HospitalizacionesModule = {
             return;
         }
 
-        // Validar que el paciente existe
-        const paciente = this.state.pacientes.find(p => p.id === pacienteId);
+        // Validar que el paciente existe (convertir a número para coincidencia correcta)
+        const pacienteIdNum = parseInt(pacienteId);
+        const paciente = this.state.pacientes.find(p => parseInt(p.id) === pacienteIdNum);
         if (!paciente) {
             AlertasModule.mostrarError('Paciente no encontrado');
             return;
@@ -814,7 +829,7 @@ const HospitalizacionesModule = {
 
         // Validar que no está ya hospitalizado
         const yaHospitalizado = this.state.hospitalizaciones.find(h => 
-            h.pacienteId === pacienteId && h.estado === 'activa'
+            parseInt(h.pacienteId) === pacienteIdNum && h.estado === 'activa'
         );
         
         if (yaHospitalizado) {
@@ -836,7 +851,7 @@ const HospitalizacionesModule = {
         const habInfo = camaId.split('-');
         const hospitalizacion = {
             id: this.generateId('HOSP'),
-            pacienteId: pacienteId,
+            pacienteId: pacienteIdNum,
             habitacion: `${habInfo[0]}-${habInfo[1]}`,
             cama: camaId,
             fechaIngreso: new Date().toISOString().split('T')[0],
