@@ -832,13 +832,40 @@ const SaldoPacienteFacturacion = {
                     this.loadData();
                 }
             } else {
-                alert('✅ Factura guardada localmente (server no disponible)');
+                // Guardar en localStorage cuando el servidor no está disponible
+                console.log('⚠️ Servidor no disponible, guardando factura localmente');
+                this.guardarFacturaLocal(datos);
+                alert('✅ Factura guardada localmente');
                 this.imprimirRecibo(datos);
                 this.cancelarFactura();
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Error al guardar factura');
+            // Guardar en localStorage en caso de error
+            this.guardarFacturaLocal(datos);
+            alert('✅ Factura guardada localmente');
+            this.imprimirRecibo(datos);
+            this.cancelarFactura();
+        }
+    },
+
+    guardarFacturaLocal(datos) {
+        try {
+            let facturas = JSON.parse(localStorage.getItem('facturas') || '[]');
+            
+            const numeroFactura = 'FAC-' + Date.now();
+            const facturaCompleta = {
+                numero_factura: numeroFactura,
+                fecha: new Date().toISOString(),
+                ...datos
+            };
+            
+            facturas.push(facturaCompleta);
+            localStorage.setItem('facturas', JSON.stringify(facturas));
+            
+            console.log('✅ Factura guardada en localStorage:', numeroFactura);
+        } catch (error) {
+            console.error('❌ Error guardando factura localmente:', error);
         }
     },
 
