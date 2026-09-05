@@ -205,10 +205,18 @@ const PacientesModule = {
             
             console.log(`✅ ${this.state.pacientes.length} pacientes cargados desde BD`);
         } catch (error) {
-            console.error('❌ Error cargando pacientes desde API:', error.message);
-            this.showNotification(`❌ Error: No se puede acceder a la base de datos de pacientes. ${error.message}`, 'error');
-            this.state.pacientes = [];
-            this.renderPacientes();
+            console.debug('ℹ️ No se puede acceder a la API, intentando datos locales:', error.message);
+            // Intentar cargar desde localStorage
+            const pacientesLocal = localStorage.getItem('pacientes');
+            if (pacientesLocal) {
+                this.state.pacientes = JSON.parse(pacientesLocal);
+                console.log(`✅ ${this.state.pacientes.length} pacientes cargados desde localStorage`);
+                this.renderPacientes();
+            } else {
+                console.warn('⚠️ No hay datos de pacientes en localStorage');
+                this.state.pacientes = [];
+                this.renderPacientes();
+            }
         }
     },
 
