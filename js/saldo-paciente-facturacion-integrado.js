@@ -6,6 +6,7 @@
 const SaldoPacienteFacturacion = {
     state: {
         pacientes: [],
+        productos: [],
         saldos: [],
         facturas: [],
         movimientos: [],
@@ -563,20 +564,23 @@ const SaldoPacienteFacturacion = {
         const cant = parseFloat(document.getElementById('cantidadItem').value);
         const precio = parseFloat(document.getElementById('precioItem').value);
 
-        if (!desc || !cant || !precio || cant <= 0 || precio <= 0) {
-            alert('Complete todos los campos correctamente');
+        if (!desc || !cant || cant <= 0) {
+            alert('Selecciona un producto y completa la cantidad');
             return;
         }
+
+        // Si no hay precio, usar precio base del producto (si existe)
+        const precioFinal = precio || 0;
 
         const item = {
             id: 'ITEM-' + Date.now(),
             descripcion: desc,
             cantidad: cant,
-            precio_unitario: precio,
-            subtotal: cant * precio,
+            precio_unitario: precioFinal,
+            subtotal: cant * precioFinal,
             descuentos: [],
             descuento_total: 0,
-            total_item: cant * precio
+            total_item: cant * precioFinal
         };
 
         this.state.items_actuales.push(item);
@@ -619,6 +623,13 @@ const SaldoPacienteFacturacion = {
         document.getElementById('descripcionItem').value = '';
         document.getElementById('cantidadItem').value = '1';
         document.getElementById('precioItem').value = '';
+        document.getElementById('productoSeleccionadoId').value = '';
+        
+        // Ocultar elemento de producto seleccionado
+        const divSeleccionado = document.getElementById('productoSeleccionadoFactura');
+        if (divSeleccionado) {
+            divSeleccionado.style.display = 'none';
+        }
     },
 
     abrirDescuentoItem(itemId) {
@@ -1764,6 +1775,159 @@ const SaldoPacienteFacturacion = {
             edad--;
         }
         return edad >= 0 ? edad : null;
+    },
+
+    // ============================================
+    // MODAL PARA BUSCAR PRODUCTOS/SERVICIOS
+    // ============================================
+
+    abrirModalBuscarProducto() {
+        const modal = document.getElementById('modalBuscarProducto');
+        if (modal) {
+            modal.style.display = 'block';
+            console.log('🔍 Modal para buscar productos abierto');
+            this.cargarProductosModal();
+            
+            // Event listener para cerrar modal al hacer clic en el fondo
+            modal.onclick = (e) => {
+                if (e.target === modal) {
+                    this.cerrarModalBuscarProducto();
+                }
+            };
+        }
+    },
+
+    cerrarModalBuscarProducto() {
+        const modal = document.getElementById('modalBuscarProducto');
+        if (modal) {
+            modal.style.display = 'none';
+            console.log('🔍 Modal para buscar productos cerrado');
+        }
+    },
+
+    cargarProductosModal() {
+        try {
+            // Obtener productos desde CodigosArticulosModule
+            if (typeof CodigosArticulosModule !== 'undefined' && 
+                CodigosArticulosModule.state && 
+                CodigosArticulosModule.state.articulos && 
+                CodigosArticulosModule.state.articulos.length > 0) {
+                this.state.productos = JSON.parse(JSON.stringify(CodigosArticulosModule.state.articulos));
+                console.log(`✅ ${this.state.productos.length} productos cargados desde CodigosArticulosModule`);
+            } else {
+                // Si no hay módulo, intentar cargar desde localStorage
+                const productosLS = localStorage.getItem('articulos_list');
+                if (productosLS) {
+                    this.state.productos = JSON.parse(productosLS);
+                    console.log(`✅ ${this.state.productos.length} productos cargados desde localStorage`);
+                } else {
+                    this.state.productos = [];
+                    console.warn('⚠️ No hay productos disponibles');
+                }
+            }
+
+            this.filtrarProductos();
+
+        } catch (error) {
+            console.error('❌ Error cargando productos:', error);
+            document.getElementById('tablaProductosFactura').innerHTML = 
+                '<tr><td colspan="5" class="text-center">❌ Error al cargar productos</td></tr>';
+        }
+    },
+
+    filtrarProductos() {
+        try {
+            const searchTerm = document.getElementById('modalBuscaProducto')?.value?.toLowerCase() || '';
+
+            let productosFiltered = [...(this.state.productos || [])];
+
+            // Aplicar búsqueda
+            if (searchTerm) {
+                productosFiltered = productosFiltered.filter(p => {
+                    const nombre = (p.concepto || p.nombre || '').toLowerCase();
+                    const codigo = (p.codigo_venta || p.codigo_compra || '').toLowerCase();
+                    const familia = (p.familia || '').toLowerCase();
+                    return nombre.includes(searchTerm) || 
+                           codigo.includes(searchTerm) || 
+                           familia.includes(searchTerm);
+                });
+            }
+
+            // Ordenar alfabéticamente
+            productosFiltered.sort((a, b) => 
+                (a.concepto || a.nombre || '').localeCompare(b.concepto || b.nombre || '')
+            );
+
+            // Renderizar tabla
+            const tbody = document.getElementById('tablaProductosFactura');
+            if (!tbody) return;
+
+            if (productosFiltered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center" style="padding: 20px; color: #999;">No se encontraron productos</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = productosFiltered.map(producto => {
+                const precioBase = parseFloat(producto.precio || producto.precio_unitario || 0);
+                const familia = producto.familia || 'General';
+                const codigoVenta = producto.codigo_venta || 'N/A';
+
+                return `
+                    <tr>
+                        <td>
+                            <div style="font-weight: bold;">${producto.concepto || producto.nombre || 'Sin nombre'}</div>
+                            <div style="font-size: 11px; color: #999;">${producto.subfamilia || ''}</div>
+                        </td>
+                        <td>${codigoVenta}</td>
+                        <td>${familia}</td>
+                        <td class="text-right">
+                            Q${precioBase.toFixed(2)}
+                        </td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-success" onclick="SaldoPacienteFacturacion.seleccionarProducto('${(producto.concepto || producto.nombre || '').replace(/'/g, "\\'")}', ${precioBase})" style="padding: 4px 8px; font-size: 11px;">
+                                <i class="fas fa-check"></i> Seleccionar
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+        } catch (error) {
+            console.error('❌ Error filtrando productos:', error);
+        }
+    },
+
+    limpiarFiltrosProducto() {
+        document.getElementById('modalBuscaProducto').value = '';
+        this.filtrarProductos();
+    },
+
+    seleccionarProducto(nombreProducto, precioBase) {
+        try {
+            console.log('✅ Producto seleccionado:', nombreProducto, 'Precio:', precioBase);
+            
+            // Almacenar descripción y precio
+            document.getElementById('descripcionItem').value = nombreProducto;
+            document.getElementById('precioItem').value = precioBase;
+            document.getElementById('productoSeleccionadoId').value = nombreProducto;
+
+            // Mostrar producto seleccionado
+            const divSeleccionado = document.getElementById('productoSeleccionadoFactura');
+            if (divSeleccionado) {
+                divSeleccionado.style.display = 'block';
+                document.getElementById('productoFacturaNombre').textContent = nombreProducto;
+                document.getElementById('productoFacturaCodigo').textContent = 
+                    `Precio Base: Q${parseFloat(precioBase).toFixed(2)}`;
+            }
+
+            this.cerrarModalBuscarProducto();
+            
+            // Enfocar cantidad para que el usuario pueda seguir agregando
+            document.getElementById('cantidadItem').focus();
+            
+        } catch (error) {
+            console.error('❌ Error seleccionando producto:', error);
+        }
     }
 };
 

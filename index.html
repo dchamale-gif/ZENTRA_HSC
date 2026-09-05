@@ -664,8 +664,16 @@
                                 <div class="info-box"><p><strong>2. Agrega artículos o servicios a la factura</strong></p></div>
                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
                                     <div>
-                                        <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">Descripción</label>
-                                        <input type="text" id="descripcionItem" placeholder="Ej: Consulta General" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                        <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">Producto/Servicio</label>
+                                        <button class="btn btn-info" onclick="SaldoPacienteFacturacion.abrirModalBuscarProducto()" style="width: 100%; padding: 10px;">
+                                            <i class="fas fa-search"></i> Buscar Producto
+                                        </button>
+                                        <div id="productoSeleccionadoFactura" style="padding: 10px; background: #f0f0f0; border-radius: 4px; margin-top: 8px; display: none; font-size: 12px;">
+                                            <div id="productoFacturaNombre" style="font-weight: bold; color: #27ae60;"></div>
+                                            <div id="productoFacturaCodigo" style="font-size: 11px; color: #666;"></div>
+                                        </div>
+                                        <input type="hidden" id="descripcionItem">
+                                        <input type="hidden" id="productoSeleccionadoId">
                                     </div>
                                     <div>
                                         <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">Cantidad</label>
@@ -889,6 +897,61 @@
                                             <tr>
                                                 <td colspan="4" class="text-center" style="padding: 20px; color: #999;">
                                                     <i class="fas fa-spinner fa-spin"></i> Cargando pacientes...
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- MODAL: BUSCAR PRODUCTOS/SERVICIOS PARA FACTURA -->
+                    <div id="modalBuscarProducto" style="display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+                        <div style="background-color: white; margin: 5% auto; padding: 0; border-radius: 8px; width: 95%; max-width: 900px; max-height: 90vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                            <!-- Header -->
+                            <div style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                                <h2 style="margin: 0; font-size: 18px;">
+                                    <i class="fas fa-search"></i> Buscar Producto o Servicio
+                                </h2>
+                                <button onclick="SaldoPacienteFacturacion.cerrarModalBuscarProducto()" style="background: none; border: none; color: white; font-size: 28px; cursor: pointer;">&times;</button>
+                            </div>
+
+                            <!-- Body -->
+                            <div style="padding: 20px;">
+                                <!-- Filtros -->
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; background: #f9f9f9; padding: 15px; border-radius: 8px;">
+                                    <div>
+                                        <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 8px;">
+                                            <i class="fas fa-search"></i> Búsqueda
+                                        </label>
+                                        <input type="text" id="modalBuscaProducto" placeholder="Nombre, código o concepto..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;" onkeyup="SaldoPacienteFacturacion.filtrarProductos()">
+                                    </div>
+
+                                    <div>
+                                        <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 8px;">
+                                            <i class="fas fa-sync-alt"></i> Limpiar
+                                        </label>
+                                        <button class="btn btn-sm btn-secondary" onclick="SaldoPacienteFacturacion.limpiarFiltrosProducto()" style="width: 100%; padding: 10px;">Limpiar Filtros</button>
+                                    </div>
+                                </div>
+
+                                <!-- Tabla de Productos -->
+                                <div class="table-responsive">
+                                    <table class="data-table" style="font-size: 13px; width: 100%;">
+                                        <thead>
+                                            <tr>
+                                                <th>Nombre/Concepto</th>
+                                                <th>Código Venta</th>
+                                                <th>Familia</th>
+                                                <th class="text-right">Precio Base</th>
+                                                <th class="text-center">Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tablaProductosFactura">
+                                            <tr>
+                                                <td colspan="5" class="text-center" style="padding: 20px; color: #999;">
+                                                    <i class="fas fa-spinner fa-spin"></i> Cargando productos...
                                                 </td>
                                             </tr>
                                         </tbody>
