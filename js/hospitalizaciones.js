@@ -738,7 +738,7 @@ const HospitalizacionesModule = {
                 this.state.pacientes = PacientesModule.state.pacientes;
                 console.log('✅ Pacientes recarguados desde PacientesModule');
             } else {
-                AlertasModule?.mostrarError('No se encontraron datos de pacientes');
+                alert('❌ No se encontraron datos de pacientes');
                 return;
             }
         }
@@ -748,7 +748,7 @@ const HospitalizacionesModule = {
         if (!paciente) {
             console.error('❌ Paciente no encontrado con ID:', pacienteIdNum);
             console.log('📋 Pacientes disponibles:', this.state.pacientes.map(p => ({id: p.id, nombre: p.nombre})));
-            AlertasModule?.mostrarError('No se encontró el paciente');
+            alert('❌ No se encontró el paciente');
             return;
         }
 
@@ -819,18 +819,18 @@ const HospitalizacionesModule = {
 
         // Validación de campos obligatorios
         if (!diagnostico) {
-            AlertasModule.mostrarError('El diagnóstico es obligatorio');
+            alert('❌ El diagnóstico es obligatorio');
             return;
         }
 
         if (diagnostico.length < 10) {
-            AlertasModule.mostrarError('El diagnóstico debe tener al menos 10 caracteres');
+            alert('❌ El diagnóstico debe tener al menos 10 caracteres');
             return;
         }
 
         // Validar que la cama existe
         if (!camaId || typeof camaId !== 'string' || !camaId.includes('-')) {
-            AlertasModule.mostrarError('Cama inválida');
+            alert('❌ Cama inválida');
             return;
         }
 
@@ -838,7 +838,7 @@ const HospitalizacionesModule = {
         const pacienteIdNum = parseInt(pacienteId);
         const paciente = this.state.pacientes.find(p => parseInt(p.id) === pacienteIdNum);
         if (!paciente) {
-            AlertasModule.mostrarError('Paciente no encontrado');
+            alert('❌ Paciente no encontrado');
             return;
         }
 
@@ -848,7 +848,7 @@ const HospitalizacionesModule = {
         );
         
         if (yaHospitalizado) {
-            AlertasModule.mostrarError(`${paciente.nombre} ya está hospitalizado en ${yaHospitalizado.habitacion}`);
+            alert(`❌ ${paciente.nombre} ya está hospitalizado en ${yaHospitalizado.habitacion}`);
             return;
         }
 
@@ -858,7 +858,7 @@ const HospitalizacionesModule = {
         );
 
         if (camaOcupada) {
-            AlertasModule.mostrarError('La cama ya está ocupada. Por favor recarga y intenta con otra cama');
+            alert('❌ La cama ya está ocupada. Por favor recarga y intenta con otra cama');
             return;
         }
 
@@ -893,7 +893,7 @@ const HospitalizacionesModule = {
         // Cerrar modal
         document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
 
-        AlertasModule.mostrarExito(`✓ ${paciente.nombre} ha sido ingresado exitosamente`);
+        alert(`✅ ${paciente.nombre} ha sido ingresado exitosamente`);
     },
 
     // Guardar hospitalización a API
@@ -934,13 +934,13 @@ const HospitalizacionesModule = {
     darDeAlta(hospitalizacionId) {
         const hosp = this.state.hospitalizaciones.find(h => h.id === hospitalizacionId);
         if (!hosp) {
-            AlertasModule.mostrarError('Hospitalización no encontrada');
+            alert('❌ Hospitalización no encontrada');
             return;
         }
 
         const paciente = this.state.pacientes.find(p => p.id === hosp.pacienteId);
         if (!paciente) {
-            AlertasModule.mostrarError('Paciente no encontrado');
+            alert('❌ Paciente no encontrado');
             return;
         }
 
@@ -953,7 +953,7 @@ const HospitalizacionesModule = {
             this.updateHospitalizacionInAPI(hosp);
             this.render();
             
-            AlertasModule.mostrarExito(`✓ ${paciente.nombre} ha sido dado de alta`);
+            alert(`✅ ${paciente.nombre} ha sido dado de alta`);
         }
     },
 
