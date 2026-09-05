@@ -650,10 +650,16 @@
                             <div>
                                 <div class="info-box"><p><strong>1. Selecciona un paciente y agrega artículos/servicios</strong></p></div>
                                 <div style="margin-bottom: 20px;">
-                                    <label style="display: block; font-weight: bold; margin-bottom: 5px;">Buscar Paciente</label>
-                                    <input type="text" id="busquedaPacienteFactura" placeholder="Escribe nombre, apellido o DPI..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <label style="display: block; font-weight: bold; margin-bottom: 10px;">Buscar Paciente</label>
+                                    <button class="btn btn-primary" onclick="SaldoPacienteFacturacion.abrirModalSeleccionPacienteFactura()" style="width: 100%; padding: 12px; margin-bottom: 10px;">
+                                        <i class="fas fa-search"></i> Buscar Paciente
+                                    </button>
                                     <input type="hidden" id="pacienteIdFactura">
-                                    <div id="resultadosPacientes" style="margin-top: 10px;"></div>
+                                    <div id="pacienteFacturaSeleccionado" style="padding: 12px; background: #f0f0f0; border-radius: 4px; display: none;">
+                                        <div style="font-weight: bold; color: #2c3e50; margin-bottom: 5px;">Paciente Seleccionado:</div>
+                                        <div id="pacienteFacturaNombre" style="font-size: 14px; font-weight: bold; color: #27ae60;"></div>
+                                        <div id="pacienteFacturaDPI" style="font-size: 12px; color: #666;"></div>
+                                    </div>
                                 </div>
                                 <div class="info-box"><p><strong>2. Agrega artículos o servicios a la factura</strong></p></div>
                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
@@ -882,6 +888,61 @@
                                         <tbody id="tablaPacientesEstado">
                                             <tr>
                                                 <td colspan="4" class="text-center" style="padding: 20px; color: #999;">
+                                                    <i class="fas fa-spinner fa-spin"></i> Cargando pacientes...
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- MODAL: SELECCIONAR PACIENTE PARA FACTURA -->
+                    <div id="modalSeleccionPacienteFactura" style="display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+                        <div style="background-color: white; margin: 5% auto; padding: 0; border-radius: 8px; width: 95%; max-width: 900px; max-height: 90vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                            <!-- Header -->
+                            <div style="background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                                <h2 style="margin: 0; font-size: 18px;">
+                                    <i class="fas fa-search"></i> Seleccionar Paciente para Facturación
+                                </h2>
+                                <button onclick="SaldoPacienteFacturacion.cerrarModalSeleccionPacienteFactura()" style="background: none; border: none; color: white; font-size: 28px; cursor: pointer;">&times;</button>
+                            </div>
+
+                            <!-- Body -->
+                            <div style="padding: 20px;">
+                                <!-- Filtros -->
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; background: #f9f9f9; padding: 15px; border-radius: 8px;">
+                                    <div>
+                                        <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 8px;">
+                                            <i class="fas fa-search"></i> Búsqueda
+                                        </label>
+                                        <input type="text" id="modalBuscaPacienteFactura" placeholder="Nombre, apellido o DPI..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;" onkeyup="SaldoPacienteFacturacion.filtrarPacientesFactura()">
+                                    </div>
+
+                                    <div>
+                                        <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 8px;">
+                                            <i class="fas fa-sync-alt"></i> Limpiar
+                                        </label>
+                                        <button class="btn btn-sm btn-info" onclick="SaldoPacienteFacturacion.limpiarFiltrosFactura()" style="width: 100%; padding: 10px;">Limpiar Filtros</button>
+                                    </div>
+                                </div>
+
+                                <!-- Tabla de Pacientes -->
+                                <div class="table-responsive">
+                                    <table class="data-table" style="font-size: 13px; width: 100%;">
+                                        <thead>
+                                            <tr>
+                                                <th>Paciente</th>
+                                                <th>DPI/Cédula</th>
+                                                <th>Edad</th>
+                                                <th class="text-right">Saldo Pendiente</th>
+                                                <th class="text-center">Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tablaPacientesFactura">
+                                            <tr>
+                                                <td colspan="5" class="text-center" style="padding: 20px; color: #999;">
                                                     <i class="fas fa-spinner fa-spin"></i> Cargando pacientes...
                                                 </td>
                                             </tr>

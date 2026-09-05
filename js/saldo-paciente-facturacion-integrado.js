@@ -1606,6 +1606,164 @@ const SaldoPacienteFacturacion = {
     renderizarEstadoCuenta(estadoCuenta) {
         // Implementar según estructura de datos de tu API
         return `<p>Estado de Cuenta cargado</p>`;
+    },
+
+    // ============================================
+    // MODAL PARA SELECCIONAR PACIENTE - FACTURACIÓN
+    // ============================================
+
+    abrirModalSeleccionPacienteFactura() {
+        const modal = document.getElementById('modalSeleccionPacienteFactura');
+        if (modal) {
+            modal.style.display = 'block';
+            console.log('🔍 Modal para seleccionar paciente en facturación abierto');
+            this.cargarPacientesModalFactura();
+            
+            // Event listener para cerrar modal al hacer clic en el fondo
+            modal.onclick = (e) => {
+                if (e.target === modal) {
+                    this.cerrarModalSeleccionPacienteFactura();
+                }
+            };
+        }
+    },
+
+    cerrarModalSeleccionPacienteFactura() {
+        const modal = document.getElementById('modalSeleccionPacienteFactura');
+        if (modal) {
+            modal.style.display = 'none';
+            console.log('🔍 Modal para seleccionar paciente cerrado');
+        }
+    },
+
+    cargarPacientesModalFactura() {
+        try {
+            // Obtener pacientes desde PacientesModule
+            if (typeof PacientesModule !== 'undefined' && 
+                PacientesModule.state && 
+                PacientesModule.state.pacientes && 
+                PacientesModule.state.pacientes.length > 0) {
+                this.state.pacientes = JSON.parse(JSON.stringify(PacientesModule.state.pacientes));
+                console.log('✅ Pacientes cargados desde PacientesModule para Facturación');
+            }
+
+            this.filtrarPacientesFactura();
+
+        } catch (error) {
+            console.error('❌ Error cargando pacientes en modal Facturación:', error);
+            document.getElementById('tablaPacientesFactura').innerHTML = 
+                '<tr><td colspan="5" class="text-center">❌ Error al cargar pacientes</td></tr>';
+        }
+    },
+
+    filtrarPacientesFactura() {
+        try {
+            const searchTerm = document.getElementById('modalBuscaPacienteFactura')?.value?.toLowerCase() || '';
+
+            let pacientesFiltered = [...this.state.pacientes];
+
+            // Aplicar búsqueda
+            if (searchTerm) {
+                pacientesFiltered = pacientesFiltered.filter(p => {
+                    const nombre = `${p.nombre || ''} ${p.apellido_paterno || ''} ${p.apellido_materno || ''}`.toLowerCase();
+                    const dpi = (p.dpi || p.cedula || '').toLowerCase();
+                    return nombre.includes(searchTerm) || dpi.includes(searchTerm);
+                });
+            }
+
+            // Ordenar alfabéticamente
+            pacientesFiltered.sort((a, b) => 
+                `${a.nombre} ${a.apellido_paterno}`.localeCompare(`${b.nombre} ${b.apellido_paterno}`)
+            );
+
+            // Renderizar tabla
+            const tbody = document.getElementById('tablaPacientesFactura');
+            if (!tbody) return;
+
+            if (pacientesFiltered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center" style="padding: 20px; color: #999;">No se encontraron pacientes</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = pacientesFiltered.map(paciente => {
+                const saldo = this.state.saldos.find(s => s.paciente_id === paciente.id) || {
+                    saldo_pendiente: 0
+                };
+
+                const estadoBadge = saldo.saldo_pendiente > 0 
+                    ? '<span style="background: #e74c3c; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px; font-weight: bold;">DEUDOR</span>'
+                    : '<span style="background: #27ae60; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px; font-weight: bold;">PAGADO</span>';
+
+                // Calcular edad
+                const edad = this.calcularEdad(paciente.fecha_nacimiento || paciente.fechaNacimiento) || 'N/A';
+
+                return `
+                    <tr>
+                        <td>
+                            <div style="font-weight: bold;">${paciente.nombre || ''} ${paciente.apellido_paterno || ''}</div>
+                            <div style="font-size: 11px; color: #999;">${paciente.apellido_materno || ''}</div>
+                        </td>
+                        <td>${paciente.dpi || paciente.cedula || 'N/A'}</td>
+                        <td>${edad} años</td>
+                        <td class="text-right">
+                            Q${parseFloat(saldo.saldo_pendiente || 0).toFixed(2)}
+                        </td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-success" onclick="SaldoPacienteFacturacion.seleccionarPacienteFactura(${paciente.id}, '${paciente.nombre || ''} ${paciente.apellido_paterno || ''}')" style="padding: 4px 8px; font-size: 11px;">
+                                <i class="fas fa-check"></i> Seleccionar
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+        } catch (error) {
+            console.error('❌ Error filtrando pacientes en modal Facturación:', error);
+        }
+    },
+
+    limpiarFiltrosFactura() {
+        document.getElementById('modalBuscaPacienteFactura').value = '';
+        this.filtrarPacientesFactura();
+    },
+
+    seleccionarPacienteFactura(pacienteId, pacienteNombre) {
+        try {
+            console.log('✅ Paciente seleccionado para Facturación:', pacienteNombre);
+            
+            const paciente = this.state.pacientes.find(p => p.id === pacienteId);
+            if (!paciente) return;
+
+            // Almacenar ID
+            document.getElementById('pacienteIdFactura').value = pacienteId;
+
+            // Mostrar paciente seleccionado
+            const divSeleccionado = document.getElementById('pacienteFacturaSeleccionado');
+            if (divSeleccionado) {
+                divSeleccionado.style.display = 'block';
+                document.getElementById('pacienteFacturaNombre').textContent = 
+                    `${paciente.nombre || ''} ${paciente.apellido_paterno || ''} ${paciente.apellido_materno || ''}`;
+                document.getElementById('pacienteFacturaDPI').textContent = 
+                    `DPI: ${paciente.dpi || paciente.cedula || 'N/A'}`;
+            }
+
+            this.cerrarModalSeleccionPacienteFactura();
+            
+        } catch (error) {
+            console.error('❌ Error seleccionando paciente para factura:', error);
+        }
+    },
+
+    calcularEdad(fechaNacimiento) {
+        if (!fechaNacimiento) return null;
+        const hoy = new Date();
+        const fecha = new Date(fechaNacimiento);
+        let edad = hoy.getFullYear() - fecha.getFullYear();
+        const mes = hoy.getMonth() - fecha.getMonth();
+        if (mes < 0 || (mes === 0 && hoy.getDate() < fecha.getDate())) {
+            edad--;
+        }
+        return edad >= 0 ? edad : null;
     }
 };
 
