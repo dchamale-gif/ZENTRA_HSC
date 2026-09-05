@@ -814,11 +814,11 @@ const SaldoPacienteFacturacion = {
         };
 
         try {
-            const response = await fetch('http://localhost:3011/api/billing/facturas-mejorada', {
+            const response = await fetch(`${authManager.apiBaseUrl}/api/billing/facturas-mejorada`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': `Bearer ${authManager.getToken()}`
                 },
                 body: JSON.stringify(datos)
             }).catch(() => null);
@@ -966,8 +966,8 @@ const SaldoPacienteFacturacion = {
         }
 
         try {
-            const response = await fetch(`http://localhost:3011/api/billing/estado-cuenta/${pacienteId}`, {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            const response = await fetch(`${authManager.apiBaseUrl}/api/billing/estado-cuenta/${pacienteId}`, {
+                headers: { 'Authorization': `Bearer ${authManager.getToken()}` }
             }).catch(() => null);
 
             if (response?.ok) {
@@ -1135,11 +1135,11 @@ const SaldoPacienteFacturacion = {
         }
 
         try {
-            const response = await fetch('http://localhost:3011/api/billing/pagos', {
+            const response = await fetch(`${authManager.apiBaseUrl}/api/billing/pagos`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': `Bearer ${authManager.getToken()}`
                 },
                 body: JSON.stringify(datos)
             }).catch(() => null);
@@ -1255,7 +1255,7 @@ const SaldoPacienteFacturacion = {
                 return;
             }
 
-            const response = await fetch('http://localhost:3011/api/billing/pagos', {
+            const response = await fetch(`${authManager.apiBaseUrl}/api/billing/pagos`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).catch(() => null);
 
@@ -1399,11 +1399,11 @@ const SaldoPacienteFacturacion = {
         }
 
         try {
-            const response = await fetch(`http://localhost:3011/api/billing/pagos/${pagoId}`, {
+            const response = await fetch(`${authManager.apiBaseUrl}/api/billing/pagos/${pagoId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': `Bearer ${authManager.getToken()}`
                 },
                 body: JSON.stringify(datosActualizados)
             }).catch(() => null);
@@ -1433,10 +1433,10 @@ const SaldoPacienteFacturacion = {
         const pagoId = document.getElementById('editarPagoId').value;
 
         try {
-            const response = await fetch(`http://localhost:3011/api/billing/pagos/${pagoId}`, {
+            const response = await fetch(`${authManager.apiBaseUrl}/api/billing/pagos/${pagoId}`, {
                 method: 'DELETE',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': `Bearer ${authManager.getToken()}`
                 }
             }).catch(() => null);
 
