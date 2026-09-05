@@ -236,6 +236,9 @@ const SaldoPacienteModule = {
         console.log(`📊 Mostrando ${filtered.length} pacientes`);
         // Renderizar filas de la tabla
         tbody.innerHTML = filtered.map(saldo => this.renderSaldoRow(saldo)).join('');
+        
+        // Actualizar estadísticas en el panel lateral
+        this.actualizarEstadisticas();
     },
 
     // Renderizar fila de saldo
@@ -1413,5 +1416,227 @@ const SaldoPacienteModule = {
 
         detailsContent.innerHTML += facturasHTML + totalesHTML;
         console.log('✅ Estado de Cuenta mostrado en modal');
+    },
+
+    // ============================================
+    // MODAL FILTROS AVANZADOS
+    // ============================================
+
+    // Abrir modal de filtros avanzados
+    abrirModalFiltros() {
+        const modal = document.getElementById('modalFiltrosAvanzados');
+        if (modal) {
+            modal.style.display = 'block';
+            console.log('🔍 Modal de filtros abierto');
+            this.cargarPacientesEnModal();
+            
+            // Event listener para cerrar modal al hacer clic en el fondo
+            modal.onclick = (e) => {
+                if (e.target === modal) {
+                    this.cerrarModalFiltros();
+                }
+            };
+        }
+    },
+
+    // Cerrar modal de filtros avanzados
+    cerrarModalFiltros() {
+        const modal = document.getElementById('modalFiltrosAvanzados');
+        if (modal) {
+            modal.style.display = 'none';
+            console.log('🔍 Modal de filtros cerrado');
+        }
+    },
+
+    // Cargar pacientes en el modal
+    cargarPacientesEnModal() {
+        try {
+            // Obtener pacientes desde PacientesModule primero
+            if (typeof PacientesModule !== 'undefined' && 
+                PacientesModule.state && 
+                PacientesModule.state.pacientes && 
+                PacientesModule.state.pacientes.length > 0) {
+                this.state.pacientes = JSON.parse(JSON.stringify(PacientesModule.state.pacientes));
+                console.log('✅ Pacientes cargados desde PacientesModule');
+            }
+
+            // Asegurarse que tenemos los saldos
+            if (this.state.saldosPacientes.length === 0 && this.state.pacientes.length > 0) {
+                this.state.saldosPacientes = this.state.pacientes.map(p => ({
+                    pacienteId: p.id,
+                    saldoPendiente: 0,
+                    totalDeuda: 0,
+                    estado: 'pagado'
+                }));
+            }
+
+            // Mostrar todos los pacientes en la tabla modal
+            this.filtrarPacientesModal();
+
+        } catch (error) {
+            console.error('❌ Error cargando pacientes en modal:', error);
+            document.getElementById('tablaPacientesModal').innerHTML = 
+                '<tr><td colspan="5" class="text-center">❌ Error al cargar pacientes</td></tr>';
+        }
+    },
+
+    // Filtrar pacientes en el modal
+    filtrarPacientesModal() {
+        try {
+            const searchTerm = document.getElementById('modalSearchPaciente')?.value?.toLowerCase() || '';
+            const estadoFiltro = document.getElementById('modalFilterEstado')?.value || '';
+            const ordenFiltro = document.getElementById('modalFilterOrden')?.value || 'default';
+
+            let pacientessFiltrados = [...this.state.pacientes];
+
+            // Aplicar búsqueda
+            if (searchTerm) {
+                pacientessFiltrados = pacientessFiltrados.filter(p => {
+                    const nombre = `${p.nombre || ''} ${p.apellido_paterno || ''} ${p.apellido_materno || ''}`.toLowerCase();
+                    const dpi = (p.dpi || p.cedula || '').toLowerCase();
+                    return nombre.includes(searchTerm) || dpi.includes(searchTerm);
+                });
+            }
+
+            // Aplicar filtro de estado
+            if (estadoFiltro === 'deudores') {
+                pacientessFiltrados = pacientessFiltrados.filter(p => {
+                    const saldo = this.state.saldosPacientes.find(s => s.pacienteId === p.id);
+                    return saldo && (saldo.saldoPendiente > 0 || saldo.totalDeuda > 0);
+                });
+            } else if (estadoFiltro === 'pagados') {
+                pacientessFiltrados = pacientessFiltrados.filter(p => {
+                    const saldo = this.state.saldosPacientes.find(s => s.pacienteId === p.id);
+                    return saldo && saldo.saldoPendiente === 0 && saldo.estado === 'pagado';
+                });
+            }
+
+            // Aplicar ordenamiento
+            if (ordenFiltro === 'alfabetico-asc') {
+                pacientessFiltrados.sort((a, b) => 
+                    `${a.nombre} ${a.apellido_paterno}`.localeCompare(`${b.nombre} ${b.apellido_paterno}`)
+                );
+            } else if (ordenFiltro === 'alfabetico-desc') {
+                pacientessFiltrados.sort((a, b) => 
+                    `${b.nombre} ${b.apellido_paterno}`.localeCompare(`${a.nombre} ${a.apellido_paterno}`)
+                );
+            } else if (ordenFiltro === 'deuda-mayor') {
+                pacientessFiltrados.sort((a, b) => {
+                    const saldoA = this.state.saldosPacientes.find(s => s.pacienteId === a.id)?.saldoPendiente || 0;
+                    const saldoB = this.state.saldosPacientes.find(s => s.pacienteId === b.id)?.saldoPendiente || 0;
+                    return saldoB - saldoA;
+                });
+            } else if (ordenFiltro === 'deuda-menor') {
+                pacientessFiltrados.sort((a, b) => {
+                    const saldoA = this.state.saldosPacientes.find(s => s.pacienteId === a.id)?.saldoPendiente || 0;
+                    const saldoB = this.state.saldosPacientes.find(s => s.pacienteId === b.id)?.saldoPendiente || 0;
+                    return saldoA - saldoB;
+                });
+            }
+
+            // Renderizar tabla
+            const tbody = document.getElementById('tablaPacientesModal');
+            if (!tbody) return;
+
+            if (pacientessFiltrados.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center" style="padding: 20px; color: #999;">No se encontraron pacientes</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = pacientessFiltrados.map(paciente => {
+                const saldo = this.state.saldosPacientes.find(s => s.pacienteId === paciente.id) || {
+                    saldoPendiente: 0,
+                    estado: 'pagado'
+                };
+
+                const estadoBadge = saldo.saldoPendiente > 0 
+                    ? '<span style="background: #e74c3c; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px; font-weight: bold;">DEUDOR</span>'
+                    : '<span style="background: #27ae60; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px; font-weight: bold;">PAGADO</span>';
+
+                return `
+                    <tr>
+                        <td>
+                            <div style="font-weight: bold;">${paciente.nombre || ''} ${paciente.apellido_paterno || ''}</div>
+                            <div style="font-size: 12px; color: #999;">${paciente.apellido_materno || ''}</div>
+                        </td>
+                        <td>${paciente.dpi || paciente.cedula || 'N/A'}</td>
+                        <td class="text-right">
+                            Q${parseFloat(saldo.saldoPendiente || 0).toFixed(2)}
+                        </td>
+                        <td class="text-center">${estadoBadge}</td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-info" onclick="SaldoPacienteModule.seleccionarPacienteDelModal(${paciente.id})" style="padding: 4px 8px; font-size: 11px;">
+                                <i class="fas fa-check"></i> Seleccionar
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+        } catch (error) {
+            console.error('❌ Error filtrando pacientes en modal:', error);
+        }
+    },
+
+    // Limpiar filtros del modal
+    limpiarFiltrosModal() {
+        document.getElementById('modalSearchPaciente').value = '';
+        document.getElementById('modalFilterEstado').value = '';
+        document.getElementById('modalFilterOrden').value = 'default';
+        this.filtrarPacientesModal();
+    },
+
+    // Seleccionar paciente del modal
+    seleccionarPacienteDelModal(pacienteId) {
+        const paciente = this.state.pacientes.find(p => p.id === pacienteId);
+        if (paciente) {
+            console.log('✅ Paciente seleccionado:', paciente);
+            this.cerrarModalFiltros();
+            
+            // Mostrar notificación
+            this.showNotification(`✅ Paciente seleccionado: ${paciente.nombre} ${paciente.apellido_paterno}`, 'success');
+            
+            // Puede usarse para rellenar formularios o actualizar vistas
+            // Por ahora solo notificamos que fue seleccionado
+        }
+    },
+
+    // Filtro rápido para deudores
+    filtroDeudoresRapido() {
+        const filtroSelect = document.getElementById('filterEstado');
+        if (filtroSelect) {
+            filtroSelect.value = 'deudores';
+            this.renderSaldosPacientes();
+            this.showNotification('📊 Mostrando solo deudores', 'info');
+        }
+    },
+
+    // Actualizar estadísticas de resumen
+    actualizarEstadisticas() {
+        try {
+            const totalPacientes = this.state.pacientes.length;
+            const deudores = this.state.pacientes.filter(p => {
+                const saldo = this.state.saldosPacientes.find(s => s.pacienteId === p.id);
+                return saldo && (saldo.saldoPendiente > 0 || saldo.totalDeuda > 0);
+            }).length;
+            const pagados = totalPacientes - deudores;
+            const deudaTotal = this.state.saldosPacientes.reduce((sum, s) => sum + (s.saldoPendiente || 0), 0);
+
+            // Actualizar elementos en el DOM
+            const totalPacientesEl = document.getElementById('totalPacientes');
+            if (totalPacientesEl) totalPacientesEl.textContent = totalPacientes;
+
+            const totalDeudoresEl = document.getElementById('totalDeudores');
+            if (totalDeudoresEl) totalDeudoresEl.textContent = deudores;
+
+            const totalPagadosEl = document.getElementById('totalPagados');
+            if (totalPagadosEl) totalPagadosEl.textContent = pagados;
+
+            const deudaTotalEl = document.getElementById('deudaTotal');
+            if (deudaTotalEl) deudaTotalEl.textContent = `Q${parseFloat(deudaTotal).toFixed(2)}`;
+
+        } catch (error) {
+            console.error('❌ Error actualizando estadísticas:', error);
+        }
     }
 };
