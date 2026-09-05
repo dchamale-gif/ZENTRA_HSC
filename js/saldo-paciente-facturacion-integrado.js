@@ -144,19 +144,37 @@ const SaldoPacienteFacturacion = {
     async cargarDelServidor() {
         try {
             const token = authManager?.getToken?.();
-            // Intentar cargar del servidor, si falla usar datos locales
-            const response = await fetch('http://localhost:3011/api/billing/saldos-pacientes', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).catch(() => null);
+            if (!token) return;
 
-            if (response?.ok) {
-                const result = await response.json();
-                if (result.success) {
-                    this.state.saldos = result.data;
+            const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
+            const url = `${apiBase}/billing/saldos-pacientes`;
+
+            // Intentar cargar del servidor con timeout, si falla usar datos locales
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+            try {
+                const response = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (response?.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        this.state.saldos = result.data;
+                        console.log('✅ Saldos cargados desde servidor');
+                    }
                 }
+            } catch (fetchError) {
+                clearTimeout(timeoutId);
+                // Falló la conexión - usar datos locales silenciosamente
+                console.debug('ℹ️ Servidor no disponible, usando datos locales');
             }
         } catch (error) {
-            console.warn('Usando datos locales - servidor no disponible');
+            console.debug('ℹ️ Usando datos locales - servidor no disponible');
         }
     },
 
