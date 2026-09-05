@@ -621,12 +621,12 @@ const HospitalizacionesModule = {
             );
 
             if (ocupada) {
-                const paciente = this.state.pacientes.find(p => p.id === ocupada.pacienteId);
+                const paciente = this.state.pacientes.find(p => parseInt(p.id) === parseInt(ocupada.pacienteId));
                 html += `
                     <div style="border: 2px solid #ff6b6b; padding: 15px; border-radius: 5px; background: #ffe0e0;">
                         <strong>Cama ${idx + 1}</strong><br>
                         <span style="color: #ff6b6b;">OCUPADA</span><br>
-                        <small>${paciente?.nombre} ${paciente?.apellido}</small>
+                        <small>${paciente?.nombre} ${paciente?.apellido || `${paciente?.apellido_paterno || ''} ${paciente?.apellido_materno || ''}`.trim()}</small>
                     </div>
                 `;
             } else {
@@ -689,7 +689,7 @@ const HospitalizacionesModule = {
         // Filtrar pacientes que no están hospitalizados o están dados de alta
         pacientesDisponibles = pacientesDisponibles.filter(p => {
             const yaHospitalizado = this.state.hospitalizaciones.find(h => 
-                h.pacienteId === p.id && h.estado === 'activa'
+                parseInt(h.pacienteId) === parseInt(p.id) && h.estado === 'activa'
             );
             return !yaHospitalizado;
         });
