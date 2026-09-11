@@ -1625,14 +1625,87 @@ const SaldoPacienteFacturacion = {
         try {
             console.log('📄 Cargando Estado de Cuenta para paciente:', pacienteId);
             
-            // El endpoint /api/billing/estado-cuenta no existe en el backend
-            // Usar siempre datos locales
+            // Intentar cargar desde API primero
+            const token = localStorage.getItem('token');
+            const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
+            
+            if (token) {
+                try {
+                    const response = await fetch(`${apiBase}/api/billing/estado-cuenta-detallado/${pacienteId}`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.success && result.data) {
+                            console.log('✅ Estado de Cuenta cargado desde API');
+                            this.mostrarEstadoCuentaDesdeAPI(result.data);
+                            return;
+                        }
+                    }
+                } catch (apiError) {
+                    console.warn('⚠️ Error al cargar desde API, usando datos locales:', apiError);
+                }
+            }
+            
+            // Si no hay datos del API, usar datos locales
             this.mostrarEstadoCuentaLocal(pacienteId);
 
         } catch (error) {
             console.error('❌ Error cargando Estado de Cuenta:', error);
             document.getElementById('estadoCuentaContainer').style.display = 'block';
             document.getElementById('estadoCuentaContent').innerHTML = '<p style="color: red;">Error al cargar Estado de Cuenta</p>';
+        }
+    },
+
+    mostrarEstadoCuentaDesdeAPI(data) {
+        try {
+            document.getElementById('estadoCuentaContainer').style.display = 'block';
+            
+            // Calcular totales desde facturas
+            let totalDeuda = 0;
+            let totalPagado = 0;
+            
+            if (data.facturas && data.facturas.length > 0) {
+                // Sumar todos los totales de facturas
+                totalDeuda = data.facturas.reduce((sum, f) => sum + (f.total || 0), 0);
+            }
+            
+            if (data.pagos && data.pagos.length > 0) {
+                totalPagado = data.pagos.reduce((sum, p) => sum + (p.monto || 0), 0);
+            }
+            
+            const saldoPendiente = data.totales?.saldo_pendiente || 0;
+            
+            const html = `
+                <div style="background: white; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+                    <h3>Estado de Cuenta - ${data.paciente.nombre} ${data.paciente.apellidoPaterno}</h3>
+                    <div style="margin: 20px 0;">
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+                            <div style="padding: 15px; background: #f9f9f9; border-radius: 4px;">
+                                <div style="font-size: 12px; color: #666;">Total Deuda</div>
+                                <div style="font-size: 18px; font-weight: bold; color: #e74c3c;">Q${totalDeuda.toFixed(2)}</div>
+                            </div>
+                            <div style="padding: 15px; background: #f9f9f9; border-radius: 4px;">
+                                <div style="font-size: 12px; color: #666;">Saldo Pendiente</div>
+                                <div style="font-size: 18px; font-weight: bold; color: ${saldoPendiente > 0 ? '#e74c3c' : '#27ae60'};">Q${Math.abs(saldoPendiente).toFixed(2)}</div>
+                            </div>
+                            <div style="padding: 15px; background: #f9f9f9; border-radius: 4px;">
+                                <div style="font-size: 12px; color: #666;">Total Pagado</div>
+                                <div style="font-size: 18px; font-weight: bold; color: #27ae60;">Q${totalPagado.toFixed(2)}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <p style="color: #27ae60; text-align: center; font-weight: bold;">✅ Datos cargados desde servidor</p>
+                </div>
+            `;
+            document.getElementById('estadoCuentaContent').innerHTML = html;
+
+        } catch (error) {
+            console.error('❌ Error mostrando Estado de Cuenta del API:', error);
         }
     },
 
@@ -1643,6 +1716,15 @@ const SaldoPacienteFacturacion = {
 
             document.getElementById('estadoCuentaContainer').style.display = 'block';
             
+            // Obtener saldo del paciente desde localStorage
+            const saldo = this.state.saldos.find(s => s.paciente_id === pacienteId) || {
+                total_deuda: 0,
+                saldo_pendiente: 0
+            };
+            
+            // Calcular total pagado
+            const totalPagado = (saldo.total_deuda || 0) - (saldo.saldo_pendiente || 0);
+            
             const html = `
                 <div style="background: white; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
                     <h3>Estado de Cuenta - ${paciente.nombre} ${paciente.apellido_paterno}</h3>
@@ -1650,15 +1732,15 @@ const SaldoPacienteFacturacion = {
                         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
                             <div style="padding: 15px; background: #f9f9f9; border-radius: 4px;">
                                 <div style="font-size: 12px; color: #666;">Total Deuda</div>
-                                <div style="font-size: 18px; font-weight: bold; color: #e74c3c;">Q0.00</div>
+                                <div style="font-size: 18px; font-weight: bold; color: #e74c3c;">Q${parseFloat(saldo.total_deuda || 0).toFixed(2)}</div>
                             </div>
                             <div style="padding: 15px; background: #f9f9f9; border-radius: 4px;">
                                 <div style="font-size: 12px; color: #666;">Saldo Pendiente</div>
-                                <div style="font-size: 18px; font-weight: bold; color: #e74c3c;">Q0.00</div>
+                                <div style="font-size: 18px; font-weight: bold; color: ${saldo.saldo_pendiente > 0 ? '#e74c3c' : '#27ae60'};">Q${parseFloat(saldo.saldo_pendiente || 0).toFixed(2)}</div>
                             </div>
                             <div style="padding: 15px; background: #f9f9f9; border-radius: 4px;">
                                 <div style="font-size: 12px; color: #666;">Total Pagado</div>
-                                <div style="font-size: 18px; font-weight: bold; color: #27ae60;">Q0.00</div>
+                                <div style="font-size: 18px; font-weight: bold; color: #27ae60;">Q${totalPagado.toFixed(2)}</div>
                             </div>
                         </div>
                     </div>
