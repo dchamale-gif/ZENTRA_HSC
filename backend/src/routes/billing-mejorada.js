@@ -5,10 +5,10 @@
 const express = require('express');
 const router = express.Router();
 const billingMejoradoController = require('../controllers/billingMejoradoController');
-const { verifyToken } = require('../middleware/auth');
+const { authMiddleware } = require('../middleware/auth');
 
 // Proteger todas las rutas
-router.use(verifyToken);
+router.use(authMiddleware);
 
 /**
  * POST /api/billing/facturas-mejorada
