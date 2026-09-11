@@ -359,7 +359,7 @@ const SaldoPacienteIntegrado = {
     },
 
     imprimirEstadoCuenta(data) {
-        const ventana = window.open('', '_blank', 'width=900,height=1000');
+        const ventana = window.open('', '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes,toolbar=no,location=no,status=no,menubar=no');
 
         const html = `
             <!DOCTYPE html>
@@ -368,27 +368,45 @@ const SaldoPacienteIntegrado = {
                 <meta charset="utf-8">
                 <title>Estado de Cuenta</title>
                 <style>
+                    * { margin: 0; padding: 0; }
                     body { 
                         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
                         padding: 30px; 
                         line-height: 1.6;
                         background: white;
+                        color: #333;
                     }
-                    .container { max-width: 900px; margin: 0 auto; }
+                    .container { 
+                        max-width: 950px; 
+                        margin: 0 auto;
+                        background: white;
+                    }
                     .header { 
                         text-align: center; 
-                        border-bottom: 3px solid #000; 
+                        border-bottom: 3px solid #2c3e50; 
                         padding-bottom: 20px; 
                         margin-bottom: 30px; 
                     }
-                    .header h1 { margin: 0; font-size: 28px; font-weight: bold; }
-                    .header h2 { margin: 10px 0 0 0; font-size: 16px; color: #666; }
+                    .header h1 { 
+                        margin: 0; 
+                        font-size: 28px; 
+                        font-weight: bold;
+                        color: #2c3e50;
+                    }
+                    .header h2 { 
+                        margin: 10px 0 0 0; 
+                        font-size: 16px; 
+                        color: #7f8c8d; 
+                    }
                     
                     .info-section { 
                         display: grid; 
                         grid-template-columns: 1fr 1fr; 
                         gap: 30px; 
                         margin-bottom: 40px;
+                        padding: 15px;
+                        background: #f8f9fa;
+                        border-radius: 4px;
                     }
                     .info-box { }
                     .info-box .label { 
@@ -396,10 +414,14 @@ const SaldoPacienteIntegrado = {
                         font-weight: bold; 
                         margin-top: 10px; 
                         font-size: 11px; 
-                        color: #666; 
+                        color: #7f8c8d; 
                         text-transform: uppercase;
                     }
-                    .info-box p { margin: 3px 0; font-size: 13px; }
+                    .info-box p { 
+                        margin: 3px 0; 
+                        font-size: 13px;
+                        color: #2c3e50;
+                    }
                     
                     table { 
                         width: 100%; 
@@ -421,15 +443,18 @@ const SaldoPacienteIntegrado = {
                     
                     .total-section { 
                         margin-top: 30px; 
-                        border-top: 2px solid #000; 
-                        padding-top: 20px; 
+                        border-top: 2px solid #2c3e50; 
+                        padding-top: 20px;
+                        background: #f8f9fa;
+                        padding: 20px;
+                        border-radius: 4px;
                     }
                     .total-row { 
                         display: flex; 
                         justify-content: space-between; 
                         padding: 10px 0; 
                         font-size: 13px; 
-                        border-bottom: 1px solid #eee;
+                        border-bottom: 1px solid #ecf0f1;
                     }
                     .total-row.grande { 
                         font-size: 16px; 
@@ -442,19 +467,77 @@ const SaldoPacienteIntegrado = {
                         margin-top: 40px; 
                         text-align: center; 
                         font-size: 11px; 
-                        color: #666; 
+                        color: #7f8c8d; 
                         border-top: 1px solid #ddd; 
                         padding-top: 20px; 
                     }
                     .text-danger { color: #e74c3c; }
                     .text-success { color: #27ae60; }
+                    @media print {
+                        * {
+                            -webkit-print-color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                            color-adjust: exact !important;
+                        }
+                        html, body { 
+                            margin: 0 !important; 
+                            padding: 0 !important;
+                            width: 100%;
+                            height: 100%;
+                            background: white !important;
+                            color: black !important;
+                            font-size: 11pt;
+                        }
+                        .container {
+                            max-width: 100%;
+                            margin: 0 !important;
+                            padding: 15mm !important;
+                            background: white !important;
+                        }
+                        .header { 
+                            border-bottom: 3px solid #2c3e50 !important;
+                            page-break-after: avoid;
+                        }
+                        .info-section {
+                            background: #f8f9fa !important;
+                            page-break-inside: avoid;
+                        }
+                        .total-section {
+                            background: #f8f9fa !important;
+                            page-break-inside: avoid;
+                            page-break-after: avoid;
+                        }
+                        .footer {
+                            margin-top: 20px;
+                            page-break-before: avoid;
+                        }
+                        table {
+                            page-break-inside: avoid;
+                            border: 1px solid #333;
+                        }
+                        thead {
+                            display: table-header-group;
+                            background: #2c3e50 !important;
+                            color: white !important;
+                        }
+                        tfoot {
+                            display: table-footer-group;
+                        }
+                        tr {
+                            page-break-inside: avoid;
+                        }
+                        @page {
+                            size: A4;
+                            margin: 10mm;
+                        }
+                    }
                 </style>
             </head>
             <body>
                 <div class="container">
                     <div class="header">
                         <h1>ESTADO DE CUENTA DETALLADO</h1>
-                        <h2>Centro Médico / Clínica</h2>
+                        <h2>Centro Médico / Clínica - Psiquiatría Santa Clara</h2>
                     </div>
 
                     <div class="info-section">
@@ -462,7 +545,7 @@ const SaldoPacienteIntegrado = {
                             <div class="label">Paciente</div>
                             <p><strong>${data.paciente.nombre} ${data.paciente.apellidoPaterno} ${data.paciente.apellidoMaterno || ''}</strong></p>
                             <div class="label">DPI</div>
-                            <p>${data.paciente.dpi}</p>
+                            <p>${data.paciente.dpi || 'N/A'}</p>
                             <div class="label">Teléfono</div>
                             <p>${data.paciente.telefono || 'N/A'}</p>
                         </div>
@@ -521,7 +604,8 @@ const SaldoPacienteIntegrado = {
                     <div class="footer">
                         <p>Este es un estado de cuenta oficial del sistema contable.</p>
                         <p>Para consultas o aclaraciones, favor contactar a administración.</p>
-                        <p style="margin-top: 20px; font-size: 10px;">Impreso el: ${new Date().toLocaleString('es-GT')}</p>
+                        <p style="margin-top: 20px; font-size: 10px;">Psiquiatría Santa Clara • PBX: (502) 2334-4545 • www.psiquiatriasantaclara.com</p>
+                        <p style="font-size: 10px;">Impreso el: ${new Date().toLocaleString('es-GT')}</p>
                     </div>
                 </div>
             </body>
@@ -530,7 +614,11 @@ const SaldoPacienteIntegrado = {
 
         ventana.document.write(html);
         ventana.document.close();
-        ventana.print();
+        
+        // Auto-print con delay para asegurar que el documento esté completamente cargado
+        setTimeout(() => {
+            ventana.print();
+        }, 250);
     },
 
     imprimirSaldo(pacienteId) {

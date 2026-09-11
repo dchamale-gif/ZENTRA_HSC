@@ -820,7 +820,7 @@ const FacturacionMejorada = {
             edad = hoy.getFullYear() - nacimiento.getFullYear();
         }
 
-        const ventana = window.open('', '_blank', 'width=1000,height=1200');
+        const ventana = window.open('', '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes,toolbar=no,location=no,status=no,menubar=no');
 
         let contenidoCategorias = '';
 
@@ -1008,8 +1008,65 @@ const FacturacionMejorada = {
                         font-weight: bold;
                     }
                     @media print {
-                        body { padding: 0; }
-                        .page-break { page-break-before: always; }
+                        * {
+                            -webkit-print-color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                            color-adjust: exact !important;
+                        }
+                        html, body { 
+                            margin: 0 !important; 
+                            padding: 0 !important;
+                            width: 100%;
+                            height: 100%;
+                            background: white !important;
+                            color: black !important;
+                            font-size: 11pt;
+                        }
+                        .container {
+                            max-width: 100%;
+                            margin: 0 !important;
+                            padding: 15mm !important;
+                            background: white !important;
+                        }
+                        .header { 
+                            border-bottom: 3px solid #34495e !important;
+                            page-break-after: avoid;
+                        }
+                        .info-section {
+                            page-break-inside: avoid;
+                        }
+                        .resumen-financiero {
+                            background: #ecf0f1 !important;
+                            page-break-inside: avoid;
+                        }
+                        .total-section {
+                            background: #f8f9fa !important;
+                            page-break-inside: avoid;
+                            page-break-after: avoid;
+                        }
+                        .footer {
+                            margin-top: 20px;
+                            page-break-before: avoid;
+                        }
+                        table {
+                            page-break-inside: avoid;
+                            border: 1px solid #333;
+                        }
+                        thead {
+                            display: table-header-group;
+                            background: #34495e !important;
+                            color: white !important;
+                        }
+                        tfoot {
+                            display: table-footer-group;
+                        }
+                        tr {
+                            page-break-inside: avoid;
+                        }
+                        @page {
+                            size: A4;
+                            margin: 10mm;
+                        }
                     }
                 </style>
             </head>
@@ -1124,7 +1181,7 @@ const FacturacionMejorada = {
     },
 
     generarEstadoCuentaPDF(data) {
-        const ventana = window.open('', '_blank', 'width=800,height=900');
+        const ventana = window.open('', '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes,toolbar=no,location=no,status=no,menubar=no');
 
         const html = `
             <!DOCTYPE html>
@@ -1133,31 +1190,182 @@ const FacturacionMejorada = {
                 <meta charset="utf-8">
                 <title>Estado de Cuenta</title>
                 <style>
-                    body { font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; }
-                    .container { max-width: 900px; margin: 0 auto; }
-                    .header { text-align: center; border-bottom: 3px solid #000; padding-bottom: 20px; margin-bottom: 30px; }
-                    .header h1 { margin: 0; font-size: 28px; }
-                    .header h2 { margin: 10px 0 0 0; font-size: 18px; color: #666; }
-                    .info-section { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px; }
-                    .info-box { }
-                    .info-box label { display: block; font-weight: bold; margin-top: 10px; font-size: 12px; color: #666; }
-                    .info-box p { margin: 3px 0; }
-                    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-                    th, td { padding: 12px; text-align: left; border: 1px solid #ddd; }
-                    th { background-color: #2c3e50; color: white; font-weight: bold; }
-                    tr:nth-child(even) { background-color: #f9f9f9; }
-                    .total-section { margin-top: 30px; border-top: 2px solid #000; padding-top: 20px; }
-                    .total-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; }
-                    .total-row.grande { font-size: 18px; font-weight: bold; margin-top: 10px; }
-                    .right { text-align: right; }
-                    .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #666; border-top: 1px solid #ddd; padding-top: 20px; }
+                    * { margin: 0; padding: 0; }
+                    body { 
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+                        padding: 20px; 
+                        line-height: 1.6;
+                        color: #333;
+                        background: white;
+                    }
+                    .container { 
+                        max-width: 950px; 
+                        margin: 0 auto;
+                        background: white;
+                    }
+                    .header { 
+                        text-align: center; 
+                        border-bottom: 3px solid #2c3e50; 
+                        padding-bottom: 15px; 
+                        margin-bottom: 20px;
+                    }
+                    .header h1 { 
+                        margin: 0; 
+                        font-size: 28px; 
+                        color: #2c3e50;
+                        font-weight: bold;
+                    }
+                    .header h2 { 
+                        margin: 5px 0 0 0; 
+                        font-size: 16px; 
+                        color: #7f8c8d; 
+                    }
+                    .info-section { 
+                        display: grid; 
+                        grid-template-columns: 1fr 1fr; 
+                        gap: 30px; 
+                        margin-bottom: 25px;
+                        padding: 15px;
+                        background: #f8f9fa;
+                        border-radius: 4px;
+                    }
+                    .info-box label { 
+                        display: block; 
+                        font-weight: bold; 
+                        margin-top: 8px; 
+                        font-size: 11px; 
+                        color: #7f8c8d;
+                        text-transform: uppercase;
+                    }
+                    .info-box p { 
+                        margin: 3px 0 0 0;
+                        font-size: 13px;
+                        color: #2c3e50;
+                    }
+                    .info-box p strong { 
+                        font-weight: bold;
+                        font-size: 14px;
+                    }
+                    table { 
+                        width: 100%; 
+                        border-collapse: collapse; 
+                        margin: 20px 0; 
+                    }
+                    th, td { 
+                        padding: 12px; 
+                        text-align: left; 
+                        border: 1px solid #ddd; 
+                    }
+                    th { 
+                        background-color: #2c3e50; 
+                        color: white; 
+                        font-weight: bold;
+                        font-size: 12px;
+                    }
+                    tr:nth-child(even) { 
+                        background-color: #f9f9f9; 
+                    }
+                    .total-section { 
+                        margin-top: 30px; 
+                        border-top: 2px solid #2c3e50; 
+                        padding-top: 20px;
+                        background: #f8f9fa;
+                        padding: 20px;
+                        border-radius: 4px;
+                    }
+                    .total-row { 
+                        display: flex; 
+                        justify-content: space-between; 
+                        padding: 12px 0; 
+                        font-size: 13px; 
+                        border-bottom: 1px solid #ecf0f1;
+                    }
+                    .total-row.grande { 
+                        font-size: 16px; 
+                        font-weight: bold; 
+                        color: white;
+                        background: #2c3e50;
+                        padding: 12px;
+                        border-radius: 4px;
+                        margin-top: 10px;
+                        border: none;
+                    }
+                    .right { 
+                        text-align: right; 
+                    }
+                    .footer { 
+                        margin-top: 30px; 
+                        text-align: center; 
+                        font-size: 11px; 
+                        color: #7f8c8d; 
+                        border-top: 1px solid #ddd; 
+                        padding-top: 15px;
+                    }
+                    @media print {
+                        * {
+                            -webkit-print-color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                            color-adjust: exact !important;
+                        }
+                        html, body { 
+                            margin: 0 !important; 
+                            padding: 0 !important;
+                            width: 100%;
+                            height: 100%;
+                            background: white !important;
+                            color: black !important;
+                            font-size: 11pt;
+                        }
+                        .container {
+                            max-width: 100%;
+                            margin: 0 !important;
+                            padding: 15mm !important;
+                            background: white !important;
+                        }
+                        .header { 
+                            border-bottom: 3px solid #2c3e50 !important;
+                            page-break-after: avoid;
+                        }
+                        .info-section {
+                            background: #f8f9fa !important;
+                            page-break-inside: avoid;
+                        }
+                        .total-section {
+                            background: #f8f9fa !important;
+                            page-break-inside: avoid;
+                            page-break-after: avoid;
+                        }
+                        .footer {
+                            margin-top: 20px;
+                            page-break-before: avoid;
+                        }
+                        table {
+                            page-break-inside: avoid;
+                            border: 1px solid #333;
+                        }
+                        thead {
+                            display: table-header-group;
+                            background: #2c3e50 !important;
+                            color: white !important;
+                        }
+                        tfoot {
+                            display: table-footer-group;
+                        }
+                        tr {
+                            page-break-inside: avoid;
+                        }
+                        @page {
+                            size: A4;
+                            margin: 10mm;
+                        }
+                    }
                 </style>
             </head>
             <body>
                 <div class="container">
                     <div class="header">
                         <h1>ESTADO DE CUENTA DETALLADO</h1>
-                        <h2>Clínica / Centro Médico</h2>
+                        <h2>Clínica / Centro Médico - Psiquiatría Santa Clara</h2>
                     </div>
 
                     <div class="info-section">
@@ -1165,7 +1373,7 @@ const FacturacionMejorada = {
                             <label>PACIENTE</label>
                             <p><strong>${data.paciente.nombre} ${data.paciente.apellidoPaterno} ${data.paciente.apellidoMaterno || ''}</strong></p>
                             <label style="margin-top: 15px;">DPI</label>
-                            <p>${data.paciente.dpi}</p>
+                            <p>${data.paciente.dpi || 'N/A'}</p>
                             <label style="margin-top: 15px;">TELÉFONO</label>
                             <p>${data.paciente.telefono || 'N/A'}</p>
                         </div>
@@ -1215,13 +1423,14 @@ const FacturacionMejorada = {
                         </div>
                         <div class="total-row grande">
                             <span>SALDO ACTUAL:</span>
-                            <strong class="right" style="color: ${data.totales.saldo_actual < 0 ? 'green' : 'red'};">Q${data.totales.saldo_actual.toFixed(2)}</strong>
+                            <strong class="right" style="color: ${data.totales.saldo_actual < 0 ? '#27ae60' : '#e74c3c'};">Q${data.totales.saldo_actual.toFixed(2)}</strong>
                         </div>
                     </div>
 
                     <div class="footer">
                         <p>Este es un estado de cuenta oficial. Para consultas o aclaraciones, contáctenos.</p>
                         <p style="margin-top: 20px;">Impreso el: ${new Date().toLocaleString('es-GT')}</p>
+                        <p style="margin-top: 10px;">Psiquiatría Santa Clara • PBX: (502) 2334-4545 • www.psiquiatriasantaclara.com</p>
                     </div>
                 </div>
             </body>
@@ -1230,7 +1439,11 @@ const FacturacionMejorada = {
 
         ventana.document.write(html);
         ventana.document.close();
-        ventana.print();
+        
+        // Auto-print con delay para asegurar que el documento esté completamente cargado
+        setTimeout(() => {
+            ventana.print();
+        }, 250);
     },
 
     // ============================================

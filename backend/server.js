@@ -10,6 +10,7 @@ const medicinasRoutes = require('./src/routes/medicinas');
 const proveedoresRoutes = require('./src/routes/proveedores');
 const codigosArticulosRoutes = require('./src/routes/codigos-articulos');
 const billingRoutes = require('./src/routes/billing');
+const billingMejoradaRoutes = require('./src/routes/billing-mejorada');
 const reportsRoutes = require('./src/routes/reports');
 const doctorsRoutes = require('./src/routes/doctors');
 const appointmentsRoutes = require('./src/routes/appointments');
@@ -79,6 +80,9 @@ app.use('/api/proveedores', proveedoresRoutes);
 
 // Facturación
 app.use('/api/billing', billingRoutes);
+
+// Facturación Mejorada
+app.use('/api/billing', billingMejoradaRoutes);
 
 // Doctores y especialidades
 app.use('/api/doctors', doctorsRoutes);
