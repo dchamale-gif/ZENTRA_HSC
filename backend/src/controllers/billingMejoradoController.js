@@ -33,6 +33,15 @@ class BillingMejoradoController {
                 });
             }
 
+            // Coercionar paciente_id a INTEGER si es string numérica
+            const paciente_id_int = parseInt(paciente_id, 10);
+            if (isNaN(paciente_id_int)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'paciente_id debe ser un número válido'
+                });
+            }
+
             await db.query('BEGIN');
 
             try {
@@ -52,7 +61,7 @@ class BillingMejoradoController {
                 const resFactura = await db.query(queryFactura, [
                     factura_id,
                     numero_factura,
-                    paciente_id,
+                    paciente_id_int,
                     user_id,
                     totales.subtotal || 0,
                     totales.total_descuentos || 0,
@@ -214,6 +223,13 @@ class BillingMejoradoController {
     async getEstadoCuenta(req, res) {
         try {
             const { paciente_id } = req.params;
+            const paciente_id_int = parseInt(paciente_id, 10);
+            if (isNaN(paciente_id_int)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'paciente_id debe ser un número válido'
+                });
+            }
 
             // Obtener datos del paciente
             const queryPaciente = `
@@ -221,7 +237,7 @@ class BillingMejoradoController {
                 FROM pacientes
                 WHERE id = $1
             `;
-            const resPaciente = await db.query(queryPaciente, [paciente_id]);
+            const resPaciente = await db.query(queryPaciente, [paciente_id_int]);
 
             if (resPaciente.rows.length === 0) {
                 return res.status(404).json({
@@ -238,7 +254,7 @@ class BillingMejoradoController {
                 FROM pacientes_saldo
                 WHERE paciente_id = $1
             `;
-            const resSaldo = await db.query(querySaldo, [paciente_id]);
+            const resSaldo = await db.query(querySaldo, [paciente_id_int]);
             const saldo = resSaldo.rows[0] || { saldo_pendiente: 0, total_deuda: 0 };
 
             // Obtener movimientos
@@ -251,7 +267,7 @@ class BillingMejoradoController {
                 ORDER BY fecha DESC
                 LIMIT 100
             `;
-            const resMovimientos = await db.query(queryMovimientos, [paciente_id]);
+            const resMovimientos = await db.query(queryMovimientos, [paciente_id_int]);
 
             // Obtener facturas
             const queryFacturas = `
@@ -263,7 +279,7 @@ class BillingMejoradoController {
                 ORDER BY fecha DESC
                 LIMIT 50
             `;
-            const resFacturas = await db.query(queryFacturas, [paciente_id]);
+            const resFacturas = await db.query(queryFacturas, [paciente_id_int]);
 
             // Procesar movimientos para incluir saldo acumulado
             const movimientos = resMovimientos.rows.map(mov => ({
@@ -313,6 +329,13 @@ class BillingMejoradoController {
     async getSaldoPaciente(req, res) {
         try {
             const { paciente_id } = req.params;
+            const paciente_id_int = parseInt(paciente_id, 10);
+            if (isNaN(paciente_id_int)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'paciente_id debe ser un número válido'
+                });
+            }
 
             const query = `
                 SELECT 
@@ -322,13 +345,13 @@ class BillingMejoradoController {
                 WHERE paciente_id = $1
             `;
 
-            const result = await db.query(query, [paciente_id]);
+            const result = await db.query(query, [paciente_id_int]);
 
             if (result.rows.length === 0) {
                 return res.json({
                     success: true,
                     data: {
-                        paciente_id,
+                        paciente_id: paciente_id_int,
                         saldo_pendiente: 0,
                         total_deuda: 0,
                         ultima_transaccion: null
@@ -411,6 +434,15 @@ class BillingMejoradoController {
                 });
             }
 
+            // Coercionar paciente_id a INTEGER
+            const paciente_id_int = parseInt(paciente_id, 10);
+            if (isNaN(paciente_id_int)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'paciente_id debe ser un número válido'
+                });
+            }
+
             await db.query('BEGIN');
 
             try {
@@ -418,7 +450,7 @@ class BillingMejoradoController {
                 const querySaldo = `
                     SELECT * FROM pacientes_saldo WHERE paciente_id = $1
                 `;
-                const resSaldo = await db.query(querySaldo, [paciente_id]);
+                const resSaldo = await db.query(querySaldo, [paciente_id_int]);
 
                 if (resSaldo.rows.length === 0) {
                     await db.query('ROLLBACK');
@@ -438,7 +470,7 @@ class BillingMejoradoController {
                         ultima_transaccion = CURRENT_TIMESTAMP,
                         usuario_actualizo = $2
                     WHERE paciente_id = $3
-                `, [saldoNuevo, user_id, paciente_id]);
+                `, [saldoNuevo, user_id, paciente_id_int]);
 
                 // Registrar movimiento
                 await db.query(`
@@ -448,7 +480,7 @@ class BillingMejoradoController {
                     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
                 `, [
                     generateId('MOV'),
-                    paciente_id,
+                    paciente_id_int,
                     'pago',
                     `Pago ${metodo_pago}${observaciones ? ': ' + observaciones : ''}`,
                     monto,
@@ -491,14 +523,21 @@ class BillingMejoradoController {
     async getEstadoCuentaDetallado(req, res) {
         try {
             const { paciente_id } = req.params;
+            const paciente_id_int = parseInt(paciente_id, 10);
+            if (isNaN(paciente_id_int)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'paciente_id debe ser un número válido'
+                });
+            }
 
             // Obtener datos del paciente
             const queryPaciente = `
-                SELECT id, nombre, apellido_paterno, apellido_materno, dpi, telefono, fecha_nacimiento
+                SELECT id, nombre, apellido_paterno, apellido_materno, dpi, telefono
                 FROM pacientes
                 WHERE id = $1
             `;
-            const resPaciente = await db.query(queryPaciente, [paciente_id]);
+            const resPaciente = await db.query(queryPaciente, [paciente_id_int]);
 
             if (resPaciente.rows.length === 0) {
                 return res.status(404).json({

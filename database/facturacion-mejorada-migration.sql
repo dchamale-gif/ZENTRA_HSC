@@ -6,7 +6,7 @@
 -- Tabla de saldo de pacientes
 CREATE TABLE IF NOT EXISTS pacientes_saldo (
     id VARCHAR(50) PRIMARY KEY,
-    paciente_id VARCHAR(50) NOT NULL UNIQUE,
+    paciente_id INTEGER NOT NULL UNIQUE,
     saldo_pendiente DECIMAL(15, 2) DEFAULT 0.00,
     total_deuda DECIMAL(15, 2) DEFAULT 0.00,
     ultima_transaccion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -23,7 +23,7 @@ CREATE INDEX IF NOT EXISTS idx_pacientes_saldo_saldo_pendiente ON pacientes_sald
 CREATE TABLE IF NOT EXISTS ventas_mejorada (
     id VARCHAR(50) PRIMARY KEY,
     numero_factura VARCHAR(50) UNIQUE NOT NULL,
-    paciente_id VARCHAR(50),
+    paciente_id INTEGER,
     cliente_id VARCHAR(50),
     user_id INTEGER NOT NULL,
     fecha DATE NOT NULL,
@@ -103,7 +103,7 @@ CREATE INDEX IF NOT EXISTS idx_venta_descuentos_mejorada_venta_id ON venta_descu
 -- Tabla de movimientos de paciente (historial de saldo)
 CREATE TABLE IF NOT EXISTS movimientos_paciente (
     id VARCHAR(50) PRIMARY KEY,
-    paciente_id VARCHAR(50) NOT NULL,
+    paciente_id INTEGER NOT NULL,
     tipo VARCHAR(50) NOT NULL,
     descripcion TEXT,
     monto DECIMAL(15, 2) NOT NULL,
@@ -125,7 +125,7 @@ CREATE INDEX IF NOT EXISTS idx_movimientos_paciente_referencia_id ON movimientos
 -- Tabla de pagos (abonos a saldo)
 CREATE TABLE IF NOT EXISTS pagos_paciente (
     id VARCHAR(50) PRIMARY KEY,
-    paciente_id VARCHAR(50) NOT NULL,
+    paciente_id INTEGER NOT NULL,
     monto DECIMAL(15, 2) NOT NULL,
     metodo_pago VARCHAR(50) DEFAULT 'efectivo',
     referencia VARCHAR(100),
