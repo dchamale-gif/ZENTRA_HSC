@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS ventas_mejorada (
     numero_factura VARCHAR(50) UNIQUE NOT NULL,
     paciente_id VARCHAR(50),
     cliente_id VARCHAR(50),
-    user_id VARCHAR(50) NOT NULL,
+    user_id INTEGER NOT NULL,
     fecha DATE NOT NULL,
     subtotal DECIMAL(15, 2) DEFAULT 0.00,
     total_descuentos DECIMAL(15, 2) DEFAULT 0.00,
@@ -71,9 +71,10 @@ CREATE TABLE IF NOT EXISTS venta_item_descuentos_mejorada (
     valor DECIMAL(10, 2),
     monto_descuento DECIMAL(15, 2),
     motivo TEXT,
-    usuario_id VARCHAR(50),
+    usuario_id INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (venta_item_id) REFERENCES venta_items_mejorada(id) ON DELETE CASCADE,
+    FOREIGN KEY (usuario_id) REFERENCES users(id),
     INDEX idx_venta_item_id (venta_item_id)
 );
 
@@ -85,10 +86,11 @@ CREATE TABLE IF NOT EXISTS venta_descuentos_mejorada (
     valor DECIMAL(10, 2),
     monto_descuento DECIMAL(15, 2),
     motivo TEXT,
-    usuario_id VARCHAR(50),
+    usuario_id INTEGER,
     codigo_aplicado VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (venta_id) REFERENCES ventas_mejorada(id) ON DELETE CASCADE,
+    FOREIGN KEY (usuario_id) REFERENCES users(id),
     INDEX idx_venta_id (venta_id)
 );
 
@@ -102,7 +104,7 @@ CREATE TABLE IF NOT EXISTS movimientos_paciente (
     saldo_anterior DECIMAL(15, 2),
     saldo_nuevo DECIMAL(15, 2),
     referencia_id VARCHAR(50),
-    usuario_id VARCHAR(50),
+    usuario_id INTEGER,
     fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (paciente_id) REFERENCES pacientes(id) ON DELETE CASCADE,
@@ -121,7 +123,7 @@ CREATE TABLE IF NOT EXISTS pagos_paciente (
     metodo_pago VARCHAR(50) DEFAULT 'efectivo',
     referencia VARCHAR(100),
     observaciones TEXT,
-    usuario_id VARCHAR(50),
+    usuario_id INTEGER,
     fecha_pago TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (paciente_id) REFERENCES pacientes(id) ON DELETE CASCADE,

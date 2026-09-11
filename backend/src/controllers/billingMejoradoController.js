@@ -36,9 +36,9 @@ class BillingMejoradoController {
             await db.query('BEGIN');
 
             try {
-                // 1. Crear factura
+                // 1. Crear factura en tabla mejorada
                 const queryFactura = `
-                    INSERT INTO ventas (
+                    INSERT INTO ventas_mejorada (
                         id, numero_factura, paciente_id, user_id, fecha,
                         subtotal, total_descuentos, base_impuesto, total_impuestos, total,
                         metodo_pago, observaciones, estado, tipo_factura
@@ -58,19 +58,19 @@ class BillingMejoradoController {
                     totales.total_descuentos || 0,
                     totales.base_impuesto || 0,
                     totales.total_impuestos || 0,
-                    totales.total_neto || 0,
+                    totales.total || 0,
                     metodo_pago,
                     observaciones
                 ]);
 
-                // 2. Insertar items
+                // 2. Insertar items en tabla mejorada
                 for (const item of items) {
                     const item_id = generateId('ITEM');
                     const descuento_item = item.descuento_total || 0;
                     const total_item = item.total_item || (item.subtotal - descuento_item);
 
                     await db.query(`
-                        INSERT INTO venta_items (
+                        INSERT INTO venta_items_mejorada (
                             id, venta_id, descripcion, cantidad, precio_unitario,
                             subtotal, descuento, total, tipo_item
                         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'general')
@@ -89,7 +89,7 @@ class BillingMejoradoController {
                     if (item.descuentos && item.descuentos.length > 0) {
                         for (const desc of item.descuentos) {
                             await db.query(`
-                                INSERT INTO venta_item_descuentos (
+                                INSERT INTO venta_item_descuentos_mejorada (
                                     id, venta_item_id, tipo_descuento, valor,
                                     monto_descuento, motivo, usuario_id
                                 ) VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -98,7 +98,7 @@ class BillingMejoradoController {
                                 item_id,
                                 desc.tipo,
                                 desc.valor,
-                                desc.monto,
+                                desc.monto || desc.monto_descuento,
                                 desc.motivo,
                                 user_id
                             ]);
@@ -110,7 +110,7 @@ class BillingMejoradoController {
                 if (descuentos && descuentos.length > 0) {
                     for (const desc of descuentos) {
                         await db.query(`
-                            INSERT INTO venta_descuentos (
+                            INSERT INTO venta_descuentos_mejorada (
                                 id, venta_id, tipo_descuento, valor,
                                 monto_descuento, motivo, usuario_id
                             ) VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -119,7 +119,7 @@ class BillingMejoradoController {
                             factura_id,
                             desc.tipo,
                             desc.valor,
-                            desc.monto_aplicado,
+                            desc.monto_aplicado || desc.monto,
                             desc.motivo,
                             user_id
                         ]);
@@ -258,7 +258,7 @@ class BillingMejoradoController {
                 SELECT 
                     id, numero_factura, fecha, subtotal, total_descuentos,
                     total_impuestos, total, metodo_pago, estado
-                FROM ventas
+                FROM ventas_mejorada
                 WHERE paciente_id = $1
                 ORDER BY fecha DESC
                 LIMIT 50
@@ -358,7 +358,7 @@ class BillingMejoradoController {
         try {
             const { paciente_id, limit = 50, offset = 0 } = req.query;
 
-            let query = 'SELECT * FROM ventas WHERE 1=1';
+            let query = 'SELECT * FROM ventas_mejorada WHERE 1=1';
             const params = [];
             let paramCount = 1;
 
@@ -521,15 +521,15 @@ class BillingMejoradoController {
             // Obtener todas las facturas con sus items agrupados por categoría
             const queryFacturas = `
                 SELECT 
-                    v.id, v.numero_venta as numero_factura, v.fecha, v.subtotal, 
-                    v.descuento as total_descuentos, v.impuesto as total_impuestos, v.total,
+                    v.id, v.numero_factura, v.fecha, v.subtotal, 
+                    v.total_descuentos, v.total_impuestos, v.total,
                     vi.id as item_id, vi.descripcion, vi.cantidad, 
                     vi.precio_unitario, vi.subtotal as item_subtotal,
-                    COALESCE(0, 0) as item_descuento,
-                    COALESCE(vi.total, vi.subtotal) as item_total,
-                    'general' as tipo_item
-                FROM ventas v
-                LEFT JOIN venta_items vi ON v.id = vi.venta_id
+                    vi.descuento as item_descuento,
+                    vi.total as item_total,
+                    vi.tipo_item
+                FROM ventas_mejorada v
+                LEFT JOIN venta_items_mejorada vi ON v.id = vi.venta_id
                 WHERE v.paciente_id = $1
                 ORDER BY v.fecha DESC, vi.descripcion
             `;
@@ -607,7 +607,8 @@ class BillingMejoradoController {
      */
     async generarNumeroFactura() {
         const query = `
-            SELECT COUNT(*) as total FROM ventas WHERE YEAR(fecha) = YEAR(CURRENT_DATE)
+            SELECT COUNT(*) as total FROM ventas_mejorada 
+            WHERE EXTRACT(YEAR FROM fecha) = EXTRACT(YEAR FROM CURRENT_DATE)
         `;
         try {
             const result = await db.query(query);
