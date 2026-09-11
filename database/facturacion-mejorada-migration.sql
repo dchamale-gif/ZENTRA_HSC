@@ -13,10 +13,11 @@ CREATE TABLE IF NOT EXISTS pacientes_saldo (
     usuario_actualizo VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (paciente_id) REFERENCES pacientes(id) ON DELETE CASCADE,
-    INDEX idx_paciente_id (paciente_id),
-    INDEX idx_saldo_pendiente (saldo_pendiente)
+    FOREIGN KEY (paciente_id) REFERENCES pacientes(id) ON DELETE CASCADE
 );
+
+CREATE INDEX IF NOT EXISTS idx_pacientes_saldo_paciente_id ON pacientes_saldo(paciente_id);
+CREATE INDEX IF NOT EXISTS idx_pacientes_saldo_saldo_pendiente ON pacientes_saldo(saldo_pendiente);
 
 -- Tabla mejorada de ventas (facturas)
 CREATE TABLE IF NOT EXISTS ventas_mejorada (
@@ -38,12 +39,14 @@ CREATE TABLE IF NOT EXISTS ventas_mejorada (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (paciente_id) REFERENCES pacientes(id) ON DELETE SET NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    INDEX idx_paciente_id (paciente_id),
-    INDEX idx_numero_factura (numero_factura),
-    INDEX idx_fecha (fecha),
-    INDEX idx_estado (estado)
+    FOREIGN KEY (user_id) REFERENCES users(id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_ventas_mejorada_paciente_id ON ventas_mejorada(paciente_id);
+CREATE INDEX IF NOT EXISTS idx_ventas_mejorada_numero_factura ON ventas_mejorada(numero_factura);
+CREATE INDEX IF NOT EXISTS idx_ventas_mejorada_fecha ON ventas_mejorada(fecha);
+CREATE INDEX IF NOT EXISTS idx_ventas_mejorada_estado ON ventas_mejorada(estado);
+CREATE INDEX IF NOT EXISTS idx_ventas_mejorada_fecha_paciente ON ventas_mejorada(fecha, paciente_id);
 
 -- Tabla de items de ventas
 CREATE TABLE IF NOT EXISTS venta_items_mejorada (
@@ -59,9 +62,10 @@ CREATE TABLE IF NOT EXISTS venta_items_mejorada (
     medicina_id VARCHAR(50),
     articulo_id VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (venta_id) REFERENCES ventas_mejorada(id) ON DELETE CASCADE,
-    INDEX idx_venta_id (venta_id)
+    FOREIGN KEY (venta_id) REFERENCES ventas_mejorada(id) ON DELETE CASCADE
 );
+
+CREATE INDEX IF NOT EXISTS idx_venta_items_mejorada_venta_id ON venta_items_mejorada(venta_id);
 
 -- Tabla de descuentos de items
 CREATE TABLE IF NOT EXISTS venta_item_descuentos_mejorada (
@@ -74,9 +78,10 @@ CREATE TABLE IF NOT EXISTS venta_item_descuentos_mejorada (
     usuario_id INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (venta_item_id) REFERENCES venta_items_mejorada(id) ON DELETE CASCADE,
-    FOREIGN KEY (usuario_id) REFERENCES users(id),
-    INDEX idx_venta_item_id (venta_item_id)
+    FOREIGN KEY (usuario_id) REFERENCES users(id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_venta_item_descuentos_mejorada_venta_item_id ON venta_item_descuentos_mejorada(venta_item_id);
 
 -- Tabla de descuentos de factura
 CREATE TABLE IF NOT EXISTS venta_descuentos_mejorada (
@@ -90,9 +95,10 @@ CREATE TABLE IF NOT EXISTS venta_descuentos_mejorada (
     codigo_aplicado VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (venta_id) REFERENCES ventas_mejorada(id) ON DELETE CASCADE,
-    FOREIGN KEY (usuario_id) REFERENCES users(id),
-    INDEX idx_venta_id (venta_id)
+    FOREIGN KEY (usuario_id) REFERENCES users(id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_venta_descuentos_mejorada_venta_id ON venta_descuentos_mejorada(venta_id);
 
 -- Tabla de movimientos de paciente (historial de saldo)
 CREATE TABLE IF NOT EXISTS movimientos_paciente (
@@ -108,12 +114,13 @@ CREATE TABLE IF NOT EXISTS movimientos_paciente (
     fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (paciente_id) REFERENCES pacientes(id) ON DELETE CASCADE,
-    FOREIGN KEY (usuario_id) REFERENCES users(id),
-    INDEX idx_paciente_id (paciente_id),
-    INDEX idx_tipo (tipo),
-    INDEX idx_fecha (fecha),
-    INDEX idx_referencia_id (referencia_id)
+    FOREIGN KEY (usuario_id) REFERENCES users(id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_movimientos_paciente_paciente_id ON movimientos_paciente(paciente_id);
+CREATE INDEX IF NOT EXISTS idx_movimientos_paciente_tipo ON movimientos_paciente(tipo);
+CREATE INDEX IF NOT EXISTS idx_movimientos_paciente_fecha ON movimientos_paciente(fecha);
+CREATE INDEX IF NOT EXISTS idx_movimientos_paciente_referencia_id ON movimientos_paciente(referencia_id);
 
 -- Tabla de pagos (abonos a saldo)
 CREATE TABLE IF NOT EXISTS pagos_paciente (
@@ -127,10 +134,11 @@ CREATE TABLE IF NOT EXISTS pagos_paciente (
     fecha_pago TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (paciente_id) REFERENCES pacientes(id) ON DELETE CASCADE,
-    FOREIGN KEY (usuario_id) REFERENCES users(id),
-    INDEX idx_paciente_id (paciente_id),
-    INDEX idx_fecha_pago (fecha_pago)
+    FOREIGN KEY (usuario_id) REFERENCES users(id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_pagos_paciente_paciente_id ON pagos_paciente(paciente_id);
+CREATE INDEX IF NOT EXISTS idx_pagos_paciente_fecha_pago ON pagos_paciente(fecha_pago);
 
 -- ============================================
 -- ACTUALIZAR TABLA VENTAS EXISTENTE
@@ -189,15 +197,6 @@ FROM ventas_mejorada v
 LEFT JOIN pacientes p ON v.paciente_id = p.id
 LEFT JOIN users u ON v.user_id = u.id
 ORDER BY v.fecha DESC;
-
--- ============================================
--- ÍNDICES ADICIONALES PARA RENDIMIENTO
--- ============================================
-
-CREATE INDEX IF NOT EXISTS idx_movimientos_paciente_fecha ON movimientos_paciente(fecha);
-CREATE INDEX IF NOT EXISTS idx_movimientos_paciente_tipo ON movimientos_paciente(tipo);
-CREATE INDEX IF NOT EXISTS idx_pagos_paciente_fecha ON pagos_paciente(fecha_pago);
-CREATE INDEX IF NOT EXISTS idx_ventas_fecha_paciente ON ventas_mejorada(fecha, paciente_id);
 
 -- ============================================
 -- TRIGGERS PARA AUTO-UPDATE DE TIMESTAMP
