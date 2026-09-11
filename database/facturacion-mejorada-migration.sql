@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS pacientes_saldo (
     ultima_transaccion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     usuario_actualizo VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (paciente_id) REFERENCES pacientes(id) ON DELETE CASCADE,
     INDEX idx_paciente_id (paciente_id),
     INDEX idx_saldo_pendiente (saldo_pendiente)
@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS ventas_mejorada (
     tipo_factura VARCHAR(50) DEFAULT 'normal',
     observaciones TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (paciente_id) REFERENCES pacientes(id) ON DELETE SET NULL,
     FOREIGN KEY (user_id) REFERENCES users(id),
     INDEX idx_paciente_id (paciente_id),
@@ -164,7 +164,7 @@ SELECT
         WHEN ps.saldo_pendiente > 0 THEN 'Deudor'
         ELSE 'Acreedor'
     END AS estado,
-    DATEDIFF(CURDATE(), DATE(ps.ultima_transaccion)) AS dias_desde_transaccion
+    EXTRACT(DAY FROM CURRENT_DATE - DATE(ps.ultima_transaccion))::int AS dias_desde_transaccion
 FROM pacientes_saldo ps
 LEFT JOIN pacientes p ON ps.paciente_id = p.id
 ORDER BY ps.saldo_pendiente DESC;
@@ -175,7 +175,7 @@ SELECT
     v.id,
     v.numero_factura,
     v.paciente_id,
-    CONCAT(p.nombre, ' ', p.apellidoPaterno) AS paciente_nombre,
+    (p.nombre || ' ' || p.apellidoPaterno) AS paciente_nombre,
     v.fecha,
     v.subtotal,
     v.total_descuentos,
@@ -200,13 +200,36 @@ CREATE INDEX IF NOT EXISTS idx_pagos_paciente_fecha ON pagos_paciente(fecha_pago
 CREATE INDEX IF NOT EXISTS idx_ventas_fecha_paciente ON ventas_mejorada(fecha, paciente_id);
 
 -- ============================================
+-- TRIGGERS PARA AUTO-UPDATE DE TIMESTAMP
+-- ============================================
+
+-- Función para actualizar updated_at
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Trigger para pacientes_saldo
+CREATE TRIGGER update_pacientes_saldo_updated_at BEFORE UPDATE
+    ON pacientes_saldo FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Trigger para ventas_mejorada
+CREATE TRIGGER update_ventas_mejorada_updated_at BEFORE UPDATE
+    ON ventas_mejorada FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================
 -- INSERCIONES DE DATOS DE PRUEBA (OPCIONAL)
 -- ============================================
 
 -- Insertar datos de prueba (comentar si no es necesario)
 /*
 INSERT INTO pacientes_saldo (id, paciente_id, saldo_pendiente, total_deuda, usuario_actualizo)
-SELECT CONCAT('SALDO-', p.id), p.id, 0, 0, 'SYSTEM'
+SELECT 'SALDO-' || p.id, p.id, 0, 0, 'SYSTEM'
 FROM pacientes p
 WHERE NOT EXISTS (SELECT 1 FROM pacientes_saldo ps WHERE ps.paciente_id = p.id);
 */
