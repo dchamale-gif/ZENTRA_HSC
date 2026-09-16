@@ -557,7 +557,7 @@ class BillingMejoradoController {
                 FROM pacientes_saldo
                 WHERE paciente_id = $1
             `;
-            const resSaldo = await db.query(querySaldo, [paciente_id]);
+            const resSaldo = await db.query(querySaldo, [paciente_id_int]);
             const saldo = resSaldo.rows[0] || { saldo_pendiente: 0, total_deuda: 0 };
 
             // Obtener todas las facturas con sus items agrupados por categoría
@@ -575,7 +575,7 @@ class BillingMejoradoController {
                 WHERE v.paciente_id = $1
                 ORDER BY v.fecha DESC, vi.descripcion
             `;
-            const resFacturas = await db.query(queryFacturas, [paciente_id]);
+            const resFacturas = await db.query(queryFacturas, [paciente_id_int]);
 
             // Agrupar items por categoría
             const facturaMap = new Map();
