@@ -12,7 +12,7 @@ const db = require('./src/db/connection');
 async function recreateMovementTables() {
     console.log('🔄 Recreando tablas de movimientos con estructura correcta...\n');
 
-    const sqlPath = path.join(__dirname, 'database', 'recreate-movement-tables.sql');
+    const sqlPath = path.join(__dirname, '..', 'database', 'recreate-movement-tables.sql');
     
     if (!fs.existsSync(sqlPath)) {
         console.error(`❌ Archivo no encontrado: ${sqlPath}`);
