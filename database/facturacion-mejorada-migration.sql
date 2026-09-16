@@ -102,7 +102,7 @@ CREATE INDEX IF NOT EXISTS idx_venta_descuentos_mejorada_venta_id ON venta_descu
 
 -- Tabla de movimientos de paciente (historial de saldo)
 CREATE TABLE IF NOT EXISTS movimientos_paciente (
-    id VARCHAR(50) PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     paciente_id INTEGER NOT NULL,
     tipo VARCHAR(50) NOT NULL,
     descripcion TEXT,
@@ -124,7 +124,7 @@ CREATE INDEX IF NOT EXISTS idx_movimientos_paciente_referencia_id ON movimientos
 
 -- Tabla de pagos (abonos a saldo)
 CREATE TABLE IF NOT EXISTS pagos_paciente (
-    id VARCHAR(50) PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     paciente_id INTEGER NOT NULL,
     monto DECIMAL(15, 2) NOT NULL,
     metodo_pago VARCHAR(50) DEFAULT 'efectivo',

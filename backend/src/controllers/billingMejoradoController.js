@@ -183,11 +183,10 @@ class BillingMejoradoController {
                 // 6. Registrar movimiento en historial
                 await db.query(`
                     INSERT INTO movimientos_paciente (
-                        id, paciente_id, tipo, descripcion, monto, saldo_anterior,
-                        saldo_nuevo, referencia_id, usuario_id, fecha
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
+                        paciente_id, tipo, descripcion, monto, saldo_anterior,
+                        saldo_nuevo, referencia_id, usuario_id
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 `, [
-                    generateId('MOV'),
                     paciente_id_int,
                     'factura',
                     `Factura ${numero_factura}`,
@@ -486,11 +485,10 @@ class BillingMejoradoController {
                 // Registrar movimiento
                 await db.query(`
                     INSERT INTO movimientos_paciente (
-                        id, paciente_id, tipo, descripcion, monto, saldo_anterior,
-                        saldo_nuevo, referencia_id, usuario_id, fecha
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
+                        paciente_id, tipo, descripcion, monto, saldo_anterior,
+                        saldo_nuevo, referencia_id, usuario_id
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 `, [
-                    generateId('MOV'),
                     paciente_id_int,
                     'pago',
                     `Pago ${metodo_pago}${observaciones ? ': ' + observaciones : ''}`,
