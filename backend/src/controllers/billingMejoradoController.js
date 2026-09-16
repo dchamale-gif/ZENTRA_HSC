@@ -146,15 +146,18 @@ class BillingMejoradoController {
                     RETURNING *
                 `;
 
-                const resSaldo = await db.query(querySaldo, [
+                let resSaldo = await db.query(querySaldo, [
                     totales.total_neto || 0,
                     totales.total_neto || 0,
                     user_id,
                     paciente_id_int
                 ]);
 
+                let saldo_anterior = 0;
+
                 // Si no existe el saldo, crear uno nuevo
                 if (resSaldo.rows.length === 0) {
+                    saldo_anterior = 0;  // No había saldo previo
                     const resSaldoNew = await db.query(`
                         INSERT INTO pacientes_saldo (
                             id, paciente_id, saldo_pendiente, total_deuda,
@@ -168,8 +171,11 @@ class BillingMejoradoController {
                         totales.total_neto || 0,
                         user_id
                     ]);
-                    // Usar el resultado del INSERT para resSaldo
                     resSaldo.rows = resSaldoNew.rows;
+                } else {
+                    // El UPDATE devuelve el saldo DESPUÉS, pero necesitamos el ANTERIOR
+                    // Restar el monto que acabamos de sumar para obtener el anterior
+                    saldo_anterior = (resSaldo.rows[0]?.saldo_pendiente || 0) - (totales.total_neto || 0);
                 }
 
                 // 6. Registrar movimiento en historial
@@ -184,8 +190,8 @@ class BillingMejoradoController {
                     'factura',
                     `Factura ${numero_factura}`,
                     totales.total_neto || 0,
-                    resSaldo.rows[0]?.saldo_pendiente || 0,
-                    (resSaldo.rows[0]?.saldo_pendiente || 0) + (totales.total_neto || 0),
+                    saldo_anterior,
+                    saldo_anterior + (totales.total_neto || 0),
                     factura_id,
                     user_id
                 ]);
