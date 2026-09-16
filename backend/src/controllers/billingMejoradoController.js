@@ -154,6 +154,7 @@ class BillingMejoradoController {
                 ]);
 
                 let saldo_anterior = 0;
+                const monto = parseFloat(totales.total_neto) || 0;
 
                 // Si no existe el saldo, crear uno nuevo
                 if (resSaldo.rows.length === 0) {
@@ -167,15 +168,16 @@ class BillingMejoradoController {
                     `, [
                         generateId('SALDO'),
                         paciente_id_int,
-                        totales.total_neto || 0,
-                        totales.total_neto || 0,
+                        monto,
+                        monto,
                         user_id
                     ]);
                     resSaldo.rows = resSaldoNew.rows;
                 } else {
                     // El UPDATE devuelve el saldo DESPUÉS, pero necesitamos el ANTERIOR
                     // Restar el monto que acabamos de sumar para obtener el anterior
-                    saldo_anterior = (resSaldo.rows[0]?.saldo_pendiente || 0) - (totales.total_neto || 0);
+                    const saldo_nuevo = parseFloat(resSaldo.rows[0]?.saldo_pendiente) || 0;
+                    saldo_anterior = saldo_nuevo - monto;
                 }
 
                 // 6. Registrar movimiento en historial
@@ -189,9 +191,9 @@ class BillingMejoradoController {
                     paciente_id_int,
                     'factura',
                     `Factura ${numero_factura}`,
-                    totales.total_neto || 0,
+                    monto,
                     saldo_anterior,
-                    saldo_anterior + (totales.total_neto || 0),
+                    saldo_anterior + monto,
                     factura_id,
                     user_id
                 ]);
