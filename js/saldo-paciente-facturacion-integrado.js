@@ -2033,11 +2033,18 @@ const SaldoPacienteFacturacion = {
                 const familia = producto.familia || 'General';
                 const codigoVenta = producto.codigo_venta || 'N/A';
                 
-                // Prioridad: concepto > subfamilia > nombre (si no es "Sin nombre") > familia > "Sin especificar"
+                // Prioridad: nombre_articulo > concepto > subfamilia > familia > "Sin especificar"
                 let nombreProducto = '';
                 let detalleProducto = '';
                 
-                if (producto.concepto && producto.concepto !== 'Sin nombre') {
+                if (producto.nombre_articulo && producto.nombre_articulo !== 'Sin nombre') {
+                    nombreProducto = producto.nombre_articulo;
+                    if (producto.concepto) {
+                        detalleProducto = producto.concepto;
+                    } else if (producto.subfamilia) {
+                        detalleProducto = producto.subfamilia;
+                    }
+                } else if (producto.concepto && producto.concepto !== 'Sin nombre') {
                     nombreProducto = producto.concepto;
                     if (producto.subfamilia) {
                         detalleProducto = producto.subfamilia;
