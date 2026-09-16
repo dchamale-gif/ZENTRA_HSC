@@ -42,6 +42,16 @@ class BillingMejoradoController {
                 });
             }
 
+            // DEBUG: Log de datos recibidos
+            console.log('📊 DEBUG createFacturaMejorada:', {
+                paciente_id_int,
+                user_id,
+                items_count: items.length,
+                totales: totales,
+                total_neto: totales.total_neto,
+                total_neto_type: typeof totales.total_neto
+            });
+
             await db.query('BEGIN');
 
             try {
@@ -153,11 +163,19 @@ class BillingMejoradoController {
                     paciente_id_int
                 ]);
 
+                console.log('📊 DEBUG UPDATE pacientes_saldo:', {
+                    monto: totales.total_neto,
+                    paciente_id_int,
+                    rows_affected: resSaldo.rows.length,
+                    updated_row: resSaldo.rows[0] || 'NO ROWS'
+                });
+
                 let saldo_anterior = 0;
                 const monto = parseFloat(totales.total_neto) || 0;
 
                 // Si no existe el saldo, crear uno nuevo
                 if (resSaldo.rows.length === 0) {
+                    console.log('⚠️ No existe saldo previo, creando uno nuevo para paciente_id:', paciente_id_int);
                     saldo_anterior = 0;  // No había saldo previo
                     const resSaldoNew = await db.query(`
                         INSERT INTO pacientes_saldo (
@@ -172,20 +190,23 @@ class BillingMejoradoController {
                         monto,
                         user_id
                     ]);
+                    console.log('✅ INSERT pacientes_saldo resultado:', resSaldoNew.rows[0] || 'ERROR');
                     resSaldo.rows = resSaldoNew.rows;
                 } else {
                     // El UPDATE devuelve el saldo DESPUÉS, pero necesitamos el ANTERIOR
                     // Restar el monto que acabamos de sumar para obtener el anterior
                     const saldo_nuevo = parseFloat(resSaldo.rows[0]?.saldo_pendiente) || 0;
                     saldo_anterior = saldo_nuevo - monto;
+                    console.log('✅ UPDATE pacientes_saldo - saldo_anterior:', saldo_anterior, 'saldo_nuevo:', saldo_nuevo);
                 }
 
                 // 6. Registrar movimiento en historial
-                await db.query(`
+                const resMovimiento = await db.query(`
                     INSERT INTO movimientos_paciente (
                         paciente_id, tipo, descripcion, monto, saldo_anterior,
                         saldo_nuevo, referencia_id, usuario_id
                     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                    RETURNING *
                 `, [
                     paciente_id_int,
                     'factura',
@@ -196,6 +217,14 @@ class BillingMejoradoController {
                     factura_id,
                     user_id
                 ]);
+
+                console.log('✅ INSERT movimientos_paciente:', {
+                    paciente_id_int,
+                    monto,
+                    saldo_anterior,
+                    saldo_nuevo: saldo_anterior + monto,
+                    id: resMovimiento.rows[0]?.id || 'ERROR'
+                });
 
                 await db.query('COMMIT');
 
