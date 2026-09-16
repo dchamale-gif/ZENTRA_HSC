@@ -21,7 +21,7 @@ class BillingMejoradoController {
                 observaciones = ''
             } = req.body;
 
-            const user_id = req.user.id;
+            const user_id = parseInt(req.user.id, 10);
             const factura_id = generateId('FAC');
             const numero_factura = await this.generarNumeroFactura();
 
@@ -35,10 +35,10 @@ class BillingMejoradoController {
 
             // Coercionar paciente_id a INTEGER si es string numérica
             const paciente_id_int = parseInt(paciente_id, 10);
-            if (isNaN(paciente_id_int)) {
+            if (isNaN(paciente_id_int) || isNaN(user_id)) {
                 return res.status(400).json({
                     success: false,
-                    message: 'paciente_id debe ser un número válido'
+                    message: 'paciente_id y user_id deben ser números válidos'
                 });
             }
 
@@ -155,11 +155,12 @@ class BillingMejoradoController {
 
                 // Si no existe el saldo, crear uno nuevo
                 if (resSaldo.rows.length === 0) {
-                    await db.query(`
+                    const resSaldoNew = await db.query(`
                         INSERT INTO pacientes_saldo (
                             id, paciente_id, saldo_pendiente, total_deuda,
                             usuario_actualizo
                         ) VALUES ($1, $2, $3, $4, $5)
+                        RETURNING *
                     `, [
                         generateId('SALDO'),
                         paciente_id_int,
@@ -167,6 +168,8 @@ class BillingMejoradoController {
                         totales.total_neto || 0,
                         user_id
                     ]);
+                    // Usar el resultado del INSERT para resSaldo
+                    resSaldo.rows = resSaldoNew.rows;
                 }
 
                 // 6. Registrar movimiento en historial
