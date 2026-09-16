@@ -150,7 +150,7 @@ class BillingMejoradoController {
                     totales.total_neto || 0,
                     totales.total_neto || 0,
                     user_id,
-                    paciente_id
+                    paciente_id_int
                 ]);
 
                 // Si no existe el saldo, crear uno nuevo
@@ -162,7 +162,7 @@ class BillingMejoradoController {
                         ) VALUES ($1, $2, $3, $4, $5)
                     `, [
                         generateId('SALDO'),
-                        paciente_id,
+                        paciente_id_int,
                         totales.total_neto || 0,
                         totales.total_neto || 0,
                         user_id
@@ -177,7 +177,7 @@ class BillingMejoradoController {
                     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
                 `, [
                     generateId('MOV'),
-                    paciente_id,
+                    paciente_id_int,
                     'factura',
                     `Factura ${numero_factura}`,
                     totales.total_neto || 0,
