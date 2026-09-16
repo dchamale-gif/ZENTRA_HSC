@@ -912,6 +912,14 @@ const SaldoPacienteFacturacion = {
 
     imprimirRecibo(factura) {
         const ventana = window.open('', '_blank', 'width=600,height=800');
+        
+        // Validar que la ventana se abrió correctamente
+        if (!ventana) {
+            console.warn('⚠️ No se pudo abrir ventana de impresión. Popup blocker activado.');
+            alert('⚠️ No se puede abrir la ventana de impresión.\n\nPor favor, desactiva el bloqueador de popups e intenta de nuevo.');
+            return;
+        }
+        
         const html = `
             <!DOCTYPE html>
             <html>
@@ -949,9 +957,15 @@ const SaldoPacienteFacturacion = {
             </body>
             </html>
         `;
-        ventana.document.write(html);
-        ventana.document.close();
-        ventana.print();
+        
+        try {
+            ventana.document.write(html);
+            ventana.document.close();
+            ventana.print();
+        } catch (error) {
+            console.error('❌ Error imprimiendo recibo:', error);
+            alert('❌ Error al imprimir el recibo. La factura se guardó localmente.');
+        }
     },
 
     // ============================================
