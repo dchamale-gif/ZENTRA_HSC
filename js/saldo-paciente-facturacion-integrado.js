@@ -153,6 +153,80 @@ const SaldoPacienteFacturacion = {
         }
     },
 
+    /**
+     * Refrescar saldo del paciente desde la API
+     */
+    async refrescarSaldoDelPaciente(paciente_id) {
+        try {
+            if (!paciente_id) {
+                console.warn('⚠️ No hay paciente_id para refrescar saldo');
+                return;
+            }
+
+            const token = authManager?.getToken?.();
+            const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
+
+            if (!token) {
+                console.debug('⚠️ No hay token para refrescar saldo');
+                return;
+            }
+
+            console.log('🔄 Refrescando saldo del paciente desde API...');
+            const response = await fetch(`${apiBase}/api/billing/saldo-paciente/${paciente_id}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                console.warn(`⚠️ No se pudo refrescar saldo: ${response.status}`);
+                return;
+            }
+
+            const result = await response.json();
+            if (result.success && result.data) {
+                // Actualizar el saldo en state
+                const pacienteIndex = this.state.saldos.findIndex(s => s.paciente_id === parseInt(paciente_id, 10));
+                if (pacienteIndex >= 0) {
+                    this.state.saldos[pacienteIndex] = result.data;
+                } else {
+                    this.state.saldos.push(result.data);
+                }
+
+                // Guardar en localStorage para consistencia
+                localStorage.setItem('saldosPacientes', JSON.stringify(this.state.saldos));
+
+                console.log('✅ Saldo refrescado:', result.data);
+
+                // Actualizar la UI si el paciente está seleccionado
+                if (this.state.paciente_seleccionado && 
+                    this.state.paciente_seleccionado.id === parseInt(paciente_id, 10)) {
+                    this.actualizarDisplaySaldo();
+                }
+            }
+        } catch (error) {
+            console.debug('⚠️ Error refrescando saldo:', error.message);
+        }
+    },
+
+    /**
+     * Actualizar display del saldo en la UI
+     */
+    actualizarDisplaySaldo() {
+        if (!this.state.paciente_seleccionado) return;
+
+        const paciente_id = this.state.paciente_seleccionado.id;
+        const saldo = this.state.saldos.find(s => s.paciente_id === paciente_id) || {
+            saldo_pendiente: 0,
+            total_deuda: 0
+        };
+
+        // Actualizar en el select o wherever se muestra
+        console.log(`💰 Saldo actualizado para paciente ${paciente_id}:`, saldo);
+    },
+
     // ============================================
     // FUNCIÓN DE TABS
     // ============================================
@@ -850,6 +924,8 @@ const SaldoPacienteFacturacion = {
                     alert('✅ Factura guardada: ' + result.data.numero_factura);
                     this.imprimirRecibo(result.data);
                     this.cancelarFactura();
+                    // Refrescar el saldo desde la API después de guardar
+                    await this.refrescarSaldoDelPaciente(this.state.paciente_seleccionado.id);
                     this.loadData();
                     return;
                 }
