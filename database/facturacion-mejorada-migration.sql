@@ -172,7 +172,7 @@ SELECT
         WHEN ps.saldo_pendiente > 0 THEN 'Deudor'
         ELSE 'Acreedor'
     END AS estado,
-    EXTRACT(DAY FROM CURRENT_DATE - DATE(ps.ultima_transaccion))::int AS dias_desde_transaccion
+    (CURRENT_DATE - DATE(ps.ultima_transaccion)) AS dias_desde_transaccion
 FROM pacientes_saldo ps
 LEFT JOIN pacientes p ON ps.paciente_id = p.id
 ORDER BY ps.saldo_pendiente DESC;
