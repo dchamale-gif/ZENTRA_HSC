@@ -98,7 +98,11 @@ const DataNormalizer = {
     denormalizePaciente(paciente) {
         if (!paciente) return null;
         
-        return {
+        // 🔍 DEBUG: Log dirección en la entrada
+        console.log('%c🔍 denormalizePaciente() recibe direccion:', 'color: purple;', 
+                   'INPUT:', JSON.stringify(paciente.direccion));
+        
+        const result = {
             id: paciente.id,
             nombre: paciente.nombre,
             apellido_paterno: paciente.apellidoPaterno,
@@ -126,6 +130,12 @@ const DataNormalizer = {
             foto: paciente.foto,
             notas: paciente.notas
         };
+        
+        // 🔍 DEBUG: Log dirección en la salida
+        console.log('%c🔍 denormalizePaciente() devuelve direccion:', 'color: purple;', 
+                   'OUTPUT:', JSON.stringify(result.direccion));
+        
+        return result;
     }
 };
 

@@ -609,6 +609,16 @@ const PacientesModule = {
                 notas: document.getElementById('pacientNotas').value.trim() || null
             };
 
+            // 🔍 DEBUG: Logging específico para DIRECCIÓN
+            console.log('%c🔍 DEBUG DIRECCIÓN', 'color: purple; font-weight: bold; font-size: 12px;');
+            const direccionElement = document.getElementById('pacientDireccion');
+            console.log('  - HTML element encontrado:', !!direccionElement);
+            if (direccionElement) {
+                console.log('  - Value bruto:', JSON.stringify(direccionElement.value));
+                console.log('  - Value trimmed:', JSON.stringify(direccionElement.value.trim()));
+                console.log('  - En pacientData:', JSON.stringify(pacientData.direccion));
+            }
+
             console.log('📦 Datos a guardar (camelCase):', JSON.stringify(pacientData, null, 2));
 
             // Convertir a snake_case para el backend
