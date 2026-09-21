@@ -599,6 +599,8 @@ const PacientesModule = {
                 telefono: document.getElementById('pacientTelefono').value.trim() || null,
                 email: document.getElementById('pacientEmail').value.trim() || null,
                 direccion: document.getElementById('pacientDireccion').value.trim() || null,
+                colonia: document.getElementById('pacientColonia').value.trim() || null,
+                nacionalidad: document.getElementById('pacientNacionalidad').value.trim() || null,
                 tipoServicio: document.getElementById('pacientTipoServicio').value || null,
                 clasificacion: document.getElementById('pacientClasificacion').value || null,
                 segmentoCOEX: document.getElementById('pacientCOEXSegmento').value || null,
@@ -780,6 +782,8 @@ const PacientesModule = {
             
             // Dirección
             fillField('pacientDireccion', pacient.direccion);
+            fillField('pacientColonia', pacient.colonia);
+            fillField('pacientNacionalidad', pacient.nacionalidad);
             fillField('colonia', pacient.colonia);
             
             // Contacto

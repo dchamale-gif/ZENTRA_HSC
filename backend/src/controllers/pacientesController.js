@@ -65,7 +65,7 @@ const createPaciente = async (req, res) => {
   try {
     const { nombre, apellido_paterno, apellido_materno, edad, fecha_nacimiento,
             genero, dpi, telefono, email, direccion, colonia, zona, 
-            municipio, departamento, estado_civil, profesion, ocupacion,
+            municipio, departamento, nacionalidad, estado_civil, profesion, ocupacion,
             clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas } = req.body;
 
     // Validar campos requeridos
@@ -99,14 +99,14 @@ const createPaciente = async (req, res) => {
       `INSERT INTO pacientes 
        (id, nombre, apellido_paterno, apellido_materno, edad, fecha_nacimiento,
         genero, dpi, telefono, email, direccion, colonia, zona, 
-        municipio, departamento, estado_civil, profesion, ocupacion, 
+        municipio, departamento, nacionalidad, estado_civil, profesion, ocupacion, 
         clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas, estado, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, 'activo', NOW(), NOW())
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, 'activo', NOW(), NOW())
        RETURNING *`,
       [paciente_id, nombre, apellido_paterno, apellido_materno || null, edadCalculada || null, 
        fecha_nacimiento || null, genero || null, dpi || null, telefono || null, 
        email || null, direccion || null, colonia || null, zona || null, 
-       municipio || null, departamento || null, estado_civil || null, 
+       municipio || null, departamento || null, nacionalidad || null, estado_civil || null, 
        profesion || null, ocupacion || null, clasificacion || null, segmento_coex || null,
        is_cliente || false, tipo_servicio || null, foto || null, notas || null]
     );
@@ -141,7 +141,7 @@ const updatePaciente = async (req, res) => {
     const { nombre, apellido_paterno, apellido_materno, edad, fecha_nacimiento,
             genero, dpi, telefono, email, direccion, colonia, zona, 
             municipio, departamento, estado_civil, profesion, ocupacion,
-            clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas } = req.body;
+            nacionalidad, clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas } = req.body;
 
     // Verificar que el paciente existe
     const existing = await pool.query('SELECT id FROM pacientes WHERE id = $1', [id]);
@@ -173,21 +173,22 @@ const updatePaciente = async (req, res) => {
            zona = COALESCE($13, zona),
            municipio = COALESCE($14, municipio),
            departamento = COALESCE($15, departamento),
-           estado_civil = COALESCE($16, estado_civil),
-           profesion = COALESCE($17, profesion),
-           ocupacion = COALESCE($18, ocupacion),
-           clasificacion = COALESCE($19, clasificacion),
-           segmento_coex = COALESCE($20, segmento_coex),
-           is_cliente = COALESCE($21, is_cliente),
-           tipo_servicio = COALESCE($22, tipo_servicio),
-           foto = COALESCE($23, foto),
-           notas = COALESCE($24, notas),
+           nacionalidad = COALESCE($16, nacionalidad),
+           estado_civil = COALESCE($17, estado_civil),
+           profesion = COALESCE($18, profesion),
+           ocupacion = COALESCE($19, ocupacion),
+           clasificacion = COALESCE($20, clasificacion),
+           segmento_coex = COALESCE($21, segmento_coex),
+           is_cliente = COALESCE($22, is_cliente),
+           tipo_servicio = COALESCE($23, tipo_servicio),
+           foto = COALESCE($24, foto),
+           notas = COALESCE($25, notas),
            updated_at = NOW()
        WHERE id = $1
        RETURNING *`,
       [id, nombre, apellido_paterno, apellido_materno, edadCalculada, 
        fecha_nacimiento, genero, dpi, telefono, email, direccion, colonia, 
-       zona, municipio, departamento, estado_civil, profesion, ocupacion, 
+       zona, municipio, departamento, nacionalidad, estado_civil, profesion, ocupacion, 
        clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas]
     );
 

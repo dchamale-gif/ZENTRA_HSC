@@ -114,6 +114,7 @@ const DataNormalizer = {
             zona: paciente.zona,
             municipio: paciente.municipio,
             departamento: paciente.departamento,
+            nacionalidad: paciente.nacionalidad,
             estado_civil: paciente.estadoCivil,
             profesion: paciente.profesion,
             ocupacion: paciente.ocupacion,
