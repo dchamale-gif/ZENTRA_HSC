@@ -605,6 +605,11 @@ const PacientesModule = {
                 municipio: document.getElementById('pacientMunicipio').value.trim() || null,
                 departamento: document.getElementById('pacientDepartamento').value.trim() || null,
                 nacionalidad: document.getElementById('pacientNacionalidad').value.trim() || null,
+                estadoCivil: document.getElementById('estadoCivil').value || null,
+                profesion: document.getElementById('profesion').value || null,
+                ocupacion: document.getElementById('ocupacion').value.trim() || null,
+                gradoAcademico: document.getElementById('gradoAcademico').value || null,
+                tieneHijos: document.getElementById('tieneHijos').value || null,
                 tipoServicio: document.getElementById('pacientTipoServicio').value || null,
                 clasificacion: document.getElementById('pacientClasificacion').value || null,
                 segmentoCOEX: document.getElementById('pacientCOEXSegmento').value || null,
@@ -801,6 +806,32 @@ const PacientesModule = {
             fillField('pacientZona', pacient.zona);
             fillField('pacientMunicipio', pacient.municipio);
             fillField('pacientDepartamento', pacient.departamento);
+            
+            // Información Personal
+            fillField('pacientNacionalidad', pacient.nacionalidad);
+            const tieneHijosSelect = document.getElementById('tieneHijos');
+            if (tieneHijosSelect) {
+                tieneHijosSelect.value = pacient.tieneHijos || '';
+                console.log(`✓ tieneHijos = ${pacient.tieneHijos || '(vacío)'}`);
+            }
+            const estadoCivilSelect = document.getElementById('estadoCivil');
+            if (estadoCivilSelect) {
+                estadoCivilSelect.value = pacient.estadoCivil || '';
+                console.log(`✓ estadoCivil = ${pacient.estadoCivil || '(vacío)'}`);
+            }
+            
+            // Información Laboral y Educativa
+            const profesionSelect = document.getElementById('profesion');
+            if (profesionSelect) {
+                profesionSelect.value = pacient.profesion || '';
+                console.log(`✓ profesion = ${pacient.profesion || '(vacío)'}`);
+            }
+            fillField('ocupacion', pacient.ocupacion);
+            const gradoAcademicoSelect = document.getElementById('gradoAcademico');
+            if (gradoAcademicoSelect) {
+                gradoAcademicoSelect.value = pacient.gradoAcademico || '';
+                console.log(`✓ gradoAcademico = ${pacient.gradoAcademico || '(vacío)'}`);
+            }
             
             // Contacto
             fillField('pacientTelefono', pacient.telefono);

@@ -130,6 +130,8 @@ const DataNormalizer = {
             estado_civil: paciente.estadoCivil,
             profesion: paciente.profesion,
             ocupacion: paciente.ocupacion,
+            grado_academico: paciente.gradoAcademico,
+            tiene_hijos: paciente.tieneHijos,
             estado: paciente.estado,
             is_cliente: paciente.isCliente,
             tipo_servicio: paciente.tipoServicio,
