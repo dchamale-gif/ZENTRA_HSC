@@ -884,33 +884,43 @@ const PacientesModule = {
             // Guardar documentos del paciente desde almacenamiento temporal
             if (Object.keys(this.documentosTemporales).length > 0) {
                 console.log('📸 Guardando documentos temporales...');
+                console.log('documentosTemporales:', this.documentosTemporales);
                 
                 for (const categoria in this.documentosTemporales) {
                     const docs = this.documentosTemporales[categoria];
                     
                     for (const doc of docs) {
                         try {
+                            const payload = {
+                                paciente_id: pacienteId,
+                                categoria: doc.categoria,
+                                nombre_archivo: doc.nombre_archivo,
+                                contenido: doc.contenido
+                            };
+                            
+                            console.log(`📤 ENVIANDO documento: ${doc.nombre_archivo}`);
+                            console.log('Payload:', JSON.stringify(payload, null, 2));
+                            
                             const response = await fetch(`${authManager.apiBaseUrl}/api/documentos-paciente`, {
                                 method: 'POST',
                                 headers: {
                                     'Authorization': `Bearer ${token}`,
                                     'Content-Type': 'application/json'
                                 },
-                                body: JSON.stringify({
-                                    paciente_id: pacienteId,
-                                    categoria: doc.categoria,
-                                    nombre_archivo: doc.nombre_archivo,
-                                    contenido: doc.contenido
-                                })
+                                body: JSON.stringify(payload)
                             });
+                            
+                            const responseText = await response.text();
+                            console.log(`📩 Respuesta del servidor (${response.status}):`, responseText);
                             
                             if (response.ok) {
                                 console.log(`✅ Documento ${doc.nombre_archivo} (${doc.categoria}) guardado`);
                             } else {
-                                console.warn(`⚠️ Error guardando documento ${doc.nombre_archivo}:`, response.status);
+                                console.error(`❌ Error guardando documento ${doc.nombre_archivo}: ${response.status}`);
+                                console.error('Respuesta:', responseText);
                             }
                         } catch (e) {
-                            console.warn(`⚠️ Error al guardar documento ${doc.nombre_archivo}:`, e);
+                            console.error(`❌ Error al guardar documento ${doc.nombre_archivo}:`, e);
                         }
                     }
                 }
