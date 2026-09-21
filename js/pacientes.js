@@ -593,6 +593,8 @@ const PacientesModule = {
                 nombre: document.getElementById('pacientNombre').value.trim(),
                 apellidoPaterno: document.getElementById('pacientApellidoPaterno').value.trim(),
                 apellidoMaterno: document.getElementById('pacientApellidoMaterno').value.trim() || null,
+                dpi: document.getElementById('pacientDPI').value.trim() || null,
+                documentoIdentificacion: document.getElementById('pacientDocumentoIdentificacion').value.trim() || null,
                 edad: document.getElementById('pacientEdad').value ? parseInt(document.getElementById('pacientEdad').value) : null,
                 genero: document.getElementById('pacientGenero').value || null,
                 fechaNacimiento: document.getElementById('pacientFechaNacimiento').value || null,
@@ -779,6 +781,8 @@ const PacientesModule = {
             fillField('pacientNombre', pacient.nombre);
             fillField('pacientApellidoPaterno', pacient.apellidoPaterno);
             fillField('pacientApellidoMaterno', pacient.apellidoMaterno);
+            fillField('pacientDPI', pacient.dpi);
+            fillField('pacientDocumentoIdentificacion', pacient.documentoIdentificacion);
             fillField('pacientEdad', pacient.edad);
             fillField('pacientFechaNacimiento', pacient.fechaNacimiento);
             fillField('pacientNacionalidad', pacient.nacionalidad);

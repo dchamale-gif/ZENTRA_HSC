@@ -7,7 +7,7 @@ const getPacientes = async (req, res) => {
     const result = await pool.query(
       `SELECT id, nombre, apellido_paterno, apellido_materno, edad, genero, 
               telefono, email, estado, created_at, updated_at,
-              dpi, tipo_servicio, clasificacion, segmento_coex, 
+              dpi, documento_identificacion, tipo_servicio, clasificacion, segmento_coex, 
               nacionalidad, grado_academico, estado_civil, profesion, ocupacion,
               fecha_nacimiento, foto, notas, direccion, colonia, zona, municipio, departamento,
               tiene_hijos, fecha_primer_consulta, motivo_consulta, referencia
@@ -38,7 +38,7 @@ const getPacienteById = async (req, res) => {
 
     const result = await pool.query(
       `SELECT id, nombre, apellido_paterno, apellido_materno, edad, 
-              fecha_nacimiento, genero, dpi, telefono, email, 
+              fecha_nacimiento, genero, dpi, documento_identificacion, telefono, email, 
               direccion, colonia, zona, municipio, departamento,
               estado_civil, profesion, ocupacion, nacionalidad, grado_academico,
               tipo_servicio, clasificacion, segmento_coex, foto, notas,
@@ -65,7 +65,7 @@ const getPacienteById = async (req, res) => {
 const createPaciente = async (req, res) => {
   try {
     const { nombre, apellido_paterno, apellido_materno, edad, fecha_nacimiento,
-            genero, dpi, telefono, email, direccion, colonia, zona, 
+            genero, dpi, documento_identificacion, telefono, email, direccion, colonia, zona, 
             municipio, departamento, nacionalidad, estado_civil, profesion, ocupacion,
             clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas } = req.body;
 
@@ -99,13 +99,13 @@ const createPaciente = async (req, res) => {
     const result = await pool.query(
       `INSERT INTO pacientes 
        (id, nombre, apellido_paterno, apellido_materno, edad, fecha_nacimiento,
-        genero, dpi, telefono, email, direccion, colonia, zona, 
+        genero, dpi, documento_identificacion, telefono, email, direccion, colonia, zona, 
         municipio, departamento, nacionalidad, estado_civil, profesion, ocupacion, 
         clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas, estado, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, 'activo', NOW(), NOW())
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, 'activo', NOW(), NOW())
        RETURNING *`,
       [paciente_id, nombre, apellido_paterno, apellido_materno || null, edadCalculada || null, 
-       fecha_nacimiento || null, genero || null, dpi || null, telefono || null, 
+       fecha_nacimiento || null, genero || null, dpi || null, documento_identificacion || null, telefono || null, 
        email || null, direccion || null, colonia || null, zona || null, 
        municipio || null, departamento || null, nacionalidad || null, estado_civil || null, 
        profesion || null, ocupacion || null, clasificacion || null, segmento_coex || null,
@@ -140,7 +140,7 @@ const updatePaciente = async (req, res) => {
   try {
     const { id } = req.params;
     const { nombre, apellido_paterno, apellido_materno, edad, fecha_nacimiento,
-            genero, dpi, telefono, email, direccion, colonia, zona, 
+            genero, dpi, documento_identificacion, telefono, email, direccion, colonia, zona, 
             municipio, departamento, estado_civil, profesion, ocupacion,
             nacionalidad, clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas } = req.body;
 
@@ -176,28 +176,29 @@ const updatePaciente = async (req, res) => {
            fecha_nacimiento = COALESCE($6, fecha_nacimiento),
            genero = COALESCE($7, genero),
            dpi = COALESCE($8, dpi),
-           telefono = COALESCE($9, telefono),
-           email = COALESCE($10, email),
-           direccion = COALESCE($11, direccion),
-           colonia = COALESCE($12, colonia),
-           zona = COALESCE($13, zona),
-           municipio = COALESCE($14, municipio),
-           departamento = COALESCE($15, departamento),
-           nacionalidad = COALESCE($16, nacionalidad),
-           estado_civil = COALESCE($17, estado_civil),
-           profesion = COALESCE($18, profesion),
-           ocupacion = COALESCE($19, ocupacion),
-           clasificacion = COALESCE($20, clasificacion),
-           segmento_coex = COALESCE($21, segmento_coex),
-           is_cliente = COALESCE($22, is_cliente),
-           tipo_servicio = COALESCE($23, tipo_servicio),
-           foto = COALESCE($24, foto),
-           notas = COALESCE($25, notas),
+           documento_identificacion = COALESCE($9, documento_identificacion),
+           telefono = COALESCE($10, telefono),
+           email = COALESCE($11, email),
+           direccion = COALESCE($12, direccion),
+           colonia = COALESCE($13, colonia),
+           zona = COALESCE($14, zona),
+           municipio = COALESCE($15, municipio),
+           departamento = COALESCE($16, departamento),
+           nacionalidad = COALESCE($17, nacionalidad),
+           estado_civil = COALESCE($18, estado_civil),
+           profesion = COALESCE($19, profesion),
+           ocupacion = COALESCE($20, ocupacion),
+           clasificacion = COALESCE($21, clasificacion),
+           segmento_coex = COALESCE($22, segmento_coex),
+           is_cliente = COALESCE($23, is_cliente),
+           tipo_servicio = COALESCE($24, tipo_servicio),
+           foto = COALESCE($25, foto),
+           notas = COALESCE($26, notas),
            updated_at = NOW()
        WHERE id = $1
        RETURNING *`,
       [id, nombre, apellido_paterno, apellido_materno, edadCalculada, 
-       fecha_nacimiento, genero, dpi, telefono, email, direccion, colonia, 
+       fecha_nacimiento, genero, dpi, documento_identificacion, telefono, email, direccion, colonia, 
        zona, municipio, departamento, nacionalidad, estado_civil, profesion, ocupacion, 
        clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas]
     );
