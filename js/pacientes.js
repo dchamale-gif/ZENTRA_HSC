@@ -1458,15 +1458,25 @@ const PacientesModule = {
         }
 
         // BÚSQUEDA - usar campos normalizados (camelCase)
+        // Ahora busca por palabras individuales (más flexible)
         if (this.searchTerm) {
-            filtered = filtered.filter(p =>
-                (p.nombre && p.nombre.toLowerCase().includes(this.searchTerm)) ||
-                (p.apellidoPaterno && p.apellidoPaterno.toLowerCase().includes(this.searchTerm)) ||
-                (p.apellidoMaterno && p.apellidoMaterno.toLowerCase().includes(this.searchTerm)) ||
-                (p.dpi && p.dpi.includes(this.searchTerm)) ||
-                (p.email && p.email.toLowerCase().includes(this.searchTerm)) ||
-                (p.telefono && p.telefono.includes(this.searchTerm))
-            );
+            // Dividir el término de búsqueda por espacios
+            const palabras = this.searchTerm.trim().split(/\s+/).filter(word => word.length > 0);
+            
+            filtered = filtered.filter(p => {
+                // Crear un texto combinado de todos los campos buscables
+                const textoCompleto = [
+                    p.nombre || '',
+                    p.apellidoPaterno || '',
+                    p.apellidoMaterno || '',
+                    p.dpi || '',
+                    p.email || '',
+                    p.telefono || ''
+                ].join(' ').toLowerCase();
+                
+                // TODAS las palabras buscadas deben estar en algún lugar del texto (AND lógico)
+                return palabras.every(palabra => textoCompleto.includes(palabra));
+            });
         }
 
         // ORDENAMIENTO
