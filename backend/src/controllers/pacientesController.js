@@ -102,7 +102,7 @@ const createPaciente = async (req, res) => {
         genero, dpi, telefono, email, direccion, colonia, zona, 
         municipio, departamento, nacionalidad, estado_civil, profesion, ocupacion, 
         clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas, estado, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, 'activo', NOW(), NOW())
+       VALUES ($1, $2, $3, $4, $5, CASE WHEN $6::text != '' THEN $6::date ELSE NULL END, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, 'activo', NOW(), NOW())
        RETURNING *`,
       [paciente_id, nombre, apellido_paterno, apellido_materno || null, edadCalculada || null, 
        fecha_nacimiento || null, genero || null, dpi || null, telefono || null, 
@@ -167,7 +167,7 @@ const updatePaciente = async (req, res) => {
            apellido_paterno = COALESCE($3, apellido_paterno),
            apellido_materno = COALESCE($4, apellido_materno),
            edad = COALESCE($5, edad),
-           fecha_nacimiento = COALESCE($6, fecha_nacimiento),
+           fecha_nacimiento = COALESCE(CASE WHEN $6::text != '' THEN $6::date ELSE NULL END, fecha_nacimiento),
            genero = COALESCE($7, genero),
            dpi = COALESCE($8, dpi),
            telefono = COALESCE($9, telefono),
