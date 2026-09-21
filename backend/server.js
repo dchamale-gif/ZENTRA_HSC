@@ -18,6 +18,11 @@ const expensesRoutes = require('./src/routes/expenses');
 const receivablesRoutes = require('./src/routes/receivables');
 const empresasRoutes = require('./src/routes/empresasRoutes');
 const contactosEmergenciaRoutes = require('./src/routes/contactosEmergenciaRoutes');
+const laboratoriosRoutes = require('./src/routes/laboratoriosRoutes');
+const ordenesRoutes = require('./src/routes/ordenesRoutes');
+const alertasRoutes = require('./src/routes/alertasRoutes');
+const datosFamiliaRoutes = require('./src/routes/datosFamiliaRoutes');
+const responsablesRoutes = require('./src/routes/responsablesRoutes');
 
 // Importar middleware
 const { auditMiddleware } = require('./src/middleware/audit');
@@ -103,6 +108,21 @@ app.use('/api/empresas', empresasRoutes);
 
 // Contactos de Emergencia
 app.use('/api/contactos-emergencia', contactosEmergenciaRoutes);
+
+// Historial Médico - Laboratorios
+app.use('/api/laboratorios', laboratoriosRoutes);
+
+// Historial Médico - Órdenes
+app.use('/api/ordenes', ordenesRoutes);
+
+// Historial Médico - Alertas
+app.use('/api/alertas', alertasRoutes);
+
+// Datos Familiares
+app.use('/api/datos-familia', datosFamiliaRoutes);
+
+// Responsables del Paciente
+app.use('/api/responsables', responsablesRoutes);
 
 // Reportes y Dashboards
 app.use('/api/reports', reportsRoutes);

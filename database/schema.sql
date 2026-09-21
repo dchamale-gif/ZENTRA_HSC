@@ -193,7 +193,7 @@ CREATE TABLE contactos_emergencia (
 
 -- Tabla de Historial Médico
 CREATE TABLE historial_medico (
-    id VARCHAR(50) PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     paciente_id VARCHAR(50) NOT NULL REFERENCES pacientes(id) ON DELETE CASCADE,
     padece_cronica BOOLEAN,
     especificacion_cronica TEXT,
@@ -212,14 +212,69 @@ CREATE TABLE historial_medico (
     edad_primera_menstruacion INTEGER,
     cantidad_gestas INTEGER,
     cantidad_partos INTEGER,
+    tuvo_embarazos BOOLEAN,
+    cantidad_embarazos_hist INTEGER,
+    dias_periodo_hist INTEGER,
     tratamiento_psiquiatrico BOOLEAN,
+    tipo_sustancia VARCHAR(255),
+    tiempo_consumo VARCHAR(100),
+    frecuencia_consumo VARCHAR(50),
+    via_administracion VARCHAR(100),
+    intentos_rehabilitacion INTEGER,
+    ultimo_tratamiento DATE,
+    motivacion_tratamiento TEXT,
+    comorbilidad BOOLEAN,
+    especificacion_comorbilidad TEXT,
+    antecedentes_legales BOOLEAN,
+    especificacion_legales TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Tabla de Laboratorios
+CREATE TABLE laboratorios (
+    id SERIAL PRIMARY KEY,
+    paciente_id VARCHAR(50) NOT NULL REFERENCES pacientes(id) ON DELETE CASCADE,
+    tipo VARCHAR(150) NOT NULL,
+    fecha DATE NOT NULL,
+    resultado TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabla de Órdenes
+CREATE TABLE ordenes (
+    id SERIAL PRIMARY KEY,
+    paciente_id VARCHAR(50) NOT NULL REFERENCES pacientes(id) ON DELETE CASCADE,
+    tipo VARCHAR(50) NOT NULL, -- 'ejercicio', 'alimentacion', 'medicamento', 'descanso', 'higiene', 'otro'
+    descripcion TEXT NOT NULL,
+    estado VARCHAR(50) DEFAULT 'pendiente', -- 'pendiente', 'en_progreso', 'completada'
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabla de Alertas
+CREATE TABLE alertas (
+    id SERIAL PRIMARY KEY,
+    paciente_id VARCHAR(50) NOT NULL REFERENCES pacientes(id) ON DELETE CASCADE,
+    tipo VARCHAR(50) NOT NULL, -- 'alergia', 'medicamento', 'riesgo', 'otro'
+    descripcion TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Índices para laboratorios
+CREATE INDEX idx_laboratorios_paciente ON laboratorios(paciente_id);
+
+-- Índices para órdenes
+CREATE INDEX idx_ordenes_paciente ON ordenes(paciente_id);
+
+-- Índices para alertas
+CREATE INDEX idx_alertas_paciente ON alertas(paciente_id);
+
 -- Tabla de Datos Familiares
 CREATE TABLE datos_familia (
-    id VARCHAR(50) PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     paciente_id VARCHAR(50) NOT NULL REFERENCES pacientes(id) ON DELETE CASCADE,
     
     -- Padre
@@ -254,7 +309,7 @@ CREATE TABLE datos_familia (
 
 -- Tabla de Responsable del Paciente
 CREATE TABLE responsables_paciente (
-    id VARCHAR(50) PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     paciente_id VARCHAR(50) NOT NULL REFERENCES pacientes(id) ON DELETE CASCADE,
     nombre VARCHAR(150) NOT NULL,
     relacion VARCHAR(100),
