@@ -1,5 +1,9 @@
 const pool = require('../db/connection');
-const { v4: uuidv4 } = require('uuid');
+
+// Generar ID único sin dependencias externas
+const generateId = () => {
+  return `DOC-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+};
 
 const documentosPacienteController = {
   // Obtener documentos del paciente por categoría
@@ -74,7 +78,7 @@ const documentosPacienteController = {
         console.log(`✅ Documento ${categoria} actualizado para paciente ${paciente_id}`);
       } else {
         // Crear nuevo documento
-        const docId = uuidv4();
+        const docId = generateId();
         result = await pool.query(
           `INSERT INTO documentos_paciente (id, paciente_id, categoria, nombre_archivo, contenido, created_at)
            VALUES ($1, $2, $3, $4, $5, NOW())
