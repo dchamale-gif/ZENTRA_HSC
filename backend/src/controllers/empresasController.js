@@ -27,7 +27,18 @@ const empresasController = {
     }
 
     try {
-      // Verificar si existe
+      // Verificar si el paciente existe
+      const pacienteCheck = await pool.query(
+        'SELECT id FROM pacientes WHERE id = $1',
+        [paciente_id]
+      );
+      
+      if (pacienteCheck.rows.length === 0) {
+        console.warn(`⚠️ Paciente ${paciente_id} no existe`);
+        return res.status(404).json({ error: 'Paciente no encontrado' });
+      }
+
+      // Verificar si existe empresa
       const check = await pool.query(
         'SELECT id FROM empresas WHERE paciente_id = $1',
         [paciente_id]
@@ -45,6 +56,7 @@ const empresasController = {
            RETURNING *`,
           [paciente_id, nombre || null, telefono || null, direccion || null]
         );
+        console.log(`✅ Empresa actualizada para paciente ${paciente_id}`);
         return res.json(result.rows[0]);
       } else {
         // Insertar
@@ -54,10 +66,12 @@ const empresasController = {
            RETURNING *`,
           [paciente_id, nombre || null, telefono || null, direccion || null]
         );
+        console.log(`✅ Empresa creada para paciente ${paciente_id}`);
         return res.status(201).json(result.rows[0]);
       }
     } catch (error) {
-      console.error('❌ Error save:', error);
+      console.error('❌ Error save:', error.message);
+      console.error('Stack:', error.stack);
       res.status(500).json({ error: error.message });
     }
   }
