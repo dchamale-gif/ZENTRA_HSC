@@ -280,6 +280,7 @@ const PacientesModule = {
             this.removePacientPhoto();
             
             // Limpiar documentos
+            this.documentosTemporales = {}; // Limpiar almacenamiento temporal
             document.getElementById('pacientDocCategory').value = '';
             const gallery = document.getElementById('pacientDocumentsGallery');
             if (gallery) {
@@ -292,6 +293,9 @@ const PacientesModule = {
                 filesContainer.innerHTML = '<p style="text-align: center; color: #999;">Guarda el paciente para cargar archivos</p>';
             }
         }
+        
+        // Configurar event listeners para documentos (cada vez que se abre el modal)
+        this.setupDocumentListeners();
         
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
@@ -877,46 +881,42 @@ const PacientesModule = {
                 }
             }
 
-            // Guardar documentos del paciente por categoría
-            const documentosCategorias = [
-                'DPI_Paciente',
-                'Pasaporte_Paciente',
-                'DPI_Responsable',
-                'Pasaporte_Responsable',
-                'Foto_Perfil_Responsable',
-                'Documentos_Medicos',
-                'Otros'
-            ];
-
-            for (const categoria of documentosCategorias) {
-                const inputId = `documento_${categoria}`;
-                const inputElement = document.getElementById(inputId);
+            // Guardar documentos del paciente desde almacenamiento temporal
+            if (Object.keys(this.documentosTemporales).length > 0) {
+                console.log('📸 Guardando documentos temporales...');
                 
-                if (inputElement && inputElement.value) {
-                    try {
-                        // Obtener nombre del archivo si está disponible
-                        const nombreInputId = `documentoNombre_${categoria}`;
-                        const nombreElement = document.getElementById(nombreInputId);
-                        const nombreArchivo = nombreElement?.value.trim() || categoria;
-
-                        await fetch(`${authManager.apiBaseUrl}/api/documentos-paciente`, {
-                            method: 'POST',
-                            headers: {
-                                'Authorization': `Bearer ${token}`,
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                paciente_id: pacienteId,
-                                categoria: categoria,
-                                nombre_archivo: nombreArchivo,
-                                contenido: inputElement.value
-                            })
-                        });
-                        console.log(`✅ Documento ${categoria} guardado`);
-                    } catch (e) {
-                        console.warn(`⚠️ Error al guardar documento ${categoria}:`, e);
+                for (const categoria in this.documentosTemporales) {
+                    const docs = this.documentosTemporales[categoria];
+                    
+                    for (const doc of docs) {
+                        try {
+                            const response = await fetch(`${authManager.apiBaseUrl}/api/documentos-paciente`, {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    paciente_id: pacienteId,
+                                    categoria: doc.categoria,
+                                    nombre_archivo: doc.nombre_archivo,
+                                    contenido: doc.contenido
+                                })
+                            });
+                            
+                            if (response.ok) {
+                                console.log(`✅ Documento ${doc.nombre_archivo} (${doc.categoria}) guardado`);
+                            } else {
+                                console.warn(`⚠️ Error guardando documento ${doc.nombre_archivo}:`, response.status);
+                            }
+                        } catch (e) {
+                            console.warn(`⚠️ Error al guardar documento ${doc.nombre_archivo}:`, e);
+                        }
                     }
                 }
+                
+                // Limpiar documentos temporales después de guardar
+                this.documentosTemporales = {};
             }
 
             // Cerrar modal y recargar datos
@@ -1263,33 +1263,31 @@ const PacientesModule = {
                 if (documentosResponse.ok) {
                     const documentos = await documentosResponse.json();
                     
-                    // Limpiar primero todos los campos de documento
-                    const categorias = ['DPI_Paciente', 'Pasaporte_Paciente', 'DPI_Responsable', 'Pasaporte_Responsable', 'Foto_Perfil_Responsable', 'Documentos_Medicos', 'Otros'];
-                    categorias.forEach(cat => {
-                        const inputId = `documento_${cat}`;
-                        const nombreId = `documentoNombre_${cat}`;
-                        const inputEl = document.getElementById(inputId);
-                        const nombreEl = document.getElementById(nombreId);
-                        if (inputEl) inputEl.value = '';
-                        if (nombreEl) nombreEl.value = '';
-                    });
+                    // Limpiar documentos temporales
+                    this.documentosTemporales = {};
                     
-                    // Cargar documentos existentes
-                    documentos.forEach(doc => {
-                        const inputId = `documento_${doc.categoria}`;
-                        const nombreId = `documentoNombre_${doc.categoria}`;
-                        const inputEl = document.getElementById(inputId);
-                        const nombreEl = document.getElementById(nombreId);
+                    // Cargar documentos en el almacenamiento temporal para mostrar en galería
+                    if (documentos && documentos.length > 0) {
+                        documentos.forEach(doc => {
+                            if (!this.documentosTemporales[doc.categoria]) {
+                                this.documentosTemporales[doc.categoria] = [];
+                            }
+                            this.documentosTemporales[doc.categoria].push(doc);
+                        });
                         
-                        if (inputEl) inputEl.value = doc.contenido;
-                        if (nombreEl) nombreEl.value = doc.nombre_archivo || doc.categoria;
-                        
-                        console.log(`✅ Documento ${doc.categoria} cargado`);
-                    });
+                        // Mostrar en galería
+                        this.renderDocumentGallery();
+                        console.log(`✅ ${documentos.length} documentos cargados`);
+                    }
                     
                     console.log('✅ Documentos del paciente cargados');
                 } else if (documentosResponse.status === 404) {
                     console.log('ℹ️ Sin documentos registrados');
+                    this.documentosTemporales = {};
+                    const gallery = document.getElementById('pacientDocumentsGallery');
+                    if (gallery) {
+                        gallery.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #999;">No hay documentos cargados</p>';
+                    }
                 }
             } catch (e) {
                 console.warn('⚠️ Error cargando documentos (no crítico):', e.message);
@@ -1445,6 +1443,169 @@ const PacientesModule = {
         // Actualizar el campo de edad
         document.getElementById('pacientEdad').value = age;
         console.log(`✅ Edad calculada automáticamente: ${age} años`);
+    },
+
+    // ========================================
+    // FUNCIONES PARA CARGAR DOCUMENTOS
+    // ========================================
+
+    /**
+     * Dispara el diálogo de carga de archivos
+     */
+    triggerDocumentUpload() {
+        const fileInput = document.getElementById('pacientDocFileInput');
+        if (fileInput) {
+            fileInput.click();
+        }
+    },
+
+    /**
+     * Convierte un archivo a Base64
+     */
+    async fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    },
+
+    /**
+     * Maneja archivos cargados (tanto desde input como drag&drop)
+     */
+    async handleDocumentFiles(files) {
+        const fileInput = document.getElementById('pacientDocFileInput');
+        const categorySelect = document.getElementById('pacientDocCategory');
+        const gallery = document.getElementById('pacientDocumentsGallery');
+
+        if (!categorySelect.value) {
+            this.showNotification('⚠️ Por favor selecciona una categoría antes de cargar', 'warning');
+            return;
+        }
+
+        const categoria = categorySelect.value;
+        
+        for (const file of files) {
+            if (!file.type.startsWith('image/')) {
+                console.warn(`⚠️ Archivo ${file.name} no es una imagen, se ignora`);
+                continue;
+            }
+
+            try {
+                console.log(`📸 Procesando archivo: ${file.name} (${file.size} bytes)`);
+                const base64 = await this.fileToBase64(file);
+                
+                // Almacenar documento temporal
+                if (!this.documentosTemporales[categoria]) {
+                    this.documentosTemporales[categoria] = [];
+                }
+                
+                this.documentosTemporales[categoria].push({
+                    nombre_archivo: file.name,
+                    contenido: base64,
+                    categoria: categoria,
+                    timestamp: new Date().toISOString()
+                });
+
+                console.log(`✅ Documento ${file.name} agregado a temporales`);
+                
+                // Mostrar en galería
+                this.renderDocumentGallery();
+            } catch (error) {
+                console.error(`❌ Error procesando ${file.name}:`, error);
+                this.showNotification(`❌ Error cargando ${file.name}`, 'error');
+            }
+        }
+
+        // Limpiar input file
+        fileInput.value = '';
+    },
+
+    /**
+     * Renderiza la galería de documentos temporales
+     */
+    renderDocumentGallery() {
+        const gallery = document.getElementById('pacientDocumentsGallery');
+        if (!gallery) return;
+
+        const documentos = [];
+        for (const categoria in this.documentosTemporales) {
+            const docs = this.documentosTemporales[categoria];
+            documentos.push(...docs.map(doc => ({ ...doc, categoria })));
+        }
+
+        if (documentos.length === 0) {
+            gallery.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #999;">No hay documentos cargados</p>';
+            return;
+        }
+
+        gallery.innerHTML = documentos.map((doc, idx) => `
+            <div style="position: relative; text-align: center;">
+                <img src="${doc.contenido}" alt="${doc.nombre_archivo}" 
+                     style="width: 100%; height: 150px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd;">
+                <div style="margin-top: 5px; font-size: 11px; color: #666;">
+                    ${doc.nombre_archivo.substring(0, 20)}...
+                </div>
+                <div style="margin-top: 5px; font-size: 10px; color: #3498db;">${doc.categoria}</div>
+                <button type="button" style="position: absolute; top: 5px; right: 5px; background: #e74c3c; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-weight: bold; line-height: 1;"
+                    onclick="PacientesModule.removeDocumentFromGallery('${doc.categoria}', ${idx})">×</button>
+            </div>
+        `).join('');
+    },
+
+    /**
+     * Elimina un documento de la galería temporal
+     */
+    removeDocumentFromGallery(categoria, index) {
+        if (this.documentosTemporales[categoria]) {
+            this.documentosTemporales[categoria].splice(index, 1);
+            if (this.documentosTemporales[categoria].length === 0) {
+                delete this.documentosTemporales[categoria];
+            }
+            this.renderDocumentGallery();
+            console.log(`✅ Documento eliminado de temporales`);
+        }
+    },
+
+    /**
+     * Configura event listeners para drag & drop
+     */
+    setupDocumentListeners() {
+        const dragZone = document.getElementById('pacientDocDragZone');
+        const fileInput = document.getElementById('pacientDocFileInput');
+
+        if (!dragZone || !fileInput) return;
+
+        // Eventos drag & drop
+        dragZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dragZone.style.background = '#e8f4f8';
+            dragZone.style.borderColor = '#2980b9';
+        });
+
+        dragZone.addEventListener('dragleave', () => {
+            dragZone.style.background = '#f5f5f5';
+            dragZone.style.borderColor = '#3498db';
+        });
+
+        dragZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dragZone.style.background = '#f5f5f5';
+            dragZone.style.borderColor = '#3498db';
+            
+            const files = e.dataTransfer.files;
+            this.handleDocumentFiles(files);
+        });
+
+        dragZone.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // Evento change del input file
+        fileInput.addEventListener('change', (e) => {
+            this.handleDocumentFiles(e.target.files);
+        });
     },
 
     // Validar formulario - Versión antigua (se mantiene para compatibilidad)
