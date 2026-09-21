@@ -771,7 +771,7 @@ const PacientesModule = {
             fillField('pacientApellidoMaterno', pacient.apellidoMaterno);
             fillField('pacientEdad', pacient.edad);
             fillField('pacientFechaNacimiento', pacient.fechaNacimiento);
-            fillField('nacionalidad', pacient.nacionalidad);
+            fillField('pacientNacionalidad', pacient.nacionalidad);
             
             // Género
             const generoSelect = document.getElementById('pacientGenero');
@@ -783,8 +783,6 @@ const PacientesModule = {
             // Dirección
             fillField('pacientDireccion', pacient.direccion);
             fillField('pacientColonia', pacient.colonia);
-            fillField('pacientNacionalidad', pacient.nacionalidad);
-            fillField('colonia', pacient.colonia);
             
             // Contacto
             fillField('pacientTelefono', pacient.telefono);
@@ -802,6 +800,13 @@ const PacientesModule = {
             if (clasificacionSelect) {
                 clasificacionSelect.value = pacient.clasificacion || '';
                 console.log(`✓ pacientClasificacion = ${pacient.clasificacion || '(vacío)'}`);
+            }
+            
+            // Segmento COEX
+            const coexSelect = document.getElementById('pacientCOEXSegmento');
+            if (coexSelect) {
+                coexSelect.value = pacient.segmentoCOEX || '';
+                console.log(`✓ pacientCOEXSegmento = ${pacient.segmentoCOEX || '(vacío)'}`);
             }
             
             // Foto
