@@ -138,34 +138,19 @@ const createPaciente = async (req, res) => {
 // ACTUALIZAR paciente
 const updatePaciente = async (req, res) => {
   try {
-    console.log('\n⏰ [' + new Date().toISOString() + '] 🔴 INICIO updatePaciente()');
-    
     const { id } = req.params;
-    console.log('✓ ID recibido:', id);
-    
     const { nombre, apellido_paterno, apellido_materno, edad, fecha_nacimiento,
             genero, dpi, documento_identificacion, telefono, email, direccion, colonia, zona, 
             municipio, departamento, estado_civil, profesion, ocupacion,
             nacionalidad, clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas } = req.body;
 
-    console.log('✓ Parámetros extraídos del body');
-    console.log('\n🔍 DEBUG updatePaciente()');
-    console.log('  ID:', id);
-    console.log('  nombre:', nombre);
-    console.log('  apellido_paterno:', apellido_paterno);
-    console.log('  Dirección recibida:', JSON.stringify(direccion));
-    console.log('  Body completo:', JSON.stringify(req.body, null, 2));
+    console.log('\n✅ updatePaciente() iniciado para ID:', id);
 
     // Verificar que el paciente existe
-    console.log('\n⏳ Verificando que paciente existe...');
     const existing = await pool.query('SELECT id FROM pacientes WHERE id = $1', [id]);
-    console.log('✓ Query verificación completada, rows:', existing.rows.length);
-    
     if (existing.rows.length === 0) {
-      console.error('❌ Paciente NO encontrado con id:', id);
       return res.status(404).json({ error: 'Paciente no encontrado' });
     }
-    console.log('✓ Paciente existe');
 
     // Calcular edad si se proporciona fecha_nacimiento
     let edadCalculada = edad;
@@ -175,16 +160,6 @@ const updatePaciente = async (req, res) => {
       edadCalculada = Math.floor((today - birthDate) / (365.25 * 24 * 60 * 60 * 1000));
     }
 
-    console.log('  Parámetros SQL:');
-    console.log('    $1 (id):', id);
-    console.log('    $2 (nombre):', nombre);
-    console.log('    $3 (apellido_paterno):', apellido_paterno);
-    console.log('    $11 (email):', email);
-    console.log('    $12 (direccion):', direccion);
-
-    console.log('\n⏳ Iniciando UPDATE...');
-    const startTime = Date.now();
-    
     const result = await pool.query(
       `UPDATE pacientes 
        SET nombre = COALESCE($2, nombre),
@@ -221,19 +196,11 @@ const updatePaciente = async (req, res) => {
        clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas]
     );
 
-    const duration = Date.now() - startTime;
-    console.log(`✅ UPDATE completado en ${duration}ms`);
-    console.log('  Filas afectadas:', result.rows.length);
-    if (result.rows.length > 0) {
-      console.log('  Dirección en respuesta:', JSON.stringify(result.rows[0].direccion));
-    }
-
-    console.log('\n✅ Preparando respuesta...');
+    console.log('✅ Paciente actualizado:', id);
     res.status(200).json({
       message: 'Paciente actualizado exitosamente',
       paciente: result.rows[0]
     });
-    console.log('✅ COMPLETADO exitosamente\n');
   } catch (error) {
     console.error('Error en updatePaciente:', {
       message: error.message,
