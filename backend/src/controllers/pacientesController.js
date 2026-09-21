@@ -9,7 +9,8 @@ const getPacientes = async (req, res) => {
               telefono, email, estado, created_at, updated_at,
               dpi, tipo_servicio, clasificacion, segmento_coex, 
               nacionalidad, grado_academico, estado_civil, profesion, ocupacion,
-              fecha_nacimiento, foto, notas, direccion, colonia
+              fecha_nacimiento, foto, notas, direccion, colonia, zona, municipio, departamento,
+              tiene_hijos, fecha_primer_consulta, motivo_consulta, referencia
        FROM pacientes 
        WHERE estado = 'activo'
        ORDER BY apellido_paterno, nombre`
