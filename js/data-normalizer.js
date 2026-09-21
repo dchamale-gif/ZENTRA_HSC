@@ -11,6 +11,14 @@ const DataNormalizer = {
     // Convertir objeto con claves snake_case a camelCase
     normalizePaciente(paciente) {
         if (!paciente) return null;
+
+        // Helper para convertir fechas a formato YYYY-MM-DD para input type="date"
+        const formatDateForInput = (dateValue) => {
+            if (!dateValue) return '';
+            const date = new Date(dateValue);
+            if (isNaN(date.getTime())) return '';
+            return date.toISOString().split('T')[0];
+        };
         
         const normalized = {
             // Datos básicos
@@ -19,7 +27,7 @@ const DataNormalizer = {
             apellidoPaterno: paciente.apellido_paterno,
             apellidoMaterno: paciente.apellido_materno,
             edad: paciente.edad,
-            fechaNacimiento: paciente.fecha_nacimiento,
+            fechaNacimiento: formatDateForInput(paciente.fecha_nacimiento),
             genero: paciente.genero,
             dpi: paciente.dpi,
             pasaporte: paciente.pasaporte,
