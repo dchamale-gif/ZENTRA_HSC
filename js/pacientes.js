@@ -721,6 +721,14 @@ const PacientesModule = {
 
             // Guardar datos de empresa
             const pacienteId = result.id || id;
+            console.log('🆔 pacienteId para guardar documentos:', pacienteId);
+            console.log('🆔 result.id:', result.id);
+            console.log('🆔 id (original):', id);
+            
+            if (!pacienteId) {
+                console.error('❌ CRÍTICO: pacienteId está vacío. No se pueden guardar documentos.');
+            }
+            
             const empresaNombre = document.getElementById('empresaNombre')?.value.trim();
             const empresaTelefono = document.getElementById('empresaTelefono')?.value.trim();
             const empresaDireccion = document.getElementById('empresaDireccion')?.value.trim();
