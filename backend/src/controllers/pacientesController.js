@@ -142,8 +142,8 @@ const updatePaciente = async (req, res) => {
   try {
     const { nombre, apellido_paterno, apellido_materno, edad, fecha_nacimiento,
             genero, dpi, telefono, email, direccion, colonia, zona, 
-            municipio, departamento, estado_civil, profesion, ocupacion,
-            nacionalidad, clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas } = req.body;
+            municipio, departamento, nacionalidad, estado_civil, profesion, ocupacion, grado_academico, tiene_hijos,
+            clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas } = req.body;
 
     console.log('\n✅ updatePaciente() iniciado para ID:', id);
 
