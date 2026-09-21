@@ -951,6 +951,48 @@ const PacientesModule = {
         try {
             console.log('🔧 Llenando formulario con datos...');
             
+            // 🧹 LIMPIAR todos los campos relacionados PRIMERO
+            // Esto asegura que si no hay datos para este paciente, quedan vacíos
+            console.log('🧹 Limpiando campos de datos relacionados...');
+            
+            // Limpiar empresa
+            fillField('empresaNombre', null);
+            fillField('empresaTelefono', null);
+            fillField('empresaDireccion', null);
+            
+            // Limpiar contactos de emergencia
+            fillField('emergenciaNombre', null);
+            fillField('emergenciaTelefono', null);
+            fillField('emergenciaParentesco', null);
+            fillField('emergenciaDireccion', null);
+            fillField('emergenciaNombre2', null);
+            fillField('emergenciaTelefono2', null);
+            fillField('emergenciaParentesco2', null);
+            fillField('emergenciaDireccion2', null);
+            
+            // Limpiar datos familiares
+            fillField('padreNombre', null);
+            fillField('padreTelefono', null);
+            fillField('padreOcupacion', null);
+            fillField('madreNombre', null);
+            fillField('madreTelefono', null);
+            fillField('madreOcupacion', null);
+            fillField('parejaNombre', null);
+            fillField('parejaTelefono', null);
+            fillField('parejaOcupacion', null);
+            fillField('hermanosNumero', null);
+            fillField('hermanosObservaciones', null);
+            fillField('hijosNumero', null);
+            fillField('hijosObservaciones', null);
+            
+            // Limpiar responsable
+            fillField('responsableNombre', null);
+            fillField('responsableRelacion', null);
+            fillField('responsableTelefono', null);
+            fillField('responsableEmail', null);
+            
+            console.log('✅ Campos relacionados limpiados');
+            
             // ID oculto
             document.getElementById('pacientId').value = pacient.id;
             
