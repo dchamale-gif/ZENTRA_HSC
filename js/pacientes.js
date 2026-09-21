@@ -715,70 +715,6 @@ const PacientesModule = {
             localStorage.setItem('pacientes', JSON.stringify(this.state.pacientes));
             console.log('💾 Datos guardados en localStorage');
 
-            // Guardar datos relacionados (Empresa y Responsable)
-            const pacienteId = result.id || id;
-            console.log('📌 Guardando datos relacionados para paciente:', pacienteId);
-            
-            try {
-                // Guardar Empresa
-                const empresaNombre = document.getElementById('empresaNombre')?.value.trim();
-                const empresaTelefono = document.getElementById('empresaTelefono')?.value.trim();
-                const empresaDireccion = document.getElementById('empresaDireccion')?.value.trim();
-                
-                if (empresaNombre || empresaTelefono || empresaDireccion) {
-                    console.log('📦 Guardando empresa...');
-                    const empresaResponse = await fetch(`${authManager.apiBaseUrl}/api/empresas`, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            paciente_id: pacienteId,
-                            nombre: empresaNombre || null,
-                            telefono: empresaTelefono || null,
-                            direccion: empresaDireccion || null
-                        })
-                    });
-                    if (empresaResponse.ok) {
-                        console.log('✅ Empresa guardada');
-                    } else {
-                        console.warn('⚠️ No se pudo guardar empresa:', empresaResponse.status);
-                    }
-                }
-
-                // Guardar Responsable
-                const responsableNombre = document.getElementById('responsableNombre')?.value.trim();
-                const responsableRelacion = document.getElementById('responsableRelacion')?.value;
-                const responsableTelefono = document.getElementById('responsableTelefono')?.value.trim();
-                const responsableEmail = document.getElementById('responsableEmail')?.value.trim();
-                
-                if (responsableNombre || responsableTelefono || responsableEmail) {
-                    console.log('📦 Guardando responsable...');
-                    const responsableResponse = await fetch(`${authManager.apiBaseUrl}/api/responsables`, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            paciente_id: pacienteId,
-                            nombre: responsableNombre || null,
-                            relacion: responsableRelacion || null,
-                            telefono: responsableTelefono || null,
-                            email: responsableEmail || null
-                        })
-                    });
-                    if (responsableResponse.ok) {
-                        console.log('✅ Responsable guardado');
-                    } else {
-                        console.warn('⚠️ No se pudo guardar responsable:', responsableResponse.status);
-                    }
-                }
-            } catch (relatedError) {
-                console.warn('⚠️ Error al guardar datos relacionados (no crítico):', relatedError);
-            }
-
             // Cerrar modal y recargar datos
             this.closePacientModal();
             await this.loadData(); // Recargar desde BD
@@ -971,50 +907,6 @@ const PacientesModule = {
             
             // Notas
             fillField('pacientNotas', pacient.notas);
-            
-            // Cargar datos relacionados (Empresa y Responsable)
-            console.log('📡 Cargando datos relacionados...');
-            try {
-                const token = authManager.getToken();
-                
-                // Cargar Empresa
-                try {
-                    const empresaResponse = await fetch(`${authManager.apiBaseUrl}/api/empresas/${pacient.id}`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    if (empresaResponse.ok) {
-                        const empresa = await empresaResponse.json();
-                        fillField('empresaNombre', empresa.nombre);
-                        fillField('empresaTelefono', empresa.telefono);
-                        fillField('empresaDireccion', empresa.direccion);
-                        console.log('✅ Datos de empresa cargados');
-                    }
-                } catch (e) {
-                    console.warn('⚠️ No se pudo cargar empresa:', e);
-                }
-                
-                // Cargar Responsable
-                try {
-                    const responsableResponse = await fetch(`${authManager.apiBaseUrl}/api/responsables/${pacient.id}`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    if (responsableResponse.ok) {
-                        const responsable = await responsableResponse.json();
-                        fillField('responsableNombre', responsable.nombre);
-                        const responsableRelacionSelect = document.getElementById('responsableRelacion');
-                        if (responsableRelacionSelect) {
-                            responsableRelacionSelect.value = responsable.relacion || '';
-                        }
-                        fillField('responsableTelefono', responsable.telefono);
-                        fillField('responsableEmail', responsable.email);
-                        console.log('✅ Datos de responsable cargados');
-                    }
-                } catch (e) {
-                    console.warn('⚠️ No se pudo cargar responsable:', e);
-                }
-            } catch (relatedError) {
-                console.warn('⚠️ Error cargando datos relacionados (no crítico):', relatedError);
-            }
             
             console.log('✅ TODOS LOS CAMPOS LLENADOS CORRECTAMENTE');
         } catch(error) {
