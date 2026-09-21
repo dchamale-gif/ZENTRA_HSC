@@ -742,6 +742,65 @@ const PacientesModule = {
                 }
             }
 
+            // Guardar datos de contactos de emergencia
+            const emergenciaNombre = document.getElementById('emergenciaNombre')?.value.trim();
+            const emergenciaTelefono = document.getElementById('emergenciaTelefono')?.value.trim();
+            const emergenciaParentesco = document.getElementById('emergenciaParentesco')?.value.trim();
+            const emergenciaDireccion = document.getElementById('emergenciaDireccion')?.value.trim();
+            
+            // Contacto principal
+            if (emergenciaNombre || emergenciaTelefono || emergenciaParentesco || emergenciaDireccion) {
+                try {
+                    await fetch(`${authManager.apiBaseUrl}/api/contactos-emergencia`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            paciente_id: pacienteId,
+                            nombre: emergenciaNombre || null,
+                            telefono: emergenciaTelefono || null,
+                            parentesco: emergenciaParentesco || null,
+                            direccion: emergenciaDireccion || null,
+                            tipo: 'principal'
+                        })
+                    });
+                    console.log('✅ Contacto de emergencia principal guardado');
+                } catch (e) {
+                    console.warn('⚠️ Error al guardar contacto emergencia principal:', e);
+                }
+            }
+
+            // Contacto secundario
+            const emergenciaNombre2 = document.getElementById('emergenciaNombre2')?.value.trim();
+            const emergenciaTelefono2 = document.getElementById('emergenciaTelefono2')?.value.trim();
+            const emergenciaParentesco2 = document.getElementById('emergenciaParentesco2')?.value.trim();
+            const emergenciaDireccion2 = document.getElementById('emergenciaDireccion2')?.value.trim();
+            
+            if (emergenciaNombre2 || emergenciaTelefono2 || emergenciaParentesco2 || emergenciaDireccion2) {
+                try {
+                    await fetch(`${authManager.apiBaseUrl}/api/contactos-emergencia`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            paciente_id: pacienteId,
+                            nombre: emergenciaNombre2 || null,
+                            telefono: emergenciaTelefono2 || null,
+                            parentesco: emergenciaParentesco2 || null,
+                            direccion: emergenciaDireccion2 || null,
+                            tipo: 'secundario'
+                        })
+                    });
+                    console.log('✅ Contacto de emergencia secundario guardado');
+                } catch (e) {
+                    console.warn('⚠️ Error al guardar contacto emergencia secundario:', e);
+                }
+            }
+
             // Cerrar modal y recargar datos
             this.closePacientModal();
             await this.loadData(); // Recargar desde BD
@@ -953,6 +1012,37 @@ const PacientesModule = {
                 }
             } catch (e) {
                 console.warn('⚠️ Error cargando empresa (no crítico):', e.message);
+            }
+
+            // Cargar datos de contactos de emergencia
+            try {
+                const token = authManager.getToken();
+                const contactosResponse = await fetch(`${authManager.apiBaseUrl}/api/contactos-emergencia/${pacient.id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (contactosResponse.ok) {
+                    const contactos = await contactosResponse.json();
+                    // Asumir que el array tiene máximo 2 elementos (principal y secundario)
+                    contactos.forEach(contacto => {
+                        if (contacto.tipo === 'principal') {
+                            fillField('emergenciaNombre', contacto.nombre);
+                            fillField('emergenciaTelefono', contacto.telefono);
+                            fillField('emergenciaParentesco', contacto.parentesco);
+                            fillField('emergenciaDireccion', contacto.direccion);
+                        } else if (contacto.tipo === 'secundario') {
+                            fillField('emergenciaNombre2', contacto.nombre);
+                            fillField('emergenciaTelefono2', contacto.telefono);
+                            fillField('emergenciaParentesco2', contacto.parentesco);
+                            fillField('emergenciaDireccion2', contacto.direccion);
+                        }
+                    });
+                    console.log('✅ Contactos de emergencia cargados');
+                } else if (contactosResponse.status === 404) {
+                    // No hay contactos de emergencia registrados, es normal
+                    console.log('ℹ️ Sin contactos de emergencia registrados');
+                }
+            } catch (e) {
+                console.warn('⚠️ Error cargando contactos de emergencia (no crítico):', e.message);
             }
             
             console.log('✅ TODOS LOS CAMPOS LLENADOS CORRECTAMENTE');

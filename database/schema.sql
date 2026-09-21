@@ -180,11 +180,13 @@ CREATE TABLE empresas (
 
 -- Tabla de Contacto de Emergencia
 CREATE TABLE contactos_emergencia (
-    id VARCHAR(50) PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     paciente_id VARCHAR(50) NOT NULL REFERENCES pacientes(id) ON DELETE CASCADE,
-    nombre VARCHAR(150) NOT NULL,
+    nombre VARCHAR(150),
     telefono VARCHAR(20),
     parentesco VARCHAR(50),
+    direccion VARCHAR(255),
+    tipo VARCHAR(20) DEFAULT 'principal', -- 'principal' o 'secundario'
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
