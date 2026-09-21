@@ -16,6 +16,7 @@ const doctorsRoutes = require('./src/routes/doctors');
 const appointmentsRoutes = require('./src/routes/appointments');
 const expensesRoutes = require('./src/routes/expenses');
 const receivablesRoutes = require('./src/routes/receivables');
+const empresasRoutes = require('./src/routes/empresasRoutes');
 
 // Importar middleware
 const { auditMiddleware } = require('./src/middleware/audit');
@@ -95,6 +96,9 @@ app.use('/api/expenses', expensesRoutes);
 
 // Cuentas por cobrar
 app.use('/api/receivables', receivablesRoutes);
+
+// Lugar de Trabajo
+app.use('/api/empresas', empresasRoutes);
 
 // 
 // Reportes y Dashboards

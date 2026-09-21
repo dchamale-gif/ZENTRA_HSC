@@ -715,6 +715,33 @@ const PacientesModule = {
             localStorage.setItem('pacientes', JSON.stringify(this.state.pacientes));
             console.log('💾 Datos guardados en localStorage');
 
+            // Guardar datos de empresa
+            const pacienteId = result.id || id;
+            const empresaNombre = document.getElementById('empresaNombre')?.value.trim();
+            const empresaTelefono = document.getElementById('empresaTelefono')?.value.trim();
+            const empresaDireccion = document.getElementById('empresaDireccion')?.value.trim();
+            
+            if (empresaNombre || empresaTelefono || empresaDireccion) {
+                try {
+                    await fetch(`${authManager.apiBaseUrl}/api/empresas`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            paciente_id: pacienteId,
+                            nombre: empresaNombre || null,
+                            telefono: empresaTelefono || null,
+                            direccion: empresaDireccion || null
+                        })
+                    });
+                    console.log('✅ Empresa guardada');
+                } catch (e) {
+                    console.warn('⚠️ Error al guardar empresa:', e);
+                }
+            }
+
             // Cerrar modal y recargar datos
             this.closePacientModal();
             await this.loadData(); // Recargar desde BD
@@ -907,6 +934,23 @@ const PacientesModule = {
             
             // Notas
             fillField('pacientNotas', pacient.notas);
+            
+            // Cargar datos de empresa
+            try {
+                const token = authManager.getToken();
+                const empresaResponse = await fetch(`${authManager.apiBaseUrl}/api/empresas/${pacient.id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (empresaResponse.ok) {
+                    const empresa = await empresaResponse.json();
+                    fillField('empresaNombre', empresa.nombre);
+                    fillField('empresaTelefono', empresa.telefono);
+                    fillField('empresaDireccion', empresa.direccion);
+                    console.log('✅ Datos de empresa cargados');
+                }
+            } catch (e) {
+                console.warn('⚠️ No se pudo cargar empresa:', e);
+            }
             
             console.log('✅ TODOS LOS CAMPOS LLENADOS CORRECTAMENTE');
         } catch(error) {
