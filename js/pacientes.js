@@ -618,6 +618,9 @@ const PacientesModule = {
                 tipoServicio: document.getElementById('pacientTipoServicio').value || null,
                 clasificacion: document.getElementById('pacientClasificacion').value || null,
                 segmentoCOEX: document.getElementById('pacientCOEXSegmento').value || null,
+                fechaPrimerConsulta: document.getElementById('fechaPrimerConsulta').value || null,
+                motivoConsulta: document.getElementById('motivoConsulta').value.trim() || null,
+                referencia: document.getElementById('referencia').value || null,
                 foto: document.getElementById('pacientFoto').value || null,
                 isCliente: document.getElementById('pacientIsCliente').checked || false,
                 notas: document.getElementById('pacientNotas').value.trim() || null
@@ -843,6 +846,15 @@ const PacientesModule = {
             if (gradoAcademicoSelect) {
                 gradoAcademicoSelect.value = pacient.gradoAcademico || '';
                 console.log(`✓ gradoAcademico = ${pacient.gradoAcademico || '(vacío)'}`);
+            }
+            
+            // Datos de Consulta
+            fillField('fechaPrimerConsulta', pacient.fechaPrimerConsulta);
+            fillField('motivoConsulta', pacient.motivoConsulta);
+            const referenciaSelect = document.getElementById('referencia');
+            if (referenciaSelect) {
+                referenciaSelect.value = pacient.referencia || '';
+                console.log(`✓ referencia = ${pacient.referencia || '(vacío)'}`);
             }
             
             // Contacto

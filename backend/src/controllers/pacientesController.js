@@ -10,7 +10,7 @@ const getPacientes = async (req, res) => {
               dpi, tipo_servicio, clasificacion, segmento_coex, 
               nacionalidad, grado_academico, estado_civil, profesion, ocupacion, tiene_hijos,
               fecha_nacimiento, foto, notas, direccion, colonia, zona, municipio, departamento,
-              is_cliente, fecha_registro
+              is_cliente, fecha_registro, fecha_primer_consulta, motivo_consulta, referencia
        FROM pacientes 
        WHERE estado = 'activo'
        ORDER BY apellido_paterno, nombre`
@@ -42,6 +42,7 @@ const getPacienteById = async (req, res) => {
               direccion, colonia, zona, municipio, departamento,
               estado_civil, profesion, ocupacion, nacionalidad, grado_academico,
               tipo_servicio, clasificacion, segmento_coex, foto, notas,
+              tiene_hijos, fecha_primer_consulta, motivo_consulta, referencia,
               estado, created_at, updated_at
        FROM pacientes 
        WHERE id = $1`,
@@ -67,7 +68,8 @@ const createPaciente = async (req, res) => {
     const { nombre, apellido_paterno, apellido_materno, edad, fecha_nacimiento,
             genero, dpi, telefono, email, direccion, colonia, zona, 
             municipio, departamento, nacionalidad, estado_civil, profesion, ocupacion, grado_academico, tiene_hijos,
-            clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas } = req.body;
+            clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas,
+            fecha_primer_consulta, motivo_consulta, referencia } = req.body;
 
     // Validar campos requeridos
     if (!nombre || !apellido_paterno) {
@@ -101,15 +103,15 @@ const createPaciente = async (req, res) => {
        (id, nombre, apellido_paterno, apellido_materno, edad, fecha_nacimiento,
         genero, dpi, telefono, email, direccion, colonia, zona, 
         municipio, departamento, nacionalidad, estado_civil, profesion, ocupacion, grado_academico, tiene_hijos,
-        clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas, estado, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, CASE WHEN $6::text != '' THEN $6::date ELSE NULL END, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, 'activo', NOW(), NOW())
+        clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas, fecha_primer_consulta, motivo_consulta, referencia, estado, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, CASE WHEN $6::text != '' THEN $6::date ELSE NULL END, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, 'activo', NOW(), NOW())
        RETURNING *`,
       [paciente_id, nombre, apellido_paterno, apellido_materno || null, edadCalculada || null, 
        fecha_nacimiento || null, genero || null, dpi || null, telefono || null, 
        email || null, direccion || null, colonia || null, zona || null, 
        municipio || null, departamento || null, nacionalidad || null, estado_civil || null, 
        profesion || null, ocupacion || null, grado_academico || null, tiene_hijos || null, clasificacion || null, segmento_coex || null,
-       is_cliente || false, tipo_servicio || null, foto || null, notas || null]
+       is_cliente || false, tipo_servicio || null, foto || null, notas || null, fecha_primer_consulta || null, motivo_consulta || null, referencia || null]
     );
 
     res.status(201).json({
@@ -143,7 +145,8 @@ const updatePaciente = async (req, res) => {
     const { nombre, apellido_paterno, apellido_materno, edad, fecha_nacimiento,
             genero, dpi, telefono, email, direccion, colonia, zona, 
             municipio, departamento, nacionalidad, estado_civil, profesion, ocupacion, grado_academico, tiene_hijos,
-            clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas } = req.body;
+            clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas,
+            fecha_primer_consulta, motivo_consulta, referencia } = req.body;
 
     console.log('\n✅ updatePaciente() iniciado para ID:', id);
 
@@ -189,13 +192,16 @@ const updatePaciente = async (req, res) => {
            tipo_servicio = COALESCE($25, tipo_servicio),
            foto = COALESCE($26, foto),
            notas = COALESCE($27, notas),
+           fecha_primer_consulta = COALESCE(CASE WHEN $28::text != '' THEN $28::date ELSE NULL END, fecha_primer_consulta),
+           motivo_consulta = COALESCE($29, motivo_consulta),
+           referencia = COALESCE($30, referencia),
            updated_at = NOW()
        WHERE id = $1
        RETURNING *`,
       [id, nombre, apellido_paterno, apellido_materno, edadCalculada, 
        fecha_nacimiento, genero, dpi, telefono, email, direccion, colonia, 
        zona, municipio, departamento, nacionalidad, estado_civil, profesion, ocupacion, grado_academico, tiene_hijos,
-       clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas]
+       clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas, fecha_primer_consulta, motivo_consulta, referencia]
     );
 
     console.log('✅ Paciente actualizado:', id);
