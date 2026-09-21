@@ -46,9 +46,17 @@ ON documentos_paciente(paciente_id, categoria);
 -- ============================================
 
 -- Foreign key a pacientes (si no existe)
-ALTER TABLE documentos_paciente 
-ADD CONSTRAINT IF NOT EXISTS fk_documentos_paciente 
-FOREIGN KEY (paciente_id) REFERENCES pacientes(id) ON DELETE CASCADE;
+-- Usando DO block para manejar el constraint condicionalmente
+DO $$
+BEGIN
+    BEGIN
+        ALTER TABLE documentos_paciente 
+        ADD CONSTRAINT fk_documentos_paciente 
+        FOREIGN KEY (paciente_id) REFERENCES pacientes(id) ON DELETE CASCADE;
+    EXCEPTION WHEN duplicate_object THEN
+        NULL; -- Constraint ya existe, continuar sin error
+    END;
+END $$;
 
 -- ============================================
 -- VERIFICAR ESTADO ACTUAL
