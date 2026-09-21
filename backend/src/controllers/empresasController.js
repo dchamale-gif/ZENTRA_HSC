@@ -1,4 +1,4 @@
-const pool = require('../db');
+const pool = require('../db/connection');
 
 const empresasController = {
   // Obtener empresa del paciente
