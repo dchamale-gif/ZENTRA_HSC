@@ -87,6 +87,14 @@ const createPaciente = async (req, res) => {
     // Generar ID único
     const paciente_id = `PAC_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
+    // Calcular edad si se proporciona fecha_nacimiento
+    let edadCalculada = edad;
+    if (fecha_nacimiento && !edad) {
+      const birthDate = new Date(fecha_nacimiento);
+      const today = new Date();
+      edadCalculada = Math.floor((today - birthDate) / (365.25 * 24 * 60 * 60 * 1000));
+    }
+
     const result = await pool.query(
       `INSERT INTO pacientes 
        (id, nombre, apellido_paterno, apellido_materno, edad, fecha_nacimiento,
@@ -94,8 +102,8 @@ const createPaciente = async (req, res) => {
         municipio, departamento, estado_civil, profesion, ocupacion, 
         clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas, estado, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, 'activo', NOW(), NOW())
-       RETURNING id, nombre, apellido_paterno, apellido_materno, email, telefono, clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas`,
-      [paciente_id, nombre, apellido_paterno, apellido_materno || null, edad || null, 
+       RETURNING *`,
+      [paciente_id, nombre, apellido_paterno, apellido_materno || null, edadCalculada || null, 
        fecha_nacimiento || null, genero || null, dpi || null, telefono || null, 
        email || null, direccion || null, colonia || null, zona || null, 
        municipio || null, departamento || null, estado_civil || null, 
@@ -141,25 +149,33 @@ const updatePaciente = async (req, res) => {
       return res.status(404).json({ error: 'Paciente no encontrado' });
     }
 
+    // Calcular edad si se proporciona fecha_nacimiento
+    let edadCalculada = edad;
+    if (fecha_nacimiento && !edad) {
+      const birthDate = new Date(fecha_nacimiento);
+      const today = new Date();
+      edadCalculada = Math.floor((today - birthDate) / (365.25 * 24 * 60 * 60 * 1000));
+    }
+
     const result = await pool.query(
       `UPDATE pacientes 
-       SET nombre = COALESCE($1, nombre),
-           apellido_paterno = COALESCE($2, apellido_paterno),
-           apellido_materno = COALESCE($3, apellido_materno),
-           edad = COALESCE($4, edad),
-           fecha_nacimiento = COALESCE($5, fecha_nacimiento),
-           genero = COALESCE($6, genero),
-           dpi = COALESCE($7, dpi),
-           telefono = COALESCE($8, telefono),
-           email = COALESCE($9, email),
-           direccion = COALESCE($10, direccion),
-           colonia = COALESCE($11, colonia),
-           zona = COALESCE($12, zona),
-           municipio = COALESCE($13, municipio),
-           departamento = COALESCE($14, departamento),
-           estado_civil = COALESCE($15, estado_civil),
-           profesion = COALESCE($16, profesion),
-           ocupacion = COALESCE($17, ocupacion),
+       SET nombre = COALESCE($2, nombre),
+           apellido_paterno = COALESCE($3, apellido_paterno),
+           apellido_materno = COALESCE($4, apellido_materno),
+           edad = COALESCE($5, edad),
+           fecha_nacimiento = COALESCE($6, fecha_nacimiento),
+           genero = COALESCE($7, genero),
+           dpi = COALESCE($8, dpi),
+           telefono = COALESCE($9, telefono),
+           email = COALESCE($10, email),
+           direccion = COALESCE($11, direccion),
+           colonia = COALESCE($12, colonia),
+           zona = COALESCE($13, zona),
+           municipio = COALESCE($14, municipio),
+           departamento = COALESCE($15, departamento),
+           estado_civil = COALESCE($16, estado_civil),
+           profesion = COALESCE($17, profesion),
+           ocupacion = COALESCE($18, ocupacion),
            clasificacion = COALESCE($19, clasificacion),
            segmento_coex = COALESCE($20, segmento_coex),
            is_cliente = COALESCE($21, is_cliente),
@@ -167,11 +183,11 @@ const updatePaciente = async (req, res) => {
            foto = COALESCE($23, foto),
            notas = COALESCE($24, notas),
            updated_at = NOW()
-       WHERE id = $18
-       RETURNING id, nombre, apellido_paterno, apellido_materno, email, telefono, edad, genero, clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas`,
-      [nombre, apellido_paterno, apellido_materno, edad, fecha_nacimiento,
-       genero, dpi, telefono, email, direccion, colonia, zona, 
-       municipio, departamento, estado_civil, profesion, ocupacion, id,
+       WHERE id = $1
+       RETURNING *`,
+      [id, nombre, apellido_paterno, apellido_materno, edadCalculada, 
+       fecha_nacimiento, genero, dpi, telefono, email, direccion, colonia, 
+       zona, municipio, departamento, estado_civil, profesion, ocupacion, 
        clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas]
     );
 
