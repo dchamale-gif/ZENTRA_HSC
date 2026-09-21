@@ -137,8 +137,9 @@ const createPaciente = async (req, res) => {
 
 // ACTUALIZAR paciente
 const updatePaciente = async (req, res) => {
+  const { id } = req.params;
+  
   try {
-    const { id } = req.params;
     const { nombre, apellido_paterno, apellido_materno, edad, fecha_nacimiento,
             genero, dpi, documento_identificacion, telefono, email, direccion, colonia, zona, 
             municipio, departamento, estado_civil, profesion, ocupacion,
