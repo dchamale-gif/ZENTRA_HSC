@@ -169,7 +169,7 @@ CREATE TABLE pacientes (
 
 -- Tabla de Empresa (Lugar de trabajo)
 CREATE TABLE empresas (
-    id VARCHAR(50) PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     paciente_id VARCHAR(50) NOT NULL REFERENCES pacientes(id) ON DELETE CASCADE,
     nombre VARCHAR(150),
     telefono VARCHAR(20),
