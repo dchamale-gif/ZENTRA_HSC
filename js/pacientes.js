@@ -625,6 +625,12 @@ const PacientesModule = {
 
             // Convertir a snake_case para el backend
             const apiData = DataNormalizer.denormalizePaciente(pacientData);
+            
+            // Para PUT, eliminar el ID del body (va en la URL)
+            if (id && apiData.id === undefined) {
+                delete apiData.id;
+            }
+            
             console.log('📦 Datos a guardar (snake_case):', JSON.stringify(apiData, null, 2));
 
             // Obtener token
