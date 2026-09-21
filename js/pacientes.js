@@ -40,7 +40,10 @@ const PacientesModule = {
 
         const savePacientBtn = document.getElementById('savePacientBtn');
         if (savePacientBtn) {
-            savePacientBtn.addEventListener('click', () => this.savePacient());
+            savePacientBtn.addEventListener('click', () => {
+                console.log('%c⭐ CLICK EN BOTÓN GUARDAR PACIENTE ⭐', 'color: orange; font-weight: bold; font-size: 14px;');
+                this.savePacient();
+            });
         }
 
         const searchInput = document.getElementById('searchPacient');
@@ -554,26 +557,36 @@ const PacientesModule = {
 
     // Guardar paciente
     async savePacient() {
+        console.log('%c🔴 INICIO savePacient()', 'color: red; font-weight: bold; font-size: 14px;');
+        
         const form = document.getElementById('editPacientForm');
         if (!form) {
             console.error('❌ Formulario no encontrado');
             return;
         }
 
+        console.log('✓ Formulario encontrado');
+
         // Validar en cliente
+        console.log('🔍 Validando formulario...');
         const validation = this.validatePacientFormDetailed();
+        console.log('Resultado validación:', validation);
+        
         if (!validation.valid) {
             const errorMsg = validation.errors.join('\n');
+            console.error('❌ VALIDACIÓN FALLIDA - Errores:', validation.errors);
             this.showNotification(`❌ Validación fallida:\n${errorMsg}`, 'error');
-            console.error('❌ Errores de validación:', validation.errors);
             alert(`❌ Por favor corrige los siguientes errores:\n\n${errorMsg}`);
+            console.log('%c🔴 TERMINADO (validación falló)', 'color: red;');
             return;
         }
 
+        console.log('✓ Validación pasada');
         const id = document.getElementById('pacientId').value.trim();
+        console.log('ID del paciente:', id || '(nuevo)');
         
         try {
-            console.log('📝 Guardando paciente...');
+            console.log('%c📝 ENVIANDO DATOS AL BACKEND', 'color: blue; font-weight: bold; font-size: 12px;');
             
             // Construir objeto con datos del formulario (SOLO campos que existen en HTML)
             const pacientData = {
@@ -603,10 +616,11 @@ const PacientesModule = {
             // Obtener token
             const token = authManager.getToken();
             if (!token) {
+                console.error('❌ SIN TOKEN - No hay autenticación');
                 this.showNotification('❌ No estás autenticado', 'error');
-                console.error('❌ Sin token de autenticación');
                 return;
             }
+            console.log('✓ Token obtenido');
 
             // Determinar URL y método
             const url = id 
@@ -615,9 +629,12 @@ const PacientesModule = {
 
             const method = id ? 'PUT' : 'POST';
             
-            console.log(`🔗 ${method} ${url}`);
+            console.log(`%c🔗 ${method} ${url}`, 'color: green; font-weight: bold;');
+            console.log('Headers:', { Authorization: `Bearer ${token.substring(0, 20)}...`, 'Content-Type': 'application/json' });
+            console.log('Body:', apiData);
 
             // Hacer la petición
+            console.log('⏳ Enviando fetch...');
             const response = await fetch(url, {
                 method: method,
                 headers: {
@@ -627,7 +644,7 @@ const PacientesModule = {
                 body: JSON.stringify(apiData)
             });
 
-            console.log(`📊 Response status: ${response.status}`);
+            console.log(`📊 Response status: ${response.status} ${response.statusText}`);
 
             if (!response.ok) {
                 let errorDetail = '';
@@ -637,7 +654,7 @@ const PacientesModule = {
                 } catch (e) {
                     errorDetail = `Error ${response.status}: ${response.statusText}`;
                 }
-                console.error('❌ Error HTTP detallado:', {
+                console.error('❌ ERROR HTTP:', {
                     status: response.status,
                     statusText: response.statusText,
                     error: errorDetail,
@@ -673,10 +690,12 @@ const PacientesModule = {
             this.closePacientModal();
             await this.loadData(); // Recargar desde BD
             
-            console.log('🎉 Proceso completado exitosamente');
+            console.log('%c🎉 SAVEPACIENT COMPLETADO EXITOSAMENTE', 'color: green; font-weight: bold; font-size: 14px;');
         } catch (error) {
-            console.error('❌ Error guardando paciente:', error);
-            console.error('📋 Stack trace:', error.stack);
+            console.error('%c❌ ERROR EN SAVEPACIENT', 'color: red; font-weight: bold; font-size: 14px;');
+            console.error('Error:', error);
+            console.error('Mensaje:', error.message);
+            console.error('Stack:', error.stack);
             const errorMsg = error.message || 'Error desconocido';
             this.showNotification(`❌ Error al guardar paciente:\n${errorMsg}`, 'error');
             // También mostrar en alert para que sea más visible
@@ -892,6 +911,8 @@ const PacientesModule = {
         const direccion = document.getElementById('pacientDireccion').value.trim();
         const email = document.getElementById('pacientEmail').value.trim();
 
+        console.log('🔍 Validando campos:', { nombre, apellidoPaterno, telefono, direccion, email });
+
         // Validar campos requeridos
         if (!nombre) errors.push('✗ Nombre es requerido');
         if (!apellidoPaterno) errors.push('✗ Apellido Paterno es requerido');
@@ -910,6 +931,8 @@ const PacientesModule = {
         if (telefono && telefono.length < 7) {
             errors.push('✗ Teléfono debe tener al menos 7 dígitos');
         }
+
+        console.log('Errores de validación encontrados:', errors.length > 0 ? errors : 'NINGUNO ✓');
 
         return {
             valid: errors.length === 0,
