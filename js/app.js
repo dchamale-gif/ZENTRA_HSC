@@ -465,25 +465,29 @@ function setupSubtabs() {
         btn.addEventListener('click', function() {
             const subtabName = this.getAttribute('data-subtab');
             
-            // Ocultar todos los subtabs
-            document.querySelectorAll('[data-subtab]').forEach(subtab => {
+            // Encontrar el contenedor padre de subtabs
+            const subtabsContainer = this.closest('.subtabs-container');
+            if (!subtabsContainer) return;
+            
+            // Ocultar solo los divs de contenido con data-subtab (no los botones)
+            subtabsContainer.querySelectorAll('div[data-subtab]:not(.subtab-btn)').forEach(subtab => {
                 subtab.style.display = 'none';
             });
             
             // Mostrar el subtab seleccionado
-            const selectedSubtab = document.querySelector(`[data-subtab="${subtabName}"]`);
+            const selectedSubtab = subtabsContainer.querySelector(`div[data-subtab="${subtabName}"]`);
             if (selectedSubtab) {
                 selectedSubtab.style.display = 'block';
             }
             
-            // Remover clase active de todos los botones
-            subtabBtns.forEach(b => b.classList.remove('active'));
+            // Remover clase active de todos los botones en este contenedor
+            subtabsContainer.querySelectorAll('.subtab-btn').forEach(b => b.classList.remove('active'));
             
             // Agregar clase active al botón clickeado
             this.classList.add('active');
             
             // Cambiar estilo visual
-            subtabBtns.forEach(b => {
+            subtabsContainer.querySelectorAll('.subtab-btn').forEach(b => {
                 b.style.borderBottom = '3px solid transparent';
                 b.style.color = '#666';
             });
@@ -492,12 +496,14 @@ function setupSubtabs() {
         });
     });
     
-    // Configurar tab inicial
-    const firstBtn = document.querySelector('.subtab-btn');
-    if (firstBtn) {
-        firstBtn.style.borderBottom = '3px solid #27ae60';
-        firstBtn.style.color = '#27ae60';
-    }
+    // Configurar tab inicial para cada contenedor
+    document.querySelectorAll('.subtabs-container').forEach(container => {
+        const firstBtn = container.querySelector('.subtab-btn');
+        if (firstBtn) {
+            firstBtn.style.borderBottom = '3px solid #27ae60';
+            firstBtn.style.color = '#27ae60';
+        }
+    });
 }
 
 // ============================================
