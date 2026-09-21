@@ -774,7 +774,7 @@ const PacientesModule = {
     },
 
     // Editar paciente
-    editPacient(id) {
+    async editPacient(id) {
         console.log('📝 editPacient() called with id:', id);
         
         // Convertir id a string para comparación
