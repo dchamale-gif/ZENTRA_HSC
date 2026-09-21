@@ -192,6 +192,7 @@ const PacientesModule = {
                 return;
             }
 
+            console.log('🔄 Cargando pacientes desde API...');
             const response = await fetch(`${authManager.apiBaseUrl}/api/pacientes`, {
                 method: 'GET',
                 headers: {
@@ -201,25 +202,50 @@ const PacientesModule = {
             });
 
             if (!response.ok) {
+                console.error(`❌ HTTP Error ${response.status}: ${response.statusText}`);
                 throw new Error(`Error ${response.status}: ${response.statusText}`);
             }
 
             const data = await response.json();
-            // Normalizar datos del backend (snake_case → camelCase)
-            this.state.pacientes = DataNormalizer.normalizePacientes(data.pacientes || []);
-            this.renderPacientes();
+            console.log('📦 Datos crudos de API:', data);
             
+            // Normalizar datos del backend (snake_case → camelCase)
+            if (!data.pacientes || !Array.isArray(data.pacientes)) {
+                console.error('❌ Formato de respuesta inválido:', data);
+                throw new Error('Respuesta de API con formato inválido');
+            }
+
+            this.state.pacientes = DataNormalizer.normalizePacientes(data.pacientes);
+            console.log('✅ Datos normalizados:', this.state.pacientes);
+            
+            // IMPORTANTE: Siempre guardar en localStorage como copia de seguridad
+            localStorage.setItem('pacientes', JSON.stringify(this.state.pacientes));
+            
+            this.renderPacientes();
             console.log(`✅ ${this.state.pacientes.length} pacientes cargados desde BD`);
         } catch (error) {
-            console.debug('ℹ️ No se puede acceder a la API, intentando datos locales:', error.message);
-            // Intentar cargar desde localStorage
+            console.error('❌ Error cargando desde API:', {
+                message: error.message,
+                stack: error.stack
+            });
+            
+            // Fallback a localStorage SOLO si falla la API
+            console.warn('⚠️ Intentando datos locales como fallback...');
             const pacientesLocal = localStorage.getItem('pacientes');
             if (pacientesLocal) {
-                this.state.pacientes = JSON.parse(pacientesLocal);
-                console.log(`✅ ${this.state.pacientes.length} pacientes cargados desde localStorage`);
-                this.renderPacientes();
+                try {
+                    this.state.pacientes = JSON.parse(pacientesLocal);
+                    console.log(`⚠️ ${this.state.pacientes.length} pacientes cargados desde FALLBACK localStorage`);
+                    this.renderPacientes();
+                    // Mostrar alerta de que no está sincronizado
+                    this.showNotification('⚠️ Datos desactualizados (sin conexión a BD)', 'warning');
+                } catch (parseError) {
+                    console.error('❌ Error parseando localStorage:', parseError);
+                    this.state.pacientes = [];
+                    this.renderPacientes();
+                }
             } else {
-                console.warn('⚠️ No hay datos de pacientes en localStorage');
+                console.error('❌ No hay datos en localStorage');
                 this.state.pacientes = [];
                 this.renderPacientes();
             }
@@ -674,52 +700,68 @@ const PacientesModule = {
 
     // Editar paciente
     editPacient(id) {
-        console.log('editPacient called with id:', id);
+        console.log('📝 editPacient() called with id:', id);
         
-        // Convertir id a string
+        // Convertir id a string para comparación
         const pacientId = String(id);
-        const pacient = this.state.pacientes.find(p => String(p.id) === pacientId);
+        
+        // Buscar en estado actual
+        let pacient = this.state.pacientes.find(p => String(p.id) === pacientId);
         
         if (!pacient) {
-            console.error('❌ Paciente no encontrado con id:', id);
-            this.showNotification('❌ Error: Paciente no encontrado', 'error');
+            console.error(`❌ Paciente ${pacientId} NO encontrado en estado local`);
+            console.warn('⚠️ Intentando cargar desde API...');
+            // Podría haber estado eliminado de memoria, pero todavía estar en BD
+            // Por ahora, mostrar error
+            this.showNotification(`❌ Paciente no encontrado en datos locales. Intenta recargar la página.`, 'error');
             return;
         }
         
         console.log('✅ Paciente encontrado:', pacient.nombre);
-        console.log('Datos del paciente:', JSON.stringify(pacient, null, 2));
+        console.log('📋 Datos completos del paciente:', JSON.stringify(pacient, null, 2));
 
         // Helper function para llenar campos de forma segura
-        const fillField = (id, value) => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.value = value || '';
-                console.log(`✓ Campo llenado [${id}]:`, value);
-            } else {
-                console.warn(`Campo no encontrado: ${id}`);
+        const fillField = (fieldId, value) => {
+            const el = document.getElementById(fieldId);
+            if (!el) {
+                console.warn(`⚠️ Campo HTML no encontrado: ${fieldId}`);
+                return false;
             }
+            
+            // Convertir null/undefined a string vacío
+            const safeValue = (value === null || value === undefined) ? '' : value;
+            el.value = safeValue;
+            
+            if (safeValue) {
+                console.log(`✓ ${fieldId} = ${safeValue}`);
+            }
+            return true;
         };
 
         try {
-            // Llenar ID oculto
+            console.log('🔧 Llenando formulario con datos...');
+            
+            // ID oculto
             document.getElementById('pacientId').value = pacient.id;
             
-            // Datos personales básicos
+            // Datos personales
             fillField('pacientNombre', pacient.nombre);
             fillField('pacientApellidoPaterno', pacient.apellidoPaterno);
             fillField('pacientApellidoMaterno', pacient.apellidoMaterno);
             fillField('pacientEdad', pacient.edad);
             fillField('pacientFechaNacimiento', pacient.fechaNacimiento);
+            fillField('nacionalidad', pacient.nacionalidad);
             
             // Género
             const generoSelect = document.getElementById('pacientGenero');
             if (generoSelect) {
                 generoSelect.value = pacient.genero || '';
-                console.log('✓ Género establecido:', pacient.genero);
+                console.log(`✓ pacientGenero = ${pacient.genero || '(vacío)'}`);
             }
             
             // Dirección
             fillField('pacientDireccion', pacient.direccion);
+            fillField('colonia', pacient.colonia);
             
             // Contacto
             fillField('pacientTelefono', pacient.telefono);
@@ -729,43 +771,37 @@ const PacientesModule = {
             const tipoServicioSelect = document.getElementById('pacientTipoServicio');
             if (tipoServicioSelect) {
                 tipoServicioSelect.value = pacient.tipoServicio || '';
-                console.log('✓ Tipo de servicio establecido:', pacient.tipoServicio);
+                console.log(`✓ pacientTipoServicio = ${pacient.tipoServicio || '(vacío)'}`);
             }
             
             // Clasificación
             const clasificacionSelect = document.getElementById('pacientClasificacion');
             if (clasificacionSelect) {
                 clasificacionSelect.value = pacient.clasificacion || '';
-                console.log('✓ Clasificación establecida:', pacient.clasificacion);
+                console.log(`✓ pacientClasificacion = ${pacient.clasificacion || '(vacío)'}`);
             }
             
-            // COEX Segmento
-            const coexSelect = document.getElementById('pacientCOEXSegmento');
-            if (coexSelect) {
-                coexSelect.value = pacient.segmentoCOEX || '';
-                console.log('✓ COEX Segmento establecido:', pacient.segmentoCOEX);
-            }
-            
-            // Foto del paciente
+            // Foto
             if (pacient.foto) {
                 document.getElementById('pacientFoto').value = pacient.foto;
                 this.displayPhotoPreview(pacient.foto);
                 const removeBtn = document.getElementById('pacientFotoRemoveBtn');
                 if (removeBtn) removeBtn.style.display = 'inline-block';
-                console.log('✓ Foto establecida');
+                console.log('✓ Foto cargada');
             } else {
                 document.getElementById('pacientFoto').value = '';
                 const preview = document.getElementById('pacientFotoPreview');
                 if (preview) preview.innerHTML = '<i class="fas fa-user" style="font-size: 60px; color: #999;"></i>';
                 const removeBtn = document.getElementById('pacientFotoRemoveBtn');
                 if (removeBtn) removeBtn.style.display = 'none';
+                console.log('ℹ️ Sin foto');
             }
             
-            // Cliente
+            // Cliente checkbox
             const clienteCheckbox = document.getElementById('pacientIsCliente');
             if (clienteCheckbox) {
-                clienteCheckbox.checked = pacient.isCliente || false;
-                console.log('✓ Cliente checkbox:', clienteCheckbox.checked);
+                clienteCheckbox.checked = pacient.isCliente === true;
+                console.log(`✓ pacientIsCliente = ${clienteCheckbox.checked}`);
             }
             
             // Notas
@@ -773,11 +809,13 @@ const PacientesModule = {
             
             console.log('✅ TODOS LOS CAMPOS LLENADOS CORRECTAMENTE');
         } catch(error) {
-            console.error('❌ Error al llenar formulario:', error);
+            console.error('❌ Error llenando formulario:', error);
+            console.error('Stack:', error.stack);
             this.showNotification('❌ Error al cargar datos del paciente', 'error');
+            return;
         }
         
-        console.log('✅ Formulario llenado, abriendo modal...');
+        console.log('✅ Modal listo para edición');
         this.openPacientModal(false); // false = es edición, no es nuevo
     },
 
