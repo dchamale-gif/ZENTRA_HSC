@@ -801,6 +801,82 @@ const PacientesModule = {
                 }
             }
 
+            // Guardar datos familiares
+            const padreNombre = document.getElementById('padreNombre')?.value.trim();
+            const padreTelefono = document.getElementById('padreTelefono')?.value.trim();
+            const padreOcupacion = document.getElementById('padreOcupacion')?.value.trim();
+            const madreNombre = document.getElementById('madreNombre')?.value.trim();
+            const madreTelefono = document.getElementById('madreTelefono')?.value.trim();
+            const madreOcupacion = document.getElementById('madreOcupacion')?.value.trim();
+            const parejaNombre = document.getElementById('parejaNombre')?.value.trim();
+            const parejaTelefono = document.getElementById('parejaTelefono')?.value.trim();
+            const parejaOcupacion = document.getElementById('parejaOcupacion')?.value.trim();
+            const hermanosNumero = document.getElementById('hermanosNumero')?.value.trim();
+            const hermanosObservaciones = document.getElementById('hermanosObservaciones')?.value.trim();
+            const hijosNumero = document.getElementById('hijosNumero')?.value.trim();
+            const hijosObservaciones = document.getElementById('hijosObservaciones')?.value.trim();
+
+            if (padreNombre || padreTelefono || padreOcupacion || madreNombre || madreTelefono || madreOcupacion ||
+                parejaNombre || parejaTelefono || parejaOcupacion || hermanosNumero || hermanosObservaciones ||
+                hijosNumero || hijosObservaciones) {
+                try {
+                    await fetch(`${authManager.apiBaseUrl}/api/datos-familia`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            paciente_id: pacienteId,
+                            padre_nombre: padreNombre || null,
+                            padre_telefono: padreTelefono || null,
+                            padre_ocupacion: padreOcupacion || null,
+                            madre_nombre: madreNombre || null,
+                            madre_telefono: madreTelefono || null,
+                            madre_ocupacion: madreOcupacion || null,
+                            pareja_nombre: parejaNombre || null,
+                            pareja_telefono: parejaTelefono || null,
+                            pareja_ocupacion: parejaOcupacion || null,
+                            hermanos_numero: hermanosNumero ? parseInt(hermanosNumero) : null,
+                            hermanos_observaciones: hermanosObservaciones || null,
+                            hijos_numero: hijosNumero ? parseInt(hijosNumero) : null,
+                            hijos_observaciones: hijosObservaciones || null
+                        })
+                    });
+                    console.log('✅ Datos familiares guardados');
+                } catch (e) {
+                    console.warn('⚠️ Error al guardar datos familiares:', e);
+                }
+            }
+
+            // Guardar responsable del paciente
+            const responsableNombre = document.getElementById('responsableNombre')?.value.trim();
+            const responsableRelacion = document.getElementById('responsableRelacion')?.value.trim();
+            const responsableTelefono = document.getElementById('responsableTelefono')?.value.trim();
+            const responsableEmail = document.getElementById('responsableEmail')?.value.trim();
+
+            if (responsableNombre || responsableRelacion || responsableTelefono || responsableEmail) {
+                try {
+                    await fetch(`${authManager.apiBaseUrl}/api/responsables`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            paciente_id: pacienteId,
+                            nombre: responsableNombre || null,
+                            relacion: responsableRelacion || null,
+                            telefono: responsableTelefono || null,
+                            email: responsableEmail || null
+                        })
+                    });
+                    console.log('✅ Responsable del paciente guardado');
+                } catch (e) {
+                    console.warn('⚠️ Error al guardar responsable:', e);
+                }
+            }
+
             // Cerrar modal y recargar datos
             this.closePacientModal();
             await this.loadData(); // Recargar desde BD
@@ -1043,6 +1119,55 @@ const PacientesModule = {
                 }
             } catch (e) {
                 console.warn('⚠️ Error cargando contactos de emergencia (no crítico):', e.message);
+            }
+
+            // Cargar datos familiares
+            try {
+                const token = authManager.getToken();
+                const datosFamiliaResponse = await fetch(`${authManager.apiBaseUrl}/api/datos-familia/${pacient.id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (datosFamiliaResponse.ok) {
+                    const datosFamilia = await datosFamiliaResponse.json();
+                    fillField('padreNombre', datosFamilia.padre_nombre);
+                    fillField('padreTelefono', datosFamilia.padre_telefono);
+                    fillField('padreOcupacion', datosFamilia.padre_ocupacion);
+                    fillField('madreNombre', datosFamilia.madre_nombre);
+                    fillField('madreTelefono', datosFamilia.madre_telefono);
+                    fillField('madreOcupacion', datosFamilia.madre_ocupacion);
+                    fillField('parejaNombre', datosFamilia.pareja_nombre);
+                    fillField('parejaTelefono', datosFamilia.pareja_telefono);
+                    fillField('parejaOcupacion', datosFamilia.pareja_ocupacion);
+                    fillField('hermanosNumero', datosFamilia.hermanos_numero);
+                    fillField('hermanosObservaciones', datosFamilia.hermanos_observaciones);
+                    fillField('hijosNumero', datosFamilia.hijos_numero);
+                    fillField('hijosObservaciones', datosFamilia.hijos_observaciones);
+                    console.log('✅ Datos familiares cargados');
+                } else if (datosFamiliaResponse.status === 404) {
+                    console.log('ℹ️ Sin datos familiares registrados');
+                }
+            } catch (e) {
+                console.warn('⚠️ Error cargando datos familiares (no crítico):', e.message);
+            }
+
+            // Cargar responsable del paciente
+            try {
+                const token = authManager.getToken();
+                const responsableResponse = await fetch(`${authManager.apiBaseUrl}/api/responsables/${pacient.id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (responsableResponse.ok) {
+                    const responsable = await responsableResponse.json();
+                    fillField('responsableNombre', responsable.nombre);
+                    fillField('responsableRelacion', responsable.relacion);
+                    fillField('responsableTelefono', responsable.telefono);
+                    fillField('responsableEmail', responsable.email);
+                    console.log('✅ Responsable del paciente cargado');
+                } else if (responsableResponse.status === 404) {
+                    console.log('ℹ️ Sin responsable registrado');
+                }
+            } catch (e) {
+                console.warn('⚠️ Error cargando responsable (no crítico):', e.message);
             }
             
             console.log('✅ TODOS LOS CAMPOS LLENADOS CORRECTAMENTE');
