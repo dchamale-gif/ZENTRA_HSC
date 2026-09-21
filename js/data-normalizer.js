@@ -111,7 +111,6 @@ const DataNormalizer = {
             fecha_nacimiento: paciente.fechaNacimiento,
             genero: paciente.genero,
             dpi: paciente.dpi,
-            documento_identificacion: paciente.documentoIdentificacion,
             telefono: paciente.telefono,
             email: paciente.email,
             direccion: paciente.direccion,
