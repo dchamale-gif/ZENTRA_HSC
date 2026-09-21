@@ -53,7 +53,7 @@ const DataNormalizer = {
             tieneHijos: paciente.tiene_hijos === true ? 'si' : (paciente.tiene_hijos === false ? 'no' : ''),
             
             // Datos de consulta
-            fechaPrimerConsulta: paciente.fecha_primer_consulta || '',
+            fechaPrimerConsulta: formatDateForInput(paciente.fecha_primer_consulta),
             motivoConsulta: paciente.motivo_consulta || '',
             referencia: paciente.referencia || '',
             pacienteRefierenombre: paciente.paciente_refiere_nombre || '',
