@@ -135,6 +135,12 @@ const PacientesModule = {
             docDragZone.addEventListener('drop', (e) => this.handleDocumentDrop(e));
         }
 
+        // Event listener para calcular edad automáticamente desde fecha de nacimiento
+        const fechaNacimientoInput = document.getElementById('pacientFechaNacimiento');
+        if (fechaNacimientoInput) {
+            fechaNacimientoInput.addEventListener('change', (e) => this.calcularEdadDesdeNacimiento(e));
+        }
+
         // Event delegation para botones de acción (editar, eliminar, ver)
         const self = this;
         document.addEventListener('click', function(e) {
@@ -871,6 +877,44 @@ const PacientesModule = {
             valid: errors.length === 0,
             errors: errors
         };
+    },
+
+    /**
+     * Calcular edad automáticamente desde fecha de nacimiento
+     */
+    calcularEdadDesdeNacimiento(event) {
+        const fechaNacimiento = event.target.value;
+        if (!fechaNacimiento) {
+            return;
+        }
+
+        const birthDate = new Date(fechaNacimiento);
+        const today = new Date();
+        
+        // Validar que la fecha sea válida y no sea en el futuro
+        if (isNaN(birthDate.getTime()) || birthDate > today) {
+            console.warn('Fecha de nacimiento inválida o en el futuro');
+            document.getElementById('pacientEdad').value = '';
+            return;
+        }
+
+        // Calcular edad en años
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        
+        // Ajustar si el cumpleaños aún no ha llegado este año
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+        }
+
+        // Asegurar que la edad sea positiva
+        if (age < 0) {
+            age = 0;
+        }
+
+        // Actualizar el campo de edad
+        document.getElementById('pacientEdad').value = age;
+        console.log(`✅ Edad calculada automáticamente: ${age} años`);
     },
 
     // Validar formulario - Versión antigua (se mantiene para compatibilidad)
