@@ -609,7 +609,12 @@ const PacientesModule = {
                 profesion: document.getElementById('profesion').value || null,
                 ocupacion: document.getElementById('ocupacion').value.trim() || null,
                 gradoAcademico: document.getElementById('gradoAcademico').value || null,
-                tieneHijos: document.getElementById('tieneHijos').value || null,
+                tieneHijos: (() => {
+                    const val = document.getElementById('tieneHijos').value;
+                    if (val === 'si') return true;
+                    if (val === 'no') return false;
+                    return null;
+                })(),
                 tipoServicio: document.getElementById('pacientTipoServicio').value || null,
                 clasificacion: document.getElementById('pacientClasificacion').value || null,
                 segmentoCOEX: document.getElementById('pacientCOEXSegmento').value || null,
@@ -811,8 +816,15 @@ const PacientesModule = {
             fillField('pacientNacionalidad', pacient.nacionalidad);
             const tieneHijosSelect = document.getElementById('tieneHijos');
             if (tieneHijosSelect) {
-                tieneHijosSelect.value = pacient.tieneHijos || '';
-                console.log(`✓ tieneHijos = ${pacient.tieneHijos || '(vacío)'}`);
+                // Convertir boolean a "si"/"no"
+                if (pacient.tieneHijos === true) {
+                    tieneHijosSelect.value = 'si';
+                } else if (pacient.tieneHijos === false) {
+                    tieneHijosSelect.value = 'no';
+                } else {
+                    tieneHijosSelect.value = '';
+                }
+                console.log(`✓ tieneHijos = ${tieneHijosSelect.value || '(vacío)'}`);
             }
             const estadoCivilSelect = document.getElementById('estadoCivil');
             if (estadoCivilSelect) {

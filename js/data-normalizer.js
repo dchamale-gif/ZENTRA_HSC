@@ -50,7 +50,7 @@ const DataNormalizer = {
             ocupacion: paciente.ocupacion,
             nacionalidad: paciente.nacionalidad || '',
             gradoAcademico: paciente.grado_academico || '',
-            tieneHijos: paciente.tiene_hijos || '',
+            tieneHijos: paciente.tiene_hijos === true ? 'si' : (paciente.tiene_hijos === false ? 'no' : ''),
             
             // Datos de consulta
             fechaPrimerConsulta: paciente.fecha_primer_consulta || '',
