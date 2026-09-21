@@ -23,6 +23,7 @@ const ordenesRoutes = require('./src/routes/ordenesRoutes');
 const alertasRoutes = require('./src/routes/alertasRoutes');
 const datosFamiliaRoutes = require('./src/routes/datosFamiliaRoutes');
 const responsablesRoutes = require('./src/routes/responsablesRoutes');
+const documentosPacienteRoutes = require('./src/routes/documentosPacienteRoutes');
 
 // Importar middleware
 const { auditMiddleware } = require('./src/middleware/audit');
@@ -123,6 +124,9 @@ app.use('/api/datos-familia', datosFamiliaRoutes);
 
 // Responsables del Paciente
 app.use('/api/responsables', responsablesRoutes);
+
+// Documentos y Fotografías del Paciente
+app.use('/api/documentos-paciente', documentosPacienteRoutes);
 
 // Reportes y Dashboards
 app.use('/api/reports', reportsRoutes);

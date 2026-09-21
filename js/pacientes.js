@@ -877,6 +877,48 @@ const PacientesModule = {
                 }
             }
 
+            // Guardar documentos del paciente por categoría
+            const documentosCategorias = [
+                'DPI_Paciente',
+                'Pasaporte_Paciente',
+                'DPI_Responsable',
+                'Pasaporte_Responsable',
+                'Foto_Perfil_Responsable',
+                'Documentos_Medicos',
+                'Otros'
+            ];
+
+            for (const categoria of documentosCategorias) {
+                const inputId = `documento_${categoria}`;
+                const inputElement = document.getElementById(inputId);
+                
+                if (inputElement && inputElement.value) {
+                    try {
+                        // Obtener nombre del archivo si está disponible
+                        const nombreInputId = `documentoNombre_${categoria}`;
+                        const nombreElement = document.getElementById(nombreInputId);
+                        const nombreArchivo = nombreElement?.value.trim() || categoria;
+
+                        await fetch(`${authManager.apiBaseUrl}/api/documentos-paciente`, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                paciente_id: pacienteId,
+                                categoria: categoria,
+                                nombre_archivo: nombreArchivo,
+                                contenido: inputElement.value
+                            })
+                        });
+                        console.log(`✅ Documento ${categoria} guardado`);
+                    } catch (e) {
+                        console.warn(`⚠️ Error al guardar documento ${categoria}:`, e);
+                    }
+                }
+            }
+
             // Cerrar modal y recargar datos
             this.closePacientModal();
             await this.loadData(); // Recargar desde BD
@@ -1210,6 +1252,47 @@ const PacientesModule = {
                 }
             } catch (e) {
                 console.warn('⚠️ Error cargando responsable (no crítico):', e.message);
+            }
+
+            // Cargar documentos del paciente
+            try {
+                const token = authManager.getToken();
+                const documentosResponse = await fetch(`${authManager.apiBaseUrl}/api/documentos-paciente/${pacient.id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (documentosResponse.ok) {
+                    const documentos = await documentosResponse.json();
+                    
+                    // Limpiar primero todos los campos de documento
+                    const categorias = ['DPI_Paciente', 'Pasaporte_Paciente', 'DPI_Responsable', 'Pasaporte_Responsable', 'Foto_Perfil_Responsable', 'Documentos_Medicos', 'Otros'];
+                    categorias.forEach(cat => {
+                        const inputId = `documento_${cat}`;
+                        const nombreId = `documentoNombre_${cat}`;
+                        const inputEl = document.getElementById(inputId);
+                        const nombreEl = document.getElementById(nombreId);
+                        if (inputEl) inputEl.value = '';
+                        if (nombreEl) nombreEl.value = '';
+                    });
+                    
+                    // Cargar documentos existentes
+                    documentos.forEach(doc => {
+                        const inputId = `documento_${doc.categoria}`;
+                        const nombreId = `documentoNombre_${doc.categoria}`;
+                        const inputEl = document.getElementById(inputId);
+                        const nombreEl = document.getElementById(nombreId);
+                        
+                        if (inputEl) inputEl.value = doc.contenido;
+                        if (nombreEl) nombreEl.value = doc.nombre_archivo || doc.categoria;
+                        
+                        console.log(`✅ Documento ${doc.categoria} cargado`);
+                    });
+                    
+                    console.log('✅ Documentos del paciente cargados');
+                } else if (documentosResponse.status === 404) {
+                    console.log('ℹ️ Sin documentos registrados');
+                }
+            } catch (e) {
+                console.warn('⚠️ Error cargando documentos (no crítico):', e.message);
             }
             
             console.log('✅ TODOS LOS CAMPOS LLENADOS CORRECTAMENTE');
