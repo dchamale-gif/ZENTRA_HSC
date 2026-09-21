@@ -947,9 +947,12 @@ const PacientesModule = {
                     fillField('empresaTelefono', empresa.telefono);
                     fillField('empresaDireccion', empresa.direccion);
                     console.log('✅ Datos de empresa cargados');
+                } else if (empresaResponse.status === 404) {
+                    // No hay empresa registrada, es normal
+                    console.log('ℹ️ Sin información de empresa registrada');
                 }
             } catch (e) {
-                console.warn('⚠️ No se pudo cargar empresa:', e);
+                console.warn('⚠️ Error cargando empresa (no crítico):', e.message);
             }
             
             console.log('✅ TODOS LOS CAMPOS LLENADOS CORRECTAMENTE');
