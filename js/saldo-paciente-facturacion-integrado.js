@@ -903,7 +903,20 @@ const SaldoPacienteFacturacion = {
                 throw new Error(result.error || result.message || `Error ${response.status}`);
             }
             alert('✅ Factura guardada: ' + result.data.numero_factura);
-            this.imprimirRecibo(result.data);
+            const facturaGuardada = {
+                ...datos,
+                ...result.data,
+                items: datos.items,
+                descuentos: datos.descuentos,
+                totales: { ...datos.totales, ...(result.data.totales || {}) },
+                paciente_seleccionado: { ...this.state.paciente_seleccionado }
+            };
+            try {
+                this.imprimirRecibo(facturaGuardada);
+            } catch (printError) {
+                console.error('❌ La factura se guardó, pero no se pudo preparar el recibo:', printError);
+                alert(`La factura fue guardada, pero no se pudo preparar el recibo: ${printError.message}`);
+            }
             await this.refrescarSaldoDelPaciente(this.state.paciente_seleccionado.id);
             this.cancelarFactura();
             await this.loadDataFromAPI();
@@ -933,6 +946,8 @@ const SaldoPacienteFacturacion = {
 
     imprimirRecibo(factura) {
         const ventana = window.open('', '_blank', 'width=600,height=800');
+        const items = Array.isArray(factura.items) ? factura.items : [];
+        const totales = factura.totales || {};
         
         // Validar que la ventana se abrió correctamente
         if (!ventana) {
@@ -966,14 +981,14 @@ const SaldoPacienteFacturacion = {
                 <table>
                     <thead><tr><th>Descripción</th><th class="text-right">Cant.</th><th class="text-right">P.U.</th><th class="text-right">Total</th></tr></thead>
                     <tbody>
-                        ${factura.items.map(i => `<tr><td>${i.descripcion}</td><td class="text-right">${i.cantidad}</td><td class="text-right">Q${i.precio_unitario.toFixed(2)}</td><td class="text-right">Q${i.total_item.toFixed(2)}</td></tr>`).join('')}
+                        ${items.map(i => `<tr><td>${i.descripcion}</td><td class="text-right">${i.cantidad}</td><td class="text-right">Q${Number(i.precio_unitario || 0).toFixed(2)}</td><td class="text-right">Q${Number(i.total_item ?? i.subtotal ?? 0).toFixed(2)}</td></tr>`).join('')}
                     </tbody>
                 </table>
                 <div style="margin-top: 20px;">
-                    <div class="total-row"><span>Subtotal:</span><strong>Q${factura.totales.subtotal.toFixed(2)}</strong></div>
-                    ${factura.totales.total_descuentos > 0 ? `<div class="total-row"><span>Descuentos:</span><strong>-Q${factura.totales.total_descuentos.toFixed(2)}</strong></div>` : ''}
-                    <div class="total-row"><span>IVA 12%:</span><strong>Q${factura.totales.total_impuestos.toFixed(2)}</strong></div>
-                    <div class="total-row total-final"><span>TOTAL:</span><strong>Q${factura.totales.total_neto.toFixed(2)}</strong></div>
+                    <div class="total-row"><span>Subtotal:</span><strong>Q${Number(totales.subtotal || 0).toFixed(2)}</strong></div>
+                    ${Number(totales.total_descuentos || 0) > 0 ? `<div class="total-row"><span>Descuentos:</span><strong>-Q${Number(totales.total_descuentos).toFixed(2)}</strong></div>` : ''}
+                    <div class="total-row"><span>IVA 12%:</span><strong>Q${Number(totales.total_impuestos || 0).toFixed(2)}</strong></div>
+                    <div class="total-row total-final"><span>TOTAL:</span><strong>Q${Number(totales.total_neto ?? totales.total ?? 0).toFixed(2)}</strong></div>
                 </div>
             </body>
             </html>
@@ -985,7 +1000,7 @@ const SaldoPacienteFacturacion = {
             ventana.print();
         } catch (error) {
             console.error('❌ Error imprimiendo recibo:', error);
-            alert('❌ Error al imprimir el recibo. La factura se guardó localmente.');
+            alert('Error al imprimir el recibo. La factura sí fue guardada en la base de datos.');
         }
     },
 
