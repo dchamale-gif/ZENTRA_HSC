@@ -20,6 +20,7 @@ const OrdenesmedicasModule = {
             { id: 10, nombre: 'Psicometría', categoria: 'Psicología', costo: 200 }
         ],
         searchTerm: '',
+        pacienteSearch: '',
         filtroEstado: 'todos',
         filtroFecha: 'todos',
         filtroPaciente: '',
@@ -63,12 +64,79 @@ const OrdenesmedicasModule = {
         if (btnNuevaOrden) {
             btnNuevaOrden.addEventListener('click', () => this.openNuevaOrdenModal());
         }
+
+        const buscarPaciente = document.getElementById('buscarPacienteOrden');
+        if (buscarPaciente) {
+            buscarPaciente.addEventListener('input', (e) => {
+                this.state.pacienteSearch = e.target.value;
+                this.cargarPacientes();
+            });
+        }
     },
 
-    // Cargar datos CON SOPORTE A API
-    loadData() {
+    getApiUrl(path) {
+        const configuredUrl = typeof authManager !== 'undefined'
+            ? authManager.apiBaseUrl
+            : 'http://178.128.72.110:3011';
+        const apiRoot = configuredUrl.replace(/\/$/, '').replace(/\/api$/, '');
+        return `${apiRoot}/api${path}`;
+    },
+
+    getAuthToken() {
+        return typeof authManager !== 'undefined' ? authManager.getToken() : null;
+    },
+
+    normalizeOrden(orden) {
+        return {
+            id: String(orden.id),
+            pacienteId: String(orden.paciente_id ?? orden.pacienteId),
+            doctor: orden.doctor || '',
+            descripcion: orden.descripcion || '',
+            notas: orden.notas || '',
+            servicios: Array.isArray(orden.servicios) ? orden.servicios : [],
+            estado: orden.estado || 'pendiente',
+            fechaOrden: (orden.fecha_orden || orden.fechaOrden || orden.created_at || '').split('T')[0],
+            fechaCreacion: orden.created_at || orden.fechaCreacion || ''
+        };
+    },
+
+    async fetchPacientes() {
+        const response = await fetch(this.getApiUrl('/pacientes'), {
+            headers: { Authorization: `Bearer ${this.getAuthToken()}` }
+        });
+        if (!response.ok) throw new Error(`No se pudieron cargar pacientes (${response.status})`);
+
+        const data = await response.json();
+        const pacientes = Array.isArray(data.pacientes) ? data.pacientes : [];
+        return typeof DataNormalizer !== 'undefined'
+            ? DataNormalizer.normalizePacientes(pacientes)
+            : pacientes;
+    },
+
+    async fetchOrdenes() {
+        const response = await fetch(this.getApiUrl('/ordenes'), {
+            headers: { Authorization: `Bearer ${this.getAuthToken()}` }
+        });
+        if (!response.ok) throw new Error(`No se pudieron cargar órdenes (${response.status})`);
+
+        const data = await response.json();
+        const ordenes = Array.isArray(data.ordenes) ? data.ordenes : data;
+        return Array.isArray(ordenes) ? ordenes.map(orden => this.normalizeOrden(orden)) : [];
+    },
+
+    // Cargar pacientes y órdenes desde la API
+    async loadData() {
         try {
-            this.loadDataFromAPI();
+            if (!this.getAuthToken()) throw new Error('No hay token de autenticación');
+
+            const [pacientes, ordenes] = await Promise.all([
+                this.fetchPacientes(),
+                this.fetchOrdenes()
+            ]);
+            this.state.pacientes = pacientes;
+            this.state.ordenes = ordenes;
+            localStorage.setItem('pacientes', JSON.stringify(pacientes));
+            this.saveToDB();
         } catch (error) {
             console.warn('Error cargando de API, usando localStorage:', error);
             this.loadDataFromLocalStorage();
@@ -77,35 +145,13 @@ const OrdenesmedicasModule = {
         this.renderOrdenes();
     },
 
-    // Cargar datos desde API
-    loadDataFromAPI() {
-        const token = authManager?.getToken?.();
-        const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
-
-        if (!token) {
-            throw new Error('No hay token de autenticación');
-        }
-
-        // Para ahora, usar localStorage como fallback
-        this.loadDataFromLocalStorage();
-
-        // En futuro: integrar con API real
-        // fetch(`${apiBase}/ordenes-medicas`, { 
-        //     headers: { Authorization: `Bearer ${token}` }
-        // }).then(r => r.json()).then(data => {
-        //     this.state.ordenes = data.ordenes || [];
-        // }).catch(e => console.warn('Error:', e));
-    },
-
     // Cargar datos desde localStorage
     loadDataFromLocalStorage() {
         // Cargar pacientes SOLO del módulo PacientesModule
         if (typeof PacientesModule !== 'undefined' && PacientesModule.state && PacientesModule.state.pacientes) {
             this.state.pacientes = PacientesModule.state.pacientes;
         } else {
-            console.error('❌ ERROR: PacientesModule no disponible');
-            this.showNotification('❌ Error: Base de datos de pacientes no disponible', 'error');
-            this.state.pacientes = [];
+            this.state.pacientes = JSON.parse(localStorage.getItem('pacientes') || '[]');
         }
 
         // Cargar órdenes desde localStorage
@@ -129,7 +175,7 @@ const OrdenesmedicasModule = {
         let ordenesFiltered = this.state.ordenes.filter(orden => {
             // Filtro por búsqueda
             const searchLower = this.state.searchTerm.toLowerCase();
-            const paciente = this.state.pacientes.find(p => p.id === orden.pacienteId);
+            const paciente = this.state.pacientes.find(p => String(p.id) === String(orden.pacienteId));
             const nombrePaciente = paciente ? `${paciente.nombre || ''} ${paciente.apellidoPaterno || paciente.apellido_paterno || ''}`.toLowerCase() : '';
             const busquedaMatch = nombrePaciente.includes(searchLower) ||
                                 orden.id.toLowerCase().includes(searchLower) ||
@@ -192,7 +238,7 @@ const OrdenesmedicasModule = {
         `;
 
         ordenesFiltered.forEach(orden => {
-            const paciente = this.state.pacientes.find(p => p.id === orden.pacienteId);
+            const paciente = this.state.pacientes.find(p => String(p.id) === String(orden.pacienteId));
             const nombrePaciente = paciente ? `${paciente.nombre || ''} ${paciente.apellidoPaterno || paciente.apellido_paterno || ''}`.trim() : 'Sin paciente';
             const numServicios = (orden.servicios || []).length;
             
@@ -259,7 +305,7 @@ const OrdenesmedicasModule = {
     },
 
     // Abrir modal para nueva orden
-    openNuevaOrdenModal() {
+    async openNuevaOrdenModal() {
         const modal = document.getElementById('ordenMedicaModal');
         if (!modal) {
             AlertasModule.mostrarError('Modal no encontrado');
@@ -269,8 +315,10 @@ const OrdenesmedicasModule = {
         // Limpiar formulario
         document.getElementById('ordenPacienteId').value = '';
         document.getElementById('ordenDoctor').value = '';
-        document.getElementById('ordenDescripcion').value = '';
+        document.getElementById('ordenMedicaDescripcion').value = '';
         document.getElementById('ordenNotas').value = '';
+        document.getElementById('buscarPacienteOrden').value = '';
+        this.state.pacienteSearch = '';
         document.getElementById('serviciosSeleccionados').innerHTML = '<p style="text-align: center; color: #999;">No hay servicios seleccionados</p>';
         document.getElementById('serviciosSeleccionados').dataset.servicios = '';
 
@@ -284,14 +332,30 @@ const OrdenesmedicasModule = {
             titleElement.innerHTML = '<i class="fas fa-file-medical-alt"></i> Nueva Orden Médica';
         }
 
-        // Cargar lista de pacientes en select
-        this.cargarPacientes();
-        
+        // Mostrar el modal mientras se actualiza la lista de pacientes
+        modal.style.display = 'block';
+        await this.cargarPacientesDesdeAPI();
+
         // Cargar servicios disponibles
         this.cargarServicios();
+    },
 
-        // Mostrar modal
-        modal.style.display = 'block';
+    async cargarPacientesDesdeAPI() {
+        const resultado = document.getElementById('resultadoPacientesOrden');
+        if (resultado) resultado.textContent = 'Cargando pacientes...';
+
+        try {
+            if (!this.getAuthToken()) throw new Error('No hay token de autenticación');
+            this.state.pacientes = await this.fetchPacientes();
+            localStorage.setItem('pacientes', JSON.stringify(this.state.pacientes));
+        } catch (error) {
+            console.warn('No se pudo actualizar pacientes desde API:', error);
+            if (this.state.pacientes.length === 0) {
+                this.state.pacientes = JSON.parse(localStorage.getItem('pacientes') || '[]');
+            }
+        }
+
+        this.cargarPacientes();
     },
 
     // Cargar servicios disponibles en select
@@ -310,11 +374,30 @@ const OrdenesmedicasModule = {
         const select = document.getElementById('ordenPacienteId');
         if (!select) return;
 
-        select.innerHTML = '<option value="">-- Selecciona un paciente --</option>' +
-            this.state.pacientes.map(p => {
-                const nombre = `${p.nombre || ''} ${p.apellidoPaterno || p.apellido_paterno || ''}`.trim();
-                return `<option value="${p.id}">${nombre} (DPI: ${p.dpi || p.cedula || 'N/A'})</option>`;
-            }).join('');
+        const selectedValue = select.value;
+        const search = this.state.pacienteSearch.trim().toLocaleLowerCase('es');
+        const coincidencias = this.state.pacientes.filter(p => {
+            const texto = `${p.nombre || ''} ${p.apellidoPaterno || p.apellido_paterno || ''} ${p.apellidoMaterno || p.apellido_materno || ''} ${p.dpi || p.cedula || ''}`;
+            return !search || texto.toLocaleLowerCase('es').includes(search);
+        });
+        const visibles = coincidencias.slice(0, 50);
+
+        select.replaceChildren(new Option('-- Selecciona un paciente --', ''));
+        visibles.forEach(paciente => {
+            const nombre = `${paciente.nombre || ''} ${paciente.apellidoPaterno || paciente.apellido_paterno || ''} ${paciente.apellidoMaterno || paciente.apellido_materno || ''}`.trim();
+            select.add(new Option(`${nombre} (DPI: ${paciente.dpi || paciente.cedula || 'N/A'})`, String(paciente.id)));
+        });
+
+        if (visibles.some(paciente => String(paciente.id) === selectedValue)) {
+            select.value = selectedValue;
+        }
+
+        const resultado = document.getElementById('resultadoPacientesOrden');
+        if (resultado) {
+            resultado.textContent = coincidencias.length > 50
+                ? `Mostrando 50 de ${coincidencias.length}; escribe para filtrar.`
+                : `${coincidencias.length} paciente${coincidencias.length === 1 ? '' : 's'} encontrado${coincidencias.length === 1 ? '' : 's'}.`;
+        }
     },
 
     // Agregar servicio a la orden
@@ -399,7 +482,7 @@ const OrdenesmedicasModule = {
     // Remover servicio
     removerServicio(index) {
         const container = document.getElementById('serviciosSeleccionados');
-        const servicios = container.dataset.servicios ? JSON.parse(container.data.servicios) : [];
+        const servicios = container.dataset.servicios ? JSON.parse(container.dataset.servicios) : [];
         
         servicios.splice(index, 1);
         container.dataset.servicios = JSON.stringify(servicios);
@@ -407,10 +490,10 @@ const OrdenesmedicasModule = {
     },
 
     // Guardar orden médica
-    guardarOrden() {
+    async guardarOrden() {
         const pacienteId = document.getElementById('ordenPacienteId')?.value?.trim();
         const doctor = document.getElementById('ordenDoctor')?.value?.trim();
-        const descripcion = document.getElementById('ordenDescripcion')?.value?.trim();
+        const descripcion = document.getElementById('ordenMedicaDescripcion')?.value?.trim();
         const notas = document.getElementById('ordenNotas')?.value?.trim();
         const container = document.getElementById('serviciosSeleccionados');
         const servicios = container.dataset.servicios ? JSON.parse(container.dataset.servicios) : [];
@@ -440,87 +523,55 @@ const OrdenesmedicasModule = {
         const modal = document.getElementById('ordenMedicaModal');
         const ordenId = modal?.dataset.ordenId;
 
-        let orden;
-        if (ordenId) {
-            // Editar orden existente
-            orden = this.state.ordenes.find(o => o.id === ordenId);
-            if (!orden) {
-                AlertasModule.mostrarError('Orden no encontrada');
-                return;
-            }
+        const saveButton = modal.querySelector('button[onclick*="guardarOrden"]');
+        if (saveButton) saveButton.disabled = true;
 
-            orden.pacienteId = pacienteId;
-            orden.doctor = doctor;
-            orden.descripcion = descripcion;
-            orden.notas = notas;
-            orden.servicios = servicios;
-            orden.fechaActualizacion = new Date().toISOString().split('T')[0];
-        } else {
-            // Crear nueva orden
-            orden = {
-                id: `ORD-${Date.now()}`,
-                pacienteId: pacienteId,
-                doctor: doctor,
-                descripcion: descripcion,
-                notas: notas || '',
-                servicios: servicios,
-                estado: 'pendiente',
-                fechaOrden: new Date().toISOString().split('T')[0],
-                fechaCreacion: new Date().toISOString()
-            };
-
-            this.state.ordenes.push(orden);
-        }
-
-        // Guardar a localStorage
-        this.saveToDB();
-        
-        // Intentar guardar a API
-        this.saveOrdenToAPI(orden);
-
-        // Actualizar vista
-        this.renderOrdenes();
-
-        // Cerrar modal
-        modal.style.display = 'none';
-
-        const paciente = this.state.pacientes.find(p => p.id === pacienteId);
-        AlertasModule.mostrarExito(`✓ Orden médica ${ordenId ? 'actualizada' : 'creada'} para ${paciente?.nombre || 'paciente'}`);
-    },
-
-    // Guardar orden a API
-    saveOrdenToAPI(orden) {
         try {
-            const token = authManager?.getToken?.();
-            const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
+            if (!this.getAuthToken()) throw new Error('No hay token de autenticación');
+            const response = await fetch(this.getApiUrl(ordenId ? `/ordenes/${ordenId}` : '/ordenes'), {
+                method: ordenId ? 'PUT' : 'POST',
+                headers: {
+                    Authorization: `Bearer ${this.getAuthToken()}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    paciente_id: pacienteId,
+                    tipo: 'medica',
+                    doctor,
+                    descripcion,
+                    notas,
+                    servicios,
+                    estado: ordenId ? this.state.ordenes.find(o => String(o.id) === String(ordenId))?.estado : 'pendiente',
+                    fecha_orden: new Date().toISOString().split('T')[0]
+                })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || `Error ${response.status}`);
 
-            if (!token) {
-                console.warn('No hay token, orden solo guardada en localStorage');
-                return;
+            const ordenGuardada = this.normalizeOrden(data.orden || data);
+            if (ordenId) {
+                this.state.ordenes = this.state.ordenes.map(orden => String(orden.id) === String(ordenId) ? ordenGuardada : orden);
+            } else {
+                this.state.ordenes.unshift(ordenGuardada);
             }
+            this.saveToDB();
+            this.renderOrdenes();
+            modal.style.display = 'none';
 
-            // Para futuro: integrar con API real
-            // const method = orden.id.startsWith('ORD-') ? 'POST' : 'PUT';
-            // const endpoint = method === 'POST' ? '/ordenes-medicas' : `/ordenes-medicas/${orden.id}`;
-            // fetch(`${apiBase}${endpoint}`, {
-            //     method: method,
-            //     headers: {
-            //         'Authorization': `Bearer ${token}`,
-            //         'Content-Type': 'application/json'
-            //     },
-            //     body: JSON.stringify(orden)
-            // })
-            // .then(r => r.json())
-            // .catch(e => console.warn('Error guardando a API:', e));
+            const paciente = this.state.pacientes.find(p => String(p.id) === pacienteId);
+            AlertasModule.mostrarExito(`✓ Orden médica ${ordenId ? 'actualizada' : 'creada'} para ${paciente?.nombre || 'paciente'}`);
         } catch (error) {
-            console.warn('Error intentando guardar a API:', error);
+            console.error('Error guardando orden médica:', error);
+            AlertasModule.mostrarError(`No se pudo guardar la orden: ${error.message}`);
+        } finally {
+            if (saveButton) saveButton.disabled = false;
         }
     },
 
     // Ver detalles de orden
     verDetalles(ordenId) {
-        const orden = this.state.ordenes.find(o => o.id === ordenId);
-        const paciente = this.state.pacientes.find(p => p.id === orden?.pacienteId);
+        const orden = this.state.ordenes.find(o => String(o.id) === String(ordenId));
+        const paciente = this.state.pacientes.find(p => String(p.id) === String(orden?.pacienteId));
 
         if (!orden || !paciente) {
             AlertasModule.mostrarError('Orden o paciente no encontrado');
@@ -604,7 +655,7 @@ const OrdenesmedicasModule = {
 
     // Editar orden
     editarOrden(ordenId) {
-        const orden = this.state.ordenes.find(o => o.id === ordenId);
+        const orden = this.state.ordenes.find(o => String(o.id) === String(ordenId));
         if (!orden) {
             AlertasModule.mostrarError('Orden no encontrada');
             return;
@@ -613,7 +664,7 @@ const OrdenesmedicasModule = {
         // Llenar formulario
         document.getElementById('ordenPacienteId').value = orden.pacienteId;
         document.getElementById('ordenDoctor').value = orden.doctor;
-        document.getElementById('ordenDescripcion').value = orden.descripcion;
+        document.getElementById('ordenMedicaDescripcion').value = orden.descripcion;
         document.getElementById('ordenNotas').value = orden.notas || '';
 
         // Establecer servicios seleccionados
@@ -635,9 +686,9 @@ const OrdenesmedicasModule = {
     },
 
     // Eliminar orden
-    eliminarOrden(ordenId) {
-        const orden = this.state.ordenes.find(o => o.id === ordenId);
-        const paciente = this.state.pacientes.find(p => p.id === orden?.pacienteId);
+    async eliminarOrden(ordenId) {
+        const orden = this.state.ordenes.find(o => String(o.id) === String(ordenId));
+        const paciente = this.state.pacientes.find(p => String(p.id) === String(orden?.pacienteId));
 
         if (!orden) {
             AlertasModule.mostrarError('Orden no encontrada');
@@ -645,41 +696,30 @@ const OrdenesmedicasModule = {
         }
 
         if (confirm(`¿Deseas eliminar la orden médica de ${paciente?.nombre || 'paciente'}?`)) {
-            this.state.ordenes = this.state.ordenes.filter(o => o.id !== ordenId);
-            this.saveToDB();
-            this.deleteOrdenFromAPI(ordenId);
-            this.renderOrdenes();
-            AlertasModule.mostrarExito('✓ Orden médica eliminada');
-        }
-    },
+            try {
+                if (!this.getAuthToken()) throw new Error('No hay token de autenticación');
+                const response = await fetch(this.getApiUrl(`/ordenes/${ordenId}`), {
+                    method: 'DELETE',
+                    headers: { Authorization: `Bearer ${this.getAuthToken()}` }
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || `Error ${response.status}`);
 
-    // Eliminar orden de API
-    deleteOrdenFromAPI(ordenId) {
-        try {
-            const token = authManager?.getToken?.();
-            const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
-
-            if (!token) {
-                console.warn('No hay token, orden solo eliminada en localStorage');
-                return;
+                this.state.ordenes = this.state.ordenes.filter(o => String(o.id) !== String(ordenId));
+                this.saveToDB();
+                this.renderOrdenes();
+                AlertasModule.mostrarExito('✓ Orden médica eliminada');
+            } catch (error) {
+                console.error('Error eliminando orden médica:', error);
+                AlertasModule.mostrarError(`No se pudo eliminar la orden: ${error.message}`);
             }
-
-            // Para futuro: integrar con API real
-            // fetch(`${apiBase}/ordenes-medicas/${ordenId}`, {
-            //     method: 'DELETE',
-            //     headers: { Authorization: `Bearer ${token}` }
-            // })
-            // .then(r => r.json())
-            // .catch(e => console.warn('Error eliminando de API:', e));
-        } catch (error) {
-            console.warn('Error intentando eliminar de API:', error);
         }
     },
 
     // Descargar PDF de orden
     descargarPDF(ordenId) {
-        const orden = this.state.ordenes.find(o => o.id === ordenId);
-        const paciente = this.state.pacientes.find(p => p.id === orden?.pacienteId);
+        const orden = this.state.ordenes.find(o => String(o.id) === String(ordenId));
+        const paciente = this.state.pacientes.find(p => String(p.id) === String(orden?.pacienteId));
 
         if (!orden || !paciente) {
             AlertasModule.mostrarError('Orden o paciente no encontrado');

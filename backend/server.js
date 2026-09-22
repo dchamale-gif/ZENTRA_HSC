@@ -41,7 +41,7 @@ const PORT = process.env.PORT || 3011;
 
 // CORS - Permitir solicitudes desde el frontend
 app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5500', 'http://localhost:3000', 'http://localhost:3011', 'http://178.128.72.110:3011', 'http://178.128.72.110:5501'],
+  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5500', 'http://localhost:5501', 'http://127.0.0.1:5501', 'http://localhost:3000', 'http://localhost:3011', 'http://178.128.72.110:3011', 'http://178.128.72.110:5501'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']

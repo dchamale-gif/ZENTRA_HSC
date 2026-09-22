@@ -645,7 +645,6 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
 
                     <!-- TAB 2: CREAR FACTURA -->
                     <div id="facturar" class="tab-content">
@@ -4445,9 +4444,11 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>Paciente <span class="required">*</span></label>
+                        <input type="search" id="buscarPacienteOrden" class="form-input" placeholder="Buscar por nombre o DPI..." autocomplete="off">
                         <select id="ordenPacienteId" class="form-input" required>
                             <option value="">-- Selecciona un paciente --</option>
                         </select>
+                        <small id="resultadoPacientesOrden" style="color: #666;"></small>
                     </div>
                     <div class="form-group">
                         <label>Doctor <span class="required">*</span></label>
@@ -4460,7 +4461,7 @@
                 <div class="form-row">
                     <div class="form-group" style="grid-column: 1 / -1;">
                         <label>Descripción <span class="required">*</span></label>
-                        <textarea id="ordenDescripcion" class="form-input" placeholder="Motivo de la orden médica..." rows="3" required></textarea>
+                        <textarea id="ordenMedicaDescripcion" class="form-input" placeholder="Motivo de la orden médica..." rows="3" required></textarea>
                     </div>
                 </div>
 

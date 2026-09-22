@@ -5,8 +5,10 @@ const { authMiddleware } = require('../middleware/auth');
 
 router.use(authMiddleware);
 
+router.get('/', ordenesController.getAll);
 router.get('/:pacienteId', ordenesController.getByPaciente);
 router.post('/', ordenesController.create);
+router.put('/:id', ordenesController.update);
 router.put('/:id/estado', ordenesController.updateEstado);
 router.delete('/:id', ordenesController.delete);
 
