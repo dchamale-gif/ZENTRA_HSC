@@ -11,9 +11,10 @@ const VENTA_SELECT = `
            json_agg(
              json_build_object(
                'id', vi.id,
-               'tipo', CASE WHEN vi.medicina_id IS NOT NULL THEN 'medicina' ELSE 'articulo' END,
+               'tipo', CASE WHEN vi.medicina_id IS NOT NULL THEN 'medicina'
+                            WHEN vi.articulo_id IS NOT NULL THEN 'articulo' ELSE 'general' END,
                'concepto_id', COALESCE(vi.medicina_id, vi.articulo_id),
-               'concepto_nombre', COALESCE(m.nombre, a.nombre_articulo),
+               'concepto_nombre', COALESCE(m.nombre, a.nombre_articulo, vi.descripcion),
                'cantidad', vi.cantidad,
                'precio_unitario', vi.precio_unitario,
                'subtotal', vi.subtotal

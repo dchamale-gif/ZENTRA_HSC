@@ -897,74 +897,19 @@ const SaldoPacienteFacturacion = {
                 },
                 body: JSON.stringify(datos),
                 timeout: 5000
-            }).catch((err) => {
-                console.debug('⚠️ Error en fetch, guardaremos localmente:', err.message);
-                return null;
             });
-
-            // Si la respuesta es null o no es ok, guardar localmente
-            if (!response || !response.ok) {
-                if (response) {
-                    console.debug(`⚠️ Server respondió con status ${response.status}, guardando localmente...`);
-                } else {
-                    console.debug('⚠️ Servidor no disponible, guardando localmente...');
-                }
-                
-                this.guardarFacturaLocal(datos);
-                alert('✅ Factura guardada localmente');
-                this.imprimirRecibo(datos);
-                this.cancelarFactura();
-                return;
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || result.message || `Error ${response.status}`);
             }
-
-            // Si la respuesta es ok, intentar procesar
-            try {
-                const result = await response.json();
-                if (result.success) {
-                    alert('✅ Factura guardada: ' + result.data.numero_factura);
-                    this.imprimirRecibo(result.data);
-                    this.cancelarFactura();
-                    // Refrescar el saldo desde la API después de guardar
-                    await this.refrescarSaldoDelPaciente(this.state.paciente_seleccionado.id);
-                    this.loadData();
-                    return;
-                }
-            } catch (parseError) {
-                console.debug('⚠️ Error parseando respuesta, guardando localmente');
-            }
-
-            // Si llegamos aquí, guardar localmente
-            this.guardarFacturaLocal(datos);
-            alert('✅ Factura guardada localmente');
-            this.imprimirRecibo(datos);
+            alert('✅ Factura guardada: ' + result.data.numero_factura);
+            this.imprimirRecibo(result.data);
+            await this.refrescarSaldoDelPaciente(this.state.paciente_seleccionado.id);
             this.cancelarFactura();
-
+            await this.loadDataFromAPI();
         } catch (error) {
-            console.debug('⚠️ Error general, guardando localmente:', error.message);
-            this.guardarFacturaLocal(datos);
-            alert('✅ Factura guardada localmente');
-            this.imprimirRecibo(datos);
-            this.cancelarFactura();
-        }
-    },
-
-    guardarFacturaLocal(datos) {
-        try {
-            let facturas = JSON.parse(localStorage.getItem('facturas') || '[]');
-            
-            const numeroFactura = 'FAC-' + Date.now();
-            const facturaCompleta = {
-                numero_factura: numeroFactura,
-                fecha: new Date().toISOString(),
-                ...datos
-            };
-            
-            facturas.push(facturaCompleta);
-            localStorage.setItem('facturas', JSON.stringify(facturas));
-            
-            console.log('✅ Factura guardada en localStorage:', numeroFactura);
-        } catch (error) {
-            console.error('❌ Error guardando factura localmente:', error);
+            console.error('❌ No se pudo guardar la factura:', error);
+            alert(`No se pudo guardar la factura en la base de datos: ${error.message}`);
         }
     },
 

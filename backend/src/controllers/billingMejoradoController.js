@@ -11,248 +11,111 @@ class BillingMejoradoController {
      * Crear factura mejorada con integración a saldo
      */
     async createFacturaMejorada(req, res) {
+        let client;
         try {
-            const {
-                paciente_id,
-                items = [],
-                descuentos = [],
-                totales = {},
-                metodo_pago = 'efectivo',
-                observaciones = ''
-            } = req.body;
+            const { paciente_id, items = [], totales = {}, metodo_pago = 'efectivo', observaciones = '' } = req.body;
+            const pacienteId = String(paciente_id || '').trim();
+            const userId = Number(req.user.id);
+            const total = Number(totales.total_neto);
 
-            const user_id = parseInt(req.user.id, 10);
-            const factura_id = generateId('FAC');
-            const numero_factura = await this.generarNumeroFactura();
-
-            // Validaciones
-            if (!paciente_id || !items.length) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Paciente e items son requeridos'
-                });
+            if (!pacienteId || !items.length) {
+                return res.status(400).json({ success: false, message: 'Paciente e items son requeridos' });
+            }
+            if (!Number.isInteger(userId) || !Number.isFinite(total) || total < 0) {
+                return res.status(400).json({ success: false, message: 'Usuario o totales no válidos' });
             }
 
-            // Coercionar paciente_id a INTEGER si es string numérica
-            const paciente_id_int = parseInt(paciente_id, 10);
-            if (isNaN(paciente_id_int) || isNaN(user_id)) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'paciente_id y user_id deben ser números válidos'
-                });
-            }
-
-            // DEBUG: Log de datos recibidos
-            console.log('📊 DEBUG createFacturaMejorada:', {
-                paciente_id_int,
-                user_id,
-                items_count: items.length,
-                totales: totales,
-                total_neto: totales.total_neto,
-                total_neto_type: typeof totales.total_neto
+            const normalizedItems = items.map((item, index) => {
+                const cantidad = Number(item.cantidad);
+                const precioUnitario = Number(item.precio_unitario);
+                const subtotal = Number(item.subtotal ?? cantidad * precioUnitario);
+                const descuento = Number(item.descuento_total || 0);
+                const itemTotal = Number(item.total_item ?? subtotal - descuento);
+                if (!String(item.descripcion || '').trim() || cantidad <= 0 ||
+                    ![precioUnitario, subtotal, descuento, itemTotal].every(Number.isFinite)) {
+                    const error = new Error(`Concepto ${index + 1} no válido`);
+                    error.status = 400;
+                    throw error;
+                }
+                return { descripcion: String(item.descripcion).trim(), cantidad, precioUnitario, subtotal, descuento, itemTotal };
             });
 
-            await db.query('BEGIN');
-
-            try {
-                // 1. Crear factura en tabla mejorada
-                const queryFactura = `
-                    INSERT INTO ventas_mejorada (
-                        id, numero_factura, paciente_id, user_id, fecha,
-                        subtotal, total_descuentos, base_impuesto, total_impuestos, total,
-                        metodo_pago, observaciones, estado, tipo_factura
-                    ) VALUES (
-                        $1, $2, $3, $4, CURRENT_DATE,
-                        $5, $6, $7, $8, $9,
-                        $10, $11, 'completada', 'normal'
-                    ) RETURNING *
-                `;
-
-                const resFactura = await db.query(queryFactura, [
-                    factura_id,
-                    numero_factura,
-                    paciente_id_int,
-                    user_id,
-                    totales.subtotal || 0,
-                    totales.total_descuentos || 0,
-                    totales.base_impuesto || 0,
-                    totales.total_impuestos || 0,
-                    totales.total || 0,
-                    metodo_pago,
-                    observaciones
-                ]);
-
-                // 2. Insertar items en tabla mejorada
-                for (const item of items) {
-                    const item_id = generateId('ITEM');
-                    const descuento_item = item.descuento_total || 0;
-                    const total_item = item.total_item || (item.subtotal - descuento_item);
-
-                    await db.query(`
-                        INSERT INTO venta_items_mejorada (
-                            id, venta_id, descripcion, cantidad, precio_unitario,
-                            subtotal, descuento, total, tipo_item
-                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'general')
-                    `, [
-                        item_id,
-                        factura_id,
-                        item.descripcion,
-                        item.cantidad,
-                        item.precio_unitario,
-                        item.subtotal,
-                        descuento_item,
-                        total_item
-                    ]);
-
-                    // 3. Insertar descuentos de item si existen
-                    if (item.descuentos && item.descuentos.length > 0) {
-                        for (const desc of item.descuentos) {
-                            await db.query(`
-                                INSERT INTO venta_item_descuentos_mejorada (
-                                    id, venta_item_id, tipo_descuento, valor,
-                                    monto_descuento, motivo, usuario_id
-                                ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-                            `, [
-                                generateId('IDESC'),
-                                item_id,
-                                desc.tipo,
-                                desc.valor,
-                                desc.monto || desc.monto_descuento,
-                                desc.motivo,
-                                user_id
-                            ]);
-                        }
-                    }
-                }
-
-                // 4. Insertar descuentos de factura
-                if (descuentos && descuentos.length > 0) {
-                    for (const desc of descuentos) {
-                        await db.query(`
-                            INSERT INTO venta_descuentos_mejorada (
-                                id, venta_id, tipo_descuento, valor,
-                                monto_descuento, motivo, usuario_id
-                            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-                        `, [
-                            generateId('VDESC'),
-                            factura_id,
-                            desc.tipo,
-                            desc.valor,
-                            desc.monto_aplicado || desc.monto,
-                            desc.motivo,
-                            user_id
-                        ]);
-                    }
-                }
-
-                // 5. Actualizar saldo del paciente
-                const querySaldo = `
-                    UPDATE pacientes_saldo
-                    SET saldo_pendiente = saldo_pendiente + $1,
-                        total_deuda = total_deuda + $2,
-                        ultima_transaccion = CURRENT_TIMESTAMP,
-                        usuario_actualizo = $3
-                    WHERE paciente_id = $4
-                    RETURNING *
-                `;
-
-                let resSaldo = await db.query(querySaldo, [
-                    totales.total_neto || 0,
-                    totales.total_neto || 0,
-                    user_id,
-                    paciente_id_int
-                ]);
-
-                console.log('📊 DEBUG UPDATE pacientes_saldo:', {
-                    monto: totales.total_neto,
-                    paciente_id_int,
-                    rows_affected: resSaldo.rows.length,
-                    updated_row: resSaldo.rows[0] || 'NO ROWS'
-                });
-
-                let saldo_anterior = 0;
-                const monto = parseFloat(totales.total_neto) || 0;
-
-                // Si no existe el saldo, crear uno nuevo
-                if (resSaldo.rows.length === 0) {
-                    console.log('⚠️ No existe saldo previo, creando uno nuevo para paciente_id:', paciente_id_int);
-                    saldo_anterior = 0;  // No había saldo previo
-                    const resSaldoNew = await db.query(`
-                        INSERT INTO pacientes_saldo (
-                            id, paciente_id, saldo_pendiente, total_deuda,
-                            usuario_actualizo
-                        ) VALUES ($1, $2, $3, $4, $5)
-                        RETURNING *
-                    `, [
-                        generateId('SALDO'),
-                        paciente_id_int,
-                        monto,
-                        monto,
-                        user_id
-                    ]);
-                    console.log('✅ INSERT pacientes_saldo resultado:', resSaldoNew.rows[0] || 'ERROR');
-                    resSaldo.rows = resSaldoNew.rows;
-                } else {
-                    // El UPDATE devuelve el saldo DESPUÉS, pero necesitamos el ANTERIOR
-                    // Restar el monto que acabamos de sumar para obtener el anterior
-                    const saldo_nuevo = parseFloat(resSaldo.rows[0]?.saldo_pendiente) || 0;
-                    saldo_anterior = saldo_nuevo - monto;
-                    console.log('✅ UPDATE pacientes_saldo - saldo_anterior:', saldo_anterior, 'saldo_nuevo:', saldo_nuevo);
-                }
-
-                // 6. Registrar movimiento en historial
-                const resMovimiento = await db.query(`
-                    INSERT INTO movimientos_paciente (
-                        paciente_id, tipo, descripcion, monto, saldo_anterior,
-                        saldo_nuevo, referencia_id, usuario_id
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                    RETURNING *
-                `, [
-                    paciente_id_int,
-                    'factura',
-                    `Factura ${numero_factura}`,
-                    monto,
-                    saldo_anterior,
-                    saldo_anterior + monto,
-                    factura_id,
-                    user_id
-                ]);
-
-                console.log('✅ INSERT movimientos_paciente:', {
-                    paciente_id_int,
-                    monto,
-                    saldo_anterior,
-                    saldo_nuevo: saldo_anterior + monto,
-                    id: resMovimiento.rows[0]?.id || 'ERROR'
-                });
-
-                await db.query('COMMIT');
-
-                res.status(201).json({
-                    success: true,
-                    message: 'Factura creada exitosamente',
-                    data: {
-                        id: factura_id,
-                        numero_factura: numero_factura,
-                        paciente_id: paciente_id,
-                        totales: totales,
-                        fecha: new Date().toISOString(),
-                        metodo_pago: metodo_pago
-                    }
-                });
-
-            } catch (error) {
-                await db.query('ROLLBACK');
+            client = await db.connect();
+            await client.query('BEGIN');
+            await client.query("SELECT pg_advisory_xact_lock(hashtext('facturas_numero_correlativo'))");
+            const paciente = await client.query('SELECT id FROM pacientes WHERE id = $1', [pacienteId]);
+            if (paciente.rows.length === 0) {
+                const error = new Error('Paciente no encontrado');
+                error.status = 404;
                 throw error;
             }
 
+            const numeroFactura = await this.generarNumeroFactura(client);
+            const facturaId = generateId('FAC');
+            const subtotal = Number(totales.subtotal || 0);
+            const descuento = Number(totales.total_descuentos || 0);
+            const impuesto = Number(totales.total_impuestos || 0);
+            await client.query(`
+                INSERT INTO ventas (
+                    id, numero_venta, numero_factura, paciente_id, user_id, fecha, hora,
+                    subtotal, descuento, impuesto, total, metodo_pago, estado, observaciones,
+                    subtotal_original, total_descuentos, total_impuestos, base_impuesto, tipo_factura
+                ) VALUES ($1, $2, $2, $3, $4, CURRENT_DATE, CURRENT_TIME,
+                    $5, $6, $7, $8, $9, 'completada', $10, $5, $6, $7, $11, 'paciente')`,
+                [facturaId, numeroFactura, pacienteId, userId, subtotal, descuento, impuesto,
+                    total, metodo_pago, observaciones || null, Number(totales.base_impuesto || 0)]
+            );
+
+            for (const item of normalizedItems) {
+                await client.query(`
+                    INSERT INTO venta_items (
+                        id, venta_id, descripcion, cantidad, precio_unitario, subtotal,
+                        descuento, total, tipo_item
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'general')`,
+                    [generateId('ITEM'), facturaId, item.descripcion, item.cantidad,
+                        item.precioUnitario, item.subtotal, item.descuento, item.itemTotal]
+                );
+            }
+
+            const saldoResult = await client.query(`
+                INSERT INTO pacientes_saldo (paciente_id, saldo_pendiente, total_deuda, usuario_actualizo)
+                VALUES ($1, $2, $2, $3)
+                ON CONFLICT (paciente_id) DO UPDATE SET
+                    saldo_pendiente = pacientes_saldo.saldo_pendiente + EXCLUDED.saldo_pendiente,
+                    total_deuda = pacientes_saldo.total_deuda + EXCLUDED.total_deuda,
+                    ultima_transaccion = CURRENT_TIMESTAMP,
+                    usuario_actualizo = EXCLUDED.usuario_actualizo,
+                    updated_at = CURRENT_TIMESTAMP
+                RETURNING saldo_pendiente`,
+                [pacienteId, total, String(userId)]
+            );
+            const saldoNuevo = Number(saldoResult.rows[0].saldo_pendiente);
+            await client.query(`
+                INSERT INTO movimientos_paciente (
+                    paciente_id, tipo, descripcion, monto, saldo_anterior,
+                    saldo_nuevo, referencia_id, usuario_id
+                ) VALUES ($1, 'factura', $2, $3, $4, $5, $6, $7)`,
+                [pacienteId, `Factura ${numeroFactura}`, total, saldoNuevo - total,
+                    saldoNuevo, facturaId, userId]
+            );
+            await client.query('COMMIT');
+
+            res.status(201).json({
+                success: true,
+                message: 'Factura creada como venta y cargada al estado de cuenta',
+                data: { id: facturaId, numero_factura: numeroFactura, paciente_id: pacienteId,
+                    totales: { ...totales, total: total, total_neto: total }, fecha: new Date().toISOString(), metodo_pago }
+            });
         } catch (error) {
+            if (client) await client.query('ROLLBACK');
             console.error('Error al crear factura:', error);
-            res.status(500).json({
+            res.status(error.status || 500).json({
                 success: false,
                 message: 'Error al crear la factura',
                 error: error.message
             });
+        } finally {
+            if (client) client.release();
         }
     }
 
@@ -262,11 +125,11 @@ class BillingMejoradoController {
     async getEstadoCuenta(req, res) {
         try {
             const { paciente_id } = req.params;
-            const paciente_id_int = parseInt(paciente_id, 10);
-            if (isNaN(paciente_id_int)) {
+            const pacienteId = String(paciente_id || '').trim();
+            if (!pacienteId) {
                 return res.status(400).json({
                     success: false,
-                    message: 'paciente_id debe ser un número válido'
+                    message: 'paciente_id es requerido'
                 });
             }
 
@@ -276,7 +139,7 @@ class BillingMejoradoController {
                 FROM pacientes
                 WHERE id = $1
             `;
-            const resPaciente = await db.query(queryPaciente, [paciente_id_int]);
+            const resPaciente = await db.query(queryPaciente, [pacienteId]);
 
             if (resPaciente.rows.length === 0) {
                 return res.status(404).json({
@@ -293,7 +156,7 @@ class BillingMejoradoController {
                 FROM pacientes_saldo
                 WHERE paciente_id = $1
             `;
-            const resSaldo = await db.query(querySaldo, [paciente_id_int]);
+            const resSaldo = await db.query(querySaldo, [pacienteId]);
             const saldo = resSaldo.rows[0] || { saldo_pendiente: 0, total_deuda: 0 };
 
             // Obtener movimientos
@@ -306,19 +169,19 @@ class BillingMejoradoController {
                 ORDER BY fecha DESC
                 LIMIT 100
             `;
-            const resMovimientos = await db.query(queryMovimientos, [paciente_id_int]);
+            const resMovimientos = await db.query(queryMovimientos, [pacienteId]);
 
             // Obtener facturas
             const queryFacturas = `
                 SELECT 
                     id, numero_factura, fecha, subtotal, total_descuentos,
                     total_impuestos, total, metodo_pago, estado
-                FROM ventas_mejorada
+                FROM ventas
                 WHERE paciente_id = $1
                 ORDER BY fecha DESC
                 LIMIT 50
             `;
-            const resFacturas = await db.query(queryFacturas, [paciente_id_int]);
+            const resFacturas = await db.query(queryFacturas, [pacienteId]);
 
             // Procesar movimientos para incluir saldo acumulado
             const movimientos = resMovimientos.rows.map(mov => ({
@@ -368,11 +231,11 @@ class BillingMejoradoController {
     async getSaldoPaciente(req, res) {
         try {
             const { paciente_id } = req.params;
-            const paciente_id_int = parseInt(paciente_id, 10);
-            if (isNaN(paciente_id_int)) {
+            const pacienteId = String(paciente_id || '').trim();
+            if (!pacienteId) {
                 return res.status(400).json({
                     success: false,
-                    message: 'paciente_id debe ser un número válido'
+                    message: 'paciente_id es requerido'
                 });
             }
 
@@ -384,13 +247,13 @@ class BillingMejoradoController {
                 WHERE paciente_id = $1
             `;
 
-            const result = await db.query(query, [paciente_id_int]);
+            const result = await db.query(query, [pacienteId]);
 
             if (result.rows.length === 0) {
                 return res.json({
                     success: true,
                     data: {
-                        paciente_id: paciente_id_int,
+                        paciente_id: pacienteId,
                         saldo_pendiente: 0,
                         total_deuda: 0,
                         ultima_transaccion: null
@@ -420,7 +283,7 @@ class BillingMejoradoController {
         try {
             const { paciente_id, limit = 50, offset = 0 } = req.query;
 
-            let query = 'SELECT * FROM ventas_mejorada WHERE 1=1';
+            let query = 'SELECT * FROM ventas WHERE paciente_id IS NOT NULL';
             const params = [];
             let paramCount = 1;
 
@@ -455,6 +318,7 @@ class BillingMejoradoController {
      * Registrar pago/abono a saldo
      */
     async registrarPago(req, res) {
+        let client;
         try {
             const {
                 paciente_id,
@@ -464,94 +328,69 @@ class BillingMejoradoController {
                 observaciones = ''
             } = req.body;
 
-            const user_id = req.user.id;
+            const user_id = Number(req.user.id);
+            const pacienteId = String(paciente_id || '').trim();
+            const montoPago = Number(monto);
 
-            if (!paciente_id || !monto || monto <= 0) {
+            if (!pacienteId || !Number.isFinite(montoPago) || montoPago <= 0) {
                 return res.status(400).json({
                     success: false,
                     message: 'Paciente y monto requeridos'
                 });
             }
-
-            // Coercionar paciente_id a INTEGER
-            const paciente_id_int = parseInt(paciente_id, 10);
-            if (isNaN(paciente_id_int)) {
+            if (!Number.isInteger(user_id)) {
                 return res.status(400).json({
                     success: false,
-                    message: 'paciente_id debe ser un número válido'
+                    message: 'Usuario no válido'
                 });
             }
 
-            await db.query('BEGIN');
-
-            try {
-                // Obtener saldo actual
-                const querySaldo = `
-                    SELECT * FROM pacientes_saldo WHERE paciente_id = $1
-                `;
-                const resSaldo = await db.query(querySaldo, [paciente_id_int]);
-
-                if (resSaldo.rows.length === 0) {
-                    await db.query('ROLLBACK');
-                    return res.status(404).json({
-                        success: false,
-                        message: 'No hay saldo registrado para este paciente'
-                    });
-                }
-
-                const saldoAnterior = resSaldo.rows[0].saldo_pendiente;
-                const saldoNuevo = Math.max(0, saldoAnterior - monto);
-
-                // Actualizar saldo
-                await db.query(`
-                    UPDATE pacientes_saldo
-                    SET saldo_pendiente = $1,
-                        ultima_transaccion = CURRENT_TIMESTAMP,
-                        usuario_actualizo = $2
-                    WHERE paciente_id = $3
-                `, [saldoNuevo, user_id, paciente_id_int]);
-
-                // Registrar movimiento
-                await db.query(`
-                    INSERT INTO movimientos_paciente (
-                        paciente_id, tipo, descripcion, monto, saldo_anterior,
-                        saldo_nuevo, referencia_id, usuario_id
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                `, [
-                    paciente_id_int,
-                    'pago',
-                    `Pago ${metodo_pago}${observaciones ? ': ' + observaciones : ''}`,
-                    monto,
-                    saldoAnterior,
-                    saldoNuevo,
-                    referencia,
-                    user_id
-                ]);
-
-                await db.query('COMMIT');
-
-                res.json({
-                    success: true,
-                    message: 'Pago registrado exitosamente',
-                    data: {
-                        saldo_anterior: saldoAnterior,
-                        monto_pagado: monto,
-                        saldo_nuevo: saldoNuevo
-                    }
-                });
-
-            } catch (error) {
-                await db.query('ROLLBACK');
+            client = await db.connect();
+            await client.query('BEGIN');
+            const resSaldo = await client.query(
+                'SELECT * FROM pacientes_saldo WHERE paciente_id = $1 FOR UPDATE',
+                [pacienteId]
+            );
+            if (resSaldo.rows.length === 0) {
+                const error = new Error('No hay saldo registrado para este paciente');
+                error.status = 404;
                 throw error;
             }
 
+            const saldoAnterior = Number(resSaldo.rows[0].saldo_pendiente);
+            const saldoNuevo = Math.max(0, saldoAnterior - montoPago);
+            await client.query(`
+                UPDATE pacientes_saldo
+                SET saldo_pendiente = $1, ultima_transaccion = CURRENT_TIMESTAMP,
+                    usuario_actualizo = $2, updated_at = CURRENT_TIMESTAMP
+                WHERE paciente_id = $3`,
+                [saldoNuevo, String(user_id), pacienteId]
+            );
+            await client.query(`
+                INSERT INTO movimientos_paciente (
+                    paciente_id, tipo, descripcion, monto, saldo_anterior,
+                    saldo_nuevo, referencia_id, usuario_id
+                ) VALUES ($1, 'pago', $2, $3, $4, $5, $6, $7)`,
+                [pacienteId, `Pago ${metodo_pago}${observaciones ? ': ' + observaciones : ''}`,
+                    montoPago, saldoAnterior, saldoNuevo, referencia, user_id]
+            );
+            await client.query('COMMIT');
+            res.json({
+                success: true,
+                message: 'Pago registrado exitosamente',
+                data: { saldo_anterior: saldoAnterior, monto_pagado: montoPago, saldo_nuevo: saldoNuevo }
+            });
+
         } catch (error) {
+            if (client) await client.query('ROLLBACK');
             console.error('Error al registrar pago:', error);
-            res.status(500).json({
+            res.status(error.status || 500).json({
                 success: false,
                 message: 'Error al registrar pago',
                 error: error.message
             });
+        } finally {
+            if (client) client.release();
         }
     }
 
@@ -561,11 +400,11 @@ class BillingMejoradoController {
     async getEstadoCuentaDetallado(req, res) {
         try {
             const { paciente_id } = req.params;
-            const paciente_id_int = parseInt(paciente_id, 10);
-            if (isNaN(paciente_id_int)) {
+            const pacienteId = String(paciente_id || '').trim();
+            if (!pacienteId) {
                 return res.status(400).json({
                     success: false,
-                    message: 'paciente_id debe ser un número válido'
+                    message: 'paciente_id es requerido'
                 });
             }
 
@@ -575,7 +414,7 @@ class BillingMejoradoController {
                 FROM pacientes
                 WHERE id = $1
             `;
-            const resPaciente = await db.query(queryPaciente, [paciente_id_int]);
+            const resPaciente = await db.query(queryPaciente, [pacienteId]);
 
             if (resPaciente.rows.length === 0) {
                 return res.status(404).json({
@@ -592,7 +431,7 @@ class BillingMejoradoController {
                 FROM pacientes_saldo
                 WHERE paciente_id = $1
             `;
-            const resSaldo = await db.query(querySaldo, [paciente_id_int]);
+            const resSaldo = await db.query(querySaldo, [pacienteId]);
             const saldo = resSaldo.rows[0] || { saldo_pendiente: 0, total_deuda: 0 };
 
             // Obtener todas las facturas con sus items agrupados por categoría
@@ -605,12 +444,12 @@ class BillingMejoradoController {
                     vi.descuento as item_descuento,
                     vi.total as item_total,
                     vi.tipo_item
-                FROM ventas_mejorada v
-                LEFT JOIN venta_items_mejorada vi ON v.id = vi.venta_id
+                FROM ventas v
+                LEFT JOIN venta_items vi ON v.id = vi.venta_id
                 WHERE v.paciente_id = $1
                 ORDER BY v.fecha DESC, vi.descripcion
             `;
-            const resFacturas = await db.query(queryFacturas, [paciente_id_int]);
+            const resFacturas = await db.query(queryFacturas, [pacienteId]);
 
             // Agrupar items por categoría
             const facturaMap = new Map();
@@ -682,15 +521,18 @@ class BillingMejoradoController {
     /**
      * Generar número de factura
      */
-    async generarNumeroFactura() {
+    async generarNumeroFactura(databaseClient = db) {
         const query = `
-            SELECT COUNT(*) as total FROM ventas_mejorada 
-            WHERE EXTRACT(YEAR FROM fecha) = EXTRACT(YEAR FROM CURRENT_DATE)
+            SELECT numero_factura FROM ventas
+            WHERE numero_factura ~ $1
+            ORDER BY ((regexp_match(numero_factura, '([0-9]+)$'))[1])::BIGINT DESC
+            LIMIT 1
         `;
         try {
-            const result = await db.query(query);
-            const numero = (result.rows[0]?.total || 0) + 1;
             const año = new Date().getFullYear();
+            const result = await databaseClient.query(query, [`^FAC-${año}-[0-9]+$`]);
+            const ultimo = result.rows[0]?.numero_factura;
+            const numero = ultimo ? Number(ultimo.match(/(\d+)$/)?.[1] || 0) + 1 : 1;
             return `FAC-${año}-${String(numero).padStart(6, '0')}`;
         } catch {
             return `FAC-${Date.now()}`;
