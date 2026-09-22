@@ -1052,7 +1052,67 @@ select:disabled {
 
 .purchase-items-table th:nth-child(2),
 .purchase-items-table td:nth-child(2) {
-    min-width: 240px;
+    min-width: 300px;
+}
+
+.concept-search-input {
+    position: relative;
+}
+
+.concept-search-input i {
+    position: absolute;
+    top: 50%;
+    left: 12px;
+    color: var(--text-gray);
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.concept-search-input .form-input {
+    width: 100%;
+    padding-left: 36px;
+}
+
+.concept-search-results {
+    max-height: 180px;
+    margin-top: 6px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    background: var(--bg-white);
+}
+
+.concept-search-result {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 0;
+    border-bottom: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-dark);
+    text-align: left;
+    cursor: pointer;
+}
+
+.concept-search-result:last-child {
+    border-bottom: 0;
+}
+
+.concept-search-result:hover,
+.concept-search-result:focus {
+    background: var(--bg-light);
+}
+
+.concept-search-result small {
+    color: var(--text-gray);
+    white-space: nowrap;
+}
+
+.concept-search-empty {
+    padding: 10px 12px;
+    color: var(--text-gray);
 }
 
 .purchase-total {

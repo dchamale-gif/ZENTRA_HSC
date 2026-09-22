@@ -54,11 +54,13 @@ const ComprasModule = {
             this.state.medicinas = (medicinasData.medicinas || []).map(medicina => ({
                 id: String(medicina.id),
                 nombre: medicina.nombre,
+                codigo: medicina.codigo_interno || medicina.codigo_externo || medicina.codigo_barra || '',
                 precio: Number(medicina.precio_costo ?? medicina.precio ?? 0)
             }));
             this.state.articulos = (articulosData.articulos || []).map(articulo => ({
                 id: String(articulo.id),
                 nombre: articulo.nombre_articulo,
+                codigo: articulo.codigo || articulo.codigo_barras || articulo.codigo_alternativo || '',
                 precio: Number(articulo.precio_costo ?? 0)
             }));
             this.render();
@@ -217,12 +219,62 @@ const ComprasModule = {
         return tipo === 'medicina' ? this.state.medicinas : this.state.articulos;
     },
 
+    searchConcept(index, term) {
+        const item = this.state.items[index];
+        const results = document.getElementById(`conceptSearchResults-${index}`);
+        if (!item || !results) return;
+
+        const selected = this.getCatalog(item.tipo).find(entry => entry.id === String(item.concepto_id));
+        if (!selected || selected.nombre !== term) {
+            item.concepto_id = '';
+            item.precio_unitario = 0;
+            document.getElementById(`purchaseItemPrice-${index}`).value = 0;
+            document.getElementById(`purchaseItemSubtotal-${index}`).textContent = 'Q0.00';
+            this.updateCalculatedTotal();
+        }
+
+        const normalizedTerm = this.normalizeSearch(term);
+        if (normalizedTerm.length < 2) {
+            results.hidden = true;
+            results.innerHTML = '';
+            return;
+        }
+
+        const matches = this.getCatalog(item.tipo).filter(concepto =>
+            this.normalizeSearch(`${concepto.nombre} ${concepto.codigo}`).includes(normalizedTerm)
+        ).slice(0, 8);
+
+        results.innerHTML = matches.length > 0
+            ? matches.map(concepto => `
+                <button class="concept-search-result" type="button" data-concept-id="${this.escapeHtml(concepto.id)}"
+                    onclick="ComprasModule.selectConcept(${index}, this.dataset.conceptId)">
+                    <strong>${this.escapeHtml(concepto.nombre)}</strong>
+                    ${concepto.codigo ? `<small>${this.escapeHtml(concepto.codigo)}</small>` : ''}
+                </button>
+            `).join('')
+            : '<div class="concept-search-empty">Sin coincidencias</div>';
+        results.hidden = false;
+    },
+
+    selectConcept(index, conceptId) {
+        const item = this.state.items[index];
+        const concepto = this.getCatalog(item.tipo).find(entry => entry.id === String(conceptId));
+        if (!concepto) return;
+        item.concepto_id = concepto.id;
+        item.precio_unitario = concepto.precio || 0;
+        this.renderItems();
+    },
+
+    normalizeSearch(value = '') {
+        return String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    },
+
     renderItems() {
         const tbody = document.getElementById('purchaseItemsBody');
         tbody.innerHTML = this.state.items.map((item, index) => {
-            const options = this.getCatalog(item.tipo).map(concepto =>
-                `<option value="${concepto.id}" ${concepto.id === String(item.concepto_id) ? 'selected' : ''}>${this.escapeHtml(concepto.nombre)}</option>`
-            ).join('');
+            const selectedConcept = this.getCatalog(item.tipo).find(concepto =>
+                concepto.id === String(item.concepto_id)
+            );
             const subtotal = (Number(item.cantidad) || 0) * (Number(item.precio_unitario) || 0);
             return `
                 <tr>
@@ -233,13 +285,20 @@ const ComprasModule = {
                         </select>
                     </td>
                     <td>
-                        <select class="form-input" onchange="ComprasModule.updateItem(${index}, 'concepto_id', this.value)">
-                            <option value="">Selecciona un concepto</option>${options}
-                        </select>
+                        <div class="concept-search">
+                            <div class="concept-search-input">
+                                <i class="fas fa-search"></i>
+                                <input class="form-input" type="search" autocomplete="off"
+                                    placeholder="Buscar por nombre o código..."
+                                    value="${this.escapeHtml(selectedConcept?.nombre || '')}"
+                                    oninput="ComprasModule.searchConcept(${index}, this.value)">
+                            </div>
+                            <div id="conceptSearchResults-${index}" class="concept-search-results" hidden></div>
+                        </div>
                     </td>
                     <td><input class="form-input" type="number" min="1" step="1" value="${item.cantidad}" onchange="ComprasModule.updateItem(${index}, 'cantidad', this.value)"></td>
-                    <td><input class="form-input" type="number" min="0" step="0.01" value="${item.precio_unitario}" onchange="ComprasModule.updateItem(${index}, 'precio_unitario', this.value)"></td>
-                    <td><strong>Q${subtotal.toFixed(2)}</strong></td>
+                    <td><input id="purchaseItemPrice-${index}" class="form-input" type="number" min="0" step="0.01" value="${item.precio_unitario}" onchange="ComprasModule.updateItem(${index}, 'precio_unitario', this.value)"></td>
+                    <td><strong id="purchaseItemSubtotal-${index}">Q${subtotal.toFixed(2)}</strong></td>
                     <td>
                         <button class="btn-icon btn-delete" type="button" title="Quitar concepto" onclick="ComprasModule.removeItem(${index})" ${this.state.items.length === 1 ? 'disabled' : ''}>
                             <i class="fas fa-trash"></i>
@@ -247,6 +306,10 @@ const ComprasModule = {
                     </td>
                 </tr>`;
         }).join('');
+        this.updateCalculatedTotal();
+    },
+
+    updateCalculatedTotal() {
         document.getElementById('purchaseCalculatedTotal').textContent = `Q${this.calculateTotal().toFixed(2)}`;
     },
 
