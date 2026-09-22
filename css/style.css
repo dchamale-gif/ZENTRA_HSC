@@ -1689,9 +1689,10 @@ textarea.form-input {
 }
 
 .table-responsive {
-    overflow-x: auto;
+    overflow: auto;
     border-radius: 8px;
     box-shadow: var(--shadow);
+    max-height: calc(100vh - 400px);
 }
 
 .data-table {
