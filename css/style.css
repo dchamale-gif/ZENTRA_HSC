@@ -3351,7 +3351,7 @@ textarea.form-input {
     background: white;
     border: 2px solid #e0e0e0;
     border-radius: 8px;
-    overflow: hidden;
+    overflow: auto;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     transition: all 0.3s ease;
     min-height: auto;
