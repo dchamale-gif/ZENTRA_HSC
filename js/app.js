@@ -245,6 +245,11 @@ function navigateToPage(pageId) {
         navItem.classList.add('active');
     }
 
+    const pagesContainer = document.querySelector('.pages-container');
+    if (pagesContainer) {
+        pagesContainer.scrollTop = 0;
+    }
+
     // Update page title
     const titleMap = {
         'dashboard': 'Dashboard',
@@ -262,6 +267,7 @@ function navigateToPage(pageId) {
         'historia-clinica': 'Historia Clínica',
         'saldo-paciente': 'Saldo del Paciente',
         'hospitalizaciones': 'Hospitalizaciones',
+        'ordenes-medicas': 'Órdenes Médicas',
         'codigos-articulos': 'Códigos de Artículos',
         'caja-integrada': 'Caja Integrada',
         'agenda': 'Agenda Médica',
