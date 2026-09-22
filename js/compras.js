@@ -8,11 +8,14 @@ const ComprasModule = {
         proveedores: [],
         medicinas: [],
         articulos: [],
-        items: []
+        items: [],
+        initialized: false
     },
 
     init() {
+        if (this.state.initialized) return;
         this.setupEventListeners();
+        this.state.initialized = true;
         this.loadData();
     },
 
