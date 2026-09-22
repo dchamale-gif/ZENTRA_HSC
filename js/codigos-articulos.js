@@ -301,8 +301,8 @@ const CodigosArticulosModule = {
                 <td><code class="codigo-venta">${articulo.codigoVenta}</code></td>
                 <td><code class="codigo-compra">${articulo.codigoCompra}</code></td>
                 <td>${familia ? familia.nombre : '-'}</td>
-                <td>$${(articulo.precioCompra || 0).toFixed(2)}</td>
-                <td>$${(articulo.precioVenta || 0).toFixed(2)}</td>
+                <td>Q${(articulo.precioCompra || 0).toFixed(2)}</td>
+                <td>Q${(articulo.precioVenta || 0).toFixed(2)}</td>
                 <td><span class="badge badge-info">${margen}${margen !== '-' ? '%' : ''}</span></td>
                 <td>${estadoBadge}</td>
                 <td class="actions">
@@ -377,15 +377,15 @@ const CodigosArticulosModule = {
                 <div class="pricing-section">
                     <div class="price-item">
                         <label>Precio de Compra</label>
-                        <p class="price">$${precioCompra.toFixed(2)}</p>
+                        <p class="price">Q${precioCompra.toFixed(2)}</p>
                     </div>
                     <div class="price-item">
                         <label>Precio de Venta</label>
-                        <p class="price">$${precioVenta.toFixed(2)}</p>
+                        <p class="price">Q${precioVenta.toFixed(2)}</p>
                     </div>
                     <div class="price-item">
                         <label>Margen</label>
-                        <p class="price">${margen}% | $${margenPeso}</p>
+                        <p class="price">${margen}% | Q${margenPeso}</p>
                     </div>
                 </div>
 
