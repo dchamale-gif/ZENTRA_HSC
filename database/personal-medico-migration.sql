@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS personal_medico (
     apellido_materno VARCHAR(100),
     especialidad_id INTEGER NOT NULL REFERENCES especialidades_medicas(id),
     numero_colegiado VARCHAR(80) NOT NULL UNIQUE,
-    email VARCHAR(150) NOT NULL UNIQUE,
+    email VARCHAR(150) UNIQUE,
     telefono VARCHAR(30) NOT NULL,
     horario_inicio TIME NOT NULL DEFAULT '08:00',
     horario_fin TIME NOT NULL DEFAULT '16:00',
@@ -64,6 +64,9 @@ END $$;
 
 ALTER TABLE personal_medico
     ADD COLUMN IF NOT EXISTS numero_colegiado VARCHAR(80);
+
+ALTER TABLE personal_medico
+    ALTER COLUMN email DROP NOT NULL;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_personal_medico_numero_colegiado
     ON personal_medico(numero_colegiado);

@@ -409,8 +409,8 @@ const PersonalModule = {
             return;
         }
 
-        if (!email || !email.includes('@')) {
-            showNotification('Email válido es obligatorio', 'error');
+        if (email && !email.includes('@')) {
+            showNotification('Ingresa un email válido', 'error');
             return;
         }
 
@@ -465,7 +465,7 @@ const PersonalModule = {
                     apellido_materno: apellidoMaterno,
                     especialidad_id: Number(especialidadId),
                     numero_colegiado: numeroColegiado,
-                    email,
+                    email: email || null,
                     telefono,
                     horario_inicio: horarioInicio,
                     horario_fin: horarioFin,

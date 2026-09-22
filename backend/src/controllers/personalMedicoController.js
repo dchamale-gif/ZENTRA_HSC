@@ -46,8 +46,12 @@ const personalMedicoController = {
       horario_fin, dias_disponibles, estado
     } = req.body;
 
-    if (!nombre || !apellido_paterno || !especialidad_id || !numero_colegiado || !email || !telefono) {
+    if (!nombre || !apellido_paterno || !especialidad_id || !numero_colegiado || !telefono) {
       return res.status(400).json({ error: 'Faltan campos obligatorios del personal médico' });
+    }
+
+    if (email && !String(email).includes('@')) {
+      return res.status(400).json({ error: 'El email no tiene un formato válido' });
     }
 
     const diasLaborales = normalizarDias(dias_disponibles);
@@ -66,7 +70,7 @@ const personalMedicoController = {
                  COALESCE($11, 'activo'))
          RETURNING id`,
         [nombre, apellido_paterno, apellido_materno || null, especialidad_id,
-          numero_colegiado, email, telefono, horario_inicio || null,
+          numero_colegiado, email || null, telefono, horario_inicio || null,
           horario_fin || null, diasLaborales, estado || null]
       );
       const saved = await pool.query(`${selectPersonal} WHERE pm.id = $1`, [result.rows[0].id]);
@@ -88,8 +92,12 @@ const personalMedicoController = {
       horario_fin, dias_disponibles, estado
     } = req.body;
 
-    if (!nombre || !apellido_paterno || !especialidad_id || !numero_colegiado || !email || !telefono) {
+    if (!nombre || !apellido_paterno || !especialidad_id || !numero_colegiado || !telefono) {
       return res.status(400).json({ error: 'Faltan campos obligatorios del personal médico' });
+    }
+
+    if (email && !String(email).includes('@')) {
+      return res.status(400).json({ error: 'El email no tiene un formato válido' });
     }
 
     const diasLaborales = normalizarDias(dias_disponibles);
@@ -107,7 +115,7 @@ const personalMedicoController = {
          WHERE id = $12
          RETURNING id`,
         [nombre, apellido_paterno, apellido_materno || null, especialidad_id,
-          numero_colegiado, email, telefono, horario_inicio, horario_fin,
+          numero_colegiado, email || null, telefono, horario_inicio, horario_fin,
           diasLaborales, estado, id]
       );
       if (result.rows.length === 0) return res.status(404).json({ error: 'Personal no encontrado' });

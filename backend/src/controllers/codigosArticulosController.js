@@ -1,5 +1,12 @@
 const pool = require('../db/connection');
 
+const ARTICLE_COLUMNS = `
+  id, codigo, nombre_articulo, descripcion, categoria, familia,
+  precio_unitario, cantidad_disponible, activo, created_at, updated_at,
+  tipo, subfamilia, precio_costo, unidad_medida, codigo_barras,
+  codigo_alternativo, descripcion2
+`;
+
 // ==========================================
 // CODIGOS ARTICULOS CONTROLLER
 // ==========================================
@@ -10,14 +17,14 @@ const pool = require('../db/connection');
  */
 const getArticulos = async (req, res) => {
   try {
-    const { categoria, familia, activo = true, search } = req.query;
+    const { categoria, familia, activo, search } = req.query;
     
-    let query = 'SELECT * FROM codigos_articulos WHERE 1=1';
+    let query = `SELECT ${ARTICLE_COLUMNS} FROM codigos_articulos WHERE 1=1`;
     const params = [];
     let paramIndex = 1;
 
     // Filtrar por estado
-    if (activo !== undefined && activo !== 'false') {
+    if (activo !== undefined) {
       query += ` AND activo = $${paramIndex}`;
       params.push(activo === 'true' || activo === true);
       paramIndex++;
@@ -72,7 +79,7 @@ const getArticuloById = async (req, res) => {
     const { id } = req.params;
 
     const result = await pool.query(
-      'SELECT * FROM codigos_articulos WHERE id = $1',
+      `SELECT ${ARTICLE_COLUMNS} FROM codigos_articulos WHERE id = $1`,
       [id]
     );
 
@@ -131,18 +138,32 @@ const createArticulo = async (req, res) => {
       return res.status(409).json({ error: 'Este código ya existe' });
     }
 
+    const idMetadata = await pool.query(
+      `SELECT data_type, column_default, is_identity
+       FROM information_schema.columns
+       WHERE table_schema = current_schema()
+         AND table_name = 'codigos_articulos'
+         AND column_name = 'id'`
+    );
+    const idColumn = idMetadata.rows[0];
+    const requiresManualId = idColumn &&
+      ['character varying', 'character', 'text'].includes(idColumn.data_type) &&
+      !idColumn.column_default && idColumn.is_identity !== 'YES';
+    const generatedId = `ART-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+    const values = [codigo, nombre_articulo, descripcion || null, categoria || null, familia || null,
+      subfamilia || null, precio_unitario ?? 0, precio_costo ?? 0, cantidad_disponible ?? 0,
+      unidad_medida || null, codigo_barras || null, codigo_alternativo || null,
+      descripcion2 || null, tipo || 'producto', activo];
+
     const result = await pool.query(
-      `INSERT INTO codigos_articulos 
-       (codigo, nombre_articulo, descripcion, categoria, familia, subfamilia,
+      `INSERT INTO codigos_articulos
+       (${requiresManualId ? 'id, ' : ''}codigo, nombre_articulo, descripcion, categoria, familia, subfamilia,
         precio_unitario, precio_costo, cantidad_disponible, unidad_medida,
-        codigo_barras, codigo_alternativo, descripcion2, tipo, activo, 
+        codigo_barras, codigo_alternativo, descripcion2, tipo, activo,
         created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
-       RETURNING *`,
-      [codigo, nombre_articulo, descripcion || null, categoria || null, familia || null, 
-       subfamilia || null, precio_unitario || 0, precio_costo || 0, cantidad_disponible || 0, 
-       unidad_medida || null, codigo_barras || null, codigo_alternativo || null, 
-       descripcion2 || null, tipo || null, activo]
+       VALUES (${requiresManualId ? '$1, ' : ''}${values.map((_, index) => `$${index + (requiresManualId ? 2 : 1)}`).join(', ')}, NOW(), NOW())
+       RETURNING ${ARTICLE_COLUMNS}`,
+      requiresManualId ? [generatedId, ...values] : values
     );
 
     res.status(201).json({
@@ -210,7 +231,7 @@ const updateArticulo = async (req, res) => {
            activo = COALESCE($15, activo),
            updated_at = NOW()
        WHERE id = $16
-       RETURNING *`,
+      RETURNING ${ARTICLE_COLUMNS}`,
       [codigo, nombre_articulo, descripcion, categoria, familia, subfamilia,
        precio_unitario, precio_costo, cantidad_disponible, unidad_medida,
        codigo_barras, codigo_alternativo, descripcion2, tipo, activo, id]
@@ -275,7 +296,7 @@ const actualizarCantidad = async (req, res) => {
       `UPDATE codigos_articulos 
        SET cantidad_disponible = $1, updated_at = NOW() 
        WHERE id = $2 
-       RETURNING *`,
+         RETURNING ${ARTICLE_COLUMNS}`,
       [cantidad_disponible, id]
     );
 
@@ -300,7 +321,7 @@ const actualizarCantidad = async (req, res) => {
 const getArticulosStockBajo = async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT * FROM codigos_articulos 
+      `SELECT ${ARTICLE_COLUMNS} FROM codigos_articulos
        WHERE activo = true AND cantidad_disponible < 10
        ORDER BY cantidad_disponible ASC`
     );

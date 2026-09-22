@@ -29,7 +29,7 @@ const CodigosArticulosModule = {
         const searchInput = document.getElementById('searchArticulos');
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
-                this.searchTerm = e.target.value.toLowerCase();
+                this.state.searchTerm = e.target.value.toLowerCase();
                 this.renderArticulos();
             });
         }
@@ -37,7 +37,7 @@ const CodigosArticulosModule = {
         const seccionFilter = document.getElementById('filterSeccion');
         if (seccionFilter) {
             seccionFilter.addEventListener('change', (e) => {
-                this.filterSeccion = e.target.value;
+                this.state.filterSeccion = e.target.value;
                 this.renderFamilias();
                 this.renderArticulos();
             });
@@ -46,7 +46,7 @@ const CodigosArticulosModule = {
         const familiaFilter = document.getElementById('filterFamilia');
         if (familiaFilter) {
             familiaFilter.addEventListener('change', (e) => {
-                this.filterFamilia = e.target.value;
+                this.state.filterFamilia = e.target.value;
                 this.renderArticulos();
             });
         }
@@ -65,6 +65,72 @@ const CodigosArticulosModule = {
         if (closeModal) {
             closeModal.addEventListener('click', () => this.closeArticuloModal());
         }
+    },
+
+    normalizeArticulo(articulo) {
+        const normalized = {
+            id: String(articulo.id),
+            nombre: articulo.nombre_articulo || '',
+            concepto: articulo.descripcion2 || articulo.nombre_articulo || '',
+            codigoVenta: articulo.codigo || '',
+            codigoCompra: articulo.codigo_barras || articulo.codigo_alternativo || '',
+            seccionId: articulo.categoria || '',
+            familiaId: articulo.familia || '',
+            subfamiliaId: articulo.subfamilia || '',
+            precioCompra: Number(articulo.precio_costo) || 0,
+            precioVenta: Number(articulo.precio_unitario) || 0,
+            cantidadDisponible: Number(articulo.cantidad_disponible) || 0,
+            unidadMedida: articulo.unidad_medida || '',
+            codigoAlternativo: articulo.codigo_alternativo || '',
+            tipo: articulo.tipo || 'producto',
+            estado: articulo.activo === false ? 'inactivo' : 'activo',
+            descripcion: articulo.descripcion || '',
+            descripcion2: articulo.descripcion2 || '',
+            activo: articulo.activo !== false
+        };
+
+        return {
+            ...articulo,
+            ...normalized,
+            nombre_articulo: normalized.nombre,
+            codigo: normalized.codigoVenta,
+            codigo_barras: normalized.codigoCompra,
+            categoria: normalized.seccionId,
+            familia: normalized.familiaId,
+            subfamilia: normalized.subfamiliaId,
+            precio_costo: normalized.precioCompra,
+            precio_unitario: normalized.precioVenta,
+            cantidad_disponible: normalized.cantidadDisponible,
+            unidad_medida: normalized.unidadMedida
+        };
+    },
+
+    buildClasificaciones() {
+        const secciones = new Set();
+        const familias = new Map();
+        const subfamilias = new Map();
+
+        this.state.articulos.forEach(articulo => {
+            if (articulo.seccionId) secciones.add(articulo.seccionId);
+            if (articulo.familiaId) {
+                familias.set(`${articulo.seccionId}|${articulo.familiaId}`, {
+                    id: articulo.familiaId,
+                    seccionId: articulo.seccionId,
+                    nombre: articulo.familiaId
+                });
+            }
+            if (articulo.subfamiliaId) {
+                subfamilias.set(`${articulo.familiaId}|${articulo.subfamiliaId}`, {
+                    id: articulo.subfamiliaId,
+                    familiaId: articulo.familiaId,
+                    nombre: articulo.subfamiliaId
+                });
+            }
+        });
+
+        this.state.secciones = [...secciones].sort().map(nombre => ({ id: nombre, nombre }));
+        this.state.familias = [...familias.values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
+        this.state.subfamilias = [...subfamilias.values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
     },
 
     // Cargar datos desde API
@@ -89,7 +155,10 @@ const CodigosArticulosModule = {
             }
 
             const data = await response.json();
-            this.state.articulos = data.articulos || [];
+            this.state.articulos = (data.articulos || []).map(articulo => this.normalizeArticulo(articulo));
+            this.buildClasificaciones();
+            this.renderSecciones();
+            this.renderFamilias();
             this.renderArticulos();
             
             console.log(`✅ ${this.state.articulos.length} artículos cargados desde BD`);
@@ -139,6 +208,12 @@ const CodigosArticulosModule = {
 
         select.innerHTML = '<option value="todos">-- Todas las Secciones --</option>' +
             this.state.secciones.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
+
+        const modalSelect = document.getElementById('articuloSeccion');
+        if (modalSelect) {
+            modalSelect.innerHTML = '<option value="">-- Selecciona sección --</option>' +
+                this.state.secciones.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
+        }
     },
 
     // Renderizar familias según sección
@@ -146,9 +221,9 @@ const CodigosArticulosModule = {
         const select = document.getElementById('filterFamilia');
         if (!select) return;
 
-        const familiasFiltradas = this.filterSeccion === 'todos'
+        const familiasFiltradas = this.state.filterSeccion === 'todos'
             ? this.state.familias
-            : this.state.familias.filter(f => f.seccionId === this.filterSeccion);
+            : this.state.familias.filter(f => f.seccionId === this.state.filterSeccion);
 
         select.innerHTML = '<option value="todos">-- Todas las Familias --</option>' +
             familiasFiltradas.map(f => `<option value="${f.id}">${f.nombre}</option>`).join('');
@@ -162,22 +237,22 @@ const CodigosArticulosModule = {
         let filtered = [...this.state.articulos];
 
         // Filtro por sección
-        if (this.filterSeccion !== 'todos') {
-            filtered = filtered.filter(a => a.seccionId === this.filterSeccion);
+        if (this.state.filterSeccion !== 'todos') {
+            filtered = filtered.filter(a => a.seccionId === this.state.filterSeccion);
         }
 
         // Filtro por familia
-        if (this.filterFamilia !== 'todos') {
-            filtered = filtered.filter(a => a.familiaId === this.filterFamilia);
+        if (this.state.filterFamilia !== 'todos') {
+            filtered = filtered.filter(a => a.familiaId === this.state.filterFamilia);
         }
 
         // Búsqueda
-        if (this.searchTerm) {
+        if (this.state.searchTerm) {
             filtered = filtered.filter(a =>
-                a.nombre.toLowerCase().includes(this.searchTerm) ||
-                a.concepto.toLowerCase().includes(this.searchTerm) ||
-                a.codigoVenta.toLowerCase().includes(this.searchTerm) ||
-                a.codigoCompra.toLowerCase().includes(this.searchTerm)
+                a.nombre.toLowerCase().includes(this.state.searchTerm) ||
+                a.concepto.toLowerCase().includes(this.state.searchTerm) ||
+                a.codigoVenta.toLowerCase().includes(this.state.searchTerm) ||
+                a.codigoCompra.toLowerCase().includes(this.state.searchTerm)
             );
         }
 
@@ -215,7 +290,7 @@ const CodigosArticulosModule = {
         const familia = this.state.familias.find(f => f.id === articulo.familiaId);
         const precioCompra = articulo.precioCompra || 0;
         const precioVenta = articulo.precioVenta || 0;
-        const margen = familia && precioCompra > 0 ? ((precioVenta - precioCompra) / precioCompra * 100).toFixed(1) : '-';
+        const margen = precioCompra > 0 ? ((precioVenta - precioCompra) / precioCompra * 100).toFixed(1) : '-';
         const estadoBadge = articulo.estado === 'activo'
             ? '<span class="badge badge-success">Activo</span>'
             : '<span class="badge badge-secondary">Inactivo</span>';
@@ -247,7 +322,7 @@ const CodigosArticulosModule = {
 
     // Ver detalles
     viewArticuloDetails(articuloId) {
-        const articulo = this.state.articulos.find(a => a.id === articuloId);
+        const articulo = this.state.articulos.find(a => String(a.id) === String(articuloId));
         if (!articulo) return;
 
         const familia = this.state.familias.find(f => f.id === articulo.familiaId);
@@ -302,11 +377,11 @@ const CodigosArticulosModule = {
                 <div class="pricing-section">
                     <div class="price-item">
                         <label>Precio de Compra</label>
-                        <p class="price">$${articulo.precioCompra.toFixed(2)}</p>
+                        <p class="price">$${precioCompra.toFixed(2)}</p>
                     </div>
                     <div class="price-item">
                         <label>Precio de Venta</label>
-                        <p class="price">$${articulo.precioVenta.toFixed(2)}</p>
+                        <p class="price">$${precioVenta.toFixed(2)}</p>
                     </div>
                     <div class="price-item">
                         <label>Margen</label>
@@ -360,7 +435,7 @@ const CodigosArticulosModule = {
 
     // Editar artículo
     editArticulo(articuloId) {
-        const articulo = this.state.articulos.find(a => a.id === articuloId);
+        const articulo = this.state.articulos.find(a => String(a.id) === String(articuloId));
         if (!articulo) return;
 
         this.state.selectedArticulo = articulo;
@@ -386,11 +461,16 @@ const CodigosArticulosModule = {
             document.getElementById('articuloFamilia').value = articulo.familiaId;
             document.getElementById('precioCompra').value = articulo.precioCompra;
             document.getElementById('precioVenta').value = articulo.precioVenta;
+            document.getElementById('articuloCantidad').value = articulo.cantidadDisponible;
+            document.getElementById('articuloUnidadMedida').value = articulo.unidadMedida;
+            document.getElementById('articuloSubfamilia').value = articulo.subfamiliaId;
+            document.getElementById('articuloTipo').value = articulo.tipo;
             document.getElementById('articuloEstado').value = articulo.estado;
             document.getElementById('articuloDescripcion').value = articulo.descripcion || '';
+        } else {
+            this.renderFamiliasForModal();
         }
 
-        this.renderFamiliasForModal();
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
     },
@@ -432,6 +512,9 @@ const CodigosArticulosModule = {
         const estado = document.getElementById('articuloEstado')?.value;
         const descripcion = document.getElementById('articuloDescripcion').value.trim();
         const cantidad = parseInt(document.getElementById('articuloCantidad')?.value) || 0;
+        const subfamilia = document.getElementById('articuloSubfamilia')?.value.trim();
+        const unidadMedida = document.getElementById('articuloUnidadMedida')?.value.trim();
+        const tipo = document.getElementById('articuloTipo')?.value.trim();
 
         if (!nombre || !codigoVenta || precioVenta <= 0) {
             this.showNotification('⚠️ Nombre, código y precio de venta son requeridos', 'warning');
@@ -452,15 +535,15 @@ const CodigosArticulosModule = {
                 descripcion: descripcion || null,
                 categoria: seccionId || null,
                 familia: familiaId || null,
-                subfamilia: null,
+                subfamilia: subfamilia || null,
                 precio_unitario: precioVenta,
                 precio_costo: precioCompra,
                 cantidad_disponible: cantidad,
-                unidad_medida: null,
+                unidad_medida: unidadMedida || null,
                 codigo_barras: codigoCompra || null,
-                codigo_alternativo: null,
+                codigo_alternativo: this.state.selectedArticulo?.codigoAlternativo || null,
                 descripcion2: concepto || null,
-                tipo: estado || 'producto',
+                tipo: tipo || 'producto',
                 activo: estado !== 'inactivo'
             };
 
