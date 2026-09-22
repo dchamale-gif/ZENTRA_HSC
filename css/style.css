@@ -1001,6 +1001,10 @@ select:disabled {
     margin: 20px 0 12px;
 }
 
+#purchaseModal {
+    z-index: 10000;
+}
+
 .purchase-items-header h3 {
     margin: 0;
     font-size: 16px;
