@@ -24,6 +24,7 @@ const alertasRoutes = require('./src/routes/alertasRoutes');
 const datosFamiliaRoutes = require('./src/routes/datosFamiliaRoutes');
 const responsablesRoutes = require('./src/routes/responsablesRoutes');
 const documentosPacienteRoutes = require('./src/routes/documentosPacienteRoutes');
+const personalMedicoRoutes = require('./src/routes/personalMedicoRoutes');
 
 // Importar middleware
 const { auditMiddleware } = require('./src/middleware/audit');
@@ -94,6 +95,9 @@ app.use('/api/billing', billingMejoradaRoutes);
 
 // Doctores y especialidades
 app.use('/api/doctors', doctorsRoutes);
+
+// Gestión de personal médico
+app.use('/api/personal-medico', personalMedicoRoutes);
 
 // Citas y agenda
 app.use('/api/appointments', appointmentsRoutes);

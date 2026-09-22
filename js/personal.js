@@ -60,10 +60,58 @@ const PersonalModule = {
         }
     },
 
-    // Cargar datos CON SOPORTE A API
-    loadData() {
+    getApiUrl(path = '') {
+        const configuredUrl = typeof authManager !== 'undefined'
+            ? authManager.apiBaseUrl
+            : 'http://178.128.72.110:3011';
+        const apiRoot = configuredUrl.replace(/\/$/, '').replace(/\/api$/, '');
+        return `${apiRoot}/api/personal-medico${path}`;
+    },
+
+    getAuthToken() {
+        return typeof authManager !== 'undefined' ? authManager.getToken() : null;
+    },
+
+    normalizePersonal(personal) {
+        return {
+            id: String(personal.id),
+            nombre: personal.nombre || '',
+            apellidoPaterno: personal.apellido_paterno ?? personal.apellidoPaterno ?? '',
+            apellidoMaterno: personal.apellido_materno ?? personal.apellidoMaterno ?? '',
+            especialidad: personal.especialidad || '',
+            especialidadId: Number(personal.especialidad_id ?? personal.especialidadId),
+            licenciaProf: personal.licencia_profesional ?? personal.licenciaProf ?? '',
+            telefono: personal.telefono || '',
+            email: personal.email || '',
+            horarioInicio: String(personal.horario_inicio ?? personal.horarioInicio ?? '08:00').slice(0, 5),
+            horarioFin: String(personal.horario_fin ?? personal.horarioFin ?? '16:00').slice(0, 5),
+            diasDisponibles: personal.dias_disponibles ?? personal.diasDisponibles ?? [],
+            estado: personal.estado || 'activo',
+            createdAt: personal.created_at ?? personal.createdAt ?? ''
+        };
+    },
+
+    // Cargar datos desde API
+    async loadData() {
         try {
-            this.loadDataFromAPI();
+            const token = this.getAuthToken();
+            if (!token) throw new Error('No hay token de autenticación');
+
+            const [personalResponse, especialidadesResponse] = await Promise.all([
+                fetch(this.getApiUrl(), { headers: { Authorization: `Bearer ${token}` } }),
+                fetch(this.getApiUrl('/especialidades'), { headers: { Authorization: `Bearer ${token}` } })
+            ]);
+            if (!personalResponse.ok) throw new Error(`No se pudo cargar personal (${personalResponse.status})`);
+            if (!especialidadesResponse.ok) throw new Error(`No se pudieron cargar especialidades (${especialidadesResponse.status})`);
+
+            const personalData = await personalResponse.json();
+            const especialidadesData = await especialidadesResponse.json();
+            this.state.personal = (personalData.personal || []).map(personal => this.normalizePersonal(personal));
+            this.state.especialidades = (especialidadesData.especialidades || []).map(especialidad => ({
+                ...especialidad,
+                id: Number(especialidad.id)
+            }));
+            this.savePersonalToDB();
         } catch (error) {
             console.warn('Error cargando de API, usando localStorage:', error);
             this.loadDataFromLocalStorage();
@@ -72,35 +120,12 @@ const PersonalModule = {
         this.renderPersonal();
     },
 
-    // Cargar datos desde API
-    loadDataFromAPI() {
-        const token = authManager?.getToken?.();
-        const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
-
-        if (!token) {
-            throw new Error('No hay token de autenticación');
-        }
-
-        // Para ahora, usar localStorage como fallback
-        this.loadDataFromLocalStorage();
-
-        // En futuro: integrar con API real
-        // fetch(`${apiBase}/personal`, { 
-        //     headers: { Authorization: `Bearer ${token}` }
-        // }).then(r => r.json()).then(data => {
-        //     this.state.personal = data.personal || [];
-        // }).catch(e => console.warn('Error:', e));
-    },
-
     // Cargar datos desde localStorage
     loadDataFromLocalStorage() {
         const personalFromStorage = localStorage.getItem('personalMedico');
-        if (personalFromStorage) {
-            this.state.personal = JSON.parse(personalFromStorage);
-        } else {
-            // Cargar datos de demostración
-            this.loadDefaultPersonal();
-        }
+        this.state.personal = personalFromStorage
+            ? JSON.parse(personalFromStorage).map(personal => this.normalizePersonal(personal))
+            : [];
 
         const disponibilidadFromStorage = localStorage.getItem('disponibilidadPersonal');
         if (disponibilidadFromStorage) {
@@ -301,7 +326,7 @@ const PersonalModule = {
     openNuevoPersonalModal() {
         const modal = document.getElementById('personalModal');
         if (!modal) {
-            AlertasModule.mostrarError('Modal no encontrado');
+            showNotification('Modal no encontrado', 'error');
             return;
         }
 
@@ -316,6 +341,7 @@ const PersonalModule = {
         document.getElementById('personalHorarioInicio').value = '08:00';
         document.getElementById('personalHorarioFin').value = '16:00';
         document.getElementById('personalEstado').value = 'activo';
+        this.setDiasLaborales(['lunes', 'martes', 'miercoles', 'jueves', 'viernes']);
 
         // Cargar especialidades
         this.cargarEspecialidades();
@@ -341,8 +367,20 @@ const PersonalModule = {
             this.state.especialidades.map(e => `<option value="${e.id}">${e.nombre}</option>`).join('');
     },
 
+    getDiasLaboralesSeleccionados() {
+        return Array.from(document.querySelectorAll('input[name="personalDiaLaboral"]:checked'))
+            .map(input => input.value);
+    },
+
+    setDiasLaborales(dias) {
+        const seleccionados = new Set(dias || []);
+        document.querySelectorAll('input[name="personalDiaLaboral"]').forEach(input => {
+            input.checked = seleccionados.has(input.value);
+        });
+    },
+
     // Guardar personal
-    guardarPersonal() {
+    async guardarPersonal() {
         const nombre = document.getElementById('personalNombre')?.value?.trim();
         const apellidoPaterno = document.getElementById('personalApellidoPaterno')?.value?.trim();
         const apellidoMaterno = document.getElementById('personalApellidoMaterno')?.value?.trim();
@@ -353,35 +391,46 @@ const PersonalModule = {
         const horarioInicio = document.getElementById('personalHorarioInicio')?.value;
         const horarioFin = document.getElementById('personalHorarioFin')?.value;
         const estado = document.getElementById('personalEstado')?.value;
+        const diasLaborales = this.getDiasLaboralesSeleccionados();
 
         // Validaciones
         if (!nombre) {
-            AlertasModule.mostrarError('Nombre es obligatorio');
+            showNotification('Nombre es obligatorio', 'error');
             return;
         }
 
         if (!apellidoPaterno) {
-            AlertasModule.mostrarError('Apellido paterno es obligatorio');
+            showNotification('Apellido paterno es obligatorio', 'error');
             return;
         }
 
         if (!especialidadId) {
-            AlertasModule.mostrarError('Selecciona una especialidad');
+            showNotification('Selecciona una especialidad', 'error');
             return;
         }
 
         if (!email || !email.includes('@')) {
-            AlertasModule.mostrarError('Email válido es obligatorio');
+            showNotification('Email válido es obligatorio', 'error');
             return;
         }
 
         if (!telefono) {
-            AlertasModule.mostrarError('Teléfono es obligatorio');
+            showNotification('Teléfono es obligatorio', 'error');
             return;
         }
 
         if (!licencia) {
-            AlertasModule.mostrarError('Licencia profesional es obligatoria');
+            showNotification('Licencia profesional es obligatoria', 'error');
+            return;
+        }
+
+        if (diasLaborales.length === 0) {
+            showNotification('Selecciona al menos un día laboral', 'error');
+            return;
+        }
+
+        if (!horarioInicio || !horarioFin || horarioFin <= horarioInicio) {
+            showNotification('La hora de fin debe ser posterior a la hora de inicio', 'error');
             return;
         }
 
@@ -389,104 +438,69 @@ const PersonalModule = {
         const modal = document.getElementById('personalModal');
         const personalId = modal?.dataset.personalId;
         const licenciaExiste = this.state.personal.some(p => 
-            p.licenciaProf === licencia && p.id !== personalId
+            p.licenciaProf === licencia && String(p.id) !== String(personalId)
         );
 
         if (licenciaExiste) {
-            AlertasModule.mostrarError('Esta licencia ya está registrada');
+            showNotification('Esta licencia ya está registrada', 'error');
             return;
         }
 
-        // Crear o actualizar personal
-        let personal;
-        if (personalId) {
-            personal = this.state.personal.find(p => p.id === personalId);
-            if (!personal) {
-                AlertasModule.mostrarError('Personal no encontrado');
-                return;
-            }
+        const saveButton = modal.querySelector('button[onclick*="guardarPersonal"]');
+        if (saveButton) saveButton.disabled = true;
 
-            personal.nombre = nombre;
-            personal.apellidoPaterno = apellidoPaterno;
-            personal.apellidoMaterno = apellidoMaterno;
-            personal.especialidad = this.state.especialidades.find(e => e.id == especialidadId)?.nombre;
-            personal.especialidadId = parseInt(especialidadId);
-            personal.licenciaProf = licencia;
-            personal.email = email;
-            personal.telefono = telefono;
-            personal.horarioInicio = horarioInicio;
-            personal.horarioFin = horarioFin;
-            personal.estado = estado;
-        } else {
-            personal = {
-                id: `PER-${Date.now()}`,
-                nombre: nombre,
-                apellidoPaterno: apellidoPaterno,
-                apellidoMaterno: apellidoMaterno,
-                especialidad: this.state.especialidades.find(e => e.id == especialidadId)?.nombre,
-                especialidadId: parseInt(especialidadId),
-                licenciaProf: licencia,
-                email: email,
-                telefono: telefono,
-                horarioInicio: horarioInicio,
-                horarioFin: horarioFin,
-                diasDisponibles: ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'],
-                estado: estado,
-                createdAt: new Date().toISOString()
-            };
-
-            this.state.personal.push(personal);
-        }
-
-        // Guardar a localStorage
-        this.savePersonalToDB();
-
-        // Intentar guardar a API
-        this.savePersonalToAPI(personal);
-
-        // Actualizar vista
-        this.renderPersonal();
-
-        // Cerrar modal
-        modal.style.display = 'none';
-
-        AlertasModule.mostrarExito(`✓ Personal ${personalId ? 'actualizado' : 'registrado'}: ${nombre} ${apellidoPaterno}`);
-    },
-
-    // Guardar personal a API
-    savePersonalToAPI(personal) {
         try {
-            const token = authManager?.getToken?.();
-            const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
+            const token = this.getAuthToken();
+            if (!token) throw new Error('No hay token de autenticación');
 
-            if (!token) {
-                console.warn('No hay token, personal solo guardado en localStorage');
-                return;
+            const response = await fetch(this.getApiUrl(personalId ? `/${personalId}` : ''), {
+                method: personalId ? 'PUT' : 'POST',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    nombre,
+                    apellido_paterno: apellidoPaterno,
+                    apellido_materno: apellidoMaterno,
+                    especialidad_id: Number(especialidadId),
+                    licencia_profesional: licencia,
+                    email,
+                    telefono,
+                    horario_inicio: horarioInicio,
+                    horario_fin: horarioFin,
+                    dias_disponibles: diasLaborales,
+                    estado
+                })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || `Error ${response.status}`);
+
+            const personalGuardado = this.normalizePersonal(data.personal);
+            if (personalId) {
+                this.state.personal = this.state.personal.map(personal =>
+                    String(personal.id) === String(personalId) ? personalGuardado : personal
+                );
+            } else {
+                this.state.personal.push(personalGuardado);
             }
-
-            // Para futuro: integrar con API real
-            // const method = personal.id.startsWith('PER-') ? 'POST' : 'PUT';
-            // const endpoint = method === 'POST' ? '/personal' : `/personal/${personal.id}`;
-            // fetch(`${apiBase}${endpoint}`, {
-            //     method: method,
-            //     headers: {
-            //         'Authorization': `Bearer ${token}`,
-            //         'Content-Type': 'application/json'
-            //     },
-            //     body: JSON.stringify(personal)
-            // })
-            // .then(r => r.json())
-            // .catch(e => console.warn('Error guardando a API:', e));
+            this.savePersonalToDB();
+            this.renderPersonal();
+            modal.style.display = 'none';
+            showNotification(`✓ Personal ${personalId ? 'actualizado' : 'registrado'}: ${nombre} ${apellidoPaterno}`, 'success');
         } catch (error) {
-            console.warn('Error intentando guardar a API:', error);
+            console.error('Error guardando personal médico:', error);
+            showNotification(`No se pudo guardar: ${error.message}`, 'error');
+        } finally {
+            if (saveButton) saveButton.disabled = false;
         }
     },
 
     // Ver detalles de personal
     verDetalles(personalId) {
-        const personal = this.state.personal.find(p => p.id === personalId);
+        const personal = this.state.personal.find(p => String(p.id) === String(personalId));
         if (!personal) {
-            AlertasModule.mostrarError('Personal no encontrado');
+            showNotification('Personal no encontrado', 'error');
             return;
         }
 
@@ -562,13 +576,14 @@ const PersonalModule = {
 
     // Editar personal
     editarPersonal(personalId) {
-        const personal = this.state.personal.find(p => p.id === personalId);
+        const personal = this.state.personal.find(p => String(p.id) === String(personalId));
         if (!personal) {
-            AlertasModule.mostrarError('Personal no encontrado');
+            showNotification('Personal no encontrado', 'error');
             return;
         }
 
         // Llenar formulario
+        this.cargarEspecialidades();
         document.getElementById('personalNombre').value = personal.nombre;
         document.getElementById('personalApellidoPaterno').value = personal.apellidoPaterno;
         document.getElementById('personalApellidoMaterno').value = personal.apellidoMaterno || '';
@@ -579,9 +594,7 @@ const PersonalModule = {
         document.getElementById('personalHorarioInicio').value = personal.horarioInicio;
         document.getElementById('personalHorarioFin').value = personal.horarioFin;
         document.getElementById('personalEstado').value = personal.estado;
-
-        // Cargar especialidades
-        this.cargarEspecialidades();
+        this.setDiasLaborales(personal.diasDisponibles);
 
         // Guardar ID para edición
         const modal = document.getElementById('personalModal');
@@ -597,51 +610,41 @@ const PersonalModule = {
     },
 
     // Eliminar personal
-    eliminarPersonal(personalId) {
-        const personal = this.state.personal.find(p => p.id === personalId);
+    async eliminarPersonal(personalId) {
+        const personal = this.state.personal.find(p => String(p.id) === String(personalId));
 
         if (!personal) {
-            AlertasModule.mostrarError('Personal no encontrado');
+            showNotification('Personal no encontrado', 'error');
             return;
         }
 
         if (confirm(`¿Deseas eliminar a ${personal.nombre} ${personal.apellidoPaterno}?`)) {
-            this.state.personal = this.state.personal.filter(p => p.id !== personalId);
-            this.savePersonalToDB();
-            this.deletePersonalFromAPI(personalId);
-            this.renderPersonal();
-            AlertasModule.mostrarExito('✓ Personal eliminado');
-        }
-    },
+            try {
+                const token = this.getAuthToken();
+                if (!token) throw new Error('No hay token de autenticación');
+                const response = await fetch(this.getApiUrl(`/${personalId}`), {
+                    method: 'DELETE',
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || `Error ${response.status}`);
 
-    // Eliminar personal de API
-    deletePersonalFromAPI(personalId) {
-        try {
-            const token = authManager?.getToken?.();
-            const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
-
-            if (!token) {
-                console.warn('No hay token, personal solo eliminado en localStorage');
-                return;
+                this.state.personal = this.state.personal.filter(p => String(p.id) !== String(personalId));
+                this.savePersonalToDB();
+                this.renderPersonal();
+                showNotification('✓ Personal eliminado', 'success');
+            } catch (error) {
+                console.error('Error eliminando personal médico:', error);
+                showNotification(`No se pudo eliminar: ${error.message}`, 'error');
             }
-
-            // Para futuro: integrar con API real
-            // fetch(`${apiBase}/personal/${personalId}`, {
-            //     method: 'DELETE',
-            //     headers: { Authorization: `Bearer ${token}` }
-            // })
-            // .then(r => r.json())
-            // .catch(e => console.warn('Error eliminando de API:', e));
-        } catch (error) {
-            console.warn('Error intentando eliminar de API:', error);
         }
     },
 
     // Ver disponibilidad de personal
     verDisponibilidad(personalId) {
-        const personal = this.state.personal.find(p => p.id === personalId);
+        const personal = this.state.personal.find(p => String(p.id) === String(personalId));
         if (!personal) {
-            AlertasModule.mostrarError('Personal no encontrado');
+            showNotification('Personal no encontrado', 'error');
             return;
         }
 
