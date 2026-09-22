@@ -1587,9 +1587,9 @@
                         <table id="ventasTable">
                             <thead>
                                 <tr>
-                                    <th>ID Venta</th>
+                                    <th>Venta</th>
                                     <th>Fecha</th>
-                                    <th>Cliente</th>
+                                    <th>Receptor</th>
                                     <th>Total</th>
                                     <th>Estado</th>
                                     <th>Acciones</th>
@@ -3482,6 +3482,69 @@
                 <button class="btn btn-primary" type="button" id="savePurchaseBtn">
                     <i class="fas fa-save"></i> Guardar Compra
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for sale management -->
+    <div id="saleModal" class="modal">
+        <div class="modal-content modal-content-xl">
+            <div class="modal-header">
+                <h2><i class="fas fa-cash-register"></i> Nueva Venta</h2>
+                <button class="close-btn" type="button" onclick="VentasModule.closeSaleModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="saleForm">
+                    <input id="saleId" type="hidden">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Paciente o cliente</label>
+                            <div class="concept-search">
+                                <div class="concept-search-input">
+                                    <i class="fas fa-search"></i>
+                                    <input id="saleRecipientSearch" class="form-input" type="search" autocomplete="off"
+                                        placeholder="Buscar por nombre, DPI, NIT o teléfono..."
+                                        oninput="VentasModule.searchRecipient(this.value)">
+                                </div>
+                                <div id="saleRecipientResults" class="concept-search-results" hidden></div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Fecha <span class="required">*</span></label>
+                            <input id="saleDate" class="form-input" type="date" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Método de pago</label>
+                            <select id="salePaymentMethod" class="form-input">
+                                <option value="efectivo">Efectivo</option>
+                                <option value="tarjeta">Tarjeta</option>
+                                <option value="transferencia">Transferencia</option>
+                                <option value="credito">Crédito</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="purchase-items-header">
+                        <h3>Conceptos</h3>
+                        <button class="btn btn-secondary" type="button" onclick="VentasModule.addItem()">
+                            <i class="fas fa-plus"></i> Agregar concepto
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table purchase-items-table">
+                            <thead><tr><th>Tipo</th><th>Artículo / Medicina</th><th>Cantidad</th><th>Precio unitario</th><th>Subtotal</th><th></th></tr></thead>
+                            <tbody id="saleItemsBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="purchase-total">Total: <strong id="saleCalculatedTotal">Q0.00</strong></div>
+                    <div class="form-group full-width">
+                        <label>Observaciones</label>
+                        <textarea id="saleObservations" class="form-input" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" onclick="VentasModule.closeSaleModal()">Cancelar</button>
+                <button class="btn btn-primary" type="button" id="saveSaleBtn"><i class="fas fa-save"></i> Guardar Venta</button>
             </div>
         </div>
     </div>
