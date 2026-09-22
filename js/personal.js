@@ -80,7 +80,7 @@ const PersonalModule = {
             apellidoMaterno: personal.apellido_materno ?? personal.apellidoMaterno ?? '',
             especialidad: personal.especialidad || '',
             especialidadId: Number(personal.especialidad_id ?? personal.especialidadId),
-            licenciaProf: personal.licencia_profesional ?? personal.licenciaProf ?? '',
+            numeroColegiado: personal.numero_colegiado ?? personal.numeroColegiado ?? personal.licencia_profesional ?? personal.licenciaProf ?? '',
             telefono: personal.telefono || '',
             email: personal.email || '',
             horarioInicio: String(personal.horario_inicio ?? personal.horarioInicio ?? '08:00').slice(0, 5),
@@ -143,8 +143,8 @@ const PersonalModule = {
                 apellidoMaterno: 'López',
                 especialidad: 'Psiquiatría General',
                 especialidadId: 1,
-                licenciaProf: 'LIC-2020-001',
-                telefono: '+503 7000-1234',
+                numeroColegiado: 'COL-2020-001',
+                telefono: '+502 5000-1234',
                 email: 'carlos.garcia@medico.sv',
                 horarioInicio: '08:00',
                 horarioFin: '16:00',
@@ -159,8 +159,8 @@ const PersonalModule = {
                 apellidoMaterno: 'Martínez',
                 especialidad: 'Psicología Clínica',
                 especialidadId: 3,
-                licenciaProf: 'LIC-2019-005',
-                telefono: '+503 7000-5678',
+                numeroColegiado: 'COL-2019-005',
+                telefono: '+502 5000-5678',
                 email: 'maria.gonzalez@medico.sv',
                 horarioInicio: '09:00',
                 horarioFin: '17:00',
@@ -175,8 +175,8 @@ const PersonalModule = {
                 apellidoMaterno: 'Ramírez',
                 especialidad: 'Adicciones y Rehabilitación',
                 especialidadId: 5,
-                licenciaProf: 'LIC-2018-012',
-                telefono: '+503 7000-9012',
+                numeroColegiado: 'COL-2018-012',
+                telefono: '+502 5000-9012',
                 email: 'roberto.sanchez@medico.sv',
                 horarioInicio: '08:00',
                 horarioFin: '15:00',
@@ -210,7 +210,7 @@ const PersonalModule = {
             const nombreCompleto = `${p.nombre || ''} ${p.apellidoPaterno || ''}`.toLowerCase();
             const busquedaMatch = nombreCompleto.includes(searchLower) ||
                                 p.email.toLowerCase().includes(searchLower) ||
-                                (p.licenciaProf || '').toLowerCase().includes(searchLower);
+                                (p.numeroColegiado || '').toLowerCase().includes(searchLower);
 
             // Filtro por especialidad
             const especialidadMatch = !this.state.filtroEspecialidad || p.especialidadId == this.state.filtroEspecialidad;
@@ -251,7 +251,7 @@ const PersonalModule = {
                     <tr>
                         <th style="padding: 15px; text-align: left; font-weight: 600;">Nombre</th>
                         <th style="padding: 15px; text-align: left; font-weight: 600;">Especialidad</th>
-                        <th style="padding: 15px; text-align: left; font-weight: 600;">Licencia</th>
+                        <th style="padding: 15px; text-align: left; font-weight: 600;">Colegiado</th>
                         <th style="padding: 15px; text-align: left; font-weight: 600;">Contacto</th>
                         <th style="padding: 15px; text-align: left; font-weight: 600;">Horario</th>
                         <th style="padding: 15px; text-align: center; font-weight: 600;">Estado</th>
@@ -279,7 +279,7 @@ const PersonalModule = {
                         </span>
                     </td>
                     <td style="padding: 12px 15px;">
-                        <small>${personal.licenciaProf || 'N/A'}</small>
+                        <small>${personal.numeroColegiado || 'N/A'}</small>
                     </td>
                     <td style="padding: 12px 15px; font-size: 12px;">
                         <div>${personal.email}</div>
@@ -335,7 +335,7 @@ const PersonalModule = {
         document.getElementById('personalApellidoPaterno').value = '';
         document.getElementById('personalApellidoMaterno').value = '';
         document.getElementById('personalEspecialidad').value = '';
-        document.getElementById('personalLicencia').value = '';
+        document.getElementById('personalColegiado').value = '';
         document.getElementById('personalEmail').value = '';
         document.getElementById('personalTelefono').value = '';
         document.getElementById('personalHorarioInicio').value = '08:00';
@@ -385,7 +385,7 @@ const PersonalModule = {
         const apellidoPaterno = document.getElementById('personalApellidoPaterno')?.value?.trim();
         const apellidoMaterno = document.getElementById('personalApellidoMaterno')?.value?.trim();
         const especialidadId = document.getElementById('personalEspecialidad')?.value;
-        const licencia = document.getElementById('personalLicencia')?.value?.trim();
+        const numeroColegiado = document.getElementById('personalColegiado')?.value?.trim();
         const email = document.getElementById('personalEmail')?.value?.trim();
         const telefono = document.getElementById('personalTelefono')?.value?.trim();
         const horarioInicio = document.getElementById('personalHorarioInicio')?.value;
@@ -419,8 +419,8 @@ const PersonalModule = {
             return;
         }
 
-        if (!licencia) {
-            showNotification('Licencia profesional es obligatoria', 'error');
+        if (!numeroColegiado) {
+            showNotification('El número de colegiado es obligatorio', 'error');
             return;
         }
 
@@ -434,15 +434,15 @@ const PersonalModule = {
             return;
         }
 
-        // Validar que licencia sea única
+        // Validar que el número de colegiado sea único
         const modal = document.getElementById('personalModal');
         const personalId = modal?.dataset.personalId;
-        const licenciaExiste = this.state.personal.some(p => 
-            p.licenciaProf === licencia && String(p.id) !== String(personalId)
+        const colegiadoExiste = this.state.personal.some(p =>
+            p.numeroColegiado === numeroColegiado && String(p.id) !== String(personalId)
         );
 
-        if (licenciaExiste) {
-            showNotification('Esta licencia ya está registrada', 'error');
+        if (colegiadoExiste) {
+            showNotification('Este número de colegiado ya está registrado', 'error');
             return;
         }
 
@@ -464,7 +464,7 @@ const PersonalModule = {
                     apellido_paterno: apellidoPaterno,
                     apellido_materno: apellidoMaterno,
                     especialidad_id: Number(especialidadId),
-                    licencia_profesional: licencia,
+                    numero_colegiado: numeroColegiado,
                     email,
                     telefono,
                     horario_inicio: horarioInicio,
@@ -527,8 +527,8 @@ const PersonalModule = {
 
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                             <div style="background: #f5f5f5; padding: 12px; border-radius: 4px;">
-                                <strong style="color: #667eea;">Licencia Profesional</strong><br>
-                                <p style="margin: 5px 0;">${personal.licenciaProf}</p>
+                                <strong style="color: #667eea;">Número de Colegiado</strong><br>
+                                <p style="margin: 5px 0;">${personal.numeroColegiado}</p>
                             </div>
                             <div style="background: #f5f5f5; padding: 12px; border-radius: 4px;">
                                 <strong style="color: #667eea;">Estado</strong><br>
@@ -588,7 +588,7 @@ const PersonalModule = {
         document.getElementById('personalApellidoPaterno').value = personal.apellidoPaterno;
         document.getElementById('personalApellidoMaterno').value = personal.apellidoMaterno || '';
         document.getElementById('personalEspecialidad').value = personal.especialidadId;
-        document.getElementById('personalLicencia').value = personal.licenciaProf;
+        document.getElementById('personalColegiado').value = personal.numeroColegiado;
         document.getElementById('personalEmail').value = personal.email;
         document.getElementById('personalTelefono').value = personal.telefono;
         document.getElementById('personalHorarioInicio').value = personal.horarioInicio;

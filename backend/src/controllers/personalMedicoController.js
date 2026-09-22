@@ -42,11 +42,11 @@ const personalMedicoController = {
   create: async (req, res) => {
     const {
       nombre, apellido_paterno, apellido_materno, especialidad_id,
-      licencia_profesional, email, telefono, horario_inicio,
+      numero_colegiado, email, telefono, horario_inicio,
       horario_fin, dias_disponibles, estado
     } = req.body;
 
-    if (!nombre || !apellido_paterno || !especialidad_id || !licencia_profesional || !email || !telefono) {
+    if (!nombre || !apellido_paterno || !especialidad_id || !numero_colegiado || !email || !telefono) {
       return res.status(400).json({ error: 'Faltan campos obligatorios del personal médico' });
     }
 
@@ -59,21 +59,21 @@ const personalMedicoController = {
       const result = await pool.query(
         `INSERT INTO personal_medico
            (nombre, apellido_paterno, apellido_materno, especialidad_id,
-            licencia_profesional, email, telefono, horario_inicio, horario_fin,
+            numero_colegiado, email, telefono, horario_inicio, horario_fin,
             dias_disponibles, estado)
          VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8::time, '08:00'),
                  COALESCE($9::time, '16:00'), COALESCE($10::text[], ARRAY['lunes', 'martes', 'miercoles', 'jueves', 'viernes']),
                  COALESCE($11, 'activo'))
          RETURNING id`,
         [nombre, apellido_paterno, apellido_materno || null, especialidad_id,
-          licencia_profesional, email, telefono, horario_inicio || null,
+          numero_colegiado, email, telefono, horario_inicio || null,
           horario_fin || null, diasLaborales, estado || null]
       );
       const saved = await pool.query(`${selectPersonal} WHERE pm.id = $1`, [result.rows[0].id]);
       res.status(201).json({ personal: saved.rows[0] });
     } catch (error) {
       if (error.code === '23505') {
-        return res.status(409).json({ error: 'La licencia o el email ya están registrados' });
+        return res.status(409).json({ error: 'El número de colegiado o el email ya están registrados' });
       }
       console.error('Error creando personal médico:', error.message);
       res.status(500).json({ error: error.message });
@@ -84,11 +84,11 @@ const personalMedicoController = {
     const { id } = req.params;
     const {
       nombre, apellido_paterno, apellido_materno, especialidad_id,
-      licencia_profesional, email, telefono, horario_inicio,
+      numero_colegiado, email, telefono, horario_inicio,
       horario_fin, dias_disponibles, estado
     } = req.body;
 
-    if (!nombre || !apellido_paterno || !especialidad_id || !licencia_profesional || !email || !telefono) {
+    if (!nombre || !apellido_paterno || !especialidad_id || !numero_colegiado || !email || !telefono) {
       return res.status(400).json({ error: 'Faltan campos obligatorios del personal médico' });
     }
 
@@ -101,13 +101,13 @@ const personalMedicoController = {
       const result = await pool.query(
         `UPDATE personal_medico
          SET nombre = $1, apellido_paterno = $2, apellido_materno = $3,
-             especialidad_id = $4, licencia_profesional = $5, email = $6,
+             especialidad_id = $4, numero_colegiado = $5, email = $6,
              telefono = $7, horario_inicio = $8::time, horario_fin = $9::time,
              dias_disponibles = $10::text[], estado = $11, updated_at = NOW()
          WHERE id = $12
          RETURNING id`,
         [nombre, apellido_paterno, apellido_materno || null, especialidad_id,
-          licencia_profesional, email, telefono, horario_inicio, horario_fin,
+          numero_colegiado, email, telefono, horario_inicio, horario_fin,
           diasLaborales, estado, id]
       );
       if (result.rows.length === 0) return res.status(404).json({ error: 'Personal no encontrado' });
@@ -116,7 +116,7 @@ const personalMedicoController = {
       res.json({ personal: saved.rows[0] });
     } catch (error) {
       if (error.code === '23505') {
-        return res.status(409).json({ error: 'La licencia o el email ya están registrados' });
+        return res.status(409).json({ error: 'El número de colegiado o el email ya están registrados' });
       }
       console.error('Error actualizando personal médico:', error.message);
       res.status(500).json({ error: error.message });

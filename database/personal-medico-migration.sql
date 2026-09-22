@@ -9,12 +9,15 @@ CREATE TABLE IF NOT EXISTS especialidades_medicas (
 );
 
 INSERT INTO especialidades_medicas (id, nombre) VALUES
-    (1, 'Psiquiatría General'),
+    (1, 'Psiquiatría'),
     (2, 'Psiquiatría Infantil'),
     (3, 'Psicología Clínica'),
     (4, 'Terapia Cognitivo-Conductual'),
     (5, 'Adicciones y Rehabilitación'),
-    (6, 'Psiquiatría Forense')
+    (6, 'Psiquiatría Forense'),
+    (7, 'Medicina Interna'),
+    (8, 'Traumatología'),
+    (9, 'Neuropsicología')
 ON CONFLICT (id) DO UPDATE
 SET nombre = EXCLUDED.nombre,
     updated_at = CURRENT_TIMESTAMP;
@@ -25,7 +28,7 @@ CREATE TABLE IF NOT EXISTS personal_medico (
     apellido_paterno VARCHAR(100) NOT NULL,
     apellido_materno VARCHAR(100),
     especialidad_id INTEGER NOT NULL REFERENCES especialidades_medicas(id),
-    licencia_profesional VARCHAR(80) NOT NULL UNIQUE,
+    numero_colegiado VARCHAR(80) NOT NULL UNIQUE,
     email VARCHAR(150) NOT NULL UNIQUE,
     telefono VARCHAR(30) NOT NULL,
     horario_inicio TIME NOT NULL DEFAULT '08:00',
@@ -40,6 +43,30 @@ CREATE TABLE IF NOT EXISTS personal_medico (
         dias_disponibles <@ ARRAY['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo']::TEXT[]
     )
 );
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'personal_medico'
+          AND column_name = 'licencia_profesional'
+    ) AND NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'personal_medico'
+          AND column_name = 'numero_colegiado'
+    ) THEN
+        ALTER TABLE personal_medico
+            RENAME COLUMN licencia_profesional TO numero_colegiado;
+    END IF;
+END $$;
+
+ALTER TABLE personal_medico
+    ADD COLUMN IF NOT EXISTS numero_colegiado VARCHAR(80);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_personal_medico_numero_colegiado
+    ON personal_medico(numero_colegiado);
 
 ALTER TABLE personal_medico
     ADD COLUMN IF NOT EXISTS dias_disponibles TEXT[] NOT NULL
