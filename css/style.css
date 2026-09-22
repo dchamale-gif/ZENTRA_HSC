@@ -1005,6 +1005,41 @@ select:disabled {
     z-index: 10000;
 }
 
+.provider-field-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.provider-field-header label {
+    margin: 0;
+}
+
+.btn-link {
+    border: 0;
+    padding: 4px;
+    background: transparent;
+    color: var(--primary-color);
+    cursor: pointer;
+    font: inherit;
+    font-weight: 600;
+}
+
+.quick-provider-form {
+    margin: 18px -25px;
+    padding: 4px 25px 20px;
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-light);
+}
+
+.quick-provider-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
 .purchase-items-header h3 {
     margin: 0;
     font-size: 16px;

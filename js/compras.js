@@ -103,12 +103,7 @@ const ComprasModule = {
         form.reset();
         document.getElementById('purchaseId').value = compra?.id || '';
         document.getElementById('purchaseModalTitle').textContent = compra ? 'Editar Compra' : 'Nueva Compra';
-        document.getElementById('purchaseProvider').innerHTML =
-            '<option value="">Selecciona un proveedor</option>' +
-            this.state.proveedores.map(proveedor =>
-                `<option value="${proveedor.id}">${this.escapeHtml(proveedor.nombre)}</option>`
-            ).join('');
-        document.getElementById('purchaseProvider').value = compra?.proveedor_id || '';
+        this.renderProviderOptions(compra?.proveedor_id || '');
         document.getElementById('purchaseDate').value = compra ? this.dateValue(compra.fecha) : this.dateValue(new Date());
         document.getElementById('purchaseDeliveryDate').value = compra?.fecha_entrega ? this.dateValue(compra.fecha_entrega) : '';
         document.getElementById('purchaseStatus').value = compra?.estado || 'pendiente';
@@ -124,6 +119,63 @@ const ComprasModule = {
         this.renderItems();
         document.getElementById('purchaseModal').style.display = 'flex';
         document.body.style.overflow = 'hidden';
+        this.toggleProviderForm(this.state.proveedores.length === 0);
+    },
+
+    renderProviderOptions(selectedId = '') {
+        const select = document.getElementById('purchaseProvider');
+        select.innerHTML = '<option value="">Selecciona un proveedor</option>' +
+            this.state.proveedores.map(proveedor =>
+                `<option value="${this.escapeHtml(proveedor.id)}">${this.escapeHtml(proveedor.nombre)}</option>`
+            ).join('');
+        select.value = String(selectedId);
+    },
+
+    toggleProviderForm(forceOpen) {
+        const panel = document.getElementById('quickProviderForm');
+        const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : panel.hidden;
+        panel.hidden = !shouldOpen;
+        if (shouldOpen) document.getElementById('quickProviderName').focus();
+    },
+
+    async saveQuickProvider() {
+        const nameInput = document.getElementById('quickProviderName');
+        const nombre = nameInput.value.trim();
+        if (!nombre) {
+            this.notify('El nombre del proveedor es requerido.', 'warning');
+            nameInput.focus();
+            return;
+        }
+
+        const button = document.getElementById('saveQuickProviderBtn');
+        const payload = {
+            nombre,
+            razon_social: document.getElementById('quickProviderBusinessName').value.trim() || null,
+            nit: document.getElementById('quickProviderNit').value.trim() || null,
+            contacto: document.getElementById('quickProviderContact').value.trim() || null,
+            email: document.getElementById('quickProviderEmail').value.trim() || null,
+            telefono: document.getElementById('quickProviderPhone').value.trim() || null,
+            ciudad: document.getElementById('quickProviderCity').value.trim() || null,
+            direccion: document.getElementById('quickProviderAddress').value.trim() || null
+        };
+
+        button.disabled = true;
+        try {
+            const data = await this.apiRequest('/api/proveedores', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            this.state.proveedores.push(data.proveedor);
+            this.state.proveedores.sort((a, b) => a.nombre.localeCompare(b.nombre));
+            this.renderProviderOptions(data.proveedor.id);
+            document.querySelectorAll('#quickProviderForm input').forEach(input => { input.value = ''; });
+            this.toggleProviderForm(false);
+            this.notify('Proveedor creado y seleccionado.', 'success');
+        } catch (error) {
+            this.notify(error.message, 'error');
+        } finally {
+            button.disabled = false;
+        }
     },
 
     closePurchaseModal() {

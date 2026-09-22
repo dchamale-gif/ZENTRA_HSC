@@ -3372,7 +3372,12 @@
                     <input type="hidden" id="purchaseId">
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Proveedor <span class="required">*</span></label>
+                            <div class="provider-field-header">
+                                <label>Proveedor <span class="required">*</span></label>
+                                <button class="btn-link" type="button" onclick="ComprasModule.toggleProviderForm()">
+                                    <i class="fas fa-plus"></i> Nuevo proveedor
+                                </button>
+                            </div>
                             <select id="purchaseProvider" class="form-input" required></select>
                         </div>
                         <div class="form-group">
@@ -3391,6 +3396,55 @@
                                 <option value="recibida">Recibida</option>
                                 <option value="cancelada">Cancelada</option>
                             </select>
+                        </div>
+                    </div>
+
+                    <div id="quickProviderForm" class="quick-provider-form" hidden>
+                        <div class="purchase-items-header">
+                            <h3>Nuevo proveedor</h3>
+                            <button class="btn-icon" type="button" title="Cerrar" onclick="ComprasModule.toggleProviderForm(false)">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Nombre <span class="required">*</span></label>
+                                <input id="quickProviderName" class="form-input" type="text">
+                            </div>
+                            <div class="form-group">
+                                <label>Razón social</label>
+                                <input id="quickProviderBusinessName" class="form-input" type="text">
+                            </div>
+                            <div class="form-group">
+                                <label>NIT</label>
+                                <input id="quickProviderNit" class="form-input" type="text">
+                            </div>
+                            <div class="form-group">
+                                <label>Contacto</label>
+                                <input id="quickProviderContact" class="form-input" type="text">
+                            </div>
+                            <div class="form-group">
+                                <label>Correo electrónico</label>
+                                <input id="quickProviderEmail" class="form-input" type="email">
+                            </div>
+                            <div class="form-group">
+                                <label>Teléfono</label>
+                                <input id="quickProviderPhone" class="form-input" type="tel">
+                            </div>
+                            <div class="form-group">
+                                <label>Ciudad</label>
+                                <input id="quickProviderCity" class="form-input" type="text">
+                            </div>
+                            <div class="form-group full-width">
+                                <label>Dirección</label>
+                                <input id="quickProviderAddress" class="form-input" type="text">
+                            </div>
+                        </div>
+                        <div class="quick-provider-actions">
+                            <button class="btn btn-secondary" type="button" onclick="ComprasModule.toggleProviderForm(false)">Cancelar</button>
+                            <button class="btn btn-primary" id="saveQuickProviderBtn" type="button" onclick="ComprasModule.saveQuickProvider()">
+                                <i class="fas fa-save"></i> Guardar proveedor
+                            </button>
                         </div>
                     </div>
 
