@@ -3337,7 +3337,7 @@ textarea.form-input {
 
 .habitaciones-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: 30px;
     max-height: 600px;
     overflow: auto;
