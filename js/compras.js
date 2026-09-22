@@ -55,13 +55,19 @@ const ComprasModule = {
                 id: String(medicina.id),
                 nombre: medicina.nombre,
                 codigo: medicina.codigo_interno || medicina.codigo_externo || medicina.codigo_barra || '',
-                precio: Number(medicina.precio_costo ?? medicina.precio ?? 0)
+                precio: Number(medicina.precio_costo ?? medicina.precio ?? 0),
+                seccion: medicina.seccion || medicina.categoria || '',
+                familia: medicina.familia || '',
+                subfamilia: medicina.subfamilia || ''
             }));
             this.state.articulos = (articulosData.articulos || []).map(articulo => ({
                 id: String(articulo.id),
                 nombre: articulo.nombre_articulo,
                 codigo: articulo.codigo || articulo.codigo_barras || articulo.codigo_alternativo || '',
-                precio: Number(articulo.precio_costo ?? 0)
+                precio: Number(articulo.precio_costo ?? 0),
+                seccion: articulo.categoria || articulo.seccion || '',
+                familia: articulo.familia || '',
+                subfamilia: articulo.subfamilia || ''
             }));
             this.render();
         } catch (error) {
@@ -115,9 +121,10 @@ const ComprasModule = {
                 tipo: item.tipo,
                 concepto_id: String(item.concepto_id),
                 cantidad: Number(item.cantidad),
-                precio_unitario: Number(item.precio_unitario)
+                precio_unitario: Number(item.precio_unitario),
+                filtros: { seccion: '', familia: '', subfamilia: '' }
             }))
-            : [{ tipo: 'articulo', concepto_id: '', cantidad: 1, precio_unitario: 0 }];
+            : [{ tipo: 'articulo', concepto_id: '', cantidad: 1, precio_unitario: 0, filtros: { seccion: '', familia: '', subfamilia: '' } }];
         this.renderItems();
         document.getElementById('purchaseModal').style.display = 'flex';
         document.body.style.overflow = 'hidden';
@@ -187,7 +194,7 @@ const ComprasModule = {
     },
 
     addItem() {
-        this.state.items.push({ tipo: 'articulo', concepto_id: '', cantidad: 1, precio_unitario: 0 });
+        this.state.items.push({ tipo: 'articulo', concepto_id: '', cantidad: 1, precio_unitario: 0, filtros: { seccion: '', familia: '', subfamilia: '' } });
         this.renderItems();
     },
 
@@ -205,6 +212,7 @@ const ComprasModule = {
             item.tipo = value;
             item.concepto_id = '';
             item.precio_unitario = 0;
+            item.filtros = { seccion: '', familia: '', subfamilia: '' };
         } else if (field === 'concepto_id') {
             item.concepto_id = value;
             const concepto = this.getCatalog(item.tipo).find(entry => entry.id === String(value));
@@ -217,6 +225,37 @@ const ComprasModule = {
 
     getCatalog(tipo) {
         return tipo === 'medicina' ? this.state.medicinas : this.state.articulos;
+    },
+
+    getFilterOptions(item, field) {
+        const filters = item.filtros || {};
+        const catalog = this.getCatalog(item.tipo).filter(concepto =>
+            (field === 'seccion' || !filters.seccion || concepto.seccion === filters.seccion) &&
+            (field !== 'subfamilia' || !filters.familia || concepto.familia === filters.familia)
+        );
+        return [...new Set(catalog.map(concepto => concepto[field]).filter(Boolean))]
+            .sort((left, right) => left.localeCompare(right));
+    },
+
+    toggleConceptFilters(index) {
+        const panel = document.getElementById(`purchaseConceptFilters-${index}`);
+        if (panel) panel.hidden = !panel.hidden;
+    },
+
+    setConceptFilter(index, field, value) {
+        const item = this.state.items[index];
+        if (!item) return;
+        item.filtros ||= { seccion: '', familia: '', subfamilia: '' };
+        item.filtros[field] = value;
+        if (field === 'seccion') {
+            item.filtros.familia = '';
+            item.filtros.subfamilia = '';
+        } else if (field === 'familia') {
+            item.filtros.subfamilia = '';
+        }
+        this.renderItems();
+        document.getElementById(`purchaseConceptFilters-${index}`).hidden = false;
+        this.searchConcept(index, document.getElementById(`purchaseConceptSearch-${index}`).value);
     },
 
     searchConcept(index, term) {
@@ -234,14 +273,19 @@ const ComprasModule = {
         }
 
         const normalizedTerm = this.normalizeSearch(term);
-        if (normalizedTerm.length < 2) {
+        const filters = item.filtros || {};
+        const hasFilters = filters.seccion || filters.familia || filters.subfamilia;
+        if (normalizedTerm.length < 2 && !hasFilters) {
             results.hidden = true;
             results.innerHTML = '';
             return;
         }
 
         const matches = this.getCatalog(item.tipo).filter(concepto =>
-            this.normalizeSearch(`${concepto.nombre} ${concepto.codigo}`).includes(normalizedTerm)
+            (!normalizedTerm || this.normalizeSearch(`${concepto.nombre} ${concepto.codigo}`).includes(normalizedTerm)) &&
+            (!filters.seccion || concepto.seccion === filters.seccion) &&
+            (!filters.familia || concepto.familia === filters.familia) &&
+            (!filters.subfamilia || concepto.subfamilia === filters.subfamilia)
         ).slice(0, 8);
 
         results.innerHTML = matches.length > 0
@@ -272,9 +316,13 @@ const ComprasModule = {
     renderItems() {
         const tbody = document.getElementById('purchaseItemsBody');
         tbody.innerHTML = this.state.items.map((item, index) => {
+            item.filtros ||= { seccion: '', familia: '', subfamilia: '' };
             const selectedConcept = this.getCatalog(item.tipo).find(concepto =>
                 concepto.id === String(item.concepto_id)
             );
+            const sections = this.getFilterOptions(item, 'seccion');
+            const families = this.getFilterOptions(item, 'familia');
+            const subfamilies = this.getFilterOptions(item, 'subfamilia');
             const subtotal = (Number(item.cantidad) || 0) * (Number(item.precio_unitario) || 0);
             return `
                 <tr>
@@ -288,10 +336,27 @@ const ComprasModule = {
                         <div class="concept-search">
                             <div class="concept-search-input">
                                 <i class="fas fa-search"></i>
-                                <input class="form-input" type="search" autocomplete="off"
+                                <input id="purchaseConceptSearch-${index}" class="form-input" type="search" autocomplete="off"
                                     placeholder="Buscar por nombre o código..."
                                     value="${this.escapeHtml(selectedConcept?.nombre || '')}"
                                     oninput="ComprasModule.searchConcept(${index}, this.value)">
+                                <button class="concept-filter-toggle" type="button" title="Filtrar conceptos" onclick="ComprasModule.toggleConceptFilters(${index})">
+                                    <i class="fas fa-filter"></i>
+                                </button>
+                            </div>
+                            <div id="purchaseConceptFilters-${index}" class="concept-filter-panel" hidden>
+                                <select class="form-input" aria-label="Sección" onchange="ComprasModule.setConceptFilter(${index}, 'seccion', this.value)">
+                                    <option value="">Todas las secciones</option>
+                                    ${sections.map(value => `<option value="${this.escapeHtml(value)}" ${item.filtros.seccion === value ? 'selected' : ''}>${this.escapeHtml(value)}</option>`).join('')}
+                                </select>
+                                <select class="form-input" aria-label="Familia" onchange="ComprasModule.setConceptFilter(${index}, 'familia', this.value)">
+                                    <option value="">Todas las familias</option>
+                                    ${families.map(value => `<option value="${this.escapeHtml(value)}" ${item.filtros.familia === value ? 'selected' : ''}>${this.escapeHtml(value)}</option>`).join('')}
+                                </select>
+                                <select class="form-input" aria-label="Subfamilia" onchange="ComprasModule.setConceptFilter(${index}, 'subfamilia', this.value)">
+                                    <option value="">Todas las subfamilias</option>
+                                    ${subfamilies.map(value => `<option value="${this.escapeHtml(value)}" ${item.filtros.subfamilia === value ? 'selected' : ''}>${this.escapeHtml(value)}</option>`).join('')}
+                                </select>
                             </div>
                             <div id="conceptSearchResults-${index}" class="concept-search-results" hidden></div>
                         </div>

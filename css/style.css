@@ -1070,7 +1070,47 @@ select:disabled {
 
 .concept-search-input .form-input {
     width: 100%;
+    padding-right: 42px;
     padding-left: 36px;
+}
+
+.concept-filter-toggle {
+    position: absolute;
+    top: 50%;
+    right: 4px;
+    display: inline-flex;
+    width: 34px;
+    height: 34px;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+    color: var(--primary-color);
+    cursor: pointer;
+    transform: translateY(-50%);
+}
+
+.concept-filter-toggle:hover,
+.concept-filter-toggle:focus-visible {
+    background: var(--bg-light);
+}
+
+.concept-filter-panel {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(130px, 1fr));
+    gap: 8px;
+    margin-top: 6px;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-white);
+}
+
+.concept-filter-panel[hidden] {
+    display: none;
+}
+
+.concept-filter-panel .form-input {
+    min-width: 0;
 }
 
 .concept-search-results {
@@ -1119,6 +1159,12 @@ select:disabled {
     margin: 18px 0;
     text-align: right;
     font-size: 18px;
+}
+
+@media (max-width: 768px) {
+    .concept-filter-panel {
+        grid-template-columns: 1fr;
+    }
 }
 
 .button-group {

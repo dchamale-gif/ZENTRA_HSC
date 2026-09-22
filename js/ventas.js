@@ -61,7 +61,10 @@ const VentasModule = {
                 nombre: medicina.nombre,
                 codigo: medicina.codigo_interno || medicina.codigo_externo || medicina.codigo_barra || '',
                 precio: Number(medicina.precio_venta ?? 0),
-                stock: Number(medicina.cantidad ?? 0)
+                stock: Number(medicina.cantidad ?? 0),
+                seccion: medicina.seccion || medicina.categoria || '',
+                familia: medicina.familia || '',
+                subfamilia: medicina.subfamilia || ''
             }));
         }
         if (articulosResult.status === 'fulfilled') {
@@ -70,7 +73,10 @@ const VentasModule = {
                 nombre: articulo.nombre_articulo,
                 codigo: articulo.codigo || articulo.codigo_barras || articulo.codigo_alternativo || '',
                 precio: Number(articulo.precio_unitario ?? 0),
-                stock: Number(articulo.cantidad_disponible ?? 0)
+                stock: Number(articulo.cantidad_disponible ?? 0),
+                seccion: articulo.categoria || articulo.seccion || '',
+                familia: articulo.familia || '',
+                subfamilia: articulo.subfamilia || ''
             }));
         }
 
@@ -129,8 +135,9 @@ const VentasModule = {
             tipo: item.tipo,
             concepto_id: String(item.concepto_id),
             cantidad: Number(item.cantidad),
-            precio_unitario: Number(item.precio_unitario)
-        })) : [{ tipo: 'articulo', concepto_id: '', cantidad: 1, precio_unitario: 0 }];
+            precio_unitario: Number(item.precio_unitario),
+            filtros: { seccion: '', familia: '', subfamilia: '' }
+        })) : [{ tipo: 'articulo', concepto_id: '', cantidad: 1, precio_unitario: 0, filtros: { seccion: '', familia: '', subfamilia: '' } }];
         this.renderItems();
         document.getElementById('saleModal').style.display = 'flex';
         document.body.style.overflow = 'hidden';
@@ -173,7 +180,7 @@ const VentasModule = {
     },
 
     addItem() {
-        this.state.items.push({ tipo: 'articulo', concepto_id: '', cantidad: 1, precio_unitario: 0 });
+        this.state.items.push({ tipo: 'articulo', concepto_id: '', cantidad: 1, precio_unitario: 0, filtros: { seccion: '', familia: '', subfamilia: '' } });
         this.renderItems();
     },
 
@@ -190,6 +197,7 @@ const VentasModule = {
             item.tipo = value;
             item.concepto_id = '';
             item.precio_unitario = 0;
+            item.filtros = { seccion: '', familia: '', subfamilia: '' };
         } else {
             item[field] = Number(value);
         }
@@ -198,6 +206,37 @@ const VentasModule = {
 
     getCatalog(type) {
         return type === 'medicina' ? this.state.medicinas : this.state.articulos;
+    },
+
+    getFilterOptions(item, field) {
+        const filters = item.filtros || {};
+        const catalog = this.getCatalog(item.tipo).filter(concepto =>
+            (field === 'seccion' || !filters.seccion || concepto.seccion === filters.seccion) &&
+            (field !== 'subfamilia' || !filters.familia || concepto.familia === filters.familia)
+        );
+        return [...new Set(catalog.map(concepto => concepto[field]).filter(Boolean))]
+            .sort((left, right) => left.localeCompare(right));
+    },
+
+    toggleConceptFilters(index) {
+        const panel = document.getElementById(`saleConceptFilters-${index}`);
+        if (panel) panel.hidden = !panel.hidden;
+    },
+
+    setConceptFilter(index, field, value) {
+        const item = this.state.items[index];
+        if (!item) return;
+        item.filtros ||= { seccion: '', familia: '', subfamilia: '' };
+        item.filtros[field] = value;
+        if (field === 'seccion') {
+            item.filtros.familia = '';
+            item.filtros.subfamilia = '';
+        } else if (field === 'familia') {
+            item.filtros.subfamilia = '';
+        }
+        this.renderItems();
+        document.getElementById(`saleConceptFilters-${index}`).hidden = false;
+        this.searchConcept(index, document.getElementById(`saleConceptSearch-${index}`).value);
     },
 
     searchConcept(index, term) {
@@ -211,12 +250,17 @@ const VentasModule = {
             this.updateTotalsOnly();
         }
         const normalized = this.normalizeSearch(term);
-        if (normalized.length < 2) {
+        const filters = item.filtros || {};
+        const hasFilters = filters.seccion || filters.familia || filters.subfamilia;
+        if (normalized.length < 2 && !hasFilters) {
             results.hidden = true;
             return;
         }
         const matches = this.getCatalog(item.tipo).filter(concepto =>
-            this.normalizeSearch(`${concepto.nombre} ${concepto.codigo}`).includes(normalized)
+            (!normalized || this.normalizeSearch(`${concepto.nombre} ${concepto.codigo}`).includes(normalized)) &&
+            (!filters.seccion || concepto.seccion === filters.seccion) &&
+            (!filters.familia || concepto.familia === filters.familia) &&
+            (!filters.subfamilia || concepto.subfamilia === filters.subfamilia)
         ).slice(0, 8);
         results.innerHTML = matches.length ? matches.map(concepto => `
             <button class="concept-search-result" type="button" data-id="${this.escapeHtml(concepto.id)}"
@@ -240,17 +284,37 @@ const VentasModule = {
         const tbody = document.getElementById('saleItemsBody');
         if (!tbody) return;
         tbody.innerHTML = this.state.items.map((item, index) => {
+            item.filtros ||= { seccion: '', familia: '', subfamilia: '' };
             const selected = this.getCatalog(item.tipo).find(entry => entry.id === String(item.concepto_id));
             const subtotal = (Number(item.cantidad) || 0) * (Number(item.precio_unitario) || 0);
+            const sections = this.getFilterOptions(item, 'seccion');
+            const families = this.getFilterOptions(item, 'familia');
+            const subfamilies = this.getFilterOptions(item, 'subfamilia');
             return `<tr>
                 <td><select class="form-input" onchange="VentasModule.updateItem(${index}, 'tipo', this.value)">
                     <option value="articulo" ${item.tipo === 'articulo' ? 'selected' : ''}>Artículo</option>
                     <option value="medicina" ${item.tipo === 'medicina' ? 'selected' : ''}>Medicina</option>
                 </select></td>
                 <td><div class="concept-search"><div class="concept-search-input"><i class="fas fa-search"></i>
-                    <input class="form-input" type="search" autocomplete="off" placeholder="Buscar por nombre o código..."
+                    <input id="saleConceptSearch-${index}" class="form-input" type="search" autocomplete="off" placeholder="Buscar por nombre o código..."
                         value="${this.escapeHtml(selected?.nombre || '')}" oninput="VentasModule.searchConcept(${index}, this.value)">
-                    </div><div id="saleConceptResults-${index}" class="concept-search-results" hidden></div></div></td>
+                    <button class="concept-filter-toggle" type="button" title="Filtrar conceptos" onclick="VentasModule.toggleConceptFilters(${index})"><i class="fas fa-filter"></i></button>
+                    </div>
+                    <div id="saleConceptFilters-${index}" class="concept-filter-panel" hidden>
+                        <select class="form-input" aria-label="Sección" onchange="VentasModule.setConceptFilter(${index}, 'seccion', this.value)">
+                            <option value="">Todas las secciones</option>
+                            ${sections.map(value => `<option value="${this.escapeHtml(value)}" ${item.filtros.seccion === value ? 'selected' : ''}>${this.escapeHtml(value)}</option>`).join('')}
+                        </select>
+                        <select class="form-input" aria-label="Familia" onchange="VentasModule.setConceptFilter(${index}, 'familia', this.value)">
+                            <option value="">Todas las familias</option>
+                            ${families.map(value => `<option value="${this.escapeHtml(value)}" ${item.filtros.familia === value ? 'selected' : ''}>${this.escapeHtml(value)}</option>`).join('')}
+                        </select>
+                        <select class="form-input" aria-label="Subfamilia" onchange="VentasModule.setConceptFilter(${index}, 'subfamilia', this.value)">
+                            <option value="">Todas las subfamilias</option>
+                            ${subfamilies.map(value => `<option value="${this.escapeHtml(value)}" ${item.filtros.subfamilia === value ? 'selected' : ''}>${this.escapeHtml(value)}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div id="saleConceptResults-${index}" class="concept-search-results" hidden></div></div></td>
                 <td><input class="form-input" type="number" min="1" step="1" value="${item.cantidad}" onchange="VentasModule.updateItem(${index}, 'cantidad', this.value)"></td>
                 <td><input class="form-input" type="number" min="0" step="0.01" value="${item.precio_unitario}" onchange="VentasModule.updateItem(${index}, 'precio_unitario', this.value)"></td>
                 <td><strong>Q${subtotal.toFixed(2)}</strong></td>
