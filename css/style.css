@@ -3506,6 +3506,10 @@ textarea.form-input {
         grid-template-columns: 1fr;
     }
 
+    .habitaciones-grid {
+        grid-template-columns: repeat(3, minmax(200px, 1fr)) !important;
+    }
+
     .habitacion-card {
         min-height: 150px;
     }
