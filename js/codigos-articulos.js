@@ -443,7 +443,7 @@ const CodigosArticulosModule = {
     },
 
     // Abrir modal
-    openArticuloModal(articulo = null) {
+    async openArticuloModal(articulo = null) {
         const modal = document.getElementById('articuloModal');
         const form = document.getElementById('editArticuloForm');
         if (!modal || !form) return;
@@ -469,10 +469,40 @@ const CodigosArticulosModule = {
             document.getElementById('articuloDescripcion').value = articulo.descripcion || '';
         } else {
             this.renderFamiliasForModal();
+            document.getElementById('codigoVenta').value = 'Cargando...';
         }
 
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
+
+        if (!articulo) {
+            await this.loadNextCodigo();
+        }
+    },
+
+    async loadNextCodigo() {
+        const codigoInput = document.getElementById('codigoVenta');
+
+        try {
+            const token = authManager.getToken();
+            const response = await fetch(`${authManager.apiBaseUrl}/api/codigos-articulos/siguiente-codigo`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}`);
+            }
+
+            const data = await response.json();
+            codigoInput.value = data.codigo;
+        } catch (error) {
+            console.error('Error obteniendo el siguiente código:', error);
+            codigoInput.value = '';
+            this.showNotification('No se pudo previsualizar el correlativo. Se generará al guardar.', 'warning');
+        }
     },
 
     // Renderizar familias en modal
@@ -516,8 +546,8 @@ const CodigosArticulosModule = {
         const unidadMedida = document.getElementById('articuloUnidadMedida')?.value.trim();
         const tipo = document.getElementById('articuloTipo')?.value.trim();
 
-        if (!nombre || !codigoVenta || precioVenta <= 0) {
-            this.showNotification('⚠️ Nombre, código y precio de venta son requeridos', 'warning');
+        if (!nombre || precioVenta <= 0) {
+            this.showNotification('⚠️ Nombre y precio de venta son requeridos', 'warning');
             return;
         }
 

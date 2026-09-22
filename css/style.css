@@ -993,6 +993,35 @@ select:disabled {
     max-width: 1000px;
 }
 
+.purchase-items-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 20px 0 12px;
+}
+
+.purchase-items-header h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.purchase-items-table select,
+.purchase-items-table input {
+    min-width: 110px;
+}
+
+.purchase-items-table th:nth-child(2),
+.purchase-items-table td:nth-child(2) {
+    min-width: 240px;
+}
+
+.purchase-total {
+    margin: 18px 0;
+    text-align: right;
+    font-size: 18px;
+}
+
 .button-group {
     display: flex;
     gap: 10px;

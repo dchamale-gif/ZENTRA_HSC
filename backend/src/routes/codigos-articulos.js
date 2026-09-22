@@ -10,6 +10,9 @@ router.use(authMiddleware);
 // GET - Stock bajo (PRIMERO - evitar conflicto con :id)
 router.get('/stock/bajo', codigosArticulosController.getArticulosStockBajo);
 
+// GET - Previsualizar siguiente código interno
+router.get('/siguiente-codigo', codigosArticulosController.getSiguienteCodigo);
+
 // GET - Listar artículos
 router.get('/', codigosArticulosController.getArticulos);
 

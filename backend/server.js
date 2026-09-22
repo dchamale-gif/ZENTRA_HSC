@@ -25,6 +25,7 @@ const datosFamiliaRoutes = require('./src/routes/datosFamiliaRoutes');
 const responsablesRoutes = require('./src/routes/responsablesRoutes');
 const documentosPacienteRoutes = require('./src/routes/documentosPacienteRoutes');
 const personalMedicoRoutes = require('./src/routes/personalMedicoRoutes');
+const comprasRoutes = require('./src/routes/compras');
 
 // Importar middleware
 const { auditMiddleware } = require('./src/middleware/audit');
@@ -86,6 +87,9 @@ app.use('/api/codigos-articulos', codigosArticulosRoutes);
 
 // Proveedores
 app.use('/api/proveedores', proveedoresRoutes);
+
+// Compras y conceptos
+app.use('/api/compras', comprasRoutes);
 
 // Facturación
 app.use('/api/billing', billingRoutes);

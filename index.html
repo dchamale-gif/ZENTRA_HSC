@@ -3360,6 +3360,78 @@
         </div>
     </div>
 
+    <!-- Modal for purchase management -->
+    <div id="purchaseModal" class="modal">
+        <div class="modal-content modal-content-xl">
+            <div class="modal-header">
+                <h2><i class="fas fa-shopping-cart"></i> <span id="purchaseModalTitle">Nueva Compra</span></h2>
+                <button class="close-btn" type="button" onclick="ComprasModule.closePurchaseModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="purchaseForm">
+                    <input type="hidden" id="purchaseId">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Proveedor <span class="required">*</span></label>
+                            <select id="purchaseProvider" class="form-input" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Fecha <span class="required">*</span></label>
+                            <input type="date" id="purchaseDate" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Fecha de entrega</label>
+                            <input type="date" id="purchaseDeliveryDate" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label>Estado</label>
+                            <select id="purchaseStatus" class="form-input">
+                                <option value="pendiente">Pendiente</option>
+                                <option value="ordenada">Ordenada</option>
+                                <option value="recibida">Recibida</option>
+                                <option value="cancelada">Cancelada</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="purchase-items-header">
+                        <h3>Conceptos</h3>
+                        <button class="btn btn-secondary" type="button" onclick="ComprasModule.addItem()">
+                            <i class="fas fa-plus"></i> Agregar concepto
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table purchase-items-table">
+                            <thead>
+                                <tr>
+                                    <th>Tipo</th>
+                                    <th>Artículo / Medicina</th>
+                                    <th>Cantidad</th>
+                                    <th>Costo unitario</th>
+                                    <th>Subtotal</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="purchaseItemsBody"></tbody>
+                        </table>
+                    </div>
+
+                    <div class="purchase-total">Total: <strong id="purchaseCalculatedTotal">Q0.00</strong></div>
+                    <div class="form-group full-width">
+                        <label>Observaciones</label>
+                        <textarea id="purchaseObservations" class="form-input" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" onclick="ComprasModule.closePurchaseModal()">Cancelar</button>
+                <button class="btn btn-primary" type="button" id="savePurchaseBtn">
+                    <i class="fas fa-save"></i> Guardar Compra
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal for article management -->
     <div id="articuloModal" class="modal">
         <div class="modal-content modal-content-xl">
@@ -3389,13 +3461,13 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label>Código de Venta (Sistema Interno) <span class="required">*</span></label>
-                            <input type="text" id="codigoVenta" class="form-input" placeholder="Ej: PAR-0001" required>
-                            <small>Utilizado en facturas y sistema de ventas local</small>
+                            <input type="text" id="codigoVenta" class="form-input" placeholder="Generando correlativo..." readonly required>
+                            <small>Generado automáticamente según el último correlativo registrado</small>
                         </div>
                         <div class="form-group">
-                            <label>Código de Compra (Sistema Externo) <span class="required">*</span></label>
-                            <input type="text" id="codigoCompra" class="form-input" placeholder="Ej: LAB-BAYER-001" required>
-                            <small>Código del proveedor o sistema externo</small>
+                            <label>Código de Compra (Sistema Externo)</label>
+                            <input type="text" id="codigoCompra" class="form-input" placeholder="Ej: LAB-BAYER-001">
+                            <small>Opcional: código del proveedor o sistema externo</small>
                         </div>
                     </div>
 

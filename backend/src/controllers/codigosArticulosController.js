@@ -7,6 +7,23 @@ const ARTICLE_COLUMNS = `
   codigo_alternativo, descripcion2
 `;
 
+const getNextCodigo = async (databaseClient) => {
+  const result = await databaseClient.query(
+    `SELECT codigo
+     FROM codigos_articulos
+     WHERE codigo ~ '[0-9]+$'
+     ORDER BY ((regexp_match(codigo, '([0-9]+)$'))[1])::BIGINT DESC, codigo DESC
+     LIMIT 1`
+  );
+  const lastCodigo = result.rows[0]?.codigo;
+  const parts = lastCodigo?.match(/^(.*?)(\d+)$/);
+
+  if (!parts) return 'ART-001';
+
+  const nextNumber = Number(parts[2]) + 1;
+  return `${parts[1]}${String(nextNumber).padStart(parts[2].length, '0')}`;
+};
+
 // ==========================================
 // CODIGOS ARTICULOS CONTROLLER
 // ==========================================
@@ -98,13 +115,28 @@ const getArticuloById = async (req, res) => {
 };
 
 /**
+ * GET /api/codigos-articulos/siguiente-codigo
+ * Previsualizar el siguiente código interno
+ */
+const getSiguienteCodigo = async (req, res) => {
+  try {
+    const codigo = await getNextCodigo(pool);
+    res.status(200).json({ success: true, codigo });
+  } catch (error) {
+    console.error('Error en getSiguienteCodigo:', error);
+    res.status(500).json({ error: 'Error generando el siguiente código' });
+  }
+};
+
+/**
  * POST /api/codigos-articulos
  * Crear nuevo artículo
  */
 const createArticulo = async (req, res) => {
+  let client;
+
   try {
     const {
-      codigo,
       nombre_articulo,
       descripcion,
       categoria,
@@ -122,23 +154,18 @@ const createArticulo = async (req, res) => {
     } = req.body;
 
     // Validar campos requeridos
-    if (!codigo || !nombre_articulo) {
+    if (!nombre_articulo) {
       return res.status(400).json({ 
-        error: 'Código y nombre del artículo son requeridos' 
+        error: 'Nombre del artículo es requerido'
       });
     }
 
-    // Verificar que código sea único
-    const existing = await pool.query(
-      'SELECT id FROM codigos_articulos WHERE codigo = $1',
-      [codigo]
-    );
+    client = await pool.connect();
+    await client.query('BEGIN');
+    await client.query("SELECT pg_advisory_xact_lock(hashtext('codigos_articulos_codigo_correlativo'))");
+    const codigo = await getNextCodigo(client);
 
-    if (existing.rows.length > 0) {
-      return res.status(409).json({ error: 'Este código ya existe' });
-    }
-
-    const idMetadata = await pool.query(
+    const idMetadata = await client.query(
       `SELECT data_type, column_default, is_identity
        FROM information_schema.columns
        WHERE table_schema = current_schema()
@@ -155,7 +182,7 @@ const createArticulo = async (req, res) => {
       unidad_medida || null, codigo_barras || null, codigo_alternativo || null,
       descripcion2 || null, tipo || 'producto', activo];
 
-    const result = await pool.query(
+    const result = await client.query(
       `INSERT INTO codigos_articulos
        (${requiresManualId ? 'id, ' : ''}codigo, nombre_articulo, descripcion, categoria, familia, subfamilia,
         precio_unitario, precio_costo, cantidad_disponible, unidad_medida,
@@ -166,14 +193,19 @@ const createArticulo = async (req, res) => {
       requiresManualId ? [generatedId, ...values] : values
     );
 
+    await client.query('COMMIT');
+
     res.status(201).json({
       success: true,
       message: 'Artículo creado exitosamente',
       articulo: result.rows[0]
     });
   } catch (error) {
+    if (client) await client.query('ROLLBACK');
     console.error('Error en createArticulo:', error);
     res.status(500).json({ error: 'Error creando artículo' });
+  } finally {
+    if (client) client.release();
   }
 };
 
@@ -340,6 +372,7 @@ const getArticulosStockBajo = async (req, res) => {
 module.exports = {
   getArticulos,
   getArticuloById,
+  getSiguienteCodigo,
   createArticulo,
   updateArticulo,
   deleteArticulo,

@@ -6,267 +6,88 @@ const ComprasModule = {
     state: {
         compras: [],
         proveedores: [],
-        ordenes: []
+        medicinas: [],
+        articulos: [],
+        items: []
     },
 
-    // Inicializar el módulo
     init() {
         this.setupEventListeners();
         this.loadData();
-        console.log('Módulo de Compras inicializado');
     },
 
-    // Configurar event listeners
     setupEventListeners() {
-        const newPurchaseBtn = document.getElementById('addPurchaseBtn');
-        if (newPurchaseBtn) {
-            newPurchaseBtn.addEventListener('click', () => this.openPurchaseModal());
-        }
-
-        const savePurchaseBtn = document.getElementById('savePurchaseBtn');
-        if (savePurchaseBtn) {
-            savePurchaseBtn.addEventListener('click', () => this.savePurchase());
-        }
-
-        // Filters
-        const providerFilter = document.getElementById('providerFilter');
-        if (providerFilter) {
-            providerFilter.addEventListener('change', () => this.filterCompras());
-        }
-
-        const statusFilter = document.getElementById('statusFilter');
-        if (statusFilter) {
-            statusFilter.addEventListener('change', () => this.filterCompras());
-        }
+        document.getElementById('addPurchaseBtn')?.addEventListener('click', () => this.openPurchaseModal());
+        document.getElementById('savePurchaseBtn')?.addEventListener('click', () => this.savePurchase());
     },
 
-    // Cargar datos de compras
+    async apiRequest(path, options = {}) {
+        const token = authManager.getToken();
+        const response = await fetch(`${authManager.apiBaseUrl}${path}`, {
+            ...options,
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+        if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            throw new Error(data.error || `Error ${response.status}`);
+        }
+        return response.json();
+    },
+
     async loadData() {
-        // Cargar compras (datos iniciales hardcodeados por ahora)
-        this.state.compras = [
-            {
-                id: 'OC-001',
-                proveedor: 'Tech Supply',
-                fecha: '2026-05-15',
-                items: [
-                    { producto: 'Teclado Mecánico RGB', cantidad: 50, precio: 120, subtotal: 6000 }
-                ],
-                total: 6000,
-                estado: 'Entregado',
-                referencia: 'ORD-001'
-            },
-            {
-                id: 'OC-002',
-                proveedor: 'Fashion Store',
-                fecha: '2026-05-14',
-                items: [
-                    { producto: 'Camiseta Premium Talla M', cantidad: 100, precio: 30, subtotal: 3000 }
-                ],
-                total: 3000,
-                estado: 'Entregado',
-                referencia: 'ORD-002'
-            },
-            {
-                id: 'OC-003',
-                proveedor: 'Food Co',
-                fecha: '2026-05-13',
-                items: [
-                    { producto: 'Café Premium 250g', cantidad: 200, precio: 8.50, subtotal: 1700 }
-                ],
-                total: 1700,
-                estado: 'Entregado',
-                referencia: 'ORD-003'
-            },
-            {
-                id: 'OC-004',
-                proveedor: 'Tools Plus',
-                fecha: '2026-05-12',
-                items: [
-                    { producto: 'Taladro Eléctrico 20V', cantidad: 8, precio: 150, subtotal: 1200 }
-                ],
-                total: 1200,
-                estado: 'Entregado',
-                referencia: 'ORD-004'
-            },
-            {
-                id: 'OC-005',
-                proveedor: 'Aceites Premium',
-                fecha: '2026-05-11',
-                items: [
-                    { producto: 'Aceite Oliva Extra Virgen', cantidad: 50, precio: 12, subtotal: 600 }
-                ],
-                total: 600,
-                estado: 'Entregado',
-                referencia: 'ORD-005'
-            },
-            {
-                id: 'OC-006',
-                proveedor: 'Distribuidora Electrónica',
-                fecha: '2026-05-10',
-                items: [
-                    { producto: 'Monitor LG 27"', cantidad: 15, precio: 350, subtotal: 5250 }
-                ],
-                total: 5250,
-                estado: 'Pendiente',
-                referencia: 'ORD-006'
-            },
-            {
-                id: 'OC-007',
-                proveedor: 'Tech Supply',
-                fecha: '2026-05-09',
-                items: [
-                    { producto: 'Ratón Logitech', cantidad: 100, precio: 65, subtotal: 6500 }
-                ],
-                total: 6500,
-                estado: 'Entregado',
-                referencia: 'ORD-007'
-            }
-        ];
-        
-        // Cargar proveedores desde API
         try {
-            // Verificar si authManager está disponible
-            if (typeof authManager === 'undefined') {
-                console.warn('⚠️ authManager no disponible. Cargando proveedores demo...');
-                this.loadProveedoresDemo();
-                return;
-            }
-
-            const token = authManager.getToken();
-            if (!token) {
-                console.warn('⚠️ No hay token de autenticación para cargar proveedores. Cargando demo...');
-                this.loadProveedoresDemo();
-                return;
-            }
-
-            const response = await fetch(`${authManager.apiBaseUrl}/api/proveedores`, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`Error ${response.status}: ${response.statusText}`);
-            }
-
-            const data = await response.json();
-            this.state.proveedores = data.proveedores || [];
-            console.log(`✅ ${this.state.proveedores.length} proveedores cargados desde BD`);
+            const [comprasData, proveedoresData, medicinasData, articulosData] = await Promise.all([
+                this.apiRequest('/api/compras'),
+                this.apiRequest('/api/proveedores'),
+                this.apiRequest('/api/medicinas'),
+                this.apiRequest('/api/codigos-articulos')
+            ]);
+            this.state.compras = comprasData.compras || [];
+            this.state.proveedores = proveedoresData.proveedores || [];
+            this.state.medicinas = (medicinasData.medicinas || []).map(medicina => ({
+                id: String(medicina.id),
+                nombre: medicina.nombre,
+                precio: Number(medicina.precio_costo ?? medicina.precio ?? 0)
+            }));
+            this.state.articulos = (articulosData.articulos || []).map(articulo => ({
+                id: String(articulo.id),
+                nombre: articulo.nombre_articulo,
+                precio: Number(articulo.precio_costo ?? 0)
+            }));
+            this.render();
         } catch (error) {
-            console.warn('⚠️ Error cargando proveedores desde API:', error.message);
-            this.loadProveedoresDemo();
+            console.error('Error cargando compras:', error);
+            this.state.compras = [];
+            this.render();
+            this.notify(`No se pudieron cargar las compras: ${error.message}`, 'error');
         }
     },
 
-    // Cargar proveedores desde datos demo
-    loadProveedoresDemo() {
-        console.error('❌ ERROR: No hay conexión a la API de proveedores');
-        this.showNotification('❌ Error: No se pueden cargar los proveedores. Verifica tu conexión a la base de datos.', 'error');
-        this.state.proveedores = [];
-        this.render();
-    },
-
-    // Abrir modal de nueva compra
-    openPurchaseModal() {
-        const modal = document.getElementById('purchaseModal');
-        if (modal) {
-            modal.style.display = 'block';
-        }
-    },
-
-    // Guardar compra
-    savePurchase() {
-        // Validar datos del formulario
-        const provider = document.getElementById('purchaseProvider')?.value?.trim();
-        const date = document.getElementById('purchaseDate')?.value?.trim();
-        const total = document.getElementById('purchaseTotal')?.value?.trim();
-        const type = document.getElementById('purchaseType')?.value?.trim();
-
-        if (!provider || !date || !total || !type) {
-            alert('❌ Por favor, completa todos los campos obligatorios:\n- Proveedor\n- Fecha\n- Total\n- Tipo de Compra');
-            return;
-        }
-
-        // Validar que total sea un número válido
-        const totalNum = parseFloat(total);
-        if (isNaN(totalNum) || totalNum <= 0) {
-            alert('❌ El total debe ser un número mayor a 0');
-            return;
-        }
-
-        // Crear nueva compra
-        const newPurchase = {
-            id: `OC-${Date.now()}`,
-            proveedor: provider,
-            fecha: date,
-            total: totalNum,
-            estado: 'Pendiente',
-            tipo: type,
-            items: [],
-            createdAt: new Date().toISOString()
-        };
-
-        // Agregar a estado
-        this.state.compras.push(newPurchase);
-        
-        // Guardar en localStorage
-        localStorage.setItem('compras', JSON.stringify(this.state.compras));
-        
-        // Crear alerta para la compra
-        if (window.AlertasModule) {
-            AlertasModule.crearAlerta({
-                tipo: 'compra',
-                titulo: `Nueva compra registrada: ${provider}`,
-                descripcion: `Compra de $${totalNum.toFixed(2)} registrada el ${date}`,
-                prioridad: 'media',
-                referencia: newPurchase.id,
-                referenciaType: 'compra'
-            });
-        }
-        
-        // Limpiar formulario y cerrar modal
-        const form = document.getElementById('purchaseForm');
-        if (form) form.reset();
-        
-        const modal = document.getElementById('purchaseModal');
-        if (modal) {
-            modal.style.display = 'none';
-        }
-        
-        // Actualizar tabla
-        this.refreshTable();
-        
-        console.log('✅ Compra registrada correctamente:', newPurchase.id);
-        alert(`✅ Compra registrada correctamente (${newPurchase.id})`);
-    },
-
-    // Filtrar compras
-    filterCompras() {
-        this.refreshTable();
-    },
-
-    // Actualizar tabla de compras
-    refreshTable() {
-        const table = document.getElementById('comprasTable');
-        if (!table) return;
-
-        const tbody = table.querySelector('tbody');
+    render() {
+        const tbody = document.querySelector('#comprasTable tbody');
         if (!tbody) return;
+
+        if (this.state.compras.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center">No hay compras registradas</td></tr>';
+            return;
+        }
 
         tbody.innerHTML = this.state.compras.map(compra => `
             <tr>
-                <td>${compra.id}</td>
-                <td>${compra.fecha}</td>
-                <td>${compra.proveedor}</td>
-                <td>$${compra.total.toFixed(2)}</td>
-                <td><span class="badge badge-${compra.estado.toLowerCase()}">${compra.estado}</span></td>
+                <td><strong>${this.escapeHtml(compra.numero_compra)}</strong></td>
+                <td>${this.formatDate(compra.fecha)}</td>
+                <td>${this.escapeHtml(compra.proveedor_nombre)}</td>
+                <td>Q${Number(compra.total || 0).toFixed(2)}</td>
+                <td><span class="badge badge-${this.escapeHtml(compra.estado)}">${this.capitalize(compra.estado)}</span></td>
                 <td class="actions">
-                    <button class="btn-icon" onclick="ComprasModule.editPurchase('${compra.id}')">
+                    <button class="btn-icon btn-edit" title="Editar compra" onclick="ComprasModule.editPurchase('${compra.id}')">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button class="btn-icon" onclick="ComprasModule.deletePurchase('${compra.id}')">
+                    <button class="btn-icon btn-delete" title="Eliminar compra" onclick="ComprasModule.deletePurchase('${compra.id}')">
                         <i class="fas fa-trash"></i>
                     </button>
                 </td>
@@ -274,26 +95,188 @@ const ComprasModule = {
         `).join('');
     },
 
-    // Editar compra
+    openPurchaseModal(compra = null) {
+        const form = document.getElementById('purchaseForm');
+        form.reset();
+        document.getElementById('purchaseId').value = compra?.id || '';
+        document.getElementById('purchaseModalTitle').textContent = compra ? 'Editar Compra' : 'Nueva Compra';
+        document.getElementById('purchaseProvider').innerHTML =
+            '<option value="">Selecciona un proveedor</option>' +
+            this.state.proveedores.map(proveedor =>
+                `<option value="${proveedor.id}">${this.escapeHtml(proveedor.nombre)}</option>`
+            ).join('');
+        document.getElementById('purchaseProvider').value = compra?.proveedor_id || '';
+        document.getElementById('purchaseDate').value = compra ? this.dateValue(compra.fecha) : this.dateValue(new Date());
+        document.getElementById('purchaseDeliveryDate').value = compra?.fecha_entrega ? this.dateValue(compra.fecha_entrega) : '';
+        document.getElementById('purchaseStatus').value = compra?.estado || 'pendiente';
+        document.getElementById('purchaseObservations').value = compra?.observaciones || '';
+        this.state.items = compra?.items?.length
+            ? compra.items.map(item => ({
+                tipo: item.tipo,
+                concepto_id: String(item.concepto_id),
+                cantidad: Number(item.cantidad),
+                precio_unitario: Number(item.precio_unitario)
+            }))
+            : [{ tipo: 'articulo', concepto_id: '', cantidad: 1, precio_unitario: 0 }];
+        this.renderItems();
+        document.getElementById('purchaseModal').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    },
+
+    closePurchaseModal() {
+        document.getElementById('purchaseModal').style.display = 'none';
+        document.body.style.overflow = 'auto';
+        this.state.items = [];
+    },
+
+    addItem() {
+        this.state.items.push({ tipo: 'articulo', concepto_id: '', cantidad: 1, precio_unitario: 0 });
+        this.renderItems();
+    },
+
+    removeItem(index) {
+        if (this.state.items.length === 1) return;
+        this.state.items.splice(index, 1);
+        this.renderItems();
+    },
+
+    updateItem(index, field, value) {
+        const item = this.state.items[index];
+        if (!item) return;
+
+        if (field === 'tipo') {
+            item.tipo = value;
+            item.concepto_id = '';
+            item.precio_unitario = 0;
+        } else if (field === 'concepto_id') {
+            item.concepto_id = value;
+            const concepto = this.getCatalog(item.tipo).find(entry => entry.id === String(value));
+            item.precio_unitario = concepto?.precio || 0;
+        } else {
+            item[field] = Number(value);
+        }
+        this.renderItems();
+    },
+
+    getCatalog(tipo) {
+        return tipo === 'medicina' ? this.state.medicinas : this.state.articulos;
+    },
+
+    renderItems() {
+        const tbody = document.getElementById('purchaseItemsBody');
+        tbody.innerHTML = this.state.items.map((item, index) => {
+            const options = this.getCatalog(item.tipo).map(concepto =>
+                `<option value="${concepto.id}" ${concepto.id === String(item.concepto_id) ? 'selected' : ''}>${this.escapeHtml(concepto.nombre)}</option>`
+            ).join('');
+            const subtotal = (Number(item.cantidad) || 0) * (Number(item.precio_unitario) || 0);
+            return `
+                <tr>
+                    <td>
+                        <select class="form-input" onchange="ComprasModule.updateItem(${index}, 'tipo', this.value)">
+                            <option value="articulo" ${item.tipo === 'articulo' ? 'selected' : ''}>Artículo</option>
+                            <option value="medicina" ${item.tipo === 'medicina' ? 'selected' : ''}>Medicina</option>
+                        </select>
+                    </td>
+                    <td>
+                        <select class="form-input" onchange="ComprasModule.updateItem(${index}, 'concepto_id', this.value)">
+                            <option value="">Selecciona un concepto</option>${options}
+                        </select>
+                    </td>
+                    <td><input class="form-input" type="number" min="1" step="1" value="${item.cantidad}" onchange="ComprasModule.updateItem(${index}, 'cantidad', this.value)"></td>
+                    <td><input class="form-input" type="number" min="0" step="0.01" value="${item.precio_unitario}" onchange="ComprasModule.updateItem(${index}, 'precio_unitario', this.value)"></td>
+                    <td><strong>Q${subtotal.toFixed(2)}</strong></td>
+                    <td>
+                        <button class="btn-icon btn-delete" type="button" title="Quitar concepto" onclick="ComprasModule.removeItem(${index})" ${this.state.items.length === 1 ? 'disabled' : ''}>
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>`;
+        }).join('');
+        document.getElementById('purchaseCalculatedTotal').textContent = `Q${this.calculateTotal().toFixed(2)}`;
+    },
+
+    calculateTotal() {
+        return this.state.items.reduce((total, item) =>
+            total + (Number(item.cantidad) || 0) * (Number(item.precio_unitario) || 0), 0);
+    },
+
+    async savePurchase() {
+        const id = document.getElementById('purchaseId').value;
+        const payload = {
+            proveedor_id: document.getElementById('purchaseProvider').value,
+            fecha: document.getElementById('purchaseDate').value,
+            fecha_entrega: document.getElementById('purchaseDeliveryDate').value || null,
+            estado: document.getElementById('purchaseStatus').value,
+            observaciones: document.getElementById('purchaseObservations').value.trim() || null,
+            items: this.state.items.map(item => ({
+                tipo: item.tipo,
+                concepto_id: item.concepto_id,
+                cantidad: Number(item.cantidad),
+                precio_unitario: Number(item.precio_unitario)
+            }))
+        };
+
+        if (!payload.proveedor_id || !payload.fecha || payload.items.some(item =>
+            !item.concepto_id || !Number.isInteger(item.cantidad) || item.cantidad <= 0 || item.precio_unitario < 0)) {
+            this.notify('Completa el proveedor, la fecha y todos los conceptos de la compra.', 'warning');
+            return;
+        }
+
+        try {
+            await this.apiRequest(id ? `/api/compras/${id}` : '/api/compras', {
+                method: id ? 'PUT' : 'POST',
+                body: JSON.stringify(payload)
+            });
+            this.closePurchaseModal();
+            await this.loadData();
+            this.notify(id ? 'Compra actualizada correctamente.' : 'Compra registrada correctamente.', 'success');
+        } catch (error) {
+            console.error('Error guardando compra:', error);
+            this.notify(error.message, 'error');
+        }
+    },
+
     editPurchase(id) {
-        const compra = this.state.compras.find(c => c.id === id);
-        if (compra) {
-            console.log('Editando compra:', compra);
-            // Llenar el modal con los datos de la compra
+        const compra = this.state.compras.find(entry => String(entry.id) === String(id));
+        if (compra) this.openPurchaseModal(compra);
+    },
+
+    async deletePurchase(id) {
+        if (!confirm('¿Eliminar esta compra y todos sus conceptos?')) return;
+        try {
+            await this.apiRequest(`/api/compras/${id}`, { method: 'DELETE' });
+            await this.loadData();
+            this.notify('Compra eliminada correctamente.', 'success');
+        } catch (error) {
+            this.notify(error.message, 'error');
         }
     },
 
-    // Eliminar compra
-    deletePurchase(id) {
-        if (confirm('¿Estás seguro de que deseas eliminar esta compra?')) {
-            this.state.compras = this.state.compras.filter(c => c.id !== id);
-            this.refreshTable();
-        }
+    dateValue(value) {
+        const date = value instanceof Date ? value : new Date(value);
+        return date.toISOString().slice(0, 10);
     },
 
-    // Generar reporte de compras
-    generateReport() {
-        console.log('Generando reporte de compras...');
-        // Lógica para generar reporte
+    formatDate(value) {
+        if (!value) return '-';
+        return new Date(value).toLocaleDateString('es-GT', { timeZone: 'UTC' });
+    },
+
+    capitalize(value = '') {
+        return value.charAt(0).toUpperCase() + value.slice(1);
+    },
+
+    escapeHtml(value = '') {
+        const element = document.createElement('div');
+        element.textContent = String(value ?? '');
+        return element.innerHTML;
+    },
+
+    notify(message, type) {
+        if (window.NotificationsModule?.show) {
+            window.NotificationsModule.show(message, type);
+        } else {
+            alert(message);
+        }
     }
 };
