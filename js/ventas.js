@@ -111,6 +111,10 @@ const VentasModule = {
             </tr>`).join('');
     },
 
+    refreshTable() {
+        this.render();
+    },
+
     openSaleModal(venta = null) {
         document.getElementById('saleForm').reset();
         document.getElementById('saleId').value = venta?.id || '';
