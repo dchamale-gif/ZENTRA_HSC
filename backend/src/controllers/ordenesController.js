@@ -1,5 +1,13 @@
 const pool = require('../db/connection');
 
+const ESTADOS_VALIDOS = ['pendiente', 'completada', 'cancelada'];
+
+const serviciosValidos = (servicios) => Array.isArray(servicios) && servicios.length > 0 &&
+  servicios.every(servicio =>
+    servicio && String(servicio.nombre || '').trim() &&
+    Number.isFinite(Number(servicio.costo)) && Number(servicio.costo) >= 0
+  );
+
 const ordenesController = {
   // Obtener todas las órdenes médicas
   getAll: async (req, res) => {
@@ -26,7 +34,7 @@ const ordenesController = {
     const { pacienteId } = req.params;
     try {
       const result = await pool.query(
-        'SELECT * FROM ordenes WHERE paciente_id = $1 ORDER BY created_at DESC',
+        "SELECT * FROM ordenes WHERE paciente_id = $1 AND tipo = 'medica' ORDER BY created_at DESC",
         [pacienteId]
       );
       res.json(result.rows);
@@ -40,7 +48,6 @@ const ordenesController = {
   create: async (req, res) => {
     const {
       paciente_id,
-      tipo = 'medica',
       doctor,
       descripcion,
       notas = '',
@@ -48,9 +55,14 @@ const ordenesController = {
       estado = 'pendiente',
       fecha_orden
     } = req.body;
-    
-    if (!paciente_id || !doctor || !descripcion || !Array.isArray(servicios) || servicios.length === 0) {
+    const doctorNormalizado = String(doctor || '').trim();
+    const descripcionNormalizada = String(descripcion || '').trim();
+
+    if (!paciente_id || !doctorNormalizado || !descripcionNormalizada || !serviciosValidos(servicios)) {
       return res.status(400).json({ error: 'paciente_id, doctor, descripcion y servicios son requeridos' });
+    }
+    if (!ESTADOS_VALIDOS.includes(estado)) {
+      return res.status(400).json({ error: 'Estado de orden no válido' });
     }
 
     try {
@@ -68,7 +80,7 @@ const ordenesController = {
            (paciente_id, tipo, doctor, descripcion, notas, servicios, estado, fecha_orden, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, COALESCE($8::date, CURRENT_DATE), NOW(), NOW())
          RETURNING *`,
-        [paciente_id, tipo, doctor, descripcion, notas, JSON.stringify(servicios), estado, fecha_orden || null]
+        [paciente_id, 'medica', doctorNormalizado, descripcionNormalizada, notas, JSON.stringify(servicios), estado, fecha_orden || null]
       );
       console.log(`✅ Orden creada para paciente ${paciente_id}`);
       return res.status(201).json({ orden: result.rows[0] });
@@ -83,7 +95,6 @@ const ordenesController = {
     const { id } = req.params;
     const {
       paciente_id,
-      tipo = 'medica',
       doctor,
       descripcion,
       notas = '',
@@ -91,9 +102,14 @@ const ordenesController = {
       estado = 'pendiente',
       fecha_orden
     } = req.body;
+    const doctorNormalizado = String(doctor || '').trim();
+    const descripcionNormalizada = String(descripcion || '').trim();
 
-    if (!paciente_id || !doctor || !descripcion || !Array.isArray(servicios) || servicios.length === 0) {
+    if (!paciente_id || !doctorNormalizado || !descripcionNormalizada || !serviciosValidos(servicios)) {
       return res.status(400).json({ error: 'paciente_id, doctor, descripcion y servicios son requeridos' });
+    }
+    if (!ESTADOS_VALIDOS.includes(estado)) {
+      return res.status(400).json({ error: 'Estado de orden no válido' });
     }
 
     try {
@@ -104,7 +120,7 @@ const ordenesController = {
              fecha_orden = COALESCE($8::date, fecha_orden), updated_at = NOW()
          WHERE id = $9
          RETURNING *`,
-        [paciente_id, tipo, doctor, descripcion, notas, JSON.stringify(servicios), estado, fecha_orden || null, id]
+        [paciente_id, 'medica', doctorNormalizado, descripcionNormalizada, notas, JSON.stringify(servicios), estado, fecha_orden || null, id]
       );
       if (result.rows.length === 0) {
         return res.status(404).json({ error: 'Orden no encontrada' });
@@ -121,8 +137,8 @@ const ordenesController = {
     const { id } = req.params;
     const { estado } = req.body;
     
-    if (!estado) {
-      return res.status(400).json({ error: 'estado requerido' });
+    if (!ESTADOS_VALIDOS.includes(estado)) {
+      return res.status(400).json({ error: 'Estado de orden no válido' });
     }
 
     try {

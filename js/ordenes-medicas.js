@@ -7,6 +7,7 @@ const OrdenesmedicasModule = {
     state: {
         ordenes: [],
         pacientes: [],
+        medicos: [],
         servicios: [
             { id: 1, nombre: 'Radiografía', categoria: 'Imágenes', costo: 150 },
             { id: 2, nombre: 'Tomografía', categoria: 'Imágenes', costo: 500 },
@@ -93,7 +94,13 @@ const OrdenesmedicasModule = {
             doctor: orden.doctor || '',
             descripcion: orden.descripcion || '',
             notas: orden.notas || '',
-            servicios: Array.isArray(orden.servicios) ? orden.servicios : [],
+            servicios: Array.isArray(orden.servicios)
+                ? orden.servicios.map(servicio => ({
+                    ...servicio,
+                    id: Number(servicio.id),
+                    costo: Number(servicio.costo) || 0
+                }))
+                : [],
             estado: orden.estado || 'pendiente',
             fechaOrden: (orden.fecha_orden || orden.fechaOrden || orden.created_at || '').split('T')[0],
             fechaCreacion: orden.created_at || orden.fechaCreacion || ''
@@ -124,46 +131,45 @@ const OrdenesmedicasModule = {
         return Array.isArray(ordenes) ? ordenes.map(orden => this.normalizeOrden(orden)) : [];
     },
 
+    async fetchMedicos() {
+        const response = await fetch(this.getApiUrl('/personal-medico'), {
+            headers: { Authorization: `Bearer ${this.getAuthToken()}` }
+        });
+        if (!response.ok) throw new Error(`No se pudo cargar el personal médico (${response.status})`);
+
+        const data = await response.json();
+        if (!Array.isArray(data.personal)) throw new Error('La API devolvió personal médico con formato inválido');
+
+        return data.personal
+            .filter(personal => (personal.estado || 'activo') === 'activo')
+            .map(personal => ({
+                id: String(personal.id),
+                nombreCompleto: `${personal.nombre || ''} ${personal.apellido_paterno || ''} ${personal.apellido_materno || ''}`.trim(),
+                especialidad: personal.especialidad || '',
+                numeroColegiado: personal.numero_colegiado || ''
+            }));
+    },
+
     // Cargar pacientes y órdenes desde la API
     async loadData() {
         try {
             if (!this.getAuthToken()) throw new Error('No hay token de autenticación');
 
-            const [pacientes, ordenes] = await Promise.all([
+            const [pacientes, ordenes, medicos] = await Promise.all([
                 this.fetchPacientes(),
-                this.fetchOrdenes()
+                this.fetchOrdenes(),
+                this.fetchMedicos()
             ]);
             this.state.pacientes = pacientes;
             this.state.ordenes = ordenes;
-            localStorage.setItem('pacientes', JSON.stringify(pacientes));
-            this.saveToDB();
+            this.state.medicos = medicos;
         } catch (error) {
-            console.warn('Error cargando de API, usando localStorage:', error);
-            this.loadDataFromLocalStorage();
+            console.error('Error cargando órdenes médicas desde la API:', error);
+            this.state.ordenes = [];
+            this.showNotification(`No se pudieron cargar las órdenes: ${error.message}`, 'error');
         }
 
         this.renderOrdenes();
-    },
-
-    // Cargar datos desde localStorage
-    loadDataFromLocalStorage() {
-        // Cargar pacientes SOLO del módulo PacientesModule
-        if (typeof PacientesModule !== 'undefined' && PacientesModule.state && PacientesModule.state.pacientes) {
-            this.state.pacientes = PacientesModule.state.pacientes;
-        } else {
-            this.state.pacientes = JSON.parse(localStorage.getItem('pacientes') || '[]');
-        }
-
-        // Cargar órdenes desde localStorage
-        const ordenesFromStorage = localStorage.getItem('ordenesMedicas');
-        if (ordenesFromStorage) {
-            this.state.ordenes = JSON.parse(ordenesFromStorage);
-        }
-    },
-
-    // Guardar datos a localStorage
-    saveToDB() {
-        localStorage.setItem('ordenesMedicas', JSON.stringify(this.state.ordenes));
     },
 
     // Renderizar tabla de órdenes
@@ -308,13 +314,14 @@ const OrdenesmedicasModule = {
     async openNuevaOrdenModal() {
         const modal = document.getElementById('ordenMedicaModal');
         if (!modal) {
-            AlertasModule.mostrarError('Modal no encontrado');
+            this.showNotification('Modal no encontrado', 'error');
             return;
         }
 
         // Limpiar formulario
         document.getElementById('ordenPacienteId').value = '';
         document.getElementById('ordenDoctor').value = '';
+        document.getElementById('ordenEstado').value = 'pendiente';
         document.getElementById('ordenMedicaDescripcion').value = '';
         document.getElementById('ordenNotas').value = '';
         document.getElementById('buscarPacienteOrden').value = '';
@@ -334,7 +341,10 @@ const OrdenesmedicasModule = {
 
         // Mostrar el modal mientras se actualiza la lista de pacientes
         modal.style.display = 'block';
-        await this.cargarPacientesDesdeAPI();
+        await Promise.all([
+            this.cargarPacientesDesdeAPI(),
+            this.cargarMedicosDesdeAPI()
+        ]);
 
         // Cargar servicios disponibles
         this.cargarServicios();
@@ -347,15 +357,42 @@ const OrdenesmedicasModule = {
         try {
             if (!this.getAuthToken()) throw new Error('No hay token de autenticación');
             this.state.pacientes = await this.fetchPacientes();
-            localStorage.setItem('pacientes', JSON.stringify(this.state.pacientes));
         } catch (error) {
-            console.warn('No se pudo actualizar pacientes desde API:', error);
-            if (this.state.pacientes.length === 0) {
-                this.state.pacientes = JSON.parse(localStorage.getItem('pacientes') || '[]');
-            }
+            console.error('No se pudieron actualizar pacientes desde API:', error);
+            this.showNotification(error.message, 'error');
         }
 
         this.cargarPacientes();
+    },
+
+    async cargarMedicosDesdeAPI() {
+        try {
+            if (!this.getAuthToken()) throw new Error('No hay token de autenticación');
+            this.state.medicos = await this.fetchMedicos();
+        } catch (error) {
+            console.error('No se pudo actualizar el personal médico desde API:', error);
+            this.showNotification(error.message, 'error');
+        }
+
+        this.cargarMedicos();
+    },
+
+    cargarMedicos(valorActual = '') {
+        const select = document.getElementById('ordenDoctor');
+        if (!select) return;
+
+        select.replaceChildren(new Option('-- Selecciona personal médico --', ''));
+        this.state.medicos.forEach(medico => {
+            const detalle = [medico.especialidad, medico.numeroColegiado ? `Col. ${medico.numeroColegiado}` : '']
+                .filter(Boolean)
+                .join(' - ');
+            select.add(new Option(`${medico.nombreCompleto}${detalle ? ` (${detalle})` : ''}`, medico.nombreCompleto));
+        });
+
+        if (valorActual && !Array.from(select.options).some(option => option.value === valorActual)) {
+            select.add(new Option(`${valorActual} (registro histórico)`, valorActual));
+        }
+        select.value = valorActual;
     },
 
     // Cargar servicios disponibles en select
@@ -365,7 +402,7 @@ const OrdenesmedicasModule = {
 
         select.innerHTML = '<option value="">-- Selecciona servicio --</option>' +
             this.state.servicios.map(s => {
-                return `<option value="${s.id}">${s.nombre} (${s.categoria}) - $${s.costo}</option>`;
+                return `<option value="${s.id}">${s.nombre} (${s.categoria}) - ${this.formatCurrency(s.costo)}</option>`;
             }).join('');
     },
 
@@ -404,7 +441,7 @@ const OrdenesmedicasModule = {
     agregarServicio() {
         const selectServicios = document.getElementById('serviciosDisponibles');
         if (!selectServicios || !selectServicios.value) {
-            AlertasModule.mostrarError('Selecciona un servicio');
+            this.showNotification('Selecciona un servicio', 'error');
             return;
         }
 
@@ -412,7 +449,7 @@ const OrdenesmedicasModule = {
         const servicio = this.state.servicios.find(s => s.id === servicioId);
 
         if (!servicio) {
-            AlertasModule.mostrarError('Servicio no encontrado');
+            this.showNotification('Servicio no encontrado', 'error');
             return;
         }
 
@@ -425,7 +462,7 @@ const OrdenesmedicasModule = {
 
         // Validar que no esté duplicado
         if (serviciosSeleccionados.some(s => s.id === servicioId)) {
-            AlertasModule.mostrarAdvertencia('Este servicio ya está seleccionado');
+            this.showNotification('Este servicio ya está seleccionado', 'warning');
             return;
         }
 
@@ -453,13 +490,13 @@ const OrdenesmedicasModule = {
         let html = '<div style="display: grid; gap: 10px;">';
 
         servicios.forEach((servicio, idx) => {
-            totalCosto += servicio.costo || 0;
+            totalCosto += Number(servicio.costo) || 0;
             html += `
                 <div style="background: #f5f5f5; padding: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
                     <div>
                         <strong>${servicio.nombre}</strong>
                         <br>
-                        <small style="color: #666;">${servicio.categoria} - $${servicio.costo || 0}</small>
+                        <small style="color: #666;">${servicio.categoria} - ${this.formatCurrency(servicio.costo)}</small>
                     </div>
                     <button type="button" class="btn btn-sm btn-danger" 
                             onclick="OrdenesmedicasModule.removerServicio(${idx})">
@@ -472,7 +509,7 @@ const OrdenesmedicasModule = {
         html += '</div>';
         html += `
             <div style="margin-top: 15px; padding: 10px; background: #e8f5e9; border-radius: 4px; text-align: right;">
-                <strong>Total: $${totalCosto.toFixed(2)}</strong>
+                <strong>Total: ${this.formatCurrency(totalCosto)}</strong>
             </div>
         `;
 
@@ -493,6 +530,7 @@ const OrdenesmedicasModule = {
     async guardarOrden() {
         const pacienteId = document.getElementById('ordenPacienteId')?.value?.trim();
         const doctor = document.getElementById('ordenDoctor')?.value?.trim();
+        const estado = document.getElementById('ordenEstado')?.value || 'pendiente';
         const descripcion = document.getElementById('ordenMedicaDescripcion')?.value?.trim();
         const notas = document.getElementById('ordenNotas')?.value?.trim();
         const container = document.getElementById('serviciosSeleccionados');
@@ -500,28 +538,31 @@ const OrdenesmedicasModule = {
 
         // Validaciones
         if (!pacienteId) {
-            AlertasModule.mostrarError('Selecciona un paciente');
+            this.showNotification('Selecciona un paciente', 'error');
             return;
         }
 
         if (!doctor) {
-            AlertasModule.mostrarError('Nombre del doctor es obligatorio');
+            this.showNotification('Nombre del doctor es obligatorio', 'error');
             return;
         }
 
         if (!descripcion) {
-            AlertasModule.mostrarError('Descripción de la orden es obligatoria');
+            this.showNotification('Descripción de la orden es obligatoria', 'error');
             return;
         }
 
         if (servicios.length === 0) {
-            AlertasModule.mostrarError('Debes agregar al menos un servicio');
+            this.showNotification('Debes agregar al menos un servicio', 'error');
             return;
         }
 
         // Obtener ID de orden si es edición
         const modal = document.getElementById('ordenMedicaModal');
         const ordenId = modal?.dataset.ordenId;
+        const ordenActual = ordenId
+            ? this.state.ordenes.find(orden => String(orden.id) === String(ordenId))
+            : null;
 
         const saveButton = modal.querySelector('button[onclick*="guardarOrden"]');
         if (saveButton) saveButton.disabled = true;
@@ -541,8 +582,8 @@ const OrdenesmedicasModule = {
                     descripcion,
                     notas,
                     servicios,
-                    estado: ordenId ? this.state.ordenes.find(o => String(o.id) === String(ordenId))?.estado : 'pendiente',
-                    fecha_orden: new Date().toISOString().split('T')[0]
+                    estado,
+                    fecha_orden: ordenActual?.fechaOrden || new Date().toISOString().split('T')[0]
                 })
             });
             const data = await response.json();
@@ -554,15 +595,14 @@ const OrdenesmedicasModule = {
             } else {
                 this.state.ordenes.unshift(ordenGuardada);
             }
-            this.saveToDB();
             this.renderOrdenes();
             modal.style.display = 'none';
 
             const paciente = this.state.pacientes.find(p => String(p.id) === pacienteId);
-            AlertasModule.mostrarExito(`✓ Orden médica ${ordenId ? 'actualizada' : 'creada'} para ${paciente?.nombre || 'paciente'}`);
+            this.showNotification(`Orden médica ${ordenId ? 'actualizada' : 'creada'} para ${paciente?.nombre || 'paciente'}`, 'success');
         } catch (error) {
             console.error('Error guardando orden médica:', error);
-            AlertasModule.mostrarError(`No se pudo guardar la orden: ${error.message}`);
+            this.showNotification(`No se pudo guardar la orden: ${error.message}`, 'error');
         } finally {
             if (saveButton) saveButton.disabled = false;
         }
@@ -574,7 +614,7 @@ const OrdenesmedicasModule = {
         const paciente = this.state.pacientes.find(p => String(p.id) === String(orden?.pacienteId));
 
         if (!orden || !paciente) {
-            AlertasModule.mostrarError('Orden o paciente no encontrado');
+            this.showNotification('Orden o paciente no encontrado', 'error');
             return;
         }
 
@@ -621,11 +661,11 @@ const OrdenesmedicasModule = {
                             ${(orden.servicios || []).map(s => `
                                 <div style="padding: 8px; background: white; margin: 8px 0; border-radius: 3px;">
                                     <strong>${s.nombre}</strong> - ${s.categoria}
-                                    <div style="text-align: right; color: #667eea; font-weight: 600;">$${s.costo || 0}</div>
+                                    <div style="text-align: right; color: #667eea; font-weight: 600;">${this.formatCurrency(s.costo)}</div>
                                 </div>
                             `).join('')}
                             <div style="margin-top: 10px; padding-top: 10px; border-top: 2px solid #ddd; text-align: right;">
-                                <strong>Total: $${((orden.servicios || []).reduce((sum, s) => sum + (s.costo || 0), 0)).toFixed(2)}</strong>
+                                <strong>Total: ${this.formatCurrency((orden.servicios || []).reduce((sum, s) => sum + (Number(s.costo) || 0), 0))}</strong>
                             </div>
                         </div>
 
@@ -657,13 +697,15 @@ const OrdenesmedicasModule = {
     editarOrden(ordenId) {
         const orden = this.state.ordenes.find(o => String(o.id) === String(ordenId));
         if (!orden) {
-            AlertasModule.mostrarError('Orden no encontrada');
+            this.showNotification('Orden no encontrada', 'error');
             return;
         }
 
         // Llenar formulario
         document.getElementById('ordenPacienteId').value = orden.pacienteId;
+        this.cargarMedicos(orden.doctor);
         document.getElementById('ordenDoctor').value = orden.doctor;
+        document.getElementById('ordenEstado').value = orden.estado;
         document.getElementById('ordenMedicaDescripcion').value = orden.descripcion;
         document.getElementById('ordenNotas').value = orden.notas || '';
 
@@ -691,7 +733,7 @@ const OrdenesmedicasModule = {
         const paciente = this.state.pacientes.find(p => String(p.id) === String(orden?.pacienteId));
 
         if (!orden) {
-            AlertasModule.mostrarError('Orden no encontrada');
+            this.showNotification('Orden no encontrada', 'error');
             return;
         }
 
@@ -706,12 +748,11 @@ const OrdenesmedicasModule = {
                 if (!response.ok) throw new Error(data.error || `Error ${response.status}`);
 
                 this.state.ordenes = this.state.ordenes.filter(o => String(o.id) !== String(ordenId));
-                this.saveToDB();
                 this.renderOrdenes();
-                AlertasModule.mostrarExito('✓ Orden médica eliminada');
+                this.showNotification('Orden médica eliminada', 'success');
             } catch (error) {
                 console.error('Error eliminando orden médica:', error);
-                AlertasModule.mostrarError(`No se pudo eliminar la orden: ${error.message}`);
+                this.showNotification(`No se pudo eliminar la orden: ${error.message}`, 'error');
             }
         }
     },
@@ -722,7 +763,7 @@ const OrdenesmedicasModule = {
         const paciente = this.state.pacientes.find(p => String(p.id) === String(orden?.pacienteId));
 
         if (!orden || !paciente) {
-            AlertasModule.mostrarError('Orden o paciente no encontrado');
+            this.showNotification('Orden o paciente no encontrado', 'error');
             return;
         }
 
@@ -811,12 +852,12 @@ const OrdenesmedicasModule = {
                                 <tr>
                                     <td>${s.nombre}</td>
                                     <td>${s.categoria}</td>
-                                    <td style="text-align: right;">$${s.costo || 0}</td>
+                                    <td style="text-align: right;">${this.formatCurrency(s.costo)}</td>
                                 </tr>
                             `).join('')}
                             <tr style="background: #f5f5f5;">
                                 <td colspan="2" class="total">TOTAL:</td>
-                                <td class="total">$${((orden.servicios || []).reduce((sum, s) => sum + (s.costo || 0), 0)).toFixed(2)}</td>
+                                <td class="total">${this.formatCurrency((orden.servicios || []).reduce((sum, s) => sum + (Number(s.costo) || 0), 0))}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -846,6 +887,14 @@ const OrdenesmedicasModule = {
         setTimeout(() => {
             ventana.print();
         }, 250);
+    },
+
+    formatCurrency(value) {
+        return new Intl.NumberFormat('es-GT', {
+            style: 'currency',
+            currency: 'GTQ',
+            minimumFractionDigits: 2
+        }).format(Number(value) || 0);
     },
 
     // Mostrar notificación
