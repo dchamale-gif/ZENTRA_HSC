@@ -37,7 +37,16 @@ class BillingMejoradoController {
                     error.status = 400;
                     throw error;
                 }
-                return { descripcion: String(item.descripcion).trim(), cantidad, precioUnitario, subtotal, descuento, itemTotal };
+                return {
+                    descripcion: String(item.descripcion).trim(),
+                    cantidad,
+                    precioUnitario,
+                    subtotal,
+                    descuento,
+                    itemTotal,
+                    tipoItem: String(item.tipo_item || 'general'),
+                    medicinaId: item.medicina_id || null
+                };
             });
 
             client = await db.connect();
@@ -70,10 +79,11 @@ class BillingMejoradoController {
                 await client.query(`
                     INSERT INTO venta_items (
                         id, venta_id, descripcion, cantidad, precio_unitario, subtotal,
-                        descuento, total, tipo_item
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'general')`,
+                        descuento, total, tipo_item, medicina_id
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
                     [generateId('ITEM'), facturaId, item.descripcion, item.cantidad,
-                        item.precioUnitario, item.subtotal, item.descuento, item.itemTotal]
+                        item.precioUnitario, item.subtotal, item.descuento, item.itemTotal,
+                        item.tipoItem, item.medicinaId]
                 );
             }
 
@@ -494,7 +504,9 @@ class BillingMejoradoController {
 
                 const factura = facturaMap.get(row.numero_factura);
                 if (row.item_id) {
-                    const categoria = row.tipo_item || 'general';
+                    const esMedicamentoAnterior = (row.tipo_item === 'general' || !row.tipo_item) &&
+                        /^Medicamento:/i.test(row.descripcion || '');
+                    const categoria = esMedicamentoAnterior ? 'medicina' : (row.tipo_item || 'general');
                     if (!factura.categorias[categoria]) {
                         factura.categorias[categoria] = [];
                     }

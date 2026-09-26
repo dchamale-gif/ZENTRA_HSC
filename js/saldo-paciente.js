@@ -746,15 +746,42 @@ const SaldoPacienteModule = {
     },
 
     // Imprimir saldo del paciente
-    imprimirSaldo(pacienteId) {
-        const pacienteIdNum = parseInt(pacienteId, 10);
-        const saldo = this.state.saldosPacientes.find(s => s.pacienteId === pacienteIdNum);
-        const pacient = this.state.pacientes.find(p => p.id === pacienteIdNum);
+    async imprimirSaldo(pacienteId) {
+        const saldo = this.state.saldosPacientes.find(s => String(s.pacienteId ?? s.paciente_id) === String(pacienteId));
+        const pacient = this.state.pacientes.find(p => String(p.id) === String(pacienteId));
 
         if (!saldo || !pacient) {
             this.showNotification('Datos de paciente no encontrados', 'error');
             return;
         }
+
+        let estadoCuenta = null;
+        try {
+            const token = typeof authManager !== 'undefined' ? authManager.getToken() : null;
+            if (!token) throw new Error('No hay token de autenticación');
+
+            const response = await fetch(`${authManager.apiBaseUrl}/api/billing/estado-cuenta-detallado/${encodeURIComponent(pacienteId)}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) throw new Error(`No se pudo cargar el detalle (${response.status})`);
+
+            const result = await response.json();
+            if (!result.success || !result.data) throw new Error(result.message || 'Respuesta inválida');
+            estadoCuenta = result.data;
+        } catch (error) {
+            console.error('Error cargando precios para el estado de cuenta:', error);
+            this.showNotification(`No se pudo elaborar el estado de cuenta: ${error.message}`, 'error');
+            return;
+        }
+
+        const medicamentos = (estadoCuenta.facturas || []).flatMap(factura => [
+            ...(factura.categorias?.medicina || []),
+            ...(factura.categorias?.medicamentos || [])
+        ]);
+        const totalMedicamentos = medicamentos.reduce((total, medicina) => total + Number(medicina.total || 0), 0);
+        const saldoPendiente = Number(estadoCuenta.totales?.saldo_pendiente ?? saldo.saldoPendiente ?? saldo.saldo_pendiente) || 0;
+        const totalFacturado = Number(estadoCuenta.totales?.total_facturado ?? saldo.totalAcumulado ?? saldo.total_deuda) || 0;
+        const impuestosIncluidos = Number(estadoCuenta.totales?.impuestos_total) || 0;
 
         const ventana = window.open('', '_blank', 'width=850,height=900');
         const fechaActual = new Date();
@@ -1020,7 +1047,7 @@ const SaldoPacienteModule = {
                         </div>
                         <div class="expediente">
                             Expediente:<br>
-                            <div class="expediente-num">${pacienteIdNum.toString().padStart(4, '0')}</div>
+                            <div class="expediente-num">${String(pacienteId).padStart(4, '0')}</div>
                         </div>
                     </div>
 
@@ -1100,13 +1127,23 @@ const SaldoPacienteModule = {
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
-                                <td>Medicinas y Suministros</td>
-                                <td class="amount">Q 0.00</td>
-                            </tr>
+                            ${medicamentos.length > 0 ? medicamentos.map(medicina => `
+                                <tr>
+                                    <td>
+                                        ${medicina.descripcion}
+                                        <br><small>${Number(medicina.cantidad)} × Q${Number(medicina.precio_unitario).toFixed(2)}</small>
+                                    </td>
+                                    <td class="amount">Q ${Number(medicina.total).toFixed(2)}</td>
+                                </tr>
+                            `).join('') : `
+                                <tr>
+                                    <td>Sin medicamentos facturados</td>
+                                    <td class="amount">Q 0.00</td>
+                                </tr>
+                            `}
                             <tr style="font-weight: bold; background: #f9f9f9;">
                                 <td style="text-align: right;">TOTAL MEDICAMENTOS</td>
-                                <td class="amount">Q 0.00</td>
+                                <td class="amount">Q ${totalMedicamentos.toFixed(2)}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1217,38 +1254,38 @@ const SaldoPacienteModule = {
                             <div class="summary-title">📌 Resumen Financiero</div>
                             <div class="summary-row">
                                 <span class="summary-label">Subtotal:</span>
-                                <span class="summary-value">Q${parseFloat(saldo.totalAcumulado || saldo.total_deuda).toFixed(2)}</span>
+                                <span class="summary-value">Q${totalFacturado.toFixed(2)}</span>
                             </div>
                             <div class="summary-row">
                                 <span class="summary-label">Descuentos:</span>
                                 <span class="summary-value">Q0.00</span>
                             </div>
                             <div class="summary-row">
-                                <span class="summary-label">IVA (12%):</span>
-                                <span class="summary-value">Q${(parseFloat(saldo.totalAcumulado || saldo.total_deuda) * 0.12).toFixed(2)}</span>
+                                <span class="summary-label">IVA incluido:</span>
+                                <span class="summary-value">Q${impuestosIncluidos.toFixed(2)}</span>
                             </div>
                             <div class="summary-row" style="font-weight: bold; border-top: 2px solid #ddd; padding-top: 8px; margin-top: 8px;">
                                 <span class="summary-label">TOTAL A PAGAR:</span>
-                                <span class="summary-value" style="color: #0066cc; font-size: 15px;">Q${parseFloat(saldo.saldoPendiente).toFixed(2)}</span>
+                                <span class="summary-value" style="color: #0066cc; font-size: 15px;">Q${saldoPendiente.toFixed(2)}</span>
                             </div>
                             <div class="summary-row">
                                 <span class="summary-label">Abonos:</span>
                                 <span class="summary-value" style="color: #27ae60;">(Q${parseFloat(saldo.abonosRealizados || saldo.totalAbonos || 0).toFixed(2)})</span>
                             </div>
-                            <div class="summary-row" style="color: ${saldo.saldoPendiente > 0 ? '#e74c3c' : '#27ae60'}; font-weight: bold; border-top: 1px solid #ddd; padding-top: 8px; margin-top: 8px;">
+                            <div class="summary-row" style="color: ${saldoPendiente > 0 ? '#e74c3c' : '#27ae60'}; font-weight: bold; border-top: 1px solid #ddd; padding-top: 8px; margin-top: 8px;">
                                 <span>Saldo a Favor del Paciente:</span>
-                                <span class="summary-value">Q${Math.max(0, saldo.saldoPendiente).toFixed(2)}</span>
+                                <span class="summary-value">Q${Math.max(0, saldoPendiente).toFixed(2)}</span>
                             </div>
                         </div>
 
                         <div class="total-box">
                             <div class="total-label">TOTAL A PAGAR</div>
-                            <div class="total-amount">Q${parseFloat(saldo.saldoPendiente).toFixed(2)}</div>
+                            <div class="total-amount">Q${saldoPendiente.toFixed(2)}</div>
                             <div class="total-note">
-                                ${saldo.saldoPendiente === 0 ? '✓ SALDO PAGADO' : '⚠ DEUDA PENDIENTE'}
+                                ${saldoPendiente === 0 ? '✓ SALDO PAGADO' : '⚠ DEUDA PENDIENTE'}
                             </div>
-                            <div class="status-badge ${saldo.saldoPendiente === 0 ? 'status-pagado' : 'status-deudor'}" style="margin-top: 12px;">
-                                ${saldo.saldoPendiente === 0 ? '✓ PAGADO' : '⚠ DEUDOR'}
+                            <div class="status-badge ${saldoPendiente === 0 ? 'status-pagado' : 'status-deudor'}" style="margin-top: 12px;">
+                                ${saldoPendiente === 0 ? '✓ PAGADO' : '⚠ DEUDOR'}
                             </div>
                         </div>
                     </div>

@@ -1063,7 +1063,9 @@ const HistoriaClinicaModule = {
             precio_unitario: medicina.precioUnitario,
             subtotal: medicina.subtotal,
             descuento_total: 0,
-            total_item: medicina.subtotal
+            total_item: medicina.subtotal,
+            tipo_item: 'medicina',
+            medicina_id: medicina.medicineId
         }));
         const subtotal = items.reduce((total, item) => total + item.subtotal, 0);
         const total = subtotal;
