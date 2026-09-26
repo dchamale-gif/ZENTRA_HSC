@@ -468,7 +468,7 @@ const HistoriaClinicaModule = {
     },
 
     // Abrir modal de nueva nota/prescripción
-    openNoteModal() {
+    async openNoteModal() {
         if (!this.state.pacienteSeleccionado) {
             this.showNotification('⚠️ Selecciona un paciente primero', 'warning');
             return;
@@ -491,6 +491,8 @@ const HistoriaClinicaModule = {
 
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
+
+        await this.loadModalCatalogs();
     },
 
     // Cerrar modal
@@ -586,7 +588,7 @@ const HistoriaClinicaModule = {
             document.getElementById('prescripcionForm').style.display = 'block';
             document.getElementById('saveNoteBtn').style.display = 'none';
             document.getElementById('savePrescBtn').style.display = 'block';
-            this.loadMedicos();
+            this.populateMedicos();
         } else if (tabName === 'agenda') {
             document.getElementById('agendaContent').style.display = 'block';
             document.getElementById('saveNoteBtn').style.display = 'none';
@@ -614,28 +616,107 @@ const HistoriaClinicaModule = {
         }
     },
 
-    // Cargar lista de médicos en select
-    loadMedicos() {
-        let medicos = [];
-        
-        // Intentar cargar desde PersonalModule
-        if (PersonalModule && PersonalModule.state && PersonalModule.state.personal) {
-            medicos = PersonalModule.state.personal.filter(p => p.tipo === 'Médico' || p.especialidad);
-        } else {
-            console.error('❌ ERROR: PersonalModule no disponible');
-            this.showNotification('⚠️ Aviso: No se pudo cargar la lista de médicos', 'warning');
+    // Cargar personal médico y medicinas disponibles desde la API
+    async loadModalCatalogs() {
+        const noteSelect = document.getElementById('noteMedico');
+        const prescriptionSelect = document.getElementById('prescMedico');
+        const addMedicineButton = document.getElementById('addPrescMedicineBtn');
+
+        if (noteSelect) noteSelect.innerHTML = '<option value="">Cargando personal médico...</option>';
+        if (prescriptionSelect) prescriptionSelect.innerHTML = '<option value="">Cargando personal médico...</option>';
+        if (addMedicineButton) addMedicineButton.disabled = true;
+
+        try {
+            if (typeof authManager === 'undefined') throw new Error('Servicio de autenticación no disponible');
+
+            const token = authManager.getToken();
+            if (!token) throw new Error('No hay token de autenticación');
+
+            const headers = { Authorization: `Bearer ${token}` };
+            const [personalResponse, medicinasResponse] = await Promise.all([
+                fetch(`${authManager.apiBaseUrl}/api/personal-medico`, { headers }),
+                fetch(`${authManager.apiBaseUrl}/api/medicinas?activo=true`, { headers })
+            ]);
+
+            if (!personalResponse.ok) {
+                throw new Error(`No se pudo cargar el personal médico (${personalResponse.status})`);
+            }
+            if (!medicinasResponse.ok) {
+                throw new Error(`No se pudieron cargar las medicinas (${medicinasResponse.status})`);
+            }
+
+            const personalData = await personalResponse.json();
+            const medicinasData = await medicinasResponse.json();
+            if (!Array.isArray(personalData.personal) || !Array.isArray(medicinasData.medicinas)) {
+                throw new Error('La API devolvió catálogos con formato inválido');
+            }
+
+            this.state.medicos = personalData.personal
+                .map(personal => typeof PersonalModule !== 'undefined' && PersonalModule.normalizePersonal
+                    ? PersonalModule.normalizePersonal(personal)
+                    : {
+                        id: String(personal.id),
+                        nombre: personal.nombre || '',
+                        apellidoPaterno: personal.apellido_paterno || '',
+                        apellidoMaterno: personal.apellido_materno || '',
+                        especialidad: personal.especialidad || '',
+                        numeroColegiado: personal.numero_colegiado || '',
+                        estado: personal.estado || 'activo'
+                    })
+                .filter(personal => personal.estado === 'activo');
+
+            this.state.medicinas = medicinasData.medicinas
+                .map(medicina => ({
+                    ...medicina,
+                    codigo: medicina.codigo || medicina.codigo_interno || medicina.codigo_externo || '',
+                    stock: Number(medicina.stock) || 0
+                }))
+                .filter(medicina => medicina.activo !== false && medicina.stock > 0);
+
+            this.populateMedicos();
+            console.log(`✅ Modal Historia Clínica: ${this.state.medicos.length} médicos y ${this.state.medicinas.length} medicinas con stock cargados desde API`);
+        } catch (error) {
+            this.state.medicos = [];
+            this.state.medicinas = [];
+            this.populateMedicos();
+            this.showNotification(`❌ Error cargando datos del modal: ${error.message}`, 'error');
+        } finally {
+            if (addMedicineButton) addMedicineButton.disabled = this.state.medicinas.length === 0;
         }
-        
-        const select = document.getElementById('prescMedico');
-        
-        if (!select) return;
-        
-        select.innerHTML = '<option value="">-- Seleccionar médico --</option>';
-        medicos.forEach(med => {
-            const option = document.createElement('option');
-            option.value = med.id;
-            option.textContent = med.nombre || med.nombreCompleto || med.apellidoPaterno;
-            select.appendChild(option);
+    },
+
+    // Poblar los selectores de personal médico
+    populateMedicos() {
+        const noteSelect = document.getElementById('noteMedico');
+        const prescriptionSelect = document.getElementById('prescMedico');
+        const medicos = this.state.medicos || [];
+
+        [noteSelect, prescriptionSelect].forEach(select => {
+            if (select) select.innerHTML = '<option value="">-- Seleccionar médico --</option>';
+        });
+
+        medicos.forEach(medico => {
+            const nombreCompleto = [medico.nombre, medico.apellidoPaterno, medico.apellidoMaterno]
+                .filter(Boolean)
+                .join(' ');
+            const detalle = [medico.especialidad, medico.numeroColegiado ? `Colegiado: ${medico.numeroColegiado}` : '']
+                .filter(Boolean)
+                .join(' - ');
+            const etiqueta = detalle ? `${nombreCompleto} (${detalle})` : nombreCompleto;
+
+            if (noteSelect) {
+                const option = document.createElement('option');
+                option.value = nombreCompleto;
+                option.textContent = etiqueta;
+                noteSelect.appendChild(option);
+            }
+
+            if (prescriptionSelect) {
+                const option = document.createElement('option');
+                option.value = medico.id;
+                option.textContent = etiqueta;
+                prescriptionSelect.appendChild(option);
+            }
         });
     },
 
@@ -697,16 +778,7 @@ const HistoriaClinicaModule = {
         const row = document.getElementById(rowId);
         if (!row) return;
         
-        let medicinas = [];
-        
-        // Intentar cargar desde MedicinasModule
-        if (MedicinasModule && MedicinasModule.state && MedicinasModule.state.medicinas) {
-            medicinas = MedicinasModule.state.medicinas;
-        } else {
-            console.error('❌ ERROR: MedicinasModule no disponible');
-            this.showNotification('❌ Error: No se puede cargar la lista de medicinas', 'error');
-            return;
-        }
+        const medicinas = this.state.medicinas;
         
         if (medicinas.length === 0) {
             this.showNotification('⚠️ No hay medicinas disponibles', 'warning');
@@ -764,7 +836,7 @@ const HistoriaClinicaModule = {
                      onclick="HistoriaClinicaModule.selectMedicineFromModal('${rowId}', '${med.id}', '${med.nombre}'); 
                               this.closest('[style*=fixed]').remove();">
                     <strong>${med.nombre}</strong>
-                    <br><small style="color: #666;">Código: ${med.codigo} | Stock: ${med.stock}</small>
+                    <br><small style="color: #666;">Código: ${med.codigo || 'N/A'} | Stock disponible: ${med.stock}</small>
                 </div>
             `;
         });
@@ -808,20 +880,10 @@ const HistoriaClinicaModule = {
             return;
         }
         
-        let medicinas = [];
-        
-        // Intentar cargar desde MedicinasModule
-        if (MedicinasModule && MedicinasModule.state && MedicinasModule.state.medicinas) {
-            medicinas = MedicinasModule.state.medicinas;
-        } else {
-            console.error('❌ ERROR: MedicinasModule no disponible');
-            dropdown.innerHTML = '<div style="padding: 8px; color: red; text-align: center;">❌ Error cargando medicinas</div>';
-            dropdown.style.display = 'block';
-            return;
-        }
+        const medicinas = this.state.medicinas;
         
         const filtered = medicinas.filter(med => 
-            (med.nombre || '').toLowerCase().includes(searchTerm)
+            `${med.nombre || ''} ${med.codigo || ''}`.toLowerCase().includes(searchTerm)
         );
         
         if (filtered.length === 0) {
@@ -837,6 +899,7 @@ const HistoriaClinicaModule = {
                  onmouseout="this.style.background='white'"
                  onclick="HistoriaClinicaModule.selectMedicine('${rowId}', '${med.id}', '${med.nombre}')">
                 <strong>${med.nombre}</strong>
+                <br><small style="color: #666;">Código: ${med.codigo || 'N/A'} | Stock disponible: ${med.stock}</small>
             </div>
         `).join('');
         

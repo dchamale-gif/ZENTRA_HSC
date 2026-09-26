@@ -3816,7 +3816,9 @@
                     </div>
                     <div class="form-group full-width">
                         <label>Médico que Registra</label>
-                        <input type="text" id="noteMedico" class="form-input" placeholder="Nombre del médico o profesional">
+                        <select id="noteMedico" class="form-input">
+                            <option value="">-- Seleccionar médico --</option>
+                        </select>
                     </div>
                 </form>
 
@@ -3856,7 +3858,7 @@
                                 </tbody>
                             </table>
                         </div>
-                        <button type="button" class="btn btn-sm btn-info" onclick="HistoriaClinicaModule.addMedicineRow()">
+                        <button type="button" id="addPrescMedicineBtn" class="btn btn-sm btn-info" onclick="HistoriaClinicaModule.addMedicineRow()">
                             <i class="fas fa-plus"></i> Agregar Medicina
                         </button>
                     </div>
