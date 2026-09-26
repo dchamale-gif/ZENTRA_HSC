@@ -279,13 +279,19 @@ const SaldoPacienteModule = {
 
     // Ver detalles de saldo
     viewSaldoDetails(pacienteId) {
-        // Convertir a número para comparación correcta
-        const pacienteIdNum = parseInt(pacienteId, 10);
-        const saldo = this.state.saldosPacientes.find(s => s.pacienteId === pacienteIdNum);
-        const pacient = this.state.pacientes.find(p => p.id === pacienteIdNum);
-        const movimientos = this.state.movimientosPaciente.filter(m => m.pacienteId === pacienteIdNum);
+        const pacienteIdNormalizado = String(pacienteId);
+        const saldo = this.state.saldosPacientes.find(s => String(s.pacienteId ?? s.paciente_id) === pacienteIdNormalizado);
+        const pacient = this.state.pacientes.find(p => String(p.id) === pacienteIdNormalizado);
+        const movimientos = this.state.movimientosPaciente.filter(m => String(m.pacienteId ?? m.paciente_id) === pacienteIdNormalizado);
 
         if (!saldo || !pacient) return;
+
+        const totalAcumulado = Number(saldo.totalAcumulado ?? saldo.total_acumulado ?? saldo.total_deuda) || 0;
+        const totalAbonos = Number(saldo.totalAbonos ?? saldo.abonosRealizados ?? saldo.total_abonos) || 0;
+        const saldoPendiente = Number(saldo.saldoPendiente ?? saldo.saldo_pendiente) || 0;
+        const porcentajePagado = totalAcumulado > 0
+            ? Math.min(100, Math.max(0, (totalAbonos / totalAcumulado) * 100))
+            : 0;
 
         const detailsModal = document.getElementById('saldoDetailsModal');
         const detailsContent = document.getElementById('saldoDetailsContent');
@@ -295,7 +301,7 @@ const SaldoPacienteModule = {
             <div class="saldo-details-card">
                 <div class="saldo-header">
                     <h3>Estado de Cuenta - ${pacient.nombre} ${pacient.apellido_paterno || pacient.apellidoPaterno || ''} ${pacient.apellido_materno || pacient.apellidoMaterno || ''}</h3>
-                    ${saldo.saldoPendiente === 0 
+                    ${saldoPendiente === 0
                         ? '<span class="badge badge-success">SIN DEUDA</span>'
                         : '<span class="badge badge-danger">DEUDOR</span>'
                     }
@@ -307,26 +313,26 @@ const SaldoPacienteModule = {
                 <div class="saldo-summary">
                     <div class="summary-item">
                         <label>Total Acumulado</label>
-                        <p class="amount">$${saldo.totalAcumulado.toFixed(2)}</p>
+                        <p class="amount">Q${totalAcumulado.toFixed(2)}</p>
                     </div>
                     <div class="summary-item">
                         <label>Total Abonos</label>
-                        <p class="amount positive">$${saldo.totalAbonos.toFixed(2)}</p>
+                        <p class="amount positive">Q${totalAbonos.toFixed(2)}</p>
                     </div>
                     <div class="summary-item">
                         <label>Saldo Pendiente</label>
-                        <p class="amount ${saldo.saldoPendiente > 0 ? 'negative' : 'positive'}" style="font-size: 18px; font-weight: bold;">
-                            $${saldo.saldoPendiente.toFixed(2)}
+                        <p class="amount ${saldoPendiente > 0 ? 'negative' : 'positive'}" style="font-size: 18px; font-weight: bold;">
+                            Q${saldoPendiente.toFixed(2)}
                         </p>
                     </div>
                     <div class="summary-item">
                         <label>% Pagado</label>
-                        <p class="percentage">${((saldo.totalAbonos / saldo.totalAcumulado) * 100).toFixed(1)}%</p>
+                        <p class="percentage">${porcentajePagado.toFixed(1)}%</p>
                     </div>
                 </div>
 
                 <div class="progress-bar">
-                    <div class="progress-fill" style="width: ${((saldo.totalAbonos / saldo.totalAcumulado) * 100)}%"></div>
+                    <div class="progress-fill" style="width: ${porcentajePagado}%"></div>
                 </div>
 
                 ${movimientos.length > 0 ? `
@@ -359,7 +365,7 @@ const SaldoPacienteModule = {
                                                     ` : '-'}
                                                 </td>
                                                 <td style="padding: 10px; text-align: right; font-weight: bold; color: ${m.tipo === 'Abono' ? '#27ae60' : '#e74c3c'};">
-                                                    ${m.tipo === 'Abono' ? '+' : '-'}$${m.monto.toFixed(2)}
+                                                    ${m.tipo === 'Abono' ? '+' : '-'}Q${(Number(m.monto) || 0).toFixed(2)}
                                                 </td>
                                                 <td style="padding: 10px; text-align: center;">
                                                     <span style="background: ${m.tipo === 'Abono' ? '#d4edda' : '#f8d7da'}; color: ${m.tipo === 'Abono' ? '#155724' : '#721c24'}; padding: 3px 8px; border-radius: 3px; font-size: 11px; font-weight: 600;">
@@ -382,7 +388,7 @@ const SaldoPacienteModule = {
                                     </div>
                                     <div class="mov-details">
                                         <span class="mov-desc">${m.descripcion}</span>
-                                        <span class="mov-amount positive">+$${m.monto.toFixed(2)}</span>
+                                        <span class="mov-amount positive">+Q${(Number(m.monto) || 0).toFixed(2)}</span>
                                     </div>
                                     ${m.factura ? `
                                         <div style="margin-top: 8px;">
