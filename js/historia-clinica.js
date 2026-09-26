@@ -669,7 +669,8 @@ const HistoriaClinicaModule = {
                 .map(medicina => ({
                     ...medicina,
                     codigo: medicina.codigo || medicina.codigo_interno || medicina.codigo_externo || medicina.codigo_barra || '',
-                    stock: Number(medicina.stock ?? medicina.cantidad) || 0
+                    stock: Number(medicina.stock ?? medicina.cantidad) || 0,
+                    precioUnitario: Number(medicina.precio_venta ?? medicina.precioVenta ?? medicina.precio ?? medicina.precio_unitario) || 0
                 }))
                 .filter(medicina => medicina.activo !== false && medicina.stock > 0);
 
@@ -944,12 +945,13 @@ const HistoriaClinicaModule = {
     },
 
     // Guardar prescripción
-    savePrescripcion() {
+    async savePrescripcion() {
         if (!this.state.pacienteSeleccionado) return;
         
         const medicoId = document.getElementById('prescMedico').value;
         const diagnostico = document.getElementById('prescDiagnostico').value.trim();
         const fecha = document.getElementById('prescFecha').value;
+        const saveButton = document.getElementById('savePrescBtn');
         
         if (!medicoId || !diagnostico || !fecha) {
             this.showNotification('⚠️ Por favor completa: Médico, Diagnóstico y Fecha', 'warning');
@@ -966,16 +968,27 @@ const HistoriaClinicaModule = {
         
         // Construir prescripción
         const medicinas = [];
-        medicineRows.forEach(row => {
+        for (const row of medicineRows) {
             const medicineId = row.querySelector('.med-id').value;
             const medicinaNombre = row.querySelector('.med-search').value;
             const cantidad = parseFloat(row.querySelector('.med-cantidad').value);
             const dosis = row.querySelector('.med-dosis').value;
             const frecuencia = row.querySelector('.med-frecuencia').value;
             const duracion = row.querySelector('.med-duracion').value;
+            const medicinaCatalogo = this.state.medicinas.find(medicina => String(medicina.id) === String(medicineId));
             
-            if (!medicineId || !medicinaNombre) {
+            if (!medicineId || !medicinaNombre || !medicinaCatalogo) {
                 this.showNotification('⚠️ Por favor selecciona medicinas válidas', 'warning');
+                return;
+            }
+
+            if (!Number.isFinite(cantidad) || cantidad <= 0 || cantidad > medicinaCatalogo.stock) {
+                this.showNotification(`⚠️ Cantidad inválida para ${medicinaNombre}. Stock disponible: ${medicinaCatalogo.stock}`, 'warning');
+                return;
+            }
+
+            if (medicinaCatalogo.precioUnitario <= 0) {
+                this.showNotification(`⚠️ ${medicinaNombre} no tiene precio de venta configurado`, 'warning');
                 return;
             }
             
@@ -985,9 +998,11 @@ const HistoriaClinicaModule = {
                 cantidad,
                 dosis,
                 frecuencia,
-                duracion
+                duracion,
+                precioUnitario: medicinaCatalogo.precioUnitario,
+                subtotal: cantidad * medicinaCatalogo.precioUnitario
             });
-        });
+        }
         
         const prescripcionId = this.generateId('PRESC');
         const pacienteId = this.state.pacienteSeleccionado.id;
@@ -1003,24 +1018,118 @@ const HistoriaClinicaModule = {
             estado: 'Activa'
         };
         
-        // Guardar en state
-        if (!this.state.prescripciones) {
-            this.state.prescripciones = [];
+        try {
+            if (saveButton) saveButton.disabled = true;
+
+            await this.registrarCargoPrescripcion(prescripcion);
+
+            if (!this.state.prescripciones) this.state.prescripciones = [];
+            this.state.prescripciones.push(prescripcion);
+            this.guardarPrescripcionEnHistorial(prescripcion);
+            this.registrarMedicamentosAsignados(prescripcion);
+
+            this.showNotification(`✅ Prescripción ${prescripcionId} registrada y cargada al estado de cuenta`, 'success');
+            this.closeNoteModal();
+            this.renderHistoriaClinica();
+            this.renderPacientes();
+
+            if (typeof SaldoPacienteFacturacion !== 'undefined' && SaldoPacienteFacturacion.refrescarSaldoDelPaciente) {
+                await SaldoPacienteFacturacion.refrescarSaldoDelPaciente(pacienteId);
+            }
+        } catch (error) {
+            console.error('❌ Error guardando la prescripción:', error);
+            this.showNotification(`❌ No se guardó la prescripción: ${error.message}`, 'error');
+        } finally {
+            if (saveButton) saveButton.disabled = false;
         }
-        this.state.prescripciones.push(prescripcion);
-        
-        // GUARDAR EN HISTORIAL CLÍNICO
-        this.guardarPrescripcionEnHistorial(prescripcion);
-        
-        this.showNotification(`✅ Prescripción ${prescripcionId} registrada correctamente`, 'success');
-        this.closeNoteModal();
-        this.renderHistoriaClinica();
+    },
+
+    // Crear una factura que incremente el estado de cuenta del paciente
+    async registrarCargoPrescripcion(prescripcion) {
+        if (typeof authManager === 'undefined') throw new Error('Servicio de autenticación no disponible');
+
+        const token = authManager.getToken();
+        if (!token) throw new Error('No hay token de autenticación');
+
+        const items = prescripcion.medicinas.map(medicina => ({
+            descripcion: `Medicamento: ${medicina.medicinaNombre}`,
+            cantidad: medicina.cantidad,
+            precio_unitario: medicina.precioUnitario,
+            subtotal: medicina.subtotal,
+            descuento_total: 0,
+            total_item: medicina.subtotal
+        }));
+        const subtotal = items.reduce((total, item) => total + item.subtotal, 0);
+        const total = subtotal;
+        const baseImpuesto = Number((total / 1.12).toFixed(2));
+        const impuestosIncluidos = Number((total - baseImpuesto).toFixed(2));
+
+        const response = await fetch(`${authManager.apiBaseUrl}/api/billing/facturas-mejorada`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                paciente_id: prescripcion.pacienteId,
+                items,
+                totales: {
+                    subtotal,
+                    total_descuentos: 0,
+                    base_impuesto: baseImpuesto,
+                    total_impuestos: impuestosIncluidos,
+                    total_neto: total
+                },
+                metodo_pago: 'credito',
+                observaciones: `Prescripción ${prescripcion.id}: ${prescripcion.diagnostico}`
+            })
+        });
+
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.success) {
+            throw new Error(result.error || result.message || `Error ${response.status} al cargar el estado de cuenta`);
+        }
+
+        return result.data;
+    },
+
+    // Registrar las medicinas de la prescripción para el contador del paciente
+    registrarMedicamentosAsignados(prescripcion) {
+        prescripcion.medicinas.forEach(medicina => {
+            const yaRegistrada = this.state.medicamentosAsignados.some(asignacion =>
+                asignacion.prescripcionId === prescripcion.id &&
+                String(asignacion.medicineId) === String(medicina.medicineId)
+            );
+            if (yaRegistrada) return;
+
+            this.state.medicamentosAsignados.push({
+                id: this.generateId('ASG'),
+                pacienteId: prescripcion.pacienteId,
+                medicineId: medicina.medicineId,
+                medicineName: medicina.medicinaNombre,
+                cantidad: medicina.cantidad,
+                dosis: medicina.dosis,
+                frecuencia: medicina.frecuencia,
+                duracion: medicina.duracion,
+                precioUnitario: medicina.precioUnitario,
+                subtotal: medicina.subtotal,
+                prescripcionId: prescripcion.id,
+                estado: 'activo',
+                fechaAsignacion: prescripcion.fecha
+            });
+        });
+
+        localStorage.setItem('medicamentosAsignados', JSON.stringify(this.state.medicamentosAsignados));
+
+        if (typeof MedicinasModule !== 'undefined' && MedicinasModule.state) {
+            MedicinasModule.state.medicamentosAsignados = JSON.parse(JSON.stringify(this.state.medicamentosAsignados));
+        }
     },
 
     // Guardar prescripción en historial clínico
     guardarPrescripcionEnHistorial(prescripcion) {
         // Obtener o crear historia clínica
-        let historia = this.state.historiasClinicas.find(h => h.pacienteId === prescripcion.pacienteId);
+        let historia = this.state.historiasClinicas.find(h => String(h.pacienteId) === String(prescripcion.pacienteId));
         
         if (!historia) {
             historia = {
