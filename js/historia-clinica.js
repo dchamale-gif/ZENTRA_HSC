@@ -117,6 +117,13 @@ const HistoriaClinicaModule = {
                 console.warn('⚠️ No hay historias clínicas en localStorage');
                 this.state.historiasClinicas = [];
             }
+
+            this.state.prescripciones = this.state.historiasClinicas.flatMap(historia =>
+                (historia.prescripciones || []).map(prescripcion => ({
+                    ...prescripcion,
+                    pacienteId: prescripcion.pacienteId ?? historia.pacienteId
+                }))
+            );
             
             // Cargar medicamentos asignados desde localStorage
             const medicamentosFromStorage = localStorage.getItem('medicamentosAsignados');
@@ -142,7 +149,6 @@ const HistoriaClinicaModule = {
             
             // Datos opcionales (pueden estar vacíos)
             this.state.medicos = [];
-            this.state.prescripciones = [];
             
             this.renderPacientes();
         } catch (error) {
@@ -1332,7 +1338,7 @@ const HistoriaClinicaModule = {
         this.state.prescripciones.forEach(presc => {
             if (!presc.medicinas || presc.medicinas.length === 0) return;
             
-            const paciente = this.state.pacientes.find(p => p.id === presc.pacienteId);
+            const paciente = this.state.pacientes.find(p => String(p.id) === String(presc.pacienteId));
             if (!paciente) return;
 
             const prescDate = new Date(presc.fecha);
@@ -1351,7 +1357,9 @@ const HistoriaClinicaModule = {
                     if (medicinesByDay[dateKey]) {
                         for (let app = 0; app < appsByDay; app++) {
                             medicinesByDay[dateKey].push({
-                                pacienteNombre: `${paciente.nombre} ${paciente.apellido}`,
+                                pacienteNombre: [paciente.nombre, paciente.apellidoPaterno, paciente.apellidoMaterno]
+                                    .filter(Boolean)
+                                    .join(' '),
                                 pacienteId: paciente.id,
                                 medicinaNombre: med.medicinaNombre,
                                 dosis: med.dosis,
@@ -1595,7 +1603,7 @@ const HistoriaClinicaModule = {
         // Obtener lista única de pacientes para filtro
         const pacientesUnicos = new Map();
         this.state.prescripciones.forEach(presc => {
-            const paciente = this.state.pacientes.find(p => p.id === presc.pacienteId);
+            const paciente = this.state.pacientes.find(p => String(p.id) === String(presc.pacienteId));
             if (paciente && !pacientesUnicos.has(paciente.id)) {
                 pacientesUnicos.set(paciente.id, paciente);
             }
@@ -1643,7 +1651,7 @@ const HistoriaClinicaModule = {
             medicinesByDayFiltered = {};
             Object.keys(medicinesByDay).forEach(dateKey => {
                 medicinesByDayFiltered[dateKey] = medicinesByDay[dateKey].filter(med => 
-                    med.pacienteId === this.state.filtroAgendaPaciente
+                    String(med.pacienteId) === String(this.state.filtroAgendaPaciente)
                 );
             });
         }
@@ -1652,7 +1660,7 @@ const HistoriaClinicaModule = {
             const dateKey = day.toISOString().split('T')[0];
             const dayName = day.toLocaleDateString('es-ES', { weekday: 'short' });
             const dayNum = day.toLocaleDateString('es-ES', { day: '2-digit' });
-            const medicines = medicinesByDay[dateKey] || [];
+            const medicines = medicinesByDayFiltered[dateKey] || [];
             
             const dayCard = document.createElement('div');
             dayCard.className = 'day-card-agenda';
@@ -1739,9 +1747,11 @@ const HistoriaClinicaModule = {
 
         // Agrupar medicamentos por paciente desde prescripciones
         this.state.prescripciones.forEach(presc => {
-            const paciente = this.state.pacientes.find(p => p.id === presc.pacienteId);
+            const paciente = this.state.pacientes.find(p => String(p.id) === String(presc.pacienteId));
             if (paciente && presc.medicinas && presc.medicinas.length > 0) {
-                const pacKey = `${paciente.nombre} ${paciente.apellido}`;
+                const pacKey = [paciente.nombre, paciente.apellidoPaterno, paciente.apellidoMaterno]
+                    .filter(Boolean)
+                    .join(' ');
                 if (!medicamentosPorPaciente[pacKey]) {
                     medicamentosPorPaciente[pacKey] = {
                         paciente: paciente,

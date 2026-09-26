@@ -187,22 +187,58 @@ const SaldoPacienteFacturacion = {
 
             const result = await response.json();
             if (result.success && result.data) {
+                const saldoActualizado = {
+                    ...result.data,
+                    paciente_id: String(result.data.paciente_id ?? paciente_id),
+                    saldo_pendiente: Number(result.data.saldo_pendiente) || 0,
+                    total_deuda: Number(result.data.total_deuda) || 0,
+                    pacienteId: paciente_id,
+                    saldoPendiente: Number(result.data.saldo_pendiente) || 0,
+                    totalAcumulado: Number(result.data.total_deuda) || 0,
+                    totalDeuda: Number(result.data.total_deuda) || 0,
+                    ultimaTransaccion: result.data.ultima_transaccion
+                };
+
                 // Actualizar el saldo en state
-                const pacienteIndex = this.state.saldos.findIndex(s => s.paciente_id === parseInt(paciente_id, 10));
+                const pacienteIndex = this.state.saldos.findIndex(s =>
+                    String(s.paciente_id ?? s.pacienteId) === String(paciente_id)
+                );
                 if (pacienteIndex >= 0) {
-                    this.state.saldos[pacienteIndex] = result.data;
+                    this.state.saldos[pacienteIndex] = saldoActualizado;
                 } else {
-                    this.state.saldos.push(result.data);
+                    this.state.saldos.push(saldoActualizado);
                 }
 
                 // Guardar en localStorage para consistencia
                 localStorage.setItem('saldosPacientes', JSON.stringify(this.state.saldos));
 
-                console.log('✅ Saldo refrescado:', result.data);
+                this.renderSaldos();
+                console.log('✅ Saldo refrescado:', saldoActualizado);
+
+                if (typeof SaldoPacienteModule !== 'undefined' && SaldoPacienteModule.state) {
+                    const saldoLegacy = {
+                        pacienteId: paciente_id,
+                        saldoPendiente: saldoActualizado.saldo_pendiente,
+                        totalAcumulado: saldoActualizado.total_deuda,
+                        totalDeuda: saldoActualizado.total_deuda,
+                        ultimaTransaccion: saldoActualizado.ultima_transaccion
+                    };
+                    const legacyIndex = SaldoPacienteModule.state.saldosPacientes.findIndex(saldo =>
+                        String(saldo.pacienteId ?? saldo.paciente_id) === String(paciente_id)
+                    );
+                    if (legacyIndex >= 0) {
+                        SaldoPacienteModule.state.saldosPacientes[legacyIndex] = saldoLegacy;
+                    } else {
+                        SaldoPacienteModule.state.saldosPacientes.push(saldoLegacy);
+                    }
+                    if (SaldoPacienteModule.renderSaldosPacientes) {
+                        SaldoPacienteModule.renderSaldosPacientes();
+                    }
+                }
 
                 // Actualizar la UI si el paciente está seleccionado
                 if (this.state.paciente_seleccionado && 
-                    this.state.paciente_seleccionado.id === parseInt(paciente_id, 10)) {
+                    String(this.state.paciente_seleccionado.id) === String(paciente_id)) {
                     this.actualizarDisplaySaldo();
                 }
             }
@@ -261,7 +297,7 @@ const SaldoPacienteFacturacion = {
         termino = termino.toLowerCase();
 
         const filtrados = this.state.saldos.filter(s => {
-            const p = this.state.pacientes.find(pac => pac.id === s.paciente_id);
+            const p = this.state.pacientes.find(pac => String(pac.id) === String(s.paciente_id));
             if (!p) return false;
             return p.nombre.toLowerCase().includes(termino) ||
                    p.apellidoPaterno.toLowerCase().includes(termino) ||
@@ -299,7 +335,7 @@ const SaldoPacienteFacturacion = {
         }
 
         tabla.innerHTML = saldos.map(s => {
-            const p = this.state.pacientes.find(pac => pac.id === s.paciente_id);
+            const p = this.state.pacientes.find(pac => String(pac.id) === String(s.paciente_id));
             if (!p) return '';
 
             const estado = s.saldo_pendiente === 0 ? 'Pagado' : 'Deudor';
@@ -1136,7 +1172,7 @@ const SaldoPacienteFacturacion = {
         }
 
         const resultados = this.state.saldos.filter(s => {
-            const p = this.state.pacientes.find(pac => pac.id === s.paciente_id);
+            const p = this.state.pacientes.find(pac => String(pac.id) === String(s.paciente_id));
             if (!p || s.saldo_pendiente === 0) return false;
             
             const nombre = p.nombre || '';
@@ -1149,7 +1185,7 @@ const SaldoPacienteFacturacion = {
         });
 
         const html = resultados.map(s => {
-            const p = this.state.pacientes.find(pac => pac.id === s.paciente_id);
+            const p = this.state.pacientes.find(pac => String(pac.id) === String(s.paciente_id));
             if (!p) return '';
             
             const apellidoPaterno = p.apellidoPaterno || p.apellido_paterno || '';
@@ -1617,7 +1653,7 @@ const SaldoPacienteFacturacion = {
             }
 
             tbody.innerHTML = pacientesFiltered.map(paciente => {
-                const saldo = this.state.saldos.find(s => s.paciente_id === paciente.id) || {
+                const saldo = this.state.saldos.find(s => String(s.paciente_id) === String(paciente.id)) || {
                     saldo_pendiente: 0
                 };
 
@@ -1887,7 +1923,7 @@ const SaldoPacienteFacturacion = {
             }
 
             tbody.innerHTML = pacientesFiltered.map(paciente => {
-                const saldo = this.state.saldos.find(s => s.paciente_id === paciente.id) || {
+                const saldo = this.state.saldos.find(s => String(s.paciente_id) === String(paciente.id)) || {
                     saldo_pendiente: 0
                 };
 
