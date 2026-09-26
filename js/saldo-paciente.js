@@ -777,11 +777,27 @@ const SaldoPacienteModule = {
         const medicamentos = (estadoCuenta.facturas || []).flatMap(factura => [
             ...(factura.categorias?.medicina || []),
             ...(factura.categorias?.medicamentos || [])
-        ]);
-        const totalMedicamentos = medicamentos.reduce((total, medicina) => total + Number(medicina.total || 0), 0);
+        ]).map(medicina => {
+            const cantidad = Number(medicina.cantidad) || 0;
+            const precioUnitario = Number(medicina.precio_unitario) || 0;
+            const subtotal = Number(medicina.subtotal ?? cantidad * precioUnitario) || 0;
+            const descuento = Number(medicina.descuento) || 0;
+            const totalGuardado = Number(medicina.total);
+            return {
+                ...medicina,
+                cantidad,
+                precio_unitario: precioUnitario,
+                total: totalGuardado > 0 ? totalGuardado : Math.max(0, subtotal - descuento)
+            };
+        });
+        const totalMedicamentos = medicamentos.reduce((total, medicina) => total + medicina.total, 0);
+        const abonos = (estadoCuenta.movimientos || []).filter(movimiento => movimiento.tipo === 'pago');
         const saldoPendiente = Number(estadoCuenta.totales?.saldo_pendiente ?? saldo.saldoPendiente ?? saldo.saldo_pendiente) || 0;
-        const totalFacturado = Number(estadoCuenta.totales?.total_facturado ?? saldo.totalAcumulado ?? saldo.total_deuda) || 0;
+        const subtotalFacturado = Number(estadoCuenta.totales?.subtotal_total ?? estadoCuenta.totales?.total_facturado ?? saldo.totalAcumulado ?? saldo.total_deuda) || 0;
+        const descuentos = Number(estadoCuenta.totales?.descuentos_total) || 0;
         const impuestosIncluidos = Number(estadoCuenta.totales?.impuestos_total) || 0;
+        const totalAbonos = Number(estadoCuenta.totales?.total_abonos) ||
+            abonos.reduce((total, abono) => total + (Number(abono.monto) || 0), 0);
 
         const ventana = window.open('', '_blank', 'width=850,height=900');
         const fechaActual = new Date();
@@ -1248,17 +1264,44 @@ const SaldoPacienteModule = {
                         </tbody>
                     </table>
 
+                    <div class="section-title">💳 ABONOS / PAGOS</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Concepto</th>
+                                <th class="amount">Monto (Q)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${abonos.length > 0 ? abonos.map(abono => `
+                                <tr>
+                                    <td>${abono.descripcion || 'Abono al estado de cuenta'}</td>
+                                    <td class="amount">Q ${Number(abono.monto || 0).toFixed(2)}</td>
+                                </tr>
+                            `).join('') : `
+                                <tr>
+                                    <td>Sin abonos registrados</td>
+                                    <td class="amount">Q 0.00</td>
+                                </tr>
+                            `}
+                            <tr style="font-weight: bold; background: #f9f9f9;">
+                                <td style="text-align: right;">TOTAL ABONOS</td>
+                                <td class="amount">Q ${totalAbonos.toFixed(2)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
                     <!-- RESUMEN Y TOTAL -->
                     <div class="summary-section">
                         <div class="summary-box">
                             <div class="summary-title">📌 Resumen Financiero</div>
                             <div class="summary-row">
                                 <span class="summary-label">Subtotal:</span>
-                                <span class="summary-value">Q${totalFacturado.toFixed(2)}</span>
+                                <span class="summary-value">Q${subtotalFacturado.toFixed(2)}</span>
                             </div>
                             <div class="summary-row">
                                 <span class="summary-label">Descuentos:</span>
-                                <span class="summary-value">Q0.00</span>
+                                <span class="summary-value">Q${descuentos.toFixed(2)}</span>
                             </div>
                             <div class="summary-row">
                                 <span class="summary-label">IVA incluido:</span>
@@ -1270,7 +1313,7 @@ const SaldoPacienteModule = {
                             </div>
                             <div class="summary-row">
                                 <span class="summary-label">Abonos:</span>
-                                <span class="summary-value" style="color: #27ae60;">(Q${parseFloat(saldo.abonosRealizados || saldo.totalAbonos || 0).toFixed(2)})</span>
+                                <span class="summary-value" style="color: #27ae60;">(Q${totalAbonos.toFixed(2)})</span>
                             </div>
                             <div class="summary-row" style="color: ${saldoPendiente > 0 ? '#e74c3c' : '#27ae60'}; font-weight: bold; border-top: 1px solid #ddd; padding-top: 8px; margin-top: 8px;">
                                 <span>Saldo a Favor del Paciente:</span>

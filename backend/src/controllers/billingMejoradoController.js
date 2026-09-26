@@ -507,17 +507,23 @@ class BillingMejoradoController {
                     const esMedicamentoAnterior = (row.tipo_item === 'general' || !row.tipo_item) &&
                         /^Medicamento:/i.test(row.descripcion || '');
                     const categoria = esMedicamentoAnterior ? 'medicina' : (row.tipo_item || 'general');
+                    const cantidad = Number(row.cantidad) || 0;
+                    const precioUnitario = Number(row.precio_unitario) || 0;
+                    const subtotal = Number(row.item_subtotal ?? cantidad * precioUnitario) || 0;
+                    const descuento = Number(row.item_descuento) || 0;
+                    const totalGuardado = Number(row.item_total);
+                    const total = totalGuardado > 0 ? totalGuardado : Math.max(0, subtotal - descuento);
                     if (!factura.categorias[categoria]) {
                         factura.categorias[categoria] = [];
                     }
                     factura.categorias[categoria].push({
                         id: row.item_id,
                         descripcion: row.descripcion,
-                        cantidad: row.cantidad,
-                        precio_unitario: parseFloat(row.precio_unitario),
-                        subtotal: parseFloat(row.item_subtotal),
-                        descuento: parseFloat(row.item_descuento),
-                        total: parseFloat(row.item_total)
+                        cantidad,
+                        precio_unitario: precioUnitario,
+                        subtotal,
+                        descuento,
+                        total
                     });
                 }
             });
@@ -525,12 +531,29 @@ class BillingMejoradoController {
             // Convertir map a array
             const facturas = Array.from(facturaMap.values());
 
+            const resMovimientos = await db.query(`
+                SELECT id, tipo, descripcion, monto, saldo_anterior, saldo_nuevo, fecha, referencia_id
+                FROM movimientos_paciente
+                WHERE paciente_id = $1
+                ORDER BY fecha DESC
+            `, [pacienteId]);
+            const movimientos = resMovimientos.rows.map(movimiento => ({
+                ...movimiento,
+                monto: Number(movimiento.monto) || 0,
+                saldo_anterior: Number(movimiento.saldo_anterior) || 0,
+                saldo_nuevo: Number(movimiento.saldo_nuevo) || 0
+            }));
+            const totalAbonos = movimientos
+                .filter(movimiento => movimiento.tipo === 'pago')
+                .reduce((total, movimiento) => total + movimiento.monto, 0);
+
             // Calcular totales generales
             const totales = {
                 subtotal_total: facturas.reduce((sum, f) => sum + f.subtotal, 0),
                 descuentos_total: facturas.reduce((sum, f) => sum + f.total_descuentos, 0),
                 impuestos_total: facturas.reduce((sum, f) => sum + f.total_impuestos, 0),
                 total_facturado: facturas.reduce((sum, f) => sum + f.total, 0),
+                total_abonos: totalAbonos,
                 saldo_pendiente: saldo.saldo_pendiente,
                 saldo_favor: saldo.saldo_pendiente < 0 ? Math.abs(saldo.saldo_pendiente) : 0
             };
@@ -540,6 +563,7 @@ class BillingMejoradoController {
                 data: {
                     paciente,
                     facturas,
+                    movimientos,
                     totales,
                     saldo
                 }
