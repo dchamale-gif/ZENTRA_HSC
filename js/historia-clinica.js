@@ -46,7 +46,7 @@ const HistoriaClinicaModule = {
         const searchPacient = document.getElementById('searchPacientHistoria');
         if (searchPacient) {
             searchPacient.addEventListener('input', (e) => {
-                this.searchTerm = e.target.value.toLowerCase();
+                this.state.searchTerm = e.target.value.toLowerCase();
                 this.renderPacientes();
             });
         }
@@ -54,7 +54,7 @@ const HistoriaClinicaModule = {
         const filterState = document.getElementById('filterEstadoHistoria');
         if (filterState) {
             filterState.addEventListener('change', (e) => {
-                this.filtroEstado = e.target.value;
+                this.state.filtroEstado = e.target.value;
                 this.renderPacientes();
             });
         }
@@ -147,18 +147,25 @@ const HistoriaClinicaModule = {
         let filtered = [...this.state.pacientes];
 
         // Filtro por estado
-        if (this.filtroEstado === 'activos') {
+        if (this.state.filtroEstado === 'activos') {
             filtered = filtered.filter(p => p.estado === 'activo' || !p.estado);
         }
 
-        // Búsqueda - soportar ambas estructuras (nombre/apellido y apellidoPaterno/apellidoMaterno)
-        if (this.searchTerm) {
+        // Búsqueda equivalente al listado principal de pacientes
+        if (this.state.searchTerm) {
+            const palabras = this.state.searchTerm.trim().split(/\s+/).filter(word => word.length > 0);
+
             filtered = filtered.filter(p => {
-                const fullName = `${p.nombre || ''} ${p.apellidoPaterno || ''} ${p.apellidoMaterno || ''} ${p.apellido || ''}`.toLowerCase();
-                const dpi = (p.dpi || p.cedula || '');
-                const email = (p.email || '').toLowerCase();
-                const telefono = (p.telefono || '');
-                return fullName.includes(this.searchTerm) || dpi.includes(this.searchTerm) || email.includes(this.searchTerm) || telefono.includes(this.searchTerm);
+                const textoCompleto = [
+                    p.nombre || '',
+                    p.apellidoPaterno || '',
+                    p.apellidoMaterno || '',
+                    p.dpi || '',
+                    p.email || '',
+                    p.telefono || ''
+                ].join(' ').toLowerCase();
+
+                return palabras.every(palabra => textoCompleto.includes(palabra));
             });
         }
 
@@ -176,13 +183,13 @@ const HistoriaClinicaModule = {
 
     // Renderizar tarjeta de paciente
     renderPacientCard(pacient) {
-        const historiasCount = this.state.historiasClinicas.filter(h => h.pacienteId === pacient.id).length;
+        const historiasCount = this.state.historiasClinicas.filter(h => String(h.pacienteId) === String(pacient.id)).length;
         const notasCount = this.state.historiasClinicas
-            .filter(h => h.pacienteId === pacient.id)
+            .filter(h => String(h.pacienteId) === String(pacient.id))
             .reduce((sum, h) => sum + (h.notas ? h.notas.length : 0), 0);
         
         const medicamentosCount = this.state.medicamentosAsignados
-            .filter(m => m.pacienteId === pacient.id && m.estado === 'activo').length;
+            .filter(m => String(m.pacienteId) === String(pacient.id) && m.estado === 'activo').length;
 
         return `
             <div class="pacient-card" onclick="HistoriaClinicaModule.selectPacient('${pacient.id}')">
@@ -206,14 +213,14 @@ const HistoriaClinicaModule = {
     // Seleccionar paciente
     selectPacient(pacienteId) {
         // Intentar obtener del estado actual primero
-        let paciente = this.state.pacientes.find(p => p.id === pacienteId);
+        let paciente = this.state.pacientes.find(p => String(p.id) === String(pacienteId));
         
         // Si no existe, intentar desde PacientesModule (datos más actualizados)
         if (!paciente && typeof PacientesModule !== 'undefined' && PacientesModule.state) {
-            paciente = PacientesModule.state.pacientes.find(p => p.id === pacienteId);
+            paciente = PacientesModule.state.pacientes.find(p => String(p.id) === String(pacienteId));
             if (paciente) {
                 // Actualizar local state
-                const idx = this.state.pacientes.findIndex(p => p.id === pacienteId);
+                const idx = this.state.pacientes.findIndex(p => String(p.id) === String(pacienteId));
                 if (idx >= 0) {
                     this.state.pacientes[idx] = JSON.parse(JSON.stringify(paciente));
                 } else {
@@ -237,9 +244,9 @@ const HistoriaClinicaModule = {
         if (!container || !this.state.pacienteSeleccionado) return;
 
         const pacient = this.state.pacienteSeleccionado;
-        const historia = this.state.historiasClinicas.find(h => h.pacienteId === pacient.id);
+        const historia = this.state.historiasClinicas.find(h => String(h.pacienteId) === String(pacient.id));
         const medicamentosActivos = this.state.medicamentosAsignados
-            .filter(m => m.pacienteId === pacient.id && m.estado === 'activo');
+            .filter(m => String(m.pacienteId) === String(pacient.id) && m.estado === 'activo');
 
         // Mostrar botón de agregar nota
         if (buttonBar) {
