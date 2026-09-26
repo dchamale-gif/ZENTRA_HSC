@@ -1385,11 +1385,18 @@ const SaldoPacienteModule = {
     async cargarEstadoCuentaCompleto(pacienteId) {
         try {
             this.showNotification('Cargando Estado de Cuenta...', 'info');
-            const pacienteIdNum = parseInt(pacienteId, 10);
-            console.log('📋 Cargando Estado de Cuenta para paciente:', pacienteIdNum);
-            
-            const token = localStorage.getItem('token');
-            const response = await fetch(`http://localhost:3011/api/billing/estado-cuenta-detallado/${pacienteIdNum}`, {
+            console.log('📋 Cargando Estado de Cuenta para paciente:', pacienteId);
+
+            if (typeof authManager === 'undefined') {
+                throw new Error('Servicio de autenticación no disponible');
+            }
+
+            const token = authManager.getToken();
+            if (!token) {
+                throw new Error('No hay una sesión autenticada');
+            }
+
+            const response = await fetch(`${authManager.apiBaseUrl}/api/billing/estado-cuenta-detallado/${encodeURIComponent(pacienteId)}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
