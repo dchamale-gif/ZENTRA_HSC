@@ -668,8 +668,8 @@ const HistoriaClinicaModule = {
             this.state.medicinas = medicinasData.medicinas
                 .map(medicina => ({
                     ...medicina,
-                    codigo: medicina.codigo || medicina.codigo_interno || medicina.codigo_externo || '',
-                    stock: Number(medicina.stock) || 0
+                    codigo: medicina.codigo || medicina.codigo_interno || medicina.codigo_externo || medicina.codigo_barra || '',
+                    stock: Number(medicina.stock ?? medicina.cantidad) || 0
                 }))
                 .filter(medicina => medicina.activo !== false && medicina.stock > 0);
 
@@ -681,7 +681,7 @@ const HistoriaClinicaModule = {
             this.populateMedicos();
             this.showNotification(`❌ Error cargando datos del modal: ${error.message}`, 'error');
         } finally {
-            if (addMedicineButton) addMedicineButton.disabled = this.state.medicinas.length === 0;
+            if (addMedicineButton) addMedicineButton.disabled = false;
         }
     },
 
@@ -722,6 +722,11 @@ const HistoriaClinicaModule = {
 
     // Agregar fila de medicina
     addMedicineRow() {
+        if (!this.state.medicinas || this.state.medicinas.length === 0) {
+            this.showNotification('⚠️ No hay medicinas con existencias disponibles', 'warning');
+            return;
+        }
+
         const tbody = document.getElementById('prescMedicinesTable');
         if (!tbody) return;
         
