@@ -226,6 +226,31 @@ class BillingMejoradoController {
     }
 
     /**
+     * Listar saldos actuales de todos los pacientes
+     */
+    async listSaldosPacientes(req, res) {
+        try {
+            const result = await db.query(`
+                SELECT paciente_id, saldo_pendiente, total_deuda, ultima_transaccion
+                FROM pacientes_saldo
+                ORDER BY ultima_transaccion DESC NULLS LAST
+            `);
+
+            res.json({
+                success: true,
+                data: result.rows
+            });
+        } catch (error) {
+            console.error('Error al listar saldos de pacientes:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener saldos de pacientes',
+                error: error.message
+            });
+        }
+    }
+
+    /**
      * Obtener saldo del paciente
      */
     async getSaldoPaciente(req, res) {

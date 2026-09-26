@@ -144,12 +144,40 @@ const SaldoPacienteFacturacion = {
 
     async cargarDelServidor() {
         try {
-            // Nota: El endpoint /api/billing/saldos-pacientes no existe en el backend
-            // El módulo funciona con datos locales (localStorage)
-            // Los datos de saldos ya fueron cargados desde localStorage en loadData()
-            console.debug('ℹ️ Usando datos de saldos desde localStorage');
+            const token = authManager?.getToken?.();
+            if (!token) throw new Error('No hay token de autenticación');
+
+            const response = await fetch(`${authManager.apiBaseUrl}/api/billing/saldos-pacientes`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            if (!response.ok) throw new Error(`No se pudieron cargar saldos (${response.status})`);
+
+            const result = await response.json();
+            if (!result.success || !Array.isArray(result.data)) {
+                throw new Error(result.message || 'Respuesta de saldos inválida');
+            }
+
+            this.state.saldos = result.data.map(saldo => ({
+                ...saldo,
+                paciente_id: String(saldo.paciente_id),
+                saldo_pendiente: Number(saldo.saldo_pendiente) || 0,
+                total_deuda: Number(saldo.total_deuda) || 0,
+                pacienteId: saldo.paciente_id,
+                saldoPendiente: Number(saldo.saldo_pendiente) || 0,
+                totalAcumulado: Number(saldo.total_deuda) || 0,
+                ultimaTransaccion: saldo.ultima_transaccion
+            }));
+            localStorage.setItem('saldosPacientes', JSON.stringify(this.state.saldos));
+            this.renderSaldos();
+            console.log(`✅ ${this.state.saldos.length} saldos cargados desde API`);
+
+            return true;
         } catch (error) {
-            console.debug('ℹ️ Usando datos locales - servidor no disponible');
+            console.warn(`⚠️ Usando saldos locales: ${error.message}`);
+            return false;
         }
     },
 
@@ -1579,11 +1607,18 @@ const SaldoPacienteFacturacion = {
     // MODAL PARA SELECCIONAR PACIENTE - ESTADO DE CUENTA
     // ============================================
 
-    abrirModalSeleccionPacienteEstado() {
+    async abrirModalSeleccionPacienteEstado() {
         const modal = document.getElementById('modalSeleccionPacienteEstado');
         if (modal) {
             modal.style.display = 'block';
             console.log('🔍 Modal para seleccionar paciente en Estado de Cuenta abierto');
+
+            const tbody = document.getElementById('tablaPacientesEstado');
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center" style="padding: 20px;">Cargando saldos desde la API...</td></tr>';
+            }
+
+            await this.cargarDelServidor();
             this.cargarPacientesModalEstado();
             
             // Event listener para cerrar modal al hacer clic en el fondo
@@ -1632,7 +1667,7 @@ const SaldoPacienteFacturacion = {
             // Aplicar búsqueda
             if (searchTerm) {
                 pacientesFiltered = pacientesFiltered.filter(p => {
-                    const nombre = `${p.nombre || ''} ${p.apellido_paterno || ''} ${p.apellido_materno || ''}`.toLowerCase();
+                    const nombre = `${p.nombre || ''} ${p.apellidoPaterno || p.apellido_paterno || ''} ${p.apellidoMaterno || p.apellido_materno || ''}`.toLowerCase();
                     const dpi = (p.dpi || p.cedula || '').toLowerCase();
                     return nombre.includes(searchTerm) || dpi.includes(searchTerm);
                 });
@@ -1640,7 +1675,7 @@ const SaldoPacienteFacturacion = {
 
             // Ordenar alfabéticamente
             pacientesFiltered.sort((a, b) => 
-                `${a.nombre} ${a.apellido_paterno}`.localeCompare(`${b.nombre} ${b.apellido_paterno}`)
+                `${a.nombre} ${a.apellidoPaterno || a.apellido_paterno || ''}`.localeCompare(`${b.nombre} ${b.apellidoPaterno || b.apellido_paterno || ''}`)
             );
 
             // Renderizar tabla
@@ -1664,15 +1699,15 @@ const SaldoPacienteFacturacion = {
                 return `
                     <tr>
                         <td>
-                            <div style="font-weight: bold;">${paciente.nombre || ''} ${paciente.apellido_paterno || ''}</div>
-                            <div style="font-size: 11px; color: #999;">${paciente.apellido_materno || ''}</div>
+                            <div style="font-weight: bold;">${paciente.nombre || ''} ${paciente.apellidoPaterno || paciente.apellido_paterno || ''}</div>
+                            <div style="font-size: 11px; color: #999;">${paciente.apellidoMaterno || paciente.apellido_materno || ''}</div>
                         </td>
                         <td>${paciente.dpi || paciente.cedula || 'N/A'}</td>
                         <td class="text-right">
                             Q${parseFloat(saldo.saldo_pendiente || 0).toFixed(2)}
                         </td>
                         <td class="text-center">
-                            <button class="btn btn-sm btn-info" onclick="SaldoPacienteFacturacion.seleccionarPacienteEstado(${paciente.id}, '${paciente.nombre || ''} ${paciente.apellido_paterno || ''}')" style="padding: 4px 8px; font-size: 11px;">
+                            <button class="btn btn-sm btn-info" onclick="SaldoPacienteFacturacion.seleccionarPacienteEstado('${paciente.id}', '${paciente.nombre || ''} ${paciente.apellidoPaterno || paciente.apellido_paterno || ''}')" style="padding: 4px 8px; font-size: 11px;">
                                 <i class="fas fa-check"></i> Ver Estado
                             </button>
                         </td>

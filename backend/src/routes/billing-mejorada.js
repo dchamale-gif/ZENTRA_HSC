@@ -27,6 +27,14 @@ router.get('/facturas', (req, res) => {
 });
 
 /**
+ * GET /api/billing/saldos-pacientes
+ * Listar saldos actuales de pacientes
+ */
+router.get('/saldos-pacientes', (req, res) => {
+    billingMejoradoController.listSaldosPacientes(req, res);
+});
+
+/**
  * GET /api/billing/estado-cuenta/:paciente_id
  * Obtener estado de cuenta detallado
  */
