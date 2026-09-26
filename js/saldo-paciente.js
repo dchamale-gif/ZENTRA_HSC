@@ -437,15 +437,15 @@ const SaldoPacienteModule = {
                                 <tr style="border-bottom: 1px solid #eee;">
                                     <td style="padding: 8px;">${linea.concepto}</td>
                                     <td style="text-align: right; padding: 8px;">${linea.cantidad}</td>
-                                    <td style="text-align: right; padding: 8px;">$${linea.unitario.toFixed(2)}</td>
-                                    <td style="text-align: right; padding: 8px; font-weight: bold;">$${linea.subtotal.toFixed(2)}</td>
+                                    <td style="text-align: right; padding: 8px;">${this.formatCurrency(linea.unitario)}</td>
+                                    <td style="text-align: right; padding: 8px; font-weight: bold;">${this.formatCurrency(linea.subtotal)}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
                         <tfoot>
                             <tr style="background: #f5f5f5; font-weight: bold;">
                                 <td colspan="3" style="padding: 10px; text-align: right; border-top: 2px solid #ddd;">TOTAL:</td>
-                                <td style="padding: 10px; text-align: right; border-top: 2px solid #ddd;">$${movimiento.monto.toFixed(2)}</td>
+                                <td style="padding: 10px; text-align: right; border-top: 2px solid #ddd;">${this.formatCurrency(movimiento.monto)}</td>
                             </tr>
                         </tfoot>
                     </table>
@@ -536,11 +536,19 @@ const SaldoPacienteModule = {
         if (saldoInfoDiv && saldo) {
             saldoInfoDiv.innerHTML = `
                 <div class="saldo-info-box">
-                    <p><strong>Saldo Pendiente:</strong> <span class="amount negative">$${saldo.saldoPendiente.toFixed(2)}</span></p>
-                    <p><strong>Total Acumulado:</strong> <span class="amount">$${saldo.totalAcumulado.toFixed(2)}</span></p>
+                    <p><strong>Saldo Pendiente:</strong> <span class="amount negative">${this.formatCurrency(saldo.saldoPendiente)}</span></p>
+                    <p><strong>Total Acumulado:</strong> <span class="amount">${this.formatCurrency(saldo.totalAcumulado)}</span></p>
                 </div>
             `;
         }
+    },
+
+    formatCurrency(value) {
+        return new Intl.NumberFormat('es-GT', {
+            style: 'currency',
+            currency: 'GTQ',
+            minimumFractionDigits: 2
+        }).format(Number(value) || 0);
     },
 
     // Guardar pago/abono

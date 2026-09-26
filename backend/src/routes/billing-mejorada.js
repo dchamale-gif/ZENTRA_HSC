@@ -59,6 +59,14 @@ router.get('/saldo-paciente/:paciente_id', (req, res) => {
 });
 
 /**
+ * GET /api/billing/pagos
+ * Listar pagos/abonos registrados
+ */
+router.get('/pagos', (req, res) => {
+    billingMejoradoController.listPagos(req, res);
+});
+
+/**
  * POST /api/billing/pagos
  * Registrar pago/abono
  */

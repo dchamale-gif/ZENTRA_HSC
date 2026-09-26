@@ -1253,10 +1253,10 @@ const SaldoPacienteFacturacion = {
         const datos = {
             paciente_id: pacienteId,
             monto: monto,
-            metodo: metodo,
+            metodo_pago: metodo,
             fecha: new Date().toISOString(),
             observaciones: document.getElementById('observacionesPago').value,
-            id: 'PAGO-' + Date.now()
+            moneda: 'GTQ'
         };
 
         // Capturar datos específicos del método
@@ -1280,35 +1280,31 @@ const SaldoPacienteFacturacion = {
                     'Authorization': `Bearer ${authManager.getToken()}`
                 },
                 body: JSON.stringify(datos)
-            }).catch((err) => {
-                console.debug('⚠️ Error en fetch de pago, guardaremos localmente:', err.message);
-                return null;
             });
 
-            if (!response || !response.ok) {
-                console.debug('⚠️ Servidor no disponible para pago, guardando localmente...');
-                this.state.pagos_realizados.push(datos);
-                localStorage.setItem('pagosRealizados', JSON.stringify(this.state.pagos_realizados));
-                alert('✅ Pago guardado localmente');
-                this.cancelarPago();
-                return;
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `No se pudo registrar el pago (${response.status})`);
             }
 
             const result = await response.json();
             if (result.success) {
-                this.state.pagos_realizados.push(datos);
-                localStorage.setItem('pagosRealizados', JSON.stringify(this.state.pagos_realizados));
                 alert('✅ Pago registrado correctamente');
                 this.cancelarPago();
-                this.loadData();
-                this.renderSaldos();
+                await Promise.all([
+                    this.cargarDelServidor(),
+                    this.cargarPagosRealizados(),
+                    typeof DashboardFinancieroModule !== 'undefined'
+                        ? DashboardFinancieroModule.loadData()
+                        : Promise.resolve()
+                ]);
+                if (typeof DashboardFinancieroModule !== 'undefined') {
+                    DashboardFinancieroModule.renderCharts();
+                }
             }
         } catch (error) {
-            console.debug('⚠️ Error registrando pago, guardando localmente:', error.message);
-            this.state.pagos_realizados.push(datos);
-            localStorage.setItem('pagosRealizados', JSON.stringify(this.state.pagos_realizados));
-            alert('✅ Pago guardado localmente');
-            this.cancelarPago();
+            console.error('❌ Error registrando pago:', error);
+            alert(`No se pudo registrar el pago: ${error.message}`);
         }
     },
 
@@ -1394,9 +1390,9 @@ const SaldoPacienteFacturacion = {
 
     async cargarPagosRealizados() {
         try {
-            const token = localStorage.getItem('token');
+            const token = authManager?.getToken?.();
             if (!token) {
-                this.cargarPagosLocales();
+                this.state.pagos_realizados = [];
                 return;
             }
 
@@ -1407,14 +1403,19 @@ const SaldoPacienteFacturacion = {
             if (response?.ok) {
                 const result = await response.json();
                 if (result.success) {
-                    this.state.pagos_realizados = result.data;
+                    this.state.pagos_realizados = result.data.map(pago => ({
+                        ...pago,
+                        paciente_id: String(pago.paciente_id),
+                        monto: Number(pago.monto) || 0,
+                        moneda: 'GTQ'
+                    }));
                 }
             } else {
-                this.cargarPagosLocales();
+                throw new Error(`No se pudieron cargar los pagos (${response?.status || 'sin conexión'})`);
             }
         } catch (error) {
-            console.warn('Usando pagos locales');
-            this.cargarPagosLocales();
+            console.error('Error cargando pagos desde la API:', error);
+            this.state.pagos_realizados = [];
         }
 
         this.mostrarPagosRealizados(this.state.pagos_realizados);
@@ -1433,7 +1434,7 @@ const SaldoPacienteFacturacion = {
         }
 
         tbody.innerHTML = pagos.map(pago => {
-            const paciente = this.state.pacientes.find(p => p.id === pago.paciente_id);
+            const paciente = this.state.pacientes.find(p => String(p.id) === String(pago.paciente_id));
             const nombrePaciente = paciente ? `${paciente.nombre} ${paciente.apellidoPaterno}` : 'Desconocido';
             const fecha = new Date(pago.fecha).toLocaleDateString('es-GT');
             const referencia = pago.referencia || pago.voucher || pago.numero_cheque || '-';
@@ -1449,7 +1450,7 @@ const SaldoPacienteFacturacion = {
                 <tr style="border-bottom: 1px solid #ecf0f1;">
                     <td style="padding: 12px;">${nombrePaciente}</td>
                     <td style="padding: 12px; text-align: center;">${fecha}</td>
-                    <td style="padding: 12px; text-align: right; font-weight: bold; color: #27ae60;">Q${pago.monto.toFixed(2)}</td>
+                    <td style="padding: 12px; text-align: right; font-weight: bold; color: #27ae60;">${new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ' }).format(pago.monto)}</td>
                     <td style="padding: 12px; text-align: center;">${metodos[pago.metodo] || pago.metodo}</td>
                     <td style="padding: 12px; text-align: center;"><small>${referencia}</small></td>
                     <td style="padding: 12px; text-align: center;">
@@ -1746,9 +1747,8 @@ const SaldoPacienteFacturacion = {
         try {
             console.log('📄 Cargando Estado de Cuenta para paciente:', pacienteId);
             
-            // Intentar cargar desde API primero
-            const token = localStorage.getItem('token');
-            const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
+            const token = authManager?.getToken?.();
+            const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011';
             
             if (token) {
                 try {
@@ -1768,12 +1768,11 @@ const SaldoPacienteFacturacion = {
                         }
                     }
                 } catch (apiError) {
-                    console.warn('⚠️ Error al cargar desde API, usando datos locales:', apiError);
+                    console.error('❌ Error al cargar estado de cuenta desde API:', apiError);
                 }
             }
-            
-            // Si no hay datos del API, usar datos locales
-            this.mostrarEstadoCuentaLocal(pacienteId);
+
+            throw new Error('No se pudo obtener el estado de cuenta actualizado desde la API');
 
         } catch (error) {
             console.error('❌ Error cargando Estado de Cuenta:', error);
@@ -1795,15 +1794,14 @@ const SaldoPacienteFacturacion = {
                 totalDeuda = data.facturas.reduce((sum, f) => sum + (f.total || 0), 0);
             }
             
-            if (data.pagos && data.pagos.length > 0) {
-                totalPagado = data.pagos.reduce((sum, p) => sum + (p.monto || 0), 0);
-            }
+            totalPagado = Number(data.totales?.total_abonos) || 0;
             
-            const saldoPendiente = data.totales?.saldo_pendiente || 0;
+            const saldoPendiente = Number(data.totales?.saldo_pendiente) || 0;
+            const apellido = data.paciente.apellidoPaterno || data.paciente.apellido_paterno || '';
             
             const html = `
                 <div style="background: white; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
-                    <h3>Estado de Cuenta - ${data.paciente.nombre} ${data.paciente.apellidoPaterno}</h3>
+                    <h3>Estado de Cuenta - ${data.paciente.nombre} ${apellido}</h3>
                     <div style="margin: 20px 0;">
                         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
                             <div style="padding: 15px; background: #f9f9f9; border-radius: 4px;">

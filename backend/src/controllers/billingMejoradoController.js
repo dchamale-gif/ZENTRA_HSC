@@ -350,6 +350,46 @@ class BillingMejoradoController {
     }
 
     /**
+     * Listar pagos registrados
+     */
+    async listPagos(req, res) {
+        try {
+            const { paciente_id } = req.query;
+            const params = [];
+            let whereCondition = "WHERE tipo = 'pago'";
+
+            if (paciente_id) {
+                params.push(String(paciente_id).trim());
+                whereCondition += ' AND paciente_id = $1';
+            }
+
+            const result = await db.query(`
+                SELECT id, paciente_id, fecha, monto, descripcion,
+                       referencia_id AS referencia
+                FROM movimientos_paciente
+                ${whereCondition}
+                ORDER BY fecha DESC, id DESC
+            `, params);
+
+            const data = result.rows.map(pago => ({
+                ...pago,
+                monto: Number(pago.monto) || 0,
+                metodo: this.extractPaymentMethod(pago.descripcion),
+                moneda: 'GTQ'
+            }));
+
+            res.json({ success: true, data, moneda: 'GTQ' });
+        } catch (error) {
+            console.error('Error al listar pagos:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al listar pagos',
+                error: error.message
+            });
+        }
+    }
+
+    /**
      * Registrar pago/abono a saldo
      */
     async registrarPago(req, res) {
@@ -358,14 +398,20 @@ class BillingMejoradoController {
             const {
                 paciente_id,
                 monto,
-                metodo_pago = 'efectivo',
-                referencia = null,
+                metodo_pago,
+                metodo,
+                referencia,
+                voucher,
+                numero_cheque,
+                numero_autorizacion,
                 observaciones = ''
             } = req.body;
 
             const user_id = Number(req.user.id);
             const pacienteId = String(paciente_id || '').trim();
             const montoPago = Number(monto);
+            const metodoPago = metodo_pago || metodo || 'efectivo';
+            const referenciaPago = referencia || voucher || numero_cheque || numero_autorizacion || null;
 
             if (!pacienteId || !Number.isFinite(montoPago) || montoPago <= 0) {
                 return res.status(400).json({
@@ -401,19 +447,27 @@ class BillingMejoradoController {
                 WHERE paciente_id = $3`,
                 [saldoNuevo, String(user_id), pacienteId]
             );
-            await client.query(`
+            const movimientoResult = await client.query(`
                 INSERT INTO movimientos_paciente (
                     paciente_id, tipo, descripcion, monto, saldo_anterior,
                     saldo_nuevo, referencia_id, usuario_id
-                ) VALUES ($1, 'pago', $2, $3, $4, $5, $6, $7)`,
-                [pacienteId, `Pago ${metodo_pago}${observaciones ? ': ' + observaciones : ''}`,
-                    montoPago, saldoAnterior, saldoNuevo, referencia, user_id]
+                ) VALUES ($1, 'pago', $2, $3, $4, $5, $6, $7)
+                RETURNING id, paciente_id, fecha, monto, descripcion, referencia_id AS referencia`,
+                [pacienteId, `Pago ${metodoPago}${observaciones ? ': ' + observaciones : ''}`,
+                    montoPago, saldoAnterior, saldoNuevo, referenciaPago, user_id]
             );
             await client.query('COMMIT');
             res.json({
                 success: true,
                 message: 'Pago registrado exitosamente',
-                data: { saldo_anterior: saldoAnterior, monto_pagado: montoPago, saldo_nuevo: saldoNuevo }
+                data: {
+                    ...movimientoResult.rows[0],
+                    monto: montoPago,
+                    metodo: metodoPago,
+                    moneda: 'GTQ',
+                    saldo_anterior: saldoAnterior,
+                    saldo_nuevo: saldoNuevo
+                }
             });
 
         } catch (error) {
@@ -427,6 +481,11 @@ class BillingMejoradoController {
         } finally {
             if (client) client.release();
         }
+    }
+
+    extractPaymentMethod(description = '') {
+        const match = String(description).match(/^Pago\s+([^:]+)/i);
+        return match ? match[1].trim().toLowerCase() : 'efectivo';
     }
 
     /**
@@ -546,6 +605,7 @@ class BillingMejoradoController {
             const totalAbonos = movimientos
                 .filter(movimiento => movimiento.tipo === 'pago')
                 .reduce((total, movimiento) => total + movimiento.monto, 0);
+            const saldoPendiente = Number(saldo.saldo_pendiente) || 0;
 
             // Calcular totales generales
             const totales = {
@@ -554,8 +614,9 @@ class BillingMejoradoController {
                 impuestos_total: facturas.reduce((sum, f) => sum + f.total_impuestos, 0),
                 total_facturado: facturas.reduce((sum, f) => sum + f.total, 0),
                 total_abonos: totalAbonos,
-                saldo_pendiente: saldo.saldo_pendiente,
-                saldo_favor: saldo.saldo_pendiente < 0 ? Math.abs(saldo.saldo_pendiente) : 0
+                saldo_pendiente: saldoPendiente,
+                saldo_favor: saldoPendiente < 0 ? Math.abs(saldoPendiente) : 0,
+                moneda: 'GTQ'
             };
 
             res.json({
@@ -565,7 +626,12 @@ class BillingMejoradoController {
                     facturas,
                     movimientos,
                     totales,
-                    saldo
+                    saldo: {
+                        ...saldo,
+                        saldo_pendiente: saldoPendiente,
+                        total_deuda: Number(saldo.total_deuda) || 0
+                    },
+                    moneda: 'GTQ'
                 }
             });
 

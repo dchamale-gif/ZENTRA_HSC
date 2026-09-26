@@ -8,7 +8,9 @@ const DashboardFinancieroModule = {
             ingresos: 0,
             egresos: 0,
             ganancia: 0,
-            flujoActual: 0
+            cobrosRecibidos: 0,
+            saldoPorCobrar: 0,
+            flujoCaja: 0
         },
         historico: []
     },
@@ -45,7 +47,9 @@ const DashboardFinancieroModule = {
             ingresos: 0,
             egresos: 0,
             ganancia: 0,
-            flujoActual: 0,
+            cobrosRecibidos: 0,
+            saldoPorCobrar: 0,
+            flujoCaja: 0,
             margenNeto: 0,
             ventasDelDia: 0,
             gastosDelDia: 0,
@@ -64,7 +68,9 @@ const DashboardFinancieroModule = {
                     ingresos: summaryData.ingresos || 0,
                     egresos: summaryData.egresos || 0,
                     ganancia: summaryData.ganancia || 0,
-                    flujoActual: summaryData.ganancia || 0,
+                    cobrosRecibidos: summaryData.cobrosRecibidos || 0,
+                    saldoPorCobrar: summaryData.saldoPorCobrar || 0,
+                    flujoCaja: summaryData.flujoCaja || 0,
                     margenNeto: summaryData.margenNeto || 0,
                     ventasDelDia: 0,
                     gastosDelDia: 0,
@@ -149,6 +155,14 @@ const DashboardFinancieroModule = {
         }
     },
 
+    formatCurrency(value) {
+        return new Intl.NumberFormat('es-GT', {
+            style: 'currency',
+            currency: 'GTQ',
+            minimumFractionDigits: 2
+        }).format(Number(value) || 0);
+    },
+
     // Renderizar gráficos
     renderCharts() {
         // Inicializar datos vacíos si no existen
@@ -186,9 +200,15 @@ const DashboardFinancieroModule = {
                 labels: this.state.historico.map(h => h.mes),
                 datasets: [
                     {
-                        label: 'Ingresos',
+                        label: 'Facturación',
                         data: this.state.historico.map(h => h.ingresos),
                         backgroundColor: '#28a745',
+                        borderRadius: 5
+                    },
+                    {
+                        label: 'Cobros recibidos',
+                        data: this.state.historico.map(h => h.cobros || 0),
+                        backgroundColor: '#29B6F6',
                         borderRadius: 5
                     },
                     {
@@ -203,10 +223,18 @@ const DashboardFinancieroModule = {
                 responsive: true,
                 plugins: {
                     legend: { display: true },
-                    title: { display: true, text: 'Ingresos vs Egresos' }
+                    title: { display: true, text: 'Facturación, cobros y egresos' },
+                    tooltip: {
+                        callbacks: {
+                            label: context => `${context.dataset.label}: ${this.formatCurrency(context.parsed.y)}`
+                        }
+                    }
                 },
                 scales: {
-                    y: { beginAtZero: true }
+                    y: {
+                        beginAtZero: true,
+                        ticks: { callback: value => this.formatCurrency(value) }
+                    }
                 }
             }
         });
@@ -234,8 +262,8 @@ const DashboardFinancieroModule = {
                 labels: this.state.historico.map(h => h.mes),
                 datasets: [
                     {
-                        label: 'Ganancia Neta',
-                        data: this.state.historico.map(h => h.ganancia),
+                        label: 'Flujo de Caja',
+                        data: this.state.historico.map(h => h.flujoCaja || 0),
                         borderColor: '#4CAF50',
                         backgroundColor: 'rgba(76, 175, 80, 0.1)',
                         borderWidth: 2,
@@ -250,10 +278,18 @@ const DashboardFinancieroModule = {
                 responsive: true,
                 plugins: {
                     legend: { display: true },
-                    title: { display: true, text: 'Ganancia Neta' }
+                    title: { display: true, text: 'Cobros menos egresos' },
+                    tooltip: {
+                        callbacks: {
+                            label: context => `${context.dataset.label}: ${this.formatCurrency(context.parsed.y)}`
+                        }
+                    }
                 },
                 scales: {
-                    y: { beginAtZero: true }
+                    y: {
+                        beginAtZero: true,
+                        ticks: { callback: value => this.formatCurrency(value) }
+                    }
                 }
             }
         });
@@ -359,7 +395,7 @@ const DashboardFinancieroModule = {
                             label: function(context) {
                                 const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                 const percentage = ((context.parsed / total) * 100).toFixed(1);
-                                return `${context.label}: Q.${context.parsed.toLocaleString()} (${percentage}%)`;
+                                return `${context.label}: ${DashboardFinancieroModule.formatCurrency(context.parsed)} (${percentage}%)`;
                             }
                         }
                     }
@@ -419,7 +455,7 @@ const DashboardFinancieroModule = {
                             label: function(context) {
                                 const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                 const percentage = ((context.parsed / total) * 100).toFixed(1);
-                                return `${context.label}: Q.${context.parsed.toLocaleString()} (${percentage}%)`;
+                                return `${context.label}: ${DashboardFinancieroModule.formatCurrency(context.parsed)} (${percentage}%)`;
                             }
                         }
                     }
@@ -445,6 +481,7 @@ const DashboardFinancieroModule = {
 
         // Calcular cambios porcentuales vs mes anterior
         let cambioIngresos = 'N/A';
+        let cambioCobros = 'N/A';
         let cambioEgresos = 'N/A';
         let cambioGanancia = 'N/A';
         let margenActual = 'N/A';
@@ -458,6 +495,9 @@ const DashboardFinancieroModule = {
 
             if (mesAnterior && mesAnterior.ingresos > 0) {
                 cambioIngresos = ((mesActual.ingresos - mesAnterior.ingresos) / mesAnterior.ingresos * 100).toFixed(1);
+            }
+            if (mesAnterior && mesAnterior.cobros > 0) {
+                cambioCobros = ((mesActual.cobros - mesAnterior.cobros) / mesAnterior.cobros * 100).toFixed(1);
             }
             if (mesAnterior && mesAnterior.egresos > 0) {
                 cambioEgresos = ((mesActual.egresos - mesAnterior.egresos) / mesAnterior.egresos * 100).toFixed(1);
@@ -479,13 +519,33 @@ const DashboardFinancieroModule = {
         container.innerHTML = `
             <div class="kpi-card kpi-ingresos">
                 <div class="kpi-header">
-                    <h3>Ingresos Totales</h3>
+                    <h3>Facturación Total</h3>
                     <i class="fas fa-arrow-up"></i>
                 </div>
-                <div class="kpi-value">Q.${(this.state.datos.ingresos || 0).toLocaleString()}</div>
+                <div class="kpi-value">${this.formatCurrency(this.state.datos.ingresos)}</div>
                 <div class="kpi-change ${cambioIngresos >= 0 ? 'positive' : 'negative'}">
                     <i class="fas fa-arrow-${cambioIngresos >= 0 ? 'up' : 'down'}"></i> ${cambioIngresos}% vs mes anterior
                 </div>
+            </div>
+
+            <div class="kpi-card kpi-ingresos">
+                <div class="kpi-header">
+                    <h3>Cobros Recibidos</h3>
+                    <i class="fas fa-hand-holding-usd"></i>
+                </div>
+                <div class="kpi-value">${this.formatCurrency(this.state.datos.cobrosRecibidos)}</div>
+                <div class="kpi-change ${cambioCobros >= 0 ? 'positive' : 'negative'}">
+                    <i class="fas fa-arrow-${cambioCobros >= 0 ? 'up' : 'down'}"></i> ${cambioCobros}% vs mes anterior
+                </div>
+            </div>
+
+            <div class="kpi-card kpi-margen">
+                <div class="kpi-header">
+                    <h3>Saldo por Cobrar</h3>
+                    <i class="fas fa-file-invoice-dollar"></i>
+                </div>
+                <div class="kpi-value">${this.formatCurrency(this.state.datos.saldoPorCobrar)}</div>
+                <div class="kpi-change">Cartera actual en GTQ</div>
             </div>
 
             <div class="kpi-card kpi-egresos">
@@ -493,7 +553,7 @@ const DashboardFinancieroModule = {
                     <h3>Egresos Totales</h3>
                     <i class="fas fa-arrow-down"></i>
                 </div>
-                <div class="kpi-value">Q.${(this.state.datos.egresos || 0).toLocaleString()}</div>
+                <div class="kpi-value">${this.formatCurrency(this.state.datos.egresos)}</div>
                 <div class="kpi-change ${claseEgreso}">
                     <i class="fas fa-arrow-${cambioEgresos < 0 ? 'down' : 'up'}"></i> ${typeof cambioEgresos === 'string' ? cambioEgresos : Math.abs(cambioEgresos)}% vs mes anterior
                 </div>
@@ -501,12 +561,12 @@ const DashboardFinancieroModule = {
 
             <div class="kpi-card kpi-ganancia">
                 <div class="kpi-header">
-                    <h3>Ganancia Neta</h3>
+                    <h3>Flujo de Caja</h3>
                     <i class="fas fa-money-bill-wave"></i>
                 </div>
-                <div class="kpi-value">Q.${(this.state.datos.ganancia || 0).toLocaleString()}</div>
+                <div class="kpi-value">${this.formatCurrency(this.state.datos.flujoCaja)}</div>
                 <div class="kpi-change ${cambioGanancia >= 0 ? 'positive' : 'negative'}">
-                    <i class="fas fa-arrow-${cambioGanancia >= 0 ? 'up' : 'down'}"></i> ${cambioGanancia}% vs mes anterior
+                    Cobros menos egresos
                 </div>
             </div>
 
@@ -524,17 +584,17 @@ const DashboardFinancieroModule = {
     },
 
     // Refrescar dashboard
-    refresh() {
-        this.loadData();
+    async refresh() {
+        await this.loadData();
         this.renderCharts();
         alert('Dashboard financiero actualizado');
     },
 
     // Exportar reporte
     exportReport() {
-        let csv = 'Mes,Ingresos,Egresos,Ganancia\n';
+        let csv = 'Mes,Facturación GTQ,Cobros GTQ,Egresos GTQ,Resultado Contable GTQ,Flujo de Caja GTQ\n';
         this.state.historico.forEach(h => {
-            csv += `${h.mes},${h.ingresos},${h.egresos},${h.ganancia}\n`;
+            csv += `${h.mes},${h.ingresos},${h.cobros || 0},${h.egresos},${h.ganancia},${h.flujoCaja || 0}\n`;
         });
 
         const element = document.createElement('a');

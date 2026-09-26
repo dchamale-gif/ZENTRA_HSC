@@ -147,8 +147,8 @@ const EstadosDeCuentaModule = {
                             <td>${m.fecha}</td>
                             <td>${m.descripcion}</td>
                             <td><span class="badge badge-${m.tipo.toLowerCase()}">${m.tipo}</span></td>
-                            <td>$${m.monto.toFixed(2)}</td>
-                            <td class="saldo"><strong>$${m.saldo.toFixed(2)}</strong></td>
+                            <td>${this.formatCurrency(m.monto)}</td>
+                            <td class="saldo"><strong>${this.formatCurrency(m.saldo)}</strong></td>
                         </tr>
                     `).join('')}
                 </tbody>
@@ -157,16 +157,24 @@ const EstadosDeCuentaModule = {
             <div class="statement-summary">
                 <div class="summary-item">
                     <span>Saldo Inicial:</span>
-                    <strong>$${account.saldoInicial.toFixed(2)}</strong>
+                    <strong>${this.formatCurrency(account.saldoInicial)}</strong>
                 </div>
                 <div class="summary-item">
                     <span>Saldo Actual:</span>
-                    <strong>$${account.saldoActual.toFixed(2)}</strong>
+                    <strong>${this.formatCurrency(account.saldoActual)}</strong>
                 </div>
             </div>
         `;
 
         statementContent.innerHTML = html;
+    },
+
+    formatCurrency(value) {
+        return new Intl.NumberFormat('es-GT', {
+            style: 'currency',
+            currency: 'GTQ',
+            minimumFractionDigits: 2
+        }).format(Number(value) || 0);
     },
 
     // Generar estado de cuenta
@@ -192,7 +200,7 @@ const EstadosDeCuentaModule = {
         const account = this.state.cuentas.find(c => c.id === accountId);
         const movs = this.state.movimientos.filter(m => m.cuenta === accountId);
 
-        let csv = 'Fecha,Descripción,Tipo,Monto,Saldo\n';
+        let csv = 'Fecha,Descripción,Tipo,Monto GTQ,Saldo GTQ\n';
         movs.forEach(m => {
             csv += `${m.fecha},"${m.descripcion}",${m.tipo},${m.monto},${m.saldo}\n`;
         });

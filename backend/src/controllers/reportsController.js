@@ -49,17 +49,30 @@ class ReportsController {
                 ${whereCondition}
             `;
 
-            const ingresoResult = await db.query(
-                ingresoQuery,
-                whereCondition ? params : []
-            );
-            const egresoResult = await db.query(
-                egresoQuery,
-                whereCondition ? params : []
-            );
+            const pagosQuery = `
+                SELECT
+                    COALESCE(SUM(monto), 0) as total_cobros,
+                    COUNT(*) as numero_pagos
+                FROM movimientos_paciente
+                ${whereCondition ? `${whereCondition} AND tipo = 'pago'` : "WHERE tipo = 'pago'"}
+            `;
+
+            const saldosQuery = `
+                SELECT COALESCE(SUM(saldo_pendiente), 0) as saldo_por_cobrar
+                FROM pacientes_saldo
+            `;
+
+            const [ingresoResult, egresoResult, pagosResult, saldosResult] = await Promise.all([
+                db.query(ingresoQuery, params),
+                db.query(egresoQuery, params),
+                db.query(pagosQuery, params),
+                db.query(saldosQuery)
+            ]);
 
             const ingresos = parseFloat(ingresoResult.rows[0]?.total_ingresos || 0);
             const egresos = parseFloat(egresoResult.rows[0]?.total_egresos || 0);
+            const cobrosRecibidos = parseFloat(pagosResult.rows[0]?.total_cobros || 0);
+            const saldoPorCobrar = parseFloat(saldosResult.rows[0]?.saldo_por_cobrar || 0);
             const ganancia = ingresos - egresos;
             const margen = ingresos > 0 ? ((ganancia / ingresos) * 100).toFixed(2) : 0;
 
@@ -69,12 +82,17 @@ class ReportsController {
                     ingresos,
                     egresos,
                     ganancia,
+                    cobrosRecibidos,
+                    saldoPorCobrar,
+                    flujoCaja: cobrosRecibidos - egresos,
                     margenNeto: parseFloat(margen),
                     numeroTransacciones: ingresoResult.rows[0]?.numero_transacciones || 0,
+                    numeroPagos: parseInt(pagosResult.rows[0]?.numero_pagos || 0),
                     numeroCompras: egresoResult.rows[0]?.numero_compras || 0,
                     descuentosTotales: parseFloat(ingresoResult.rows[0]?.descuentos_totales || 0),
                     impuestosTotales: parseFloat(ingresoResult.rows[0]?.impuestos_totales || 0),
-                    subtotal: parseFloat(ingresoResult.rows[0]?.subtotal || 0)
+                    subtotal: parseFloat(ingresoResult.rows[0]?.subtotal || 0),
+                    moneda: 'GTQ'
                 }
             });
         } catch (error) {
@@ -113,17 +131,39 @@ class ReportsController {
                     FROM compras
                     WHERE fecha >= CURRENT_DATE - INTERVAL '${months} months'
                     GROUP BY DATE_TRUNC('month', fecha)
+                ),
+                monthly_payments AS (
+                    SELECT
+                        DATE_TRUNC('month', fecha)::date as mes,
+                        COALESCE(SUM(monto), 0) as cobros,
+                        COUNT(*) as numero_pagos
+                    FROM movimientos_paciente
+                    WHERE tipo = 'pago'
+                      AND fecha >= CURRENT_DATE - INTERVAL '${months} months'
+                    GROUP BY DATE_TRUNC('month', fecha)
+                ),
+                months_with_activity AS (
+                    SELECT mes FROM monthly_data
+                    UNION
+                    SELECT mes FROM monthly_expenses
+                    UNION
+                    SELECT mes FROM monthly_payments
                 )
                 SELECT 
-                    COALESCE(md.mes, me.mes) as mes,
+                    ma.mes,
                     COALESCE(md.ingresos, 0) as ingresos,
                     COALESCE(me.egresos, 0) as egresos,
                     COALESCE(md.ingresos, 0) - COALESCE(me.egresos, 0) as ganancia,
+                    COALESCE(mp.cobros, 0) as cobros,
+                    COALESCE(mp.cobros, 0) - COALESCE(me.egresos, 0) as flujo_caja,
                     COALESCE(md.numero_transacciones, 0) as ventas,
-                    COALESCE(me.numero_compras, 0) as compras
-                FROM monthly_data md
-                FULL OUTER JOIN monthly_expenses me ON md.mes = me.mes
-                ORDER BY mes DESC
+                    COALESCE(me.numero_compras, 0) as compras,
+                    COALESCE(mp.numero_pagos, 0) as pagos
+                FROM months_with_activity ma
+                LEFT JOIN monthly_data md ON ma.mes = md.mes
+                LEFT JOIN monthly_expenses me ON ma.mes = me.mes
+                LEFT JOIN monthly_payments mp ON ma.mes = mp.mes
+                ORDER BY ma.mes DESC
                 LIMIT ${months}
             `;
 
@@ -133,9 +173,13 @@ class ReportsController {
                 ingresos: parseFloat(row.ingresos),
                 egresos: parseFloat(row.egresos),
                 ganancia: parseFloat(row.ganancia),
+                cobros: parseFloat(row.cobros),
+                flujoCaja: parseFloat(row.flujo_caja),
                 ventas: parseInt(row.ventas),
                 transacciones: parseInt(row.ventas),
-                compras: parseInt(row.compras)
+                compras: parseInt(row.compras),
+                pagos: parseInt(row.pagos),
+                moneda: 'GTQ'
             }));
 
             res.json({
