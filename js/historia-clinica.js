@@ -76,24 +76,37 @@ const HistoriaClinicaModule = {
     },
 
     // Cargar datos
-    loadData() {
+    async loadData() {
         try {
-            // Cargar pacientes SOLO desde PacientesModule
-            if (typeof PacientesModule !== 'undefined' && PacientesModule.state && PacientesModule.state.pacientes) {
-                this.state.pacientes = JSON.parse(JSON.stringify(PacientesModule.state.pacientes));
-                console.log(`✅ Historia Clínica: ${this.state.pacientes.length} pacientes cargados desde PacientesModule`);
-            } else {
-                console.warn('⚠️ PacientesModule no disponible, intentando cargar desde localStorage...');
-                const pacientesFromStorage = localStorage.getItem('pacientes');
-                if (pacientesFromStorage) {
-                    this.state.pacientes = JSON.parse(pacientesFromStorage);
-                    console.log(`✅ Historia Clínica: ${this.state.pacientes.length} pacientes cargados desde localStorage`);
-                } else {
-                    console.error('❌ ERROR: No hay pacientes disponibles');
-                    this.showNotification('❌ Error: Base de datos de pacientes no disponible', 'error');
-                    this.state.pacientes = [];
-                    return;
+            if (typeof authManager === 'undefined' || typeof DataNormalizer === 'undefined') {
+                throw new Error('Servicios de API no disponibles');
+            }
+
+            const token = authManager.getToken();
+            if (!token) throw new Error('No hay token de autenticación');
+
+            const response = await fetch(`${authManager.apiBaseUrl}/api/pacientes`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
                 }
+            });
+
+            if (!response.ok) {
+                throw new Error(`No se pudieron cargar pacientes (${response.status})`);
+            }
+
+            const data = await response.json();
+            if (!Array.isArray(data.pacientes)) {
+                throw new Error('Respuesta de pacientes con formato inválido');
+            }
+
+            this.state.pacientes = DataNormalizer.normalizePacientes(data.pacientes);
+            console.log(`✅ Historia Clínica: ${this.state.pacientes.length} pacientes cargados desde API`);
+
+            if (typeof PacientesModule !== 'undefined' && PacientesModule.state) {
+                PacientesModule.state.pacientes = JSON.parse(JSON.stringify(this.state.pacientes));
             }
             
             // Cargar historial clínico desde localStorage
@@ -134,8 +147,9 @@ const HistoriaClinicaModule = {
             this.renderPacientes();
         } catch (error) {
             console.error('❌ Error cargando datos de historia clínica:', error);
-            this.showNotification(`❌ Error al cargar datos: ${error.message}`, 'error');
             this.state.pacientes = [];
+            this.renderPacientes();
+            this.showNotification(`❌ Error al cargar pacientes desde la API: ${error.message}`, 'error');
         }
     },
 
