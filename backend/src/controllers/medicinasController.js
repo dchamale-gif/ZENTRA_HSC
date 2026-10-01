@@ -10,7 +10,7 @@ const pool = require('../db/connection');
  */
 const getMedicinas = async (req, res) => {
   try {
-    const { activo = true, categoria, seccion } = req.query;
+    const { activo = true, categoria, seccion, familia, subfamilia } = req.query;
     
     let query = 'SELECT * FROM medicinas WHERE 1=1';
     const params = [];
@@ -27,6 +27,22 @@ const getMedicinas = async (req, res) => {
     if (categoria) {
       query += ` AND categoria = $${paramIndex}`;
       params.push(categoria);
+      paramIndex++;
+    }
+
+    if (seccion) {
+      query += ` AND seccion = $${paramIndex}`;
+      params.push(seccion);
+      paramIndex++;
+    }
+    if (familia) {
+      query += ` AND familia = $${paramIndex}`;
+      params.push(familia);
+      paramIndex++;
+    }
+    if (subfamilia) {
+      query += ` AND subfamilia = $${paramIndex}`;
+      params.push(subfamilia);
       paramIndex++;
     }
 
@@ -82,6 +98,9 @@ const createMedicina = async (req, res) => {
     const {
       nombre,
       descripcion,
+      seccion,
+      familia,
+      subfamilia,
       codigo_interno,
       codigo_externo,
       presentacion,
@@ -96,26 +115,28 @@ const createMedicina = async (req, res) => {
     } = req.body;
 
     // Validar campos requeridos
-    if (!nombre || !codigo_interno) {
+    if (!nombre) {
       return res.status(400).json({ 
-        error: 'Nombre y código interno son requeridos' 
+        error: 'Nombre es requerido'
       });
     }
 
     // Generar ID
     const id = `MED-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+    const codigoInterno = codigo_interno || id;
 
     const result = await pool.query(
       `INSERT INTO medicinas 
        (id, nombre, descripcion, codigo_interno, codigo_externo, presentacion, 
         concentracion, precio, stock, stock_minimo, proveedor_id, vencimiento, 
-        categoria, activo, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
+        categoria, seccion, familia, subfamilia, activo, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW(), NOW())
        RETURNING *`,
       [
-        id, nombre, descripcion, codigo_interno, codigo_externo, presentacion,
+        id, nombre, descripcion, codigoInterno, codigo_externo, presentacion,
         concentracion || null, precio || 0, stock || 0, stock_minimo || 0,
-        proveedor_id || null, vencimiento || null, categoria || null, activo
+        proveedor_id || null, vencimiento || null, categoria || null,
+        seccion || null, familia || null, subfamilia || null, activo
       ]
     );
 
@@ -140,6 +161,9 @@ const updateMedicina = async (req, res) => {
     const {
       nombre,
       descripcion,
+      seccion,
+      familia,
+      subfamilia,
       codigo_interno,
       codigo_externo,
       presentacion,
@@ -177,6 +201,21 @@ const updateMedicina = async (req, res) => {
     if (descripcion !== undefined) {
       updates.push(`descripcion = $${paramIndex}`);
       values.push(descripcion);
+      paramIndex++;
+    }
+    if (seccion !== undefined) {
+      updates.push(`seccion = $${paramIndex}`);
+      values.push(seccion || null);
+      paramIndex++;
+    }
+    if (familia !== undefined) {
+      updates.push(`familia = $${paramIndex}`);
+      values.push(familia || null);
+      paramIndex++;
+    }
+    if (subfamilia !== undefined) {
+      updates.push(`subfamilia = $${paramIndex}`);
+      values.push(subfamilia || null);
       paramIndex++;
     }
     if (codigo_interno !== undefined) {

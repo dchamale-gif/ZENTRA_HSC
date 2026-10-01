@@ -106,29 +106,40 @@ const CodigosArticulosModule = {
     },
 
     buildClasificaciones() {
-        const secciones = new Set();
+        const secciones = new Map(this.getDefaultSecciones().map(item => [item.id, item]));
         const familias = new Map();
         const subfamilias = new Map();
 
+        this.getDefaultFamilias().forEach(item => familias.set(`${item.seccionId}|${item.id}`, item));
+        this.getDefaultSubfamilias().forEach(item => subfamilias.set(`${item.familiaId}|${item.id}`, item));
+
         this.state.articulos.forEach(articulo => {
-            if (articulo.seccionId) secciones.add(articulo.seccionId);
+            if (articulo.seccionId && !secciones.has(articulo.seccionId)) {
+                secciones.set(articulo.seccionId, { id: articulo.seccionId, nombre: articulo.seccionId });
+            }
             if (articulo.familiaId) {
-                familias.set(`${articulo.seccionId}|${articulo.familiaId}`, {
-                    id: articulo.familiaId,
-                    seccionId: articulo.seccionId,
-                    nombre: articulo.familiaId
-                });
+                const familiaKey = `${articulo.seccionId}|${articulo.familiaId}`;
+                if (!familias.has(familiaKey)) {
+                    familias.set(familiaKey, {
+                        id: articulo.familiaId,
+                        seccionId: articulo.seccionId,
+                        nombre: articulo.familiaId
+                    });
+                }
             }
             if (articulo.subfamiliaId) {
-                subfamilias.set(`${articulo.familiaId}|${articulo.subfamiliaId}`, {
-                    id: articulo.subfamiliaId,
-                    familiaId: articulo.familiaId,
-                    nombre: articulo.subfamiliaId
-                });
+                const subfamiliaKey = `${articulo.familiaId}|${articulo.subfamiliaId}`;
+                if (!subfamilias.has(subfamiliaKey)) {
+                    subfamilias.set(subfamiliaKey, {
+                        id: articulo.subfamiliaId,
+                        familiaId: articulo.familiaId,
+                        nombre: articulo.subfamiliaId
+                    });
+                }
             }
         });
 
-        this.state.secciones = [...secciones].sort().map(nombre => ({ id: nombre, nombre }));
+        this.state.secciones = [...secciones.values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
         this.state.familias = [...familias.values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
         this.state.subfamilias = [...subfamilias.values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
     },
@@ -269,7 +280,9 @@ const CodigosArticulosModule = {
                             <th>Concepto</th>
                             <th>Código de Venta (Interno)</th>
                             <th>Código de Compra (Externo)</th>
+                            <th>Sección</th>
                             <th>Familia</th>
+                            <th>Subfamilia</th>
                             <th>Precio Compra</th>
                             <th>Precio Venta</th>
                             <th>Margen</th>
@@ -287,7 +300,9 @@ const CodigosArticulosModule = {
 
     // Renderizar fila de artículo
     renderArticuloRow(articulo) {
+        const seccion = this.state.secciones.find(s => s.id === articulo.seccionId);
         const familia = this.state.familias.find(f => f.id === articulo.familiaId);
+        const subfamilia = this.state.subfamilias.find(s => s.id === articulo.subfamiliaId);
         const precioCompra = articulo.precioCompra || 0;
         const precioVenta = articulo.precioVenta || 0;
         const margen = precioCompra > 0 ? ((precioVenta - precioCompra) / precioCompra * 100).toFixed(1) : '-';
@@ -300,7 +315,9 @@ const CodigosArticulosModule = {
                 <td><strong>${articulo.concepto}</strong></td>
                 <td><code class="codigo-venta">${articulo.codigoVenta}</code></td>
                 <td><code class="codigo-compra">${articulo.codigoCompra}</code></td>
+                <td>${seccion ? seccion.nombre : '-'}</td>
                 <td>${familia ? familia.nombre : '-'}</td>
+                <td>${subfamilia ? subfamilia.nombre : '-'}</td>
                 <td>Q${(articulo.precioCompra || 0).toFixed(2)}</td>
                 <td>Q${(articulo.precioVenta || 0).toFixed(2)}</td>
                 <td><span class="badge badge-info">${margen}${margen !== '-' ? '%' : ''}</span></td>
@@ -459,6 +476,7 @@ const CodigosArticulosModule = {
             document.getElementById('articuloSeccion').value = articulo.seccionId;
             this.renderFamiliasForModal();
             document.getElementById('articuloFamilia').value = articulo.familiaId;
+            this.renderSubfamiliasForModal();
             document.getElementById('precioCompra').value = articulo.precioCompra;
             document.getElementById('precioVenta').value = articulo.precioVenta;
             document.getElementById('articuloCantidad').value = articulo.cantidadDisponible;
@@ -516,6 +534,20 @@ const CodigosArticulosModule = {
 
         select.innerHTML = '<option value="">-- Selecciona familia --</option>' +
             familiasFiltradas.map(f => `<option value="${f.id}">${f.nombre}</option>`).join('');
+        this.renderSubfamiliasForModal();
+    },
+
+    renderSubfamiliasForModal() {
+        const familiaId = document.getElementById('articuloFamilia')?.value || '';
+        const select = document.getElementById('articuloSubfamilia');
+        if (!select) return;
+        const currentValue = select.value;
+        const subfamilias = familiaId
+            ? this.state.subfamilias.filter(item => item.familiaId === familiaId)
+            : this.state.subfamilias;
+        select.innerHTML = '<option value="">-- Selecciona subfamilia --</option>' +
+            subfamilias.map(item => `<option value="${item.id}">${item.nombre}</option>`).join('');
+        select.value = subfamilias.some(item => item.id === currentValue) ? currentValue : '';
     },
 
     // Cerrar modal

@@ -424,6 +424,7 @@ CREATE TABLE medicinas (
     id VARCHAR(50) PRIMARY KEY,
     nombre VARCHAR(150) NOT NULL,
     descripcion TEXT,
+    seccion VARCHAR(100),
     familia VARCHAR(100),
     subfamilia VARCHAR(100),
     principio_activo VARCHAR(150),

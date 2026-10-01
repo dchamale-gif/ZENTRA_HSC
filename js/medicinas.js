@@ -12,9 +12,11 @@ const MedicinasModule = {
         medicamentosAsignados: [], // Medicinas asignadas a pacientes
         filtroActivo: 'todas', // todas, disponibles, agotadas
         searchTerm: '',
+        seccionFiltro: '',
         familiaFiltro: '', // Familia seleccionada para filtro
         subfamiliaFiltro: '', // Subfamilia seleccionada para filtro
         ordenActivo: 'default', // Orden de medicinas
+        seccionesDisponibles: [],
         familiasDisponibles: [],
         subfamiliasDisponibles: [],
         presentaciones: ['Tabletas', 'Cápsulas', 'Solución Oral', 'Inyectable', 'Crema', 'Polvo', 'Jarabe', 'Grageas'],
@@ -71,6 +73,17 @@ const MedicinasModule = {
             });
         }
 
+        const filterSectionSelect = document.getElementById('filterMedicineSection');
+        if (filterSectionSelect) {
+            filterSectionSelect.addEventListener('change', (e) => {
+                this.seccionFiltro = e.target.value;
+                this.familiaFiltro = '';
+                this.subfamiliaFiltro = '';
+                this.updateFamilyFilters();
+                this.renderMedicines();
+            });
+        }
+
         const filterSubfamilySelect = document.getElementById('filterMedicineSubfamily');
         if (filterSubfamilySelect) {
             filterSubfamilySelect.addEventListener('change', (e) => {
@@ -90,6 +103,16 @@ const MedicinasModule = {
         const closeBtnModal = document.querySelector('#medicineModal .close-btn');
         if (closeBtnModal) {
             closeBtnModal.addEventListener('click', () => this.closeMedicineModal());
+        }
+
+        const medicineSection = document.getElementById('medicineSection');
+        if (medicineSection) {
+            medicineSection.addEventListener('change', () => this.updateMedicineFamilySelector());
+        }
+
+        const medicineFamily = document.getElementById('medicineFamily');
+        if (medicineFamily) {
+            medicineFamily.addEventListener('change', () => this.updateMedicineSubfamilySelector());
         }
 
         // Event listeners para asignación de medicinas
@@ -143,21 +166,26 @@ const MedicinasModule = {
                 return;
             }
 
-            const response = await fetch(`${authManager.apiBaseUrl}/api/medicinas`, {
+            const requestOptions = {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 }
-            });
+            };
+            const [response, articulosResponse] = await Promise.all([
+                fetch(`${authManager.apiBaseUrl}/api/medicinas`, requestOptions),
+                fetch(`${authManager.apiBaseUrl}/api/codigos-articulos`, requestOptions).catch(() => null)
+            ]);
 
             if (!response.ok) {
                 throw new Error(`Error ${response.status}: ${response.statusText}. Verifica tu conexión a la BD.`);
             }
 
             const data = await response.json();
+            const articulosData = articulosResponse?.ok ? await articulosResponse.json() : { articulos: [] };
             this.state.medicinas = data.medicinas || [];
-            this.extractFamilias();
+            this.extractFamilias(articulosData.articulos || []);
             this.renderMedicines();
             
             console.log(`✅ ${this.state.medicinas.length} medicinas cargadas desde BD`);
@@ -170,18 +198,49 @@ const MedicinasModule = {
     },
 
     // Extraer familias únicas
-    extractFamilias() {
-        // Extraer familias únicas
-        this.state.familiasDisponibles = [...new Set(this.state.medicinas.map(m => m.familia).filter(Boolean))].sort();
-        
-        // Extraer todas las subfamilias disponibles
-        this.state.subfamiliasDisponibles = [...new Set(this.state.medicinas.map(m => m.subfamilia).filter(Boolean))].sort();
-        
+    extractFamilias(articulos = []) {
+        const secciones = new Map();
+        const familias = new Map();
+        const subfamilias = new Map();
+        const catalogo = typeof CodigosArticulosModule !== 'undefined' ? CodigosArticulosModule : null;
+        const defaultSecciones = catalogo?.getDefaultSecciones?.() || [];
+        const defaultFamilias = catalogo?.getDefaultFamilias?.() || [];
+        const defaultSubfamilias = catalogo?.getDefaultSubfamilias?.() || [];
+
+        defaultSecciones.forEach(item => secciones.set(item.id, item));
+        defaultFamilias.forEach(item => familias.set(item.id, item));
+        defaultSubfamilias.forEach(item => subfamilias.set(item.id, item));
+
+        [...articulos, ...this.state.medicinas].forEach(item => {
+            const seccionId = item.categoria || item.seccion || '';
+            const familiaId = item.familia || '';
+            const subfamiliaId = item.subfamilia || '';
+            if (seccionId && !secciones.has(seccionId)) {
+                secciones.set(seccionId, { id: seccionId, nombre: seccionId });
+            }
+            if (familiaId && !familias.has(familiaId)) {
+                familias.set(familiaId, { id: familiaId, seccionId, nombre: familiaId });
+            }
+            if (subfamiliaId && !subfamilias.has(subfamiliaId)) {
+                subfamilias.set(subfamiliaId, { id: subfamiliaId, familiaId, nombre: subfamiliaId });
+            }
+        });
+
+        this.state.seccionesDisponibles = [...secciones.values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
+        this.state.familiasDisponibles = [...familias.values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
+        this.state.subfamiliasDisponibles = [...subfamilias.values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
         this.updateFamilyFilters();
     },
 
     // Actualizar los selectores de familia y subfamilia
     updateFamilyFilters() {
+        const sectionSelect = document.getElementById('filterMedicineSection');
+        if (sectionSelect) {
+            sectionSelect.innerHTML = '<option value="">Todas las Secciones</option>' +
+                this.state.seccionesDisponibles.map(item => `<option value="${item.id}">${item.nombre}</option>`).join('');
+            sectionSelect.value = this.seccionFiltro;
+        }
+
         const familySelect = document.getElementById('filterMedicineFamily');
         if (familySelect) {
             // Guardar valor actual
@@ -190,16 +249,18 @@ const MedicinasModule = {
             // Limpiar opciones excepto la primera
             familySelect.innerHTML = '<option value="">Todas las Familias</option>';
             
-            // Agregar familias
-            this.state.familiasDisponibles.forEach(familia => {
+            const familias = this.seccionFiltro
+                ? this.state.familiasDisponibles.filter(item => item.seccionId === this.seccionFiltro)
+                : this.state.familiasDisponibles;
+            familias.forEach(familia => {
                 const option = document.createElement('option');
-                option.value = familia;
-                option.textContent = familia;
+                option.value = familia.id;
+                option.textContent = familia.nombre;
                 familySelect.appendChild(option);
             });
             
-            // Restaurar valor
-            familySelect.value = currentFamily;
+            familySelect.value = familias.some(item => item.id === currentFamily) ? currentFamily : '';
+            this.familiaFiltro = familySelect.value;
         }
         
         this.updateSubfamilyFilter();
@@ -217,13 +278,8 @@ const MedicinasModule = {
         let subfamiliasDisponibles = [];
         
         if (this.familiaFiltro) {
-            // Si hay familia seleccionada, mostrar solo subfamilias de esa familia
-            subfamiliasDisponibles = [...new Set(
-                this.state.medicinas
-                    .filter(m => m.familia === this.familiaFiltro)
-                    .map(m => m.subfamilia)
-                    .filter(Boolean)
-            )].sort();
+            subfamiliasDisponibles = this.state.subfamiliasDisponibles
+                .filter(item => item.familiaId === this.familiaFiltro);
         } else {
             // Si no hay familia seleccionada, mostrar todas las subfamilias
             subfamiliasDisponibles = this.state.subfamiliasDisponibles;
@@ -235,13 +291,13 @@ const MedicinasModule = {
         // Agregar subfamilias
         subfamiliasDisponibles.forEach(subfamilia => {
             const option = document.createElement('option');
-            option.value = subfamilia;
-            option.textContent = subfamilia;
+            option.value = subfamilia.id;
+            option.textContent = subfamilia.nombre;
             subfamilySelect.appendChild(option);
         });
         
         // Restaurar valor solo si sigue siendo válido
-        if (subfamiliasDisponibles.includes(currentSubfamily)) {
+        if (subfamiliasDisponibles.some(item => item.id === currentSubfamily)) {
             subfamilySelect.value = currentSubfamily;
         } else {
             subfamilySelect.value = '';
@@ -262,6 +318,7 @@ const MedicinasModule = {
             form.reset();
             document.getElementById('medicineId').value = '';
             document.getElementById('medicineActiva').checked = true;
+            document.getElementById('medicineSection').value = '';
             document.getElementById('medicineFamily').value = '';
             document.getElementById('medicineSubfamily').value = '';
             this.updateMedicineSubfamilySelector(); // Resetear subfamilias
@@ -273,49 +330,56 @@ const MedicinasModule = {
 
     // Llenar selectores de familia y subfamilia
     populateFamilySelectors() {
+        const sectionSelect = document.getElementById('medicineSection');
+        const familySelect = document.getElementById('medicineFamily');
+        if (!sectionSelect || !familySelect) return;
+
+        const currentSection = sectionSelect.value;
+        const currentFamily = familySelect.value;
+        const currentSubfamily = document.getElementById('medicineSubfamily')?.value || '';
+
+        sectionSelect.innerHTML = '<option value="">Seleccionar Sección...</option>' +
+            this.state.seccionesDisponibles.map(item => `<option value="${item.id}">${item.nombre}</option>`).join('');
+        sectionSelect.value = currentSection;
+
+        this.updateMedicineFamilySelector(currentFamily, currentSubfamily);
+    },
+
+    updateMedicineFamilySelector(preferredFamily = '', preferredSubfamily = '') {
+        const sectionId = document.getElementById('medicineSection')?.value || '';
         const familySelect = document.getElementById('medicineFamily');
         if (!familySelect) return;
+        const currentFamily = preferredFamily || familySelect.value;
+        const familias = sectionId
+            ? this.state.familiasDisponibles.filter(item => item.seccionId === sectionId)
+            : this.state.familiasDisponibles;
 
-        // Guardar valor actual
-        const currentFamily = familySelect.value;
-
-        // Llenar familia
         familySelect.innerHTML = '<option value="">Seleccionar Familia...</option>';
-        this.state.familiasDisponibles.forEach(familia => {
+        familias.forEach(familia => {
             const option = document.createElement('option');
-            option.value = familia;
-            option.textContent = familia;
+            option.value = familia.id;
+            option.textContent = familia.nombre;
             familySelect.appendChild(option);
         });
-
-        // Restaurar valor
-        familySelect.value = currentFamily;
-
-        // Agregar evento para actualizar subfamilias cuando cambia familia
-        familySelect.addEventListener('change', () => {
-            this.updateMedicineSubfamilySelector();
-        });
+        familySelect.value = familias.some(item => item.id === currentFamily) ? currentFamily : '';
+        this.updateMedicineSubfamilySelector(preferredSubfamily);
     },
 
     // Actualizar selector de subfamilia según familia seleccionada en modal
-    updateMedicineSubfamilySelector() {
+    updateMedicineSubfamilySelector(preferredSubfamily = '') {
         const familySelect = document.getElementById('medicineFamily');
         const subfamilySelect = document.getElementById('medicineSubfamily');
         if (!familySelect || !subfamilySelect) return;
 
         const selectedFamily = familySelect.value;
-        const currentSubfamily = subfamilySelect.value;
+        const currentSubfamily = preferredSubfamily || subfamilySelect.value;
 
         // Obtener subfamilias para la familia seleccionada
         let subfamiliasDisponibles = [];
         
         if (selectedFamily) {
-            subfamiliasDisponibles = [...new Set(
-                this.state.medicinas
-                    .filter(m => m.familia === selectedFamily)
-                    .map(m => m.subfamilia)
-                    .filter(Boolean)
-            )].sort();
+            subfamiliasDisponibles = this.state.subfamiliasDisponibles
+                .filter(item => item.familiaId === selectedFamily);
         } else {
             subfamiliasDisponibles = this.state.subfamiliasDisponibles;
         }
@@ -324,13 +388,13 @@ const MedicinasModule = {
         subfamilySelect.innerHTML = '<option value="">Seleccionar Subfamilia...</option>';
         subfamiliasDisponibles.forEach(subfamilia => {
             const option = document.createElement('option');
-            option.value = subfamilia;
-            option.textContent = subfamilia;
+            option.value = subfamilia.id;
+            option.textContent = subfamilia.nombre;
             subfamilySelect.appendChild(option);
         });
 
         // Restaurar valor si sigue siendo válido
-        if (subfamiliasDisponibles.includes(currentSubfamily)) {
+        if (subfamiliasDisponibles.some(item => item.id === currentSubfamily)) {
             subfamilySelect.value = currentSubfamily;
         } else {
             subfamilySelect.value = '';
@@ -375,6 +439,7 @@ const MedicinasModule = {
                 stock: parseInt(document.getElementById('medicineCantidad').value) || 0,
                 stock_minimo: parseInt(document.getElementById('medicineCantidadMinima').value) || 0,
                 vencimiento: document.getElementById('medicineFechaVencimiento').value || null,
+                seccion: document.getElementById('medicineSection').value || null,
                 familia: document.getElementById('medicineFamily').value.trim() || null,
                 subfamilia: document.getElementById('medicineSubfamily').value.trim() || null,
                 lote: document.getElementById('medicineLote').value.trim() || null,
@@ -458,10 +523,14 @@ const MedicinasModule = {
         };
 
         try {
+            this.populateFamilySelectors();
             document.getElementById('medicineId').value = medicine.id;
             fillField('medicineCodigoBarra', medicine.codigo_externo || medicine.codigoBarra);
             fillField('medicineName', medicine.nombre);
+            fillField('medicineSection', medicine.seccion || medicine.categoria);
+            this.updateMedicineFamilySelector();
             fillField('medicineFamily', medicine.familia);
+            this.updateMedicineSubfamilySelector();
             fillField('medicineSubfamily', medicine.subfamilia);
             fillField('medicinePresentacion', medicine.presentacion);
             fillField('medicinePrincipioActivo', medicine.concentracion || medicine.principioActivo);
@@ -483,9 +552,6 @@ const MedicinasModule = {
             }
 
             console.log('✅ TODOS LOS CAMPOS LLENADOS');
-            
-            // Actualizar subfamilias disponibles según la familia seleccionada
-            this.updateMedicineSubfamilySelector();
             
             this.openMedicineModal(false); // false = es edición
         } catch(error) {
@@ -535,8 +601,10 @@ const MedicinasModule = {
         const nombre = document.getElementById('medicineName').value.trim();
         const presentacion = document.getElementById('medicinePresentacion').value;
         const dosis = document.getElementById('medicineDosis').value.trim();
+        const seccion = document.getElementById('medicineSection').value;
+        const familia = document.getElementById('medicineFamily').value;
 
-        return codigoBarra && nombre && presentacion && dosis;
+        return codigoBarra && nombre && presentacion && dosis && seccion && familia;
     },
 
     // Renderizar tabla de medicinas
@@ -561,6 +629,11 @@ const MedicinasModule = {
                 const activo = m.activo !== false && m.activa !== false;
                 return stock <= stockMinimo || !activo;
             });
+        }
+
+        // Filtro por sección
+        if (this.seccionFiltro) {
+            filtered = filtered.filter(m => (m.seccion || m.categoria) === this.seccionFiltro);
         }
 
         // Filtro por familia
@@ -617,6 +690,7 @@ const MedicinasModule = {
                         <tr>
                             <th>Código</th>
                             <th>Nombre</th>
+                            <th>Sección</th>
                             <th>Familia</th>
                             <th>Subfamilia</th>
                             <th>Presentación</th>
@@ -652,6 +726,7 @@ const MedicinasModule = {
             <tr data-medicine-id="${medicine.id}">
                 <td><strong>${medicine.codigo_externo || medicine.codigoBarra || 'N/A'}</strong></td>
                 <td>${medicine.nombre || 'N/A'}</td>
+                <td>${this.getClassificationName('seccion', medicine.seccion || medicine.categoria)}</td>
                 <td>${medicine.familia || 'N/A'}</td>
                 <td>${medicine.subfamilia || 'N/A'}</td>
                 <td>${medicine.presentacion || 'N/A'}</td>
@@ -672,6 +747,16 @@ const MedicinasModule = {
                 </td>
             </tr>
         `;
+    },
+
+    getClassificationName(type, id) {
+        if (!id) return 'N/A';
+        const collection = type === 'seccion'
+            ? this.state.seccionesDisponibles
+            : type === 'familia'
+                ? this.state.familiasDisponibles
+                : this.state.subfamiliasDisponibles;
+        return collection.find(item => item.id === id)?.nombre || id;
     },
 
     // Get stock badge
