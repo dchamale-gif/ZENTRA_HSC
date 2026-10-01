@@ -13,6 +13,7 @@ const HistoriaClinicaModule = {
         prescripciones: [],
         medicos: [],
         pacienteSeleccionado: null,
+        editingNoteId: null,
         searchTerm: '',
         filtroEstado: 'activos', // activos, todos
         agendaWeekStart: new Date(), // Se inicializa correctamente en init()
@@ -64,15 +65,6 @@ const HistoriaClinicaModule = {
             addNoteBtn.addEventListener('click', () => this.openNoteModal());
         }
 
-        const saveNoteBtn = document.getElementById('saveNoteBtn');
-        if (saveNoteBtn) {
-            saveNoteBtn.addEventListener('click', () => this.saveNote());
-        }
-
-        const closeNoteModal = document.querySelector('#noteModal .close-btn');
-        if (closeNoteModal) {
-            closeNoteModal.addEventListener('click', () => this.closeNoteModal());
-        }
     },
 
     // Cargar datos
@@ -416,7 +408,12 @@ const HistoriaClinicaModule = {
                                 <div class="nota-item">
                                     <div class="nota-header">
                                         <strong>${nota.tipo}</strong>
-                                        <span class="nota-fecha">${nota.fecha}</span>
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <span class="nota-fecha">${nota.fecha}</span>
+                                            <button type="button" class="btn btn-sm btn-secondary" onclick="HistoriaClinicaModule.editNote('${historia.pacienteId ?? historia.pacientId}', '${nota.id}')" title="Editar nota" aria-label="Editar nota">
+                                                <i class="fas fa-pen"></i>
+                                            </button>
+                                        </div>
                                     </div>
                                     <p>${nota.contenido}</p>
                                     ${nota.medico ? `<p class="text-muted">Por: ${nota.medico}</p>` : ''}
@@ -486,9 +483,11 @@ const HistoriaClinicaModule = {
         if (!modal) return;
 
         // Limpiar formulario de notas
+        this.state.editingNoteId = null;
         noteForm.reset();
         document.getElementById('noteTipo').value = 'Observación';
         document.getElementById('noteFecha').valueAsDate = new Date();
+        document.getElementById('saveNoteBtn').innerHTML = '<i class="fas fa-save"></i> Guardar Nota';
 
         // Limpiar formulario de prescripción
         prescForm.reset();
@@ -501,6 +500,30 @@ const HistoriaClinicaModule = {
         await this.loadModalCatalogs();
     },
 
+    // Abrir una nota existente en el formulario
+    async editNote(pacienteId, noteId) {
+        const historia = this.state.historiasClinicas.find(h =>
+            String(h.pacienteId ?? h.pacientId) === String(pacienteId)
+        );
+        const nota = historia?.notas?.find(item => String(item.id) === String(noteId));
+        const paciente = this.state.pacientes.find(item => String(item.id) === String(pacienteId));
+
+        if (!nota || !paciente) {
+            this.showNotification('No se pudo encontrar la nota seleccionada', 'error');
+            return;
+        }
+
+        this.state.pacienteSeleccionado = JSON.parse(JSON.stringify(paciente));
+        await this.openNoteModal();
+        this.state.editingNoteId = noteId;
+        this.switchTab('nota');
+        document.getElementById('noteTipo').value = nota.tipo;
+        document.getElementById('noteFecha').value = nota.fecha;
+        document.getElementById('noteContenido').value = nota.contenido;
+        document.getElementById('noteMedico').value = nota.medico || '';
+        document.getElementById('saveNoteBtn').innerHTML = '<i class="fas fa-save"></i> Actualizar Nota';
+    },
+
     // Cerrar modal
     closeNoteModal() {
         const modal = document.getElementById('noteModal');
@@ -508,6 +531,7 @@ const HistoriaClinicaModule = {
             modal.style.display = 'none';
             document.body.style.overflow = 'auto';
         }
+        this.state.editingNoteId = null;
     },
 
     // Guardar nota
@@ -525,7 +549,9 @@ const HistoriaClinicaModule = {
         }
 
         // Obtener o crear historia clínica
-        let historia = this.state.historiasClinicas.find(h => h.pacienteId === this.state.pacienteSeleccionado.id);
+        let historia = this.state.historiasClinicas.find(h =>
+            String(h.pacienteId ?? h.pacientId) === String(this.state.pacienteSeleccionado.id)
+        );
         
         if (!historia) {
             historia = {
@@ -541,19 +567,27 @@ const HistoriaClinicaModule = {
             this.state.historiasClinicas.push(historia);
         }
 
-        // Agregar nota
-        historia.notas.push({
-            id: this.generateId('NOTE'),
-            tipo: tipo,
-            contenido: contenido,
-            fecha: fecha,
-            medico: medico
-        });
+        const editingNote = historia.notas.find(nota => String(nota.id) === String(this.state.editingNoteId));
+        if (editingNote) {
+            Object.assign(editingNote, { tipo, contenido, fecha, medico });
+            this.showNotification('Nota actualizada correctamente', 'success');
+        } else {
+            historia.notas.push({
+                id: this.generateId('NOTE'),
+                tipo: tipo,
+                contenido: contenido,
+                fecha: fecha,
+                medico: medico
+            });
+            this.showNotification('Nota registrada correctamente', 'success');
+        }
 
-        this.showNotification('✅ Nota registrada correctamente', 'success');
         this.saveToDB();
         this.closeNoteModal();
         this.renderHistoriaClinica();
+        if (typeof PacientesModule !== 'undefined' && document.getElementById('evolucionList')) {
+            PacientesModule.loadEvolucion(this.state.pacienteSeleccionado.id);
+        }
     },
 
     // Calcular edad

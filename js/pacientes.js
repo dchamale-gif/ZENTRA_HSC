@@ -2232,7 +2232,7 @@ const PacientesModule = {
     // Cargar y mostrar evoluciones desde historia clínica
     loadEvolucion(pacientId) {
         const historiasClinicas = JSON.parse(localStorage.getItem('historiasClinicas') || '[]');
-        const historia = historiasClinicas.find(h => h.pacientId === pacientId);
+        const historia = historiasClinicas.find(h => String(h.pacienteId ?? h.pacientId) === String(pacientId));
         const container = document.getElementById('evolucionList');
         
         if (!container) return;
@@ -2253,6 +2253,9 @@ const PacientesModule = {
                                 ${nota.medico ? `<small style="color: #7f8c8d; margin-left: 10px;">👨‍⚕️ ${nota.medico}</small>` : ''}
                                 <p style="margin: 8px 0 0 0; color: #2c3e50; line-height: 1.5;">${nota.contenido}</p>
                             </div>
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="HistoriaClinicaModule.editNote('${pacientId}', '${nota.id}')" title="Editar nota" aria-label="Editar nota">
+                                <i class="fas fa-pen"></i>
+                            </button>
                         </div>
                     </div>
                 `).join('')}
