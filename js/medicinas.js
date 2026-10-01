@@ -184,8 +184,9 @@ const MedicinasModule = {
 
             const data = await response.json();
             const articulosData = articulosResponse?.ok ? await articulosResponse.json() : { articulos: [] };
-            this.state.medicinas = data.medicinas || [];
-            this.extractFamilias(articulosData.articulos || []);
+            const articulos = articulosData.articulos || [];
+            this.state.medicinas = this.mergeMedicineClassifications(data.medicinas || [], articulos);
+            this.extractFamilias(articulos);
             this.renderMedicines();
             
             console.log(`✅ ${this.state.medicinas.length} medicinas cargadas desde BD`);
@@ -195,6 +196,38 @@ const MedicinasModule = {
             this.state.medicinas = [];
             this.renderMedicines();
         }
+    },
+
+    mergeMedicineClassifications(medicinas, articulos) {
+        const normalize = value => String(value || '').trim().toLocaleLowerCase('es');
+        const articlesByCode = new Map();
+        const articlesByName = new Map();
+
+        articulos.forEach(articulo => {
+            [articulo.codigo, articulo.codigo_barras, articulo.codigo_alternativo]
+                .map(normalize)
+                .filter(Boolean)
+                .forEach(code => articlesByCode.set(code, articulo));
+            const name = normalize(articulo.nombre_articulo);
+            if (name) articlesByName.set(name, articulo);
+        });
+
+        return medicinas.map(medicina => {
+            const matchingArticle = [medicina.codigo_externo, medicina.codigo_barra, medicina.codigo_interno]
+                .map(normalize)
+                .filter(Boolean)
+                .map(code => articlesByCode.get(code))
+                .find(Boolean) || articlesByName.get(normalize(medicina.nombre));
+
+            if (!matchingArticle) return medicina;
+
+            return {
+                ...medicina,
+                seccion: medicina.seccion || medicina.categoria || matchingArticle.categoria || '',
+                familia: medicina.familia || matchingArticle.familia || '',
+                subfamilia: medicina.subfamilia || matchingArticle.subfamilia || ''
+            };
+        });
     },
 
     // Extraer familias únicas
@@ -727,8 +760,8 @@ const MedicinasModule = {
                 <td><strong>${medicine.codigo_externo || medicine.codigoBarra || 'N/A'}</strong></td>
                 <td>${medicine.nombre || 'N/A'}</td>
                 <td>${this.getClassificationName('seccion', medicine.seccion || medicine.categoria)}</td>
-                <td>${medicine.familia || 'N/A'}</td>
-                <td>${medicine.subfamilia || 'N/A'}</td>
+                <td>${this.getClassificationName('familia', medicine.familia)}</td>
+                <td>${this.getClassificationName('subfamilia', medicine.subfamilia)}</td>
                 <td>${medicine.presentacion || 'N/A'}</td>
                 <td>${medicine.concentracion || 'N/A'}</td>
                 <td>${stockBadge}</td>
