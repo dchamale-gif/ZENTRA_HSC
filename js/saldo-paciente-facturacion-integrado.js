@@ -12,8 +12,10 @@ const SaldoPacienteFacturacion = {
         movimientos: [],
         pagos_realizados: [],
         items_actuales: [],
+        cargos_existentes: [],
         descuentos_actuales: [],
         paciente_seleccionado: null,
+        producto_seleccionado: null,
         pago_en_edicion: null,
         config: {
             iva: 12,
@@ -295,7 +297,7 @@ const SaldoPacienteFacturacion = {
     // FUNCIÓN DE TABS
     // ============================================
 
-    switchTab(tabName) {
+    switchTab(tabName, sourceButton = null) {
         // Ocultar todos
         document.querySelectorAll('.tab-content').forEach(el => {
             el.classList.remove('active');
@@ -306,12 +308,11 @@ const SaldoPacienteFacturacion = {
 
         // Mostrar seleccionado
         document.getElementById(tabName).classList.add('active');
-        event.target.classList.add('active');
+        const activeButton = sourceButton || document.querySelector(`.tab-btn[onclick*="'${tabName}'"]`);
+        if (activeButton) activeButton.classList.add('active');
 
         // Acciones específicas por tab
-        if (tabName === 'estados') {
-            this.cargarPacientesParaEstado();
-        } else if (tabName === 'historialPagos') {
+        if (tabName === 'historialPagos') {
             this.cargarPagosPorTab();
         }
     },
@@ -381,7 +382,7 @@ const SaldoPacienteFacturacion = {
                     <td class="text-center"><span class="badge ${badgeClass}">${estado}</span></td>
                     <td><small>${fecha}</small></td>
                     <td class="text-center">
-                        <button class="btn btn-sm btn-primary" onclick="SaldoPacienteFacturacion.verDetalles('${s.paciente_id}')">Ver</button>
+                        <button class="btn btn-sm btn-primary" onclick="SaldoPacienteFacturacion.abrirEditorCuenta('${s.paciente_id}')" title="Agregar o modificar cargos"><i class="fas fa-pen"></i> Editar cuenta</button>
                         <button class="btn btn-sm btn-info" onclick="SaldoPacienteFacturacion.imprimirSaldo('${s.paciente_id}')">🖨️</button>
                         <button class="btn btn-sm btn-success" onclick="SaldoPacienteFacturacion.abrirPagoDirecto('${s.paciente_id}')">Pago</button>
                     </td>
@@ -417,8 +418,114 @@ const SaldoPacienteFacturacion = {
         `;
     },
 
-    verDetalles(pacienteId) {
-        alert('Funcionalidad de detalles en desarrollo');
+    async abrirEditorCuenta(pacienteId) {
+        const paciente = this.state.pacientes.find(item => String(item.id) === String(pacienteId));
+        if (!paciente) {
+            alert('No se encontró el paciente seleccionado');
+            return;
+        }
+
+        this.state.items_actuales = [];
+        this.state.descuentos_actuales = [];
+        this.state.producto_seleccionado = null;
+        this.renderItems();
+        this.renderDescuentos();
+        this.actualizarTotales();
+        this.switchTab('facturar');
+        this.seleccionarPacienteFactura(String(paciente.id), paciente.nombre || '');
+        document.getElementById('observaciones').value = 'Ajuste de estado de cuenta';
+    },
+
+    async cargarCargosExistentes(pacienteId) {
+        const container = document.getElementById('cargosExistentesContainer');
+        const tbody = document.getElementById('tablaCargosExistentes');
+        if (!container || !tbody) return;
+
+        container.style.display = 'block';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center">Cargando cargos...</td></tr>';
+        try {
+            const response = await fetch(`${authManager.apiBaseUrl}/api/billing/estado-cuenta-detallado/${pacienteId}`, {
+                headers: { Authorization: `Bearer ${authManager.getToken()}` }
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || result.message || `Error ${response.status}`);
+            }
+
+            this.state.cargos_existentes = (result.data.facturas || []).flatMap(factura =>
+                Object.values(factura.categorias || {}).flat().map(item => ({
+                    ...item,
+                    factura_id: factura.id,
+                    numero_factura: factura.numero_factura,
+                    fecha: factura.fecha
+                }))
+            );
+            this.renderCargosExistentes();
+        } catch (error) {
+            this.state.cargos_existentes = [];
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center" style="color: #c0392b;">No se pudieron cargar los cargos: ${error.message}</td></tr>`;
+        }
+    },
+
+    renderCargosExistentes() {
+        const tbody = document.getElementById('tablaCargosExistentes');
+        if (!tbody) return;
+        if (this.state.cargos_existentes.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="color: #777;">Este paciente no tiene cargos activos</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = this.state.cargos_existentes.map(cargo => `
+            <tr>
+                <td><strong>${cargo.numero_factura || 'Sin número'}</strong></td>
+                <td>${cargo.descripcion}</td>
+                <td class="text-center">${cargo.cantidad}</td>
+                <td class="text-right">Q${Number(cargo.precio_unitario || 0).toFixed(2)}</td>
+                <td class="text-right"><strong>Q${Number(cargo.total || 0).toFixed(2)}</strong></td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-danger" onclick="SaldoPacienteFacturacion.anularCargoExistente('${cargo.id}')" title="Anular cargo">
+                        <i class="fas fa-ban"></i> Anular
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    },
+
+    async anularCargoExistente(itemId) {
+        const cargo = this.state.cargos_existentes.find(item => String(item.id) === String(itemId));
+        if (!cargo || !this.state.paciente_seleccionado) return;
+        if (!confirm(`¿Anular el cargo "${cargo.descripcion}"?\n\nLa anulación quedará registrada en el historial.`)) return;
+
+        const motivo = prompt('Indica el motivo de la anulación:');
+        if (!motivo?.trim()) {
+            alert('El motivo de anulación es obligatorio');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${authManager.apiBaseUrl}/api/billing/cargos/${itemId}/anular`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${authManager.getToken()}`
+                },
+                body: JSON.stringify({
+                    paciente_id: this.state.paciente_seleccionado.id,
+                    motivo: motivo.trim()
+                })
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || result.message || `Error ${response.status}`);
+            }
+
+            alert(`Cargo anulado. Ajuste aplicado: Q${Number(result.data.monto_anulado).toFixed(2)}`);
+            await this.refrescarSaldoDelPaciente(this.state.paciente_seleccionado.id);
+            await this.cargarCargosExistentes(this.state.paciente_seleccionado.id);
+            this.renderTotales();
+        } catch (error) {
+            alert(`No se pudo anular el cargo: ${error.message}`);
+        }
     },
 
     abrirPagoDirecto(pacienteId) {
@@ -718,7 +825,9 @@ const SaldoPacienteFacturacion = {
             subtotal: cant * precioFinal,
             descuentos: [],
             descuento_total: 0,
-            total_item: cant * precioFinal
+            total_item: cant * precioFinal,
+            tipo_item: this.state.producto_seleccionado?.tipo_item || 'general',
+            medicina_id: this.state.producto_seleccionado?.medicina_id || null
         };
 
         this.state.items_actuales.push(item);
@@ -735,20 +844,57 @@ const SaldoPacienteFacturacion = {
         }
 
         tbody.innerHTML = this.state.items_actuales.map((item, idx) => `
-            <tr>
+            <tr data-item-id="${item.id}">
                 <td>${idx + 1}</td>
-                <td>${item.descripcion}</td>
-                <td class="text-center">${item.cantidad}</td>
-                <td class="text-right">Q${item.precio_unitario.toFixed(2)}</td>
-                <td class="text-right">Q${item.subtotal.toFixed(2)}</td>
-                <td class="text-right">${item.descuento_total > 0 ? 'Q' + item.descuento_total.toFixed(2) : '-'}</td>
-                <td class="text-right"><strong>Q${item.total_item.toFixed(2)}</strong></td>
+                <td><input type="text" value="${item.descripcion}" oninput="SaldoPacienteFacturacion.actualizarItem('${item.id}', 'descripcion', this.value)" style="width: 100%; min-width: 150px; padding: 7px; border: 1px solid #ccd6e0; border-radius: 3px;"></td>
+                <td class="text-center"><input type="number" min="1" step="1" value="${item.cantidad}" oninput="SaldoPacienteFacturacion.actualizarItem('${item.id}', 'cantidad', this.value)" style="width: 65px; padding: 7px; border: 1px solid #ccd6e0; border-radius: 3px;"></td>
+                <td class="text-right"><input type="number" min="0" step="0.01" value="${item.precio_unitario.toFixed(2)}" oninput="SaldoPacienteFacturacion.actualizarItem('${item.id}', 'precio_unitario', this.value)" style="width: 90px; padding: 7px; text-align: right; border: 1px solid #3498db; border-radius: 3px; background: #f7fbff;"></td>
+                <td class="text-right" data-item-subtotal>Q${item.subtotal.toFixed(2)}</td>
+                <td class="text-right"><input type="number" min="0" max="${item.subtotal}" step="0.01" value="${item.descuento_total.toFixed(2)}" oninput="SaldoPacienteFacturacion.actualizarItem('${item.id}', 'descuento_total', this.value)" title="Descuento en quetzales" data-item-discount style="width: 85px; padding: 7px; text-align: right; border: 1px solid #ccd6e0; border-radius: 3px;"></td>
+                <td class="text-right"><strong data-item-total>Q${item.total_item.toFixed(2)}</strong></td>
                 <td class="text-center">
-                    <button class="btn btn-sm btn-warning" onclick="SaldoPacienteFacturacion.abrirDescuentoItem('${item.id}')">Desc</button>
-                    <button class="btn btn-sm btn-danger" onclick="SaldoPacienteFacturacion.eliminarItem('${item.id}')">X</button>
+                    <button class="btn btn-sm btn-danger" onclick="SaldoPacienteFacturacion.eliminarItem('${item.id}')" title="Quitar cargo" aria-label="Quitar cargo"><i class="fas fa-trash"></i></button>
                 </td>
             </tr>
         `).join('');
+    },
+
+    actualizarItem(itemId, campo, valor) {
+        const item = this.state.items_actuales.find(current => current.id === itemId);
+        if (!item) return;
+
+        if (campo === 'descripcion') {
+            item.descripcion = String(valor).trim();
+        } else {
+            const numero = Number(valor);
+            if (!Number.isFinite(numero) || numero < 0 || (campo === 'cantidad' && numero <= 0)) {
+                return;
+            }
+            item[campo] = numero;
+        }
+
+        item.subtotal = item.cantidad * item.precio_unitario;
+        item.descuento_total = Math.min(item.descuento_total || 0, item.subtotal);
+        item.descuentos = item.descuento_total > 0
+            ? [{ tipo: 'fijo', valor: item.descuento_total, monto: item.descuento_total, motivo: 'Descuento aplicado al cargo' }]
+            : [];
+        item.total_item = item.subtotal - item.descuento_total;
+
+        const row = document.querySelector(`[data-item-id="${itemId}"]`);
+        if (row) {
+            const subtotalCell = row.querySelector('[data-item-subtotal]');
+            const totalCell = row.querySelector('[data-item-total]');
+            const discountInput = row.querySelector('[data-item-discount]');
+            if (subtotalCell) subtotalCell.textContent = `Q${item.subtotal.toFixed(2)}`;
+            if (totalCell) totalCell.textContent = `Q${item.total_item.toFixed(2)}`;
+            if (discountInput) {
+                discountInput.max = item.subtotal;
+                if (Number(discountInput.value) !== item.descuento_total) {
+                    discountInput.value = item.descuento_total.toFixed(2);
+                }
+            }
+        }
+        this.actualizarTotales();
     },
 
     eliminarItem(itemId) {
@@ -761,7 +907,9 @@ const SaldoPacienteFacturacion = {
         document.getElementById('descripcionItem').value = '';
         document.getElementById('cantidadItem').value = '1';
         document.getElementById('precioItem').value = '';
-        document.getElementById('productoSeleccionadoId').value = '';
+        const productoId = document.getElementById('productoSeleccionadoId');
+        if (productoId) productoId.value = '';
+        this.state.producto_seleccionado = null;
         
         // Ocultar elemento de producto seleccionado
         const divSeleccionado = document.getElementById('productoSeleccionadoFactura');
@@ -929,6 +1077,18 @@ const SaldoPacienteFacturacion = {
                 <strong style="color: #e74c3c; font-size: 20px;">Q${t.total_neto.toFixed(2)}</strong>
             </div>
         `;
+
+        const saldo = this.state.saldos.find(item =>
+            String(item.paciente_id ?? item.pacienteId) === String(this.state.paciente_seleccionado?.id)
+        );
+        const saldoActual = Number(saldo?.saldo_pendiente ?? saldo?.saldoPendiente) || 0;
+        const saldoProyectado = saldoActual + t.total_neto;
+        const previewSaldoActual = document.getElementById('previewSaldoActual');
+        const previewNuevosCargos = document.getElementById('previewNuevosCargos');
+        const previewSaldoProyectado = document.getElementById('previewSaldoProyectado');
+        if (previewSaldoActual) previewSaldoActual.textContent = `Q${saldoActual.toFixed(2)}`;
+        if (previewNuevosCargos) previewNuevosCargos.textContent = `Q${t.total_neto.toFixed(2)}`;
+        if (previewSaldoProyectado) previewSaldoProyectado.textContent = `Q${saldoProyectado.toFixed(2)}`;
     },
 
     async guardarFactura() {
@@ -1003,6 +1163,8 @@ const SaldoPacienteFacturacion = {
         document.getElementById('modalBuscaProducto').value = '';
         document.getElementById('metodoPago').value = 'efectivo';
         document.getElementById('observaciones').value = '';
+        const previewPacienteNombre = document.getElementById('previewPacienteNombre');
+        if (previewPacienteNombre) previewPacienteNombre.textContent = 'Selecciona un paciente';
         this.renderItems();
         this.renderDescuentos();
         this.actualizarTotales();
@@ -1979,7 +2141,7 @@ const SaldoPacienteFacturacion = {
                             Q${parseFloat(saldo.saldo_pendiente || 0).toFixed(2)}
                         </td>
                         <td class="text-center">
-                            <button class="btn btn-sm btn-success" onclick="SaldoPacienteFacturacion.seleccionarPacienteFactura(${paciente.id}, '${paciente.nombre || ''} ${paciente.apellido_paterno || ''}')" style="padding: 4px 8px; font-size: 11px;">
+                            <button class="btn btn-sm btn-success" onclick="SaldoPacienteFacturacion.seleccionarPacienteFactura('${paciente.id}', '${paciente.nombre || ''} ${paciente.apellidoPaterno || paciente.apellido_paterno || ''}')" style="padding: 4px 8px; font-size: 11px;">
                                 <i class="fas fa-check"></i> Seleccionar
                             </button>
                         </td>
@@ -2001,7 +2163,7 @@ const SaldoPacienteFacturacion = {
         try {
             console.log('✅ Paciente seleccionado para Facturación:', pacienteNombre);
             
-            const paciente = this.state.pacientes.find(p => p.id === pacienteId);
+            const paciente = this.state.pacientes.find(p => String(p.id) === String(pacienteId));
             if (!paciente) return;
 
             // Almacenar en estado
@@ -2015,10 +2177,28 @@ const SaldoPacienteFacturacion = {
             if (divSeleccionado) {
                 divSeleccionado.style.display = 'block';
                 document.getElementById('pacienteFacturaNombre').textContent = 
-                    `${paciente.nombre || ''} ${paciente.apellido_paterno || ''} ${paciente.apellido_materno || ''}`;
+                    `${paciente.nombre || ''} ${paciente.apellidoPaterno || paciente.apellido_paterno || ''} ${paciente.apellidoMaterno || paciente.apellido_materno || ''}`;
                 document.getElementById('pacienteFacturaDPI').textContent = 
                     `DPI: ${paciente.dpi || paciente.cedula || 'N/A'}`;
             }
+
+            const saldo = this.state.saldos.find(item => String(item.paciente_id) === String(paciente.id));
+            const resumenPaciente = document.getElementById('datoPacienteSeleccionado');
+            if (resumenPaciente) {
+                resumenPaciente.innerHTML = `
+                    <p><strong>${paciente.nombre || ''} ${paciente.apellidoPaterno || paciente.apellido_paterno || ''}</strong></p>
+                    <p>DPI: ${paciente.dpi || paciente.cedula || 'N/A'}</p>
+                    <p>Teléfono: ${paciente.telefono || 'N/A'}</p>
+                    <p style="color: ${Number(saldo?.saldo_pendiente || 0) > 0 ? '#e74c3c' : '#27ae60'};">Saldo pendiente: Q${Number(saldo?.saldo_pendiente || 0).toFixed(2)}</p>
+                `;
+            }
+
+            const previewPacienteNombre = document.getElementById('previewPacienteNombre');
+            if (previewPacienteNombre) {
+                previewPacienteNombre.textContent = `${paciente.nombre || ''} ${paciente.apellidoPaterno || paciente.apellido_paterno || ''}`.trim();
+            }
+            this.renderTotales();
+            this.cargarCargosExistentes(paciente.id);
 
             this.cerrarModalSeleccionPacienteFactura();
             
@@ -2067,7 +2247,7 @@ const SaldoPacienteFacturacion = {
         }
     },
 
-    cargarProductosModal() {
+    async cargarProductosModal() {
         try {
             // Obtener productos desde CodigosArticulosModule
             if (typeof CodigosArticulosModule !== 'undefined' && 
@@ -2085,6 +2265,27 @@ const SaldoPacienteFacturacion = {
                 } else {
                     this.state.productos = [];
                     console.warn('⚠️ No hay productos disponibles');
+                }
+            }
+
+            const token = authManager?.getToken?.();
+            if (token) {
+                const response = await fetch(`${authManager.apiBaseUrl}/api/medicinas?activo=true`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    const result = await response.json();
+                    const medicinas = (result.medicinas || []).map(medicina => ({
+                        id: medicina.id,
+                        nombre_articulo: medicina.nombre,
+                        concepto: medicina.descripcion || 'Medicina',
+                        codigo_venta: medicina.codigo || medicina.codigo_interno || medicina.codigo_barra || '',
+                        familia: 'Medicinas',
+                        precio: Number(medicina.precio_venta ?? medicina.precio ?? medicina.precio_unitario) || 0,
+                        medicina_id: medicina.id,
+                        tipo_item: 'medicina'
+                    }));
+                    this.state.productos = [...medicinas, ...this.state.productos];
                 }
             }
 
@@ -2176,7 +2377,7 @@ const SaldoPacienteFacturacion = {
                             Q${precioBase.toFixed(2)}
                         </td>
                         <td class="text-center">
-                            <button class="btn btn-sm btn-success" onclick="SaldoPacienteFacturacion.seleccionarProducto('${nombreProducto.replace(/'/g, "\\'")}', ${precioBase})" style="padding: 4px 8px; font-size: 11px;">
+                            <button class="btn btn-sm btn-success" onclick="SaldoPacienteFacturacion.seleccionarProducto('${encodeURIComponent(JSON.stringify({ nombre: nombreProducto, precio: precioBase, medicina_id: producto.medicina_id || null, tipo_item: producto.tipo_item || 'general' })).replace(/'/g, '%27')}')" style="padding: 4px 8px; font-size: 11px;">
                                 <i class="fas fa-check"></i> Seleccionar
                             </button>
                         </td>
@@ -2194,14 +2395,24 @@ const SaldoPacienteFacturacion = {
         this.filtrarProductos();
     },
 
-    seleccionarProducto(nombreProducto, precioBase) {
+    seleccionarProducto(productoCodificado, precioBaseLegacy) {
         try {
+            let producto;
+            try {
+                producto = JSON.parse(decodeURIComponent(productoCodificado));
+            } catch (error) {
+                producto = { nombre: productoCodificado, precio: precioBaseLegacy, medicina_id: null, tipo_item: 'general' };
+            }
+            const nombreProducto = producto.nombre;
+            const precioBase = Number(producto.precio) || 0;
             console.log('✅ Producto seleccionado:', nombreProducto, 'Precio:', precioBase);
+            this.state.producto_seleccionado = producto;
             
             // Almacenar descripción y precio
             document.getElementById('descripcionItem').value = nombreProducto;
             document.getElementById('precioItem').value = precioBase;
-            document.getElementById('productoSeleccionadoId').value = nombreProducto;
+            const productoId = document.getElementById('productoSeleccionadoId');
+            if (productoId) productoId.value = producto.medicina_id || nombreProducto;
 
             // Mostrar producto seleccionado
             const divSeleccionado = document.getElementById('productoSeleccionadoFactura');

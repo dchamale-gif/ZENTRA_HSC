@@ -51,6 +51,14 @@ router.get('/estado-cuenta-detallado/:paciente_id', (req, res) => {
 });
 
 /**
+ * POST /api/billing/cargos/:item_id/anular
+ * Anular un concepto existente y ajustar el saldo de forma auditable
+ */
+router.post('/cargos/:item_id/anular', (req, res) => {
+    billingMejoradoController.anularCargo(req, res);
+});
+
+/**
  * GET /api/saldo-paciente/:paciente_id
  * Obtener saldo del paciente
  */

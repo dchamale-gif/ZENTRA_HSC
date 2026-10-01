@@ -539,7 +539,7 @@ class BillingMejoradoController {
                     vi.total as item_total,
                     vi.tipo_item
                 FROM ventas v
-                LEFT JOIN venta_items vi ON v.id = vi.venta_id
+                LEFT JOIN venta_items vi ON v.id = vi.venta_id AND COALESCE(vi.anulado, FALSE) = FALSE
                 WHERE v.paciente_id = $1
                 ORDER BY v.fecha DESC, vi.descripcion
             `;
@@ -642,6 +642,134 @@ class BillingMejoradoController {
                 message: 'Error al obtener estado de cuenta',
                 error: error.message
             });
+        }
+    }
+
+    /**
+     * Anular un cargo existente sin eliminar su registro contable
+     */
+    async anularCargo(req, res) {
+        let client;
+        try {
+            const itemId = String(req.params.item_id || '').trim();
+            const pacienteId = String(req.body.paciente_id || '').trim();
+            const motivo = String(req.body.motivo || '').trim();
+            const userId = Number(req.user.id);
+
+            if (!itemId || !pacienteId || !motivo) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Cargo, paciente y motivo de anulación son requeridos'
+                });
+            }
+            if (!Number.isInteger(userId)) {
+                return res.status(400).json({ success: false, message: 'Usuario no válido' });
+            }
+
+            client = await db.connect();
+            await client.query('BEGIN');
+
+            const itemResult = await client.query(`
+                SELECT vi.id, vi.venta_id, vi.descripcion, vi.subtotal,
+                       vi.descuento, vi.total AS item_total,
+                       v.numero_factura, v.subtotal AS venta_subtotal,
+                       v.total_descuentos, v.base_impuesto, v.total_impuestos,
+                       v.total AS venta_total,
+                       ps.saldo_pendiente, ps.total_deuda
+                FROM venta_items vi
+                JOIN ventas v ON v.id = vi.venta_id
+                JOIN pacientes_saldo ps ON ps.paciente_id = v.paciente_id
+                WHERE vi.id = $1 AND v.paciente_id = $2
+                  AND COALESCE(vi.anulado, FALSE) = FALSE
+                FOR UPDATE OF vi, v, ps`,
+                [itemId, pacienteId]
+            );
+
+            if (itemResult.rows.length === 0) {
+                const error = new Error('El cargo no existe o ya fue anulado');
+                error.status = 404;
+                throw error;
+            }
+
+            const cargo = itemResult.rows[0];
+            const activosResult = await client.query(`
+                SELECT COALESCE(SUM(COALESCE(total, subtotal - COALESCE(descuento, 0))), 0) AS total
+                FROM venta_items
+                WHERE venta_id = $1 AND COALESCE(anulado, FALSE) = FALSE`,
+                [cargo.venta_id]
+            );
+            const totalItemsActivos = Number(activosResult.rows[0].total);
+            const totalItem = Number(cargo.item_total ?? Number(cargo.subtotal) - Number(cargo.descuento || 0));
+            if (totalItemsActivos <= 0 || totalItem <= 0) {
+                const error = new Error('El cargo no tiene un monto válido para anular');
+                error.status = 400;
+                throw error;
+            }
+
+            const proporcion = Math.min(1, totalItem / totalItemsActivos);
+            const redondear = valor => Math.round(valor * 100) / 100;
+            const redondearPositivo = valor => Math.max(0, redondear(valor));
+            const ventaTotalAnterior = Number(cargo.venta_total) || 0;
+            const montoAnulado = redondearPositivo(ventaTotalAnterior * proporcion);
+            const nuevoSubtotal = redondearPositivo(Number(cargo.venta_subtotal) * (1 - proporcion));
+            const nuevosDescuentos = redondearPositivo(Number(cargo.total_descuentos || 0) * (1 - proporcion));
+            const nuevaBase = redondearPositivo(Number(cargo.base_impuesto || 0) * (1 - proporcion));
+            const nuevosImpuestos = redondearPositivo(Number(cargo.total_impuestos || 0) * (1 - proporcion));
+            const nuevoTotal = redondearPositivo(ventaTotalAnterior - montoAnulado);
+            const saldoAnterior = Number(cargo.saldo_pendiente) || 0;
+            const saldoNuevo = redondear(saldoAnterior - montoAnulado);
+            const deudaNueva = redondearPositivo(Number(cargo.total_deuda || 0) - montoAnulado);
+
+            await client.query(`
+                UPDATE venta_items
+                SET anulado = TRUE, motivo_anulacion = $1,
+                    fecha_anulacion = CURRENT_TIMESTAMP, usuario_anulacion = $2
+                WHERE id = $3`,
+                [motivo, userId, itemId]
+            );
+            await client.query(`
+                UPDATE ventas
+                SET subtotal = $1, descuento = $2, impuesto = $3, total = $4,
+                    subtotal_original = $1, total_descuentos = $2,
+                    base_impuesto = $5, total_impuestos = $3,
+                    estado = CASE WHEN $4 = 0 THEN 'anulada' ELSE estado END,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = $6`,
+                [nuevoSubtotal, nuevosDescuentos, nuevosImpuestos, nuevoTotal, nuevaBase, cargo.venta_id]
+            );
+            await client.query(`
+                UPDATE pacientes_saldo
+                SET saldo_pendiente = $1, total_deuda = $2,
+                    ultima_transaccion = CURRENT_TIMESTAMP,
+                    usuario_actualizo = $3, updated_at = CURRENT_TIMESTAMP
+                WHERE paciente_id = $4`,
+                [saldoNuevo, deudaNueva, String(userId), pacienteId]
+            );
+            await client.query(`
+                INSERT INTO movimientos_paciente (
+                    paciente_id, tipo, descripcion, monto, saldo_anterior,
+                    saldo_nuevo, referencia_id, usuario_id
+                ) VALUES ($1, 'anulacion', $2, $3, $4, $5, $6, $7)`,
+                [pacienteId, `Anulación de ${cargo.descripcion} (${cargo.numero_factura}): ${motivo}`,
+                    -montoAnulado, saldoAnterior, saldoNuevo, itemId, userId]
+            );
+
+            await client.query('COMMIT');
+            res.json({
+                success: true,
+                message: 'Cargo anulado y saldo actualizado',
+                data: { item_id: itemId, monto_anulado: montoAnulado, saldo_nuevo: saldoNuevo }
+            });
+        } catch (error) {
+            if (client) await client.query('ROLLBACK');
+            console.error('Error al anular cargo:', error);
+            res.status(error.status || 500).json({
+                success: false,
+                message: 'Error al anular el cargo',
+                error: error.message
+            });
+        } finally {
+            if (client) client.release();
         }
     }
 

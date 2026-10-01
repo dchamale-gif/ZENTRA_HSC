@@ -15,7 +15,14 @@ ALTER TABLE venta_items
     ADD COLUMN IF NOT EXISTS descripcion TEXT,
     ADD COLUMN IF NOT EXISTS descuento DECIMAL(12, 2) DEFAULT 0,
     ADD COLUMN IF NOT EXISTS total DECIMAL(12, 2),
-    ADD COLUMN IF NOT EXISTS tipo_item VARCHAR(50) DEFAULT 'general';
+    ADD COLUMN IF NOT EXISTS tipo_item VARCHAR(50) DEFAULT 'general',
+    ADD COLUMN IF NOT EXISTS anulado BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS motivo_anulacion TEXT,
+    ADD COLUMN IF NOT EXISTS fecha_anulacion TIMESTAMP,
+    ADD COLUMN IF NOT EXISTS usuario_anulacion INTEGER;
+
+CREATE INDEX IF NOT EXISTS idx_venta_items_activos
+    ON venta_items(venta_id) WHERE anulado = FALSE;
 
 CREATE TABLE IF NOT EXISTS pacientes_saldo (
     id SERIAL PRIMARY KEY,

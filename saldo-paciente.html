@@ -515,9 +515,8 @@
 
         <!-- TABS -->
         <div class="tabs-container">
-            <button class="tab-btn active" onclick="switchTab('saldos')">📊 Mis Saldos</button>
-            <button class="tab-btn" onclick="switchTab('facturar')">📋 Crear Factura</button>
-            <button class="tab-btn" onclick="switchTab('estados')">📑 Estados de Cuenta</button>
+            <button class="tab-btn active" onclick="switchTab('saldos')">📑 Estados de Cuenta</button>
+            <button class="tab-btn" onclick="switchTab('facturar')">✏️ Editar Cuenta</button>
             <button class="tab-btn" onclick="switchTab('pagos')">💳 Registrar Pago</button>
             <button class="tab-btn" onclick="switchTab('historialPagos')">📜 Historial de Pagos</button>
         </div>
@@ -586,7 +585,7 @@
                 <div>
                     <!-- Seleccionar Paciente -->
                     <div class="info-box">
-                        <p><strong>1. Selecciona un paciente y agrega artículos/servicios</strong></p>
+                        <p><strong>1. Selecciona un paciente para agregar cargos a su estado de cuenta</strong></p>
                     </div>
 
                     <div class="form-group">
@@ -597,9 +596,22 @@
                         <div id="pacienteSeleccionado" style="margin-top: 10px; font-weight: bold; color: #27ae60; display: none;"></div>
                     </div>
 
+                    <div id="cargosExistentesContainer" style="display: none; margin-bottom: 20px; border: 1px solid #d9e2ec; border-radius: 6px; overflow: hidden;">
+                        <div style="padding: 14px 16px; background: #f4f7f9; border-bottom: 1px solid #d9e2ec;">
+                            <strong style="color: #2c3e50;">Cargos existentes</strong>
+                            <p style="font-size: 12px; color: #666; margin: 4px 0 0;">Los cargos guardados se anulan con trazabilidad; no se borran del historial.</p>
+                        </div>
+                        <div class="tabla-responsive">
+                            <table class="data-table" style="margin: 0;">
+                                <thead><tr><th>Factura</th><th>Producto</th><th class="text-center">Cant.</th><th class="text-right">Precio</th><th class="text-right">Total</th><th class="text-center">Acción</th></tr></thead>
+                                <tbody id="tablaCargosExistentes"><tr><td colspan="6" class="text-center">Cargando...</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+
                     <!-- Agregar Items -->
                     <div class="info-box">
-                        <p><strong>2. Agrega artículos o servicios a la factura</strong></p>
+                        <p><strong>2. Agrega medicinas, artículos o servicios</strong></p>
                     </div>
 
                     <div class="form-row">
@@ -618,13 +630,23 @@
                         <input type="number" id="precioItem" min="0" step="0.01" placeholder="0.00">
                     </div>
 
-                    <button class="btn btn-primary" onclick="SaldoPacienteFacturacion.agregarItem()" style="width: 100%;">➕ Agregar Artículo</button>
+                    <button class="btn btn-primary" onclick="SaldoPacienteFacturacion.agregarItem()" style="width: 100%;">➕ Agregar Cargo</button>
 
                     <!-- Tabla de Items -->
-                    <div style="margin-top: 25px;">
-                        <h3 style="color: #2c3e50; margin-bottom: 15px;">Artículos en Factura</h3>
-                        <div class="tabla-responsive">
-                            <table class="data-table">
+                    <div style="margin-top: 25px; border: 1px solid #d9e2ec; border-radius: 6px; overflow: hidden; background: white;">
+                        <div style="background: #34495e; color: white; padding: 16px 18px; display: flex; justify-content: space-between; gap: 15px; align-items: center;">
+                            <div>
+                                <div style="font-size: 11px; text-transform: uppercase; opacity: .8;">Previsualización del estado de cuenta</div>
+                                <strong id="previewPacienteNombre" style="font-size: 17px;">Selecciona un paciente</strong>
+                            </div>
+                            <div style="text-align: right; font-size: 12px;">Actualización en tiempo real</div>
+                        </div>
+                        <div style="padding: 14px 18px 6px;">
+                            <h3 style="color: #2c3e50; margin-bottom: 5px; font-size: 15px;">Detalle de cargos</h3>
+                            <p style="color: #666; font-size: 12px; margin-bottom: 10px;">Escribe directamente en las casillas. La papelera quita el producto.</p>
+                        </div>
+                        <div class="tabla-responsive" style="padding: 0 10px 10px;">
+                            <table class="data-table" style="margin: 0;">
                                 <thead>
                                     <tr>
                                         <th>#</th>
@@ -676,7 +698,12 @@
                 <!-- SIDEBAR TOTALES -->
                 <div class="sidebar">
                     <div class="sidebar-card">
-                        <div class="sidebar-title">📊 Resumen de Factura</div>
+                        <div class="sidebar-title">📊 Estado de Cuenta Proyectado</div>
+                        <div style="display: grid; gap: 8px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #ddd; font-size: 13px;">
+                            <div style="display: flex; justify-content: space-between;"><span>Saldo actual</span><strong id="previewSaldoActual">Q0.00</strong></div>
+                            <div style="display: flex; justify-content: space-between;"><span>Nuevos cargos</span><strong id="previewNuevosCargos" style="color: #e67e22;">Q0.00</strong></div>
+                            <div style="display: flex; justify-content: space-between; font-size: 16px; padding-top: 8px; border-top: 1px solid #ddd;"><span>Saldo proyectado</span><strong id="previewSaldoProyectado" style="color: #e74c3c;">Q0.00</strong></div>
+                        </div>
                         <div id="totalesFactura">
                             <div class="total-row">
                                 <span>Subtotal:</span>
@@ -720,7 +747,7 @@
                         </div>
 
                         <div class="btn-group">
-                            <button class="btn btn-success" onclick="SaldoPacienteFacturacion.guardarFactura()">✅ Guardar Factura</button>
+                            <button class="btn btn-success" onclick="SaldoPacienteFacturacion.guardarFactura()">✅ Guardar Cargos</button>
                             <button class="btn btn-danger" onclick="SaldoPacienteFacturacion.cancelarFactura()">❌ Cancelar</button>
                         </div>
                     </div>

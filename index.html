@@ -575,9 +575,8 @@
 
                     <!-- TABS -->
                     <div class="tabs-container">
-                        <button class="tab-btn active" onclick="switchTab('saldos')">📊 Mis Saldos</button>
-                        <button class="tab-btn" onclick="switchTab('facturar')">📋 Crear Factura</button>
-                        <button class="tab-btn" onclick="switchTab('estados')">📑 Estados de Cuenta</button>
+                        <button class="tab-btn active" onclick="switchTab('saldos')"><i class="fas fa-file-invoice-dollar"></i> Estados de Cuenta</button>
+                        <button class="tab-btn" onclick="switchTab('facturar')"><i class="fas fa-pen-to-square"></i> Editar Cuenta</button>
                         <button class="tab-btn" onclick="switchTab('pagos')">💳 Registrar Pago</button>
                         <button class="tab-btn" onclick="switchTab('historialPagos')">📜 Historial de Pagos</button>
                     </div>
@@ -650,7 +649,7 @@
                     <div id="facturar" class="tab-content">
                         <div style="display: grid; grid-template-columns: 1fr 350px; gap: 20px;">
                             <div>
-                                <div class="info-box"><p><strong>1. Selecciona un paciente y agrega artículos/servicios</strong></p></div>
+                                <div class="info-box"><p><strong>1. Selecciona un paciente para agregar cargos a su estado de cuenta</strong></p></div>
                                 <div style="margin-bottom: 20px;">
                                     <label style="display: block; font-weight: bold; margin-bottom: 10px;">Buscar Paciente</label>
                                     <button class="btn btn-primary" onclick="SaldoPacienteFacturacion.abrirModalSeleccionPacienteFactura()" style="width: 100%; padding: 12px; margin-bottom: 10px;">
@@ -663,12 +662,24 @@
                                         <div id="pacienteFacturaDPI" style="font-size: 12px; color: #666;"></div>
                                     </div>
                                 </div>
-                                <div class="info-box"><p><strong>2. Agrega artículos o servicios a la factura</strong></p></div>
+                                <div id="cargosExistentesContainer" style="display: none; margin-bottom: 20px; border: 1px solid #d9e2ec; border-radius: 6px; overflow: hidden;">
+                                    <div style="padding: 14px 16px; background: #f4f7f9; border-bottom: 1px solid #d9e2ec;">
+                                        <strong style="color: #2c3e50;"><i class="fas fa-clock-rotate-left"></i> Cargos existentes</strong>
+                                        <p style="font-size: 12px; color: #666; margin: 4px 0 0;">Los cargos guardados se anulan con trazabilidad; no se borran del historial.</p>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="data-table" style="margin: 0;">
+                                            <thead><tr><th>Factura</th><th>Producto</th><th class="text-center">Cant.</th><th class="text-right">Precio</th><th class="text-right">Total</th><th class="text-center">Acción</th></tr></thead>
+                                            <tbody id="tablaCargosExistentes"><tr><td colspan="6" class="text-center">Cargando...</td></tr></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="info-box"><p><strong>2. Agrega medicinas, artículos o servicios</strong></p></div>
                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
                                     <div>
                                         <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">Producto/Servicio</label>
                                         <button class="btn btn-info" onclick="SaldoPacienteFacturacion.abrirModalBuscarProducto()" style="width: 100%; padding: 10px;">
-                                            <i class="fas fa-search"></i> Buscar Producto
+                                            <i class="fas fa-search"></i> Buscar Medicina o Producto
                                         </button>
                                         <div id="productoSeleccionadoFactura" style="padding: 10px; background: #f0f0f0; border-radius: 4px; margin-top: 8px; display: none; font-size: 12px;">
                                             <div id="productoFacturaNombre" style="font-weight: bold; color: #27ae60;"></div>
@@ -686,14 +697,26 @@
                                     <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">Precio Unitario (Q)</label>
                                     <input type="number" id="precioItem" min="0" step="0.01" placeholder="0.00" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
                                 </div>
-                                <button class="btn btn-primary" onclick="SaldoPacienteFacturacion.agregarItem()" style="width: 100%; margin-bottom: 25px;">➕ Agregar Artículo</button>
+                                <button class="btn btn-primary" onclick="SaldoPacienteFacturacion.agregarItem()" style="width: 100%; margin-bottom: 25px;"><i class="fas fa-plus"></i> Agregar Cargo</button>
                                 
-                                <h3 style="color: #2c3e50; margin-bottom: 15px;">Artículos en Factura</h3>
-                                <div class="table-responsive">
-                                    <table class="data-table">
+                                <div style="border: 1px solid #d9e2ec; border-radius: 6px; overflow: hidden; background: white;">
+                                    <div style="background: #34495e; color: white; padding: 16px 18px; display: flex; justify-content: space-between; gap: 15px; align-items: center;">
+                                        <div>
+                                            <div style="font-size: 11px; text-transform: uppercase; opacity: .8;">Previsualización del estado de cuenta</div>
+                                            <strong id="previewPacienteNombre" style="font-size: 17px;">Selecciona un paciente</strong>
+                                        </div>
+                                        <div style="text-align: right; font-size: 12px;">Los cambios se calculan en tiempo real</div>
+                                    </div>
+                                    <div style="padding: 14px 18px 6px;">
+                                        <h3 style="color: #2c3e50; margin-bottom: 5px; font-size: 15px;">Detalle de cargos</h3>
+                                        <p style="color: #666; font-size: 12px; margin-bottom: 10px;">Escribe directamente en las casillas. La papelera quita el producto de esta operación.</p>
+                                    </div>
+                                    <div class="table-responsive" style="padding: 0 10px 10px;">
+                                    <table class="data-table" style="margin: 0;">
                                         <thead><tr><th>#</th><th>Descripción</th><th class="text-center">Cant.</th><th class="text-right">P. Unit.</th><th class="text-right">Subtotal</th><th class="text-right">Desc.</th><th class="text-right">Total</th><th class="text-center">Acc.</th></tr></thead>
                                         <tbody id="tablaItems"><tr><td colspan="8" class="text-center" style="color: #999;">Sin artículos</td></tr></tbody>
                                     </table>
+                                    </div>
                                 </div>
 
                                 <div style="margin-top: 25px;">
@@ -709,8 +732,14 @@
                             </div>
 
                             <div>
-                                <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                                    <div style="font-weight: bold; color: #2c3e50; margin-bottom: 15px;">📊 Resumen de Factura</div>
+                                <div style="background: white; padding: 18px; border: 1px solid #d9e2ec; border-top: 4px solid #3498db; border-radius: 6px; margin-bottom: 15px;">
+                                    <div style="font-weight: bold; color: #2c3e50; margin-bottom: 15px;"><i class="fas fa-file-invoice-dollar"></i> Estado de cuenta proyectado</div>
+                                    <div style="display: grid; gap: 8px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #ddd; font-size: 13px;">
+                                        <div style="display: flex; justify-content: space-between;"><span>Saldo actual</span><strong id="previewSaldoActual">Q0.00</strong></div>
+                                        <div style="display: flex; justify-content: space-between;"><span>Nuevos cargos</span><strong id="previewNuevosCargos" style="color: #e67e22;">Q0.00</strong></div>
+                                        <div style="display: flex; justify-content: space-between; font-size: 16px; padding-top: 8px; border-top: 1px solid #ddd;"><span>Saldo proyectado</span><strong id="previewSaldoProyectado" style="color: #e74c3c;">Q0.00</strong></div>
+                                    </div>
+                                    <div style="font-weight: bold; color: #2c3e50; margin-bottom: 10px; font-size: 13px;">Detalle de la operación</div>
                                     <div id="totalesFactura">
                                         <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 13px;">
                                             <span>Subtotal:</span>
@@ -752,7 +781,7 @@
                                         <textarea id="observaciones" placeholder="Notas adicionales..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; min-height: 80px;"></textarea>
                                     </div>
                                     <div style="display: flex; gap: 10px;">
-                                        <button class="btn btn-success" onclick="SaldoPacienteFacturacion.guardarFactura()" style="flex: 1;">✅ Guardar Factura</button>
+                                        <button class="btn btn-success" onclick="SaldoPacienteFacturacion.guardarFactura()" style="flex: 1;"><i class="fas fa-save"></i> Guardar Cargos</button>
                                         <button class="btn btn-danger" onclick="SaldoPacienteFacturacion.cancelarFactura()" style="flex: 1;">❌ Cancelar</button>
                                     </div>
                                 </div>
