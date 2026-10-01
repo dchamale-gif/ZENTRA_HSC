@@ -11,6 +11,12 @@ ALTER TABLE medicinas ADD COLUMN IF NOT EXISTS subfamilia VARCHAR(100);
 ALTER TABLE medicinas ADD COLUMN IF NOT EXISTS presentacion VARCHAR(50);
 ALTER TABLE medicinas ADD COLUMN IF NOT EXISTS codigo_externo VARCHAR(50);
 ALTER TABLE medicinas ADD COLUMN IF NOT EXISTS codigo_barra VARCHAR(50);
+ALTER TABLE medicinas ALTER COLUMN seccion SET DEFAULT 'SEC-001';
+
+-- Todas las filas de esta tabla pertenecen a la sección Medicamentos.
+UPDATE medicinas
+SET seccion = 'SEC-001'
+WHERE seccion IS NULL OR BTRIM(seccion) = '';
 
 -- Crear índices para mejorar búsquedas
 CREATE INDEX IF NOT EXISTS idx_medicinas_familia ON medicinas(familia);

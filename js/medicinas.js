@@ -560,21 +560,21 @@ const MedicinasModule = {
             document.getElementById('medicineId').value = medicine.id;
             fillField('medicineCodigoBarra', medicine.codigo_externo || medicine.codigoBarra);
             fillField('medicineName', medicine.nombre);
-            fillField('medicineSection', medicine.seccion || medicine.categoria);
+            fillField('medicineSection', medicine.seccion || medicine.categoria || 'SEC-001');
             this.updateMedicineFamilySelector();
             fillField('medicineFamily', medicine.familia);
             this.updateMedicineSubfamilySelector();
             fillField('medicineSubfamily', medicine.subfamilia);
-            fillField('medicinePresentacion', medicine.presentacion);
-            fillField('medicinePrincipioActivo', medicine.concentracion || medicine.principioActivo);
+            fillField('medicinePresentacion', medicine.presentacion || medicine.forma_farmaceutica);
+            fillField('medicinePrincipioActivo', medicine.principio_activo || medicine.concentracion || medicine.principioActivo);
             fillField('medicineDosis', medicine.dosis);
             fillField('medicineUnidadDosis', medicine.unidadDosis);
             fillField('medicineLote', medicine.lote);
-            fillField('medicineFechaVencimiento', medicine.vencimiento || medicine.fechaVencimiento);
+            fillField('medicineFechaVencimiento', medicine.vencimiento || medicine.fecha_vencimiento || medicine.fechaVencimiento);
             fillField('medicineProveedor', medicine.proveedor);
             fillField('medicineCantidad', medicine.stock || medicine.cantidad);
             fillField('medicineCantidadMinima', medicine.stock_minimo || medicine.cantidadMinima);
-            fillField('medicinePrecioUnitario', medicine.precio || medicine.precioUnitario);
+            fillField('medicinePrecioUnitario', medicine.precio || medicine.precio_venta || medicine.precioUnitario);
             fillField('medicineContraindicaciones', medicine.descripcion || medicine.contraindicaciones);
             fillField('medicineEfectosSecundarios', medicine.efectosSecundarios);
             
@@ -749,7 +749,7 @@ const MedicinasModule = {
             ? '<span class="badge badge-success">Activa</span>'
             : '<span class="badge badge-inactive">Inactiva</span>';
         
-        const fechaVencimiento = medicine.vencimiento || medicine.fechaVencimiento || 'N/A';
+        const fechaVencimiento = medicine.vencimiento || medicine.fecha_vencimiento || medicine.fechaVencimiento || 'N/A';
         const vencida = this.isExpired(fechaVencimiento);
         const vencimientoBadge = vencida
             ? '<span class="badge badge-danger">Vencida</span>'
@@ -759,10 +759,10 @@ const MedicinasModule = {
             <tr data-medicine-id="${medicine.id}">
                 <td><strong>${medicine.codigo_externo || medicine.codigoBarra || 'N/A'}</strong></td>
                 <td>${medicine.nombre || 'N/A'}</td>
-                <td>${this.getClassificationName('seccion', medicine.seccion || medicine.categoria)}</td>
+                <td>${this.getClassificationName('seccion', medicine.seccion || medicine.categoria || 'SEC-001')}</td>
                 <td>${this.getClassificationName('familia', medicine.familia)}</td>
                 <td>${this.getClassificationName('subfamilia', medicine.subfamilia)}</td>
-                <td>${medicine.presentacion || 'N/A'}</td>
+                <td>${medicine.presentacion || medicine.forma_farmaceutica || 'N/A'}</td>
                 <td>${medicine.concentracion || 'N/A'}</td>
                 <td>${stockBadge}</td>
                 <td>${vencimientoBadge}</td>
@@ -783,7 +783,7 @@ const MedicinasModule = {
     },
 
     getClassificationName(type, id) {
-        if (!id) return 'N/A';
+        if (!id) return 'Sin clasificar';
         const collection = type === 'seccion'
             ? this.state.seccionesDisponibles
             : type === 'familia'

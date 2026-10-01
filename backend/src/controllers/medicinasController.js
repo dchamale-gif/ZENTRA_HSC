@@ -23,16 +23,10 @@ const getMedicinas = async (req, res) => {
       paramIndex++;
     }
 
-    // Filtrar por categoría (si existe la columna)
-    if (categoria) {
-      query += ` AND categoria = $${paramIndex}`;
-      params.push(categoria);
-      paramIndex++;
-    }
-
-    if (seccion) {
+    const seccionFiltro = seccion || categoria;
+    if (seccionFiltro) {
       query += ` AND seccion = $${paramIndex}`;
-      params.push(seccion);
+      params.push(seccionFiltro);
       paramIndex++;
     }
     if (familia) {
@@ -98,19 +92,26 @@ const createMedicina = async (req, res) => {
     const {
       nombre,
       descripcion,
-      seccion,
+      seccion = 'SEC-001',
       familia,
       subfamilia,
-      codigo_interno,
       codigo_externo,
+      codigo_barra,
+      principio_activo,
       presentacion,
       concentracion,
       precio,
+      precio_venta,
+      precio_costo,
       stock,
+      cantidad,
       stock_minimo,
+      cantidad_minima,
       proveedor_id,
       vencimiento,
-      categoria,
+      fecha_vencimiento,
+      forma_farmaceutica,
+      lote,
       activo = true
     } = req.body;
 
@@ -121,23 +122,37 @@ const createMedicina = async (req, res) => {
       });
     }
 
-    // Generar ID
-    const id = `MED-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
-    const codigoInterno = codigo_interno || id;
+    const idMetadata = await pool.query(
+      `SELECT data_type, column_default, is_identity
+       FROM information_schema.columns
+       WHERE table_schema = current_schema()
+         AND table_name = 'medicinas'
+         AND column_name = 'id'`
+    );
+    const idColumn = idMetadata.rows[0];
+    const requiresManualId = idColumn &&
+      ['character varying', 'character', 'text'].includes(idColumn.data_type) &&
+      !idColumn.column_default && idColumn.is_identity !== 'YES';
+    const generatedId = `MED-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+    const values = [
+      nombre, descripcion || null, seccion || 'SEC-001', familia || null, subfamilia || null,
+      principio_activo || null, concentracion || null, forma_farmaceutica || null,
+      presentacion || null, cantidad ?? stock ?? 0, cantidad_minima ?? stock_minimo ?? 0,
+      precio_costo ?? 0, precio_venta ?? precio ?? 0, lote || null,
+      fecha_vencimiento || vencimiento || null, proveedor_id || null,
+      codigo_externo || null, codigo_barra || null, activo
+    ];
 
     const result = await pool.query(
       `INSERT INTO medicinas 
-       (id, nombre, descripcion, codigo_interno, codigo_externo, presentacion, 
-        concentracion, precio, stock, stock_minimo, proveedor_id, vencimiento, 
-        categoria, seccion, familia, subfamilia, activo, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW(), NOW())
+       (${requiresManualId ? 'id, ' : ''}nombre, descripcion, seccion, familia, subfamilia,
+        principio_activo, concentracion, forma_farmaceutica, presentacion,
+        cantidad, cantidad_minima, precio_costo, precio_venta, lote,
+        fecha_vencimiento, proveedor_id, codigo_externo, codigo_barra, activo,
+        created_at, updated_at)
+       VALUES (${requiresManualId ? '$1, ' : ''}${values.map((_, index) => `$${index + (requiresManualId ? 2 : 1)}`).join(', ')}, NOW(), NOW())
        RETURNING *`,
-      [
-        id, nombre, descripcion, codigoInterno, codigo_externo, presentacion,
-        concentracion || null, precio || 0, stock || 0, stock_minimo || 0,
-        proveedor_id || null, vencimiento || null, categoria || null,
-        seccion || null, familia || null, subfamilia || null, activo
-      ]
+      requiresManualId ? [generatedId, ...values] : values
     );
 
     res.status(201).json({
@@ -164,16 +179,23 @@ const updateMedicina = async (req, res) => {
       seccion,
       familia,
       subfamilia,
-      codigo_interno,
       codigo_externo,
+      codigo_barra,
+      principio_activo,
       presentacion,
       concentracion,
       precio,
+      precio_venta,
+      precio_costo,
       stock,
+      cantidad,
       stock_minimo,
+      cantidad_minima,
       proveedor_id,
       vencimiento,
-      categoria,
+      fecha_vencimiento,
+      forma_farmaceutica,
+      lote,
       activo
     } = req.body;
 
@@ -218,14 +240,19 @@ const updateMedicina = async (req, res) => {
       values.push(subfamilia || null);
       paramIndex++;
     }
-    if (codigo_interno !== undefined) {
-      updates.push(`codigo_interno = $${paramIndex}`);
-      values.push(codigo_interno);
-      paramIndex++;
-    }
     if (codigo_externo !== undefined) {
       updates.push(`codigo_externo = $${paramIndex}`);
       values.push(codigo_externo);
+      paramIndex++;
+    }
+    if (codigo_barra !== undefined) {
+      updates.push(`codigo_barra = $${paramIndex}`);
+      values.push(codigo_barra || null);
+      paramIndex++;
+    }
+    if (principio_activo !== undefined) {
+      updates.push(`principio_activo = $${paramIndex}`);
+      values.push(principio_activo || null);
       paramIndex++;
     }
     if (presentacion !== undefined) {
@@ -238,19 +265,24 @@ const updateMedicina = async (req, res) => {
       values.push(concentracion);
       paramIndex++;
     }
-    if (precio !== undefined) {
-      updates.push(`precio = $${paramIndex}`);
-      values.push(precio);
+    if (precio !== undefined || precio_venta !== undefined) {
+      updates.push(`precio_venta = $${paramIndex}`);
+      values.push(precio_venta ?? precio);
       paramIndex++;
     }
-    if (stock !== undefined) {
-      updates.push(`stock = $${paramIndex}`);
-      values.push(stock);
+    if (precio_costo !== undefined) {
+      updates.push(`precio_costo = $${paramIndex}`);
+      values.push(precio_costo);
       paramIndex++;
     }
-    if (stock_minimo !== undefined) {
-      updates.push(`stock_minimo = $${paramIndex}`);
-      values.push(stock_minimo);
+    if (stock !== undefined || cantidad !== undefined) {
+      updates.push(`cantidad = $${paramIndex}`);
+      values.push(cantidad ?? stock);
+      paramIndex++;
+    }
+    if (stock_minimo !== undefined || cantidad_minima !== undefined) {
+      updates.push(`cantidad_minima = $${paramIndex}`);
+      values.push(cantidad_minima ?? stock_minimo);
       paramIndex++;
     }
     if (proveedor_id !== undefined) {
@@ -258,14 +290,19 @@ const updateMedicina = async (req, res) => {
       values.push(proveedor_id);
       paramIndex++;
     }
-    if (vencimiento !== undefined) {
-      updates.push(`vencimiento = $${paramIndex}`);
-      values.push(vencimiento);
+    if (vencimiento !== undefined || fecha_vencimiento !== undefined) {
+      updates.push(`fecha_vencimiento = $${paramIndex}`);
+      values.push(fecha_vencimiento || vencimiento || null);
       paramIndex++;
     }
-    if (categoria !== undefined) {
-      updates.push(`categoria = $${paramIndex}`);
-      values.push(categoria);
+    if (forma_farmaceutica !== undefined) {
+      updates.push(`forma_farmaceutica = $${paramIndex}`);
+      values.push(forma_farmaceutica || null);
+      paramIndex++;
+    }
+    if (lote !== undefined) {
+      updates.push(`lote = $${paramIndex}`);
+      values.push(lote || null);
       paramIndex++;
     }
     if (activo !== undefined) {
@@ -344,8 +381,8 @@ const getMedicinasStockBajo = async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT * FROM medicinas 
-       WHERE activo = true AND stock <= stock_minimo
-       ORDER BY stock ASC`
+        WHERE activo = true AND cantidad <= cantidad_minima
+        ORDER BY cantidad ASC`
     );
 
     res.status(200).json({
@@ -373,7 +410,7 @@ const actualizarStock = async (req, res) => {
     }
 
     const existing = await pool.query(
-      'SELECT stock FROM medicinas WHERE id = $1',
+      'SELECT cantidad FROM medicinas WHERE id = $1',
       [id]
     );
 
@@ -381,7 +418,7 @@ const actualizarStock = async (req, res) => {
       return res.status(404).json({ error: 'Medicina no encontrada' });
     }
 
-    const stockActual = existing.rows[0].stock;
+    const stockActual = existing.rows[0].cantidad;
     let nuevoStock = stockActual;
 
     if (tipo === 'suma') {
@@ -394,7 +431,7 @@ const actualizarStock = async (req, res) => {
     }
 
     const result = await pool.query(
-      'UPDATE medicinas SET stock = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+      'UPDATE medicinas SET cantidad = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
       [nuevoStock, id]
     );
 

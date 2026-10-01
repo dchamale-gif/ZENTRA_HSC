@@ -13,6 +13,23 @@ async function runMigrations() {
   console.log('\n📊 Iniciando verificación de esquema de base de datos...\n');
   
   try {
+    const medicinasTable = await pool.query("SELECT to_regclass('medicinas') AS table_name");
+    if (medicinasTable.rows[0].table_name) {
+      await pool.query(`
+        ALTER TABLE medicinas ADD COLUMN IF NOT EXISTS seccion VARCHAR(100);
+        ALTER TABLE medicinas ADD COLUMN IF NOT EXISTS familia VARCHAR(100);
+        ALTER TABLE medicinas ADD COLUMN IF NOT EXISTS subfamilia VARCHAR(100);
+        ALTER TABLE medicinas ADD COLUMN IF NOT EXISTS presentacion VARCHAR(50);
+        ALTER TABLE medicinas ADD COLUMN IF NOT EXISTS codigo_externo VARCHAR(50);
+        ALTER TABLE medicinas ADD COLUMN IF NOT EXISTS codigo_barra VARCHAR(50);
+        ALTER TABLE medicinas ALTER COLUMN seccion SET DEFAULT 'SEC-001';
+        UPDATE medicinas SET seccion = 'SEC-001' WHERE seccion IS NULL OR BTRIM(seccion) = '';
+        CREATE INDEX IF NOT EXISTS idx_medicinas_clasificacion
+          ON medicinas(seccion, familia, subfamilia);
+      `);
+      console.log('  ✅ Clasificación de medicinas verificada');
+    }
+
     // Leer el archivo schema.sql (buscar en rutas posibles)
     let schemaPath;
     let schema;
