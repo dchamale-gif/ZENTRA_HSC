@@ -303,7 +303,7 @@
                         </button>
                     </div>
 
-                    <div class="pacients-filters" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                    <div class="pacients-filters filter-grid">
                         <input type="text" id="searchPacient" class="form-input" placeholder="Buscar por nombre, cédula o email..." style="grid-column: 1 / -1;">
                         
                         <div style="display: flex; flex-direction: column;">
@@ -1651,7 +1651,7 @@
                     
                     <!-- Filtros y Búsqueda -->
                     <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                        <div class="filter-grid filter-grid-search">
                             <div>
                                 <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">🔍 Buscar</label>
                                 <input type="text" id="searchMovimientos" placeholder="Cliente, referencia o descripción..." class="form-input">
@@ -1828,7 +1828,7 @@
 
                     <!-- Filtros y Búsqueda -->
                     <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                        <div class="filter-grid filter-grid-search">
                             <div>
                                 <label style="display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px;">🔍 Buscar</label>
                                 <input type="text" id="searchOrdenMedica" placeholder="Paciente, ID orden o descripción..." class="form-input">

@@ -1792,15 +1792,26 @@ function setupMobileListTables() {
     if (!pagesContainer) return;
 
     labelMobileListTables(pagesContainer);
+    const pendingRoots = new Set();
+    let animationFrameId = null;
 
     const observer = new MutationObserver(mutations => {
         mutations.forEach(mutation => {
             mutation.addedNodes.forEach(node => {
                 if (node.nodeType === Node.ELEMENT_NODE) {
-                    labelMobileListTables(node);
+                    pendingRoots.add(node.closest('table') || node);
                 }
             });
         });
+
+        if (pendingRoots.size && animationFrameId === null) {
+            animationFrameId = requestAnimationFrame(() => {
+                const roots = [...pendingRoots];
+                pendingRoots.clear();
+                animationFrameId = null;
+                roots.forEach(root => labelMobileListTables(root));
+            });
+        }
     });
 
     observer.observe(pagesContainer, { childList: true, subtree: true });

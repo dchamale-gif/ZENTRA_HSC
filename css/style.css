@@ -4872,3 +4872,102 @@ textarea.form-input {
         padding: 8px;
     }
 }
+
+/* ============================================
+   FILTROS RESPONSIVOS Y ESTADOS TÁCTILES
+   ============================================ */
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.filter-grid-search {
+    grid-template-columns: 2fr repeat(3, minmax(0, 1fr));
+    margin-bottom: 15px;
+}
+
+@media (max-width: 768px) {
+    .filter-grid,
+    .filter-grid-search,
+    .filter-row,
+    .filters-row,
+    .filters-row-main,
+    .filters-row-custom {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .filter-grid > *,
+    .filter-grid-search > *,
+    .filter-row > *,
+    .filters-row > *,
+    .filters-row-main > *,
+    .filters-row-custom > * {
+        width: 100%;
+        min-width: 0 !important;
+        grid-column: 1 !important;
+    }
+
+    .hospitalizaciones-filters,
+    .articulos-filters,
+    .caja-filters,
+    .medicines-filters,
+    .inventory-filters,
+    .transactions-filters,
+    .pacients-filters {
+        flex-direction: column;
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .hospitalizaciones-filters > *,
+    .articulos-filters > *,
+    .caja-filters > *,
+    .medicines-filters > *,
+    .inventory-filters > *,
+    .transactions-filters > *,
+    .pacients-filters > * {
+        width: 100%;
+        min-width: 0 !important;
+        grid-column: 1 !important;
+    }
+}
+
+@media (hover: none), (pointer: coarse) {
+    *:hover {
+        transform: none !important;
+    }
+
+    .nav-item:not(.active):hover,
+    .btn-icon:hover,
+    tbody tr:hover,
+    .calendar-day:hover,
+    .appointment-card:hover,
+    .file-item:hover,
+    .pacient-card:hover,
+    .day-card-agenda:hover,
+    .habitacion-card:hover,
+    .tabla-datos tbody tr:hover {
+        background-color: inherit;
+        box-shadow: none;
+    }
+
+    button,
+    a,
+    [role="button"] {
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+    }
+
+    button:active,
+    a:active,
+    [role="button"]:active {
+        transform: scale(0.97) !important;
+    }
+}
