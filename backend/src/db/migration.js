@@ -30,6 +30,20 @@ async function runMigrations() {
       console.log('  ✅ Clasificación de medicinas verificada');
     }
 
+    const cajaTable = await pool.query("SELECT to_regclass('caja') AS table_name");
+    if (cajaTable.rows[0].table_name) {
+      await pool.query(`
+        ALTER TABLE caja ADD COLUMN IF NOT EXISTS tipo_movimiento VARCHAR(50);
+        ALTER TABLE caja ADD COLUMN IF NOT EXISTS paciente_id VARCHAR(50);
+        ALTER TABLE caja ADD COLUMN IF NOT EXISTS referencia VARCHAR(100);
+        ALTER TABLE caja ADD COLUMN IF NOT EXISTS estado VARCHAR(20) DEFAULT 'activo';
+        CREATE INDEX IF NOT EXISTS idx_caja_paciente ON caja(paciente_id);
+        CREATE INDEX IF NOT EXISTS idx_caja_tipo_movimiento ON caja(tipo_movimiento);
+        CREATE INDEX IF NOT EXISTS idx_caja_fecha_creacion ON caja(fecha DESC, created_at DESC);
+      `);
+      console.log('  ✅ Persistencia de movimientos de caja verificada');
+    }
+
     // Leer el archivo schema.sql (buscar en rutas posibles)
     let schemaPath;
     let schema;
@@ -102,6 +116,63 @@ async function runMigrations() {
         }
       }
     }
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS habitaciones (
+        id VARCHAR(50) PRIMARY KEY,
+        numero INTEGER NOT NULL,
+        piso VARCHAR(20) DEFAULT 'Plano',
+        tipo VARCHAR(50),
+        orden INTEGER DEFAULT 0,
+        activo BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS camas (
+        id VARCHAR(50) PRIMARY KEY,
+        habitacion_id VARCHAR(50) NOT NULL REFERENCES habitaciones(id),
+        numero_cama INTEGER NOT NULL,
+        estado VARCHAR(20) DEFAULT 'libre',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(habitacion_id, numero_cama)
+      );
+      ALTER TABLE hospitalizaciones ADD COLUMN IF NOT EXISTS cama_id VARCHAR(50) REFERENCES camas(id);
+      CREATE TABLE IF NOT EXISTS traslados_camas (
+        id VARCHAR(50) PRIMARY KEY,
+        hospitalizacion_id VARCHAR(50) NOT NULL REFERENCES hospitalizaciones(id) ON DELETE CASCADE,
+        cama_origen_id VARCHAR(50) NOT NULL REFERENCES camas(id),
+        cama_destino_id VARCHAR(50) NOT NULL REFERENCES camas(id),
+        fecha_traslado DATE NOT NULL DEFAULT CURRENT_DATE,
+        hora_traslado TIME NOT NULL DEFAULT CURRENT_TIME,
+        razon TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_hospitalizaciones_cama_estado ON hospitalizaciones(cama_id, estado);
+      CREATE INDEX IF NOT EXISTS idx_hospitalizaciones_paciente_estado ON hospitalizaciones(paciente_id, estado);
+    `);
+
+    const habitaciones = [
+      ['hab-1', 2, 'COEX', 1, 2], ['hab-2', 4, 'COEX', 2, 1],
+      ['hab-3', 2, 'Sala Común', 3, 1], ['hab-4', 9, 'Sala Común', 4, 1],
+      ['hab-5', 5, 'Sala Común', 5, 1], ['hab-6', 4, 'Sala Común', 6, 1],
+      ['hab-7', 2, null, 7, 1], ['hab-8', 1, null, 8, 1],
+      ['hab-9', 2, null, 9, 1], ['hab-10', 2, null, 10, 2],
+      ['hab-11', 9, null, 11, 1], ['hab-12', 3, null, 12, 1]
+    ];
+    for (const [id, numero, tipo, orden, cantidadCamas] of habitaciones) {
+      await pool.query(`
+        INSERT INTO habitaciones (id, numero, tipo, orden)
+        VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING
+      `, [id, numero, tipo, orden]);
+      for (let cama = 1; cama <= cantidadCamas; cama++) {
+        await pool.query(`
+          INSERT INTO camas (id, habitacion_id, numero_cama)
+          VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING
+        `, [`${id}-${cama}`, id, cama]);
+      }
+    }
+    console.log('  ✅ Habitaciones y camas verificadas');
     
     console.log(`\n📊 Resumen de migración:`);
     console.log(`  ✅ Exitosas: ${successCount}`);

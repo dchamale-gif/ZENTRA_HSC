@@ -397,11 +397,34 @@ CREATE TABLE diagnosticos_paciente (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Habitaciones y camas
+CREATE TABLE habitaciones (
+    id VARCHAR(50) PRIMARY KEY,
+    numero INTEGER NOT NULL,
+    piso VARCHAR(20) DEFAULT 'Plano',
+    tipo VARCHAR(50),
+    orden INTEGER DEFAULT 0,
+    activo BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE camas (
+    id VARCHAR(50) PRIMARY KEY,
+    habitacion_id VARCHAR(50) NOT NULL REFERENCES habitaciones(id),
+    numero_cama INTEGER NOT NULL,
+    estado VARCHAR(20) DEFAULT 'libre',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(habitacion_id, numero_cama)
+);
+
 -- Tabla de Hospitalizaciones
 CREATE TABLE hospitalizaciones (
     id VARCHAR(50) PRIMARY KEY,
     paciente_id VARCHAR(50) NOT NULL REFERENCES pacientes(id) ON DELETE CASCADE,
     doctor_id INTEGER REFERENCES users(id),
+    cama_id VARCHAR(50) REFERENCES camas(id),
     fecha_entrada DATE NOT NULL DEFAULT CURRENT_DATE,
     hora_entrada TIME,
     fecha_salida DATE,
@@ -413,6 +436,17 @@ CREATE TABLE hospitalizaciones (
     observaciones TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE traslados_camas (
+    id VARCHAR(50) PRIMARY KEY,
+    hospitalizacion_id VARCHAR(50) NOT NULL REFERENCES hospitalizaciones(id) ON DELETE CASCADE,
+    cama_origen_id VARCHAR(50) NOT NULL REFERENCES camas(id),
+    cama_destino_id VARCHAR(50) NOT NULL REFERENCES camas(id),
+    fecha_traslado DATE NOT NULL DEFAULT CURRENT_DATE,
+    hora_traslado TIME NOT NULL DEFAULT CURRENT_TIME,
+    razon TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ============================================
@@ -595,10 +629,13 @@ CREATE TABLE servicios_facturados (
 CREATE TABLE caja (
     id VARCHAR(50) PRIMARY KEY,
     tipo VARCHAR(20) NOT NULL, -- entrada, salida
+    tipo_movimiento VARCHAR(50),
     concepto VARCHAR(150) NOT NULL,
     categoria VARCHAR(100),
     monto DECIMAL(12, 2) NOT NULL,
     descripcion TEXT,
+    paciente_id VARCHAR(50) REFERENCES pacientes(id),
+    referencia VARCHAR(100),
     referencia_venta_id VARCHAR(50) REFERENCES ventas(id),
     referencia_compra_id VARCHAR(50) REFERENCES compras(id),
     user_id INTEGER REFERENCES users(id),
@@ -606,6 +643,7 @@ CREATE TABLE caja (
     hora TIME,
     saldo_anterior DECIMAL(12, 2),
     saldo_posterior DECIMAL(12, 2),
+    estado VARCHAR(20) DEFAULT 'activo',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

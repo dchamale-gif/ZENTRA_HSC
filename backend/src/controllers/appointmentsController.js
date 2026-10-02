@@ -7,6 +7,45 @@ const { generateId } = require('../utils/helpers');
 
 class AppointmentsController {
     /**
+     * Obtener agenda con filtros opcionales
+     */
+    async getAllAppointments(req, res) {
+        try {
+            const { desde, hasta, doctor_id, estado } = req.query;
+            const values = [];
+            const conditions = ["hc.estado <> 'eliminada'"];
+
+            const addCondition = (condition, value) => {
+                values.push(value);
+                conditions.push(condition.replace('?', `$${values.length}`));
+            };
+
+            if (desde) addCondition('hc.fecha >= ?', desde);
+            if (hasta) addCondition('hc.fecha <= ?', hasta);
+            if (doctor_id) addCondition('hc.doctor_id = ?', doctor_id);
+            if (estado) addCondition('LOWER(hc.estado) = LOWER(?)', estado);
+
+            const result = await db.query(`
+                SELECT hc.id, hc.paciente_id, hc.doctor_id, hc.fecha, hc.hora,
+                    hc.diagnostico, hc.tratamiento, hc.observaciones, hc.estado,
+                    p.nombre AS paciente_nombre, p.apellido_paterno,
+                    p.telefono, p.email, u.nombre AS doctor_nombre, u.especialidad
+                FROM historia_clinica hc
+                JOIN pacientes p ON hc.paciente_id = p.id
+                LEFT JOIN users u ON hc.doctor_id = u.id
+                WHERE ${conditions.join(' AND ')}
+                ORDER BY hc.fecha ASC, hc.hora ASC
+                LIMIT 500
+            `, values);
+
+            res.json({ success: true, data: result.rows });
+        } catch (error) {
+            console.error('Error en getAllAppointments:', error);
+            res.status(500).json({ success: false, message: 'Error al obtener la agenda', error: error.message });
+        }
+    }
+
+    /**
      * Obtener citas del día
      */
     async getTodayAppointments(req, res) {
@@ -29,6 +68,7 @@ class AppointmentsController {
                 JOIN pacientes p ON hc.paciente_id = p.id
                 LEFT JOIN users u ON hc.doctor_id = u.id
                 WHERE DATE(hc.fecha) = CURRENT_DATE
+                    AND LOWER(hc.estado) NOT IN ('cancelada', 'eliminada')
                 ORDER BY hc.hora ASC
             `;
 
@@ -83,6 +123,7 @@ class AppointmentsController {
                 JOIN pacientes p ON hc.paciente_id = p.id
                 WHERE hc.doctor_id = $1
                     AND hc.fecha >= CURRENT_DATE
+                    AND LOWER(hc.estado) NOT IN ('cancelada', 'eliminada')
                 ORDER BY hc.fecha ASC, hc.hora ASC
                 LIMIT 50
             `;
@@ -170,7 +211,25 @@ class AppointmentsController {
     async createAppointment(req, res) {
         try {
             const { paciente_id, doctor_id, fecha, hora, diagnostico, tratamiento, observaciones } = req.body;
-            
+
+            if (!paciente_id || !doctor_id || !fecha || !hora) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Paciente, doctor, fecha y hora son obligatorios'
+                });
+            }
+
+            const conflict = await db.query(`
+                SELECT id FROM historia_clinica
+                WHERE doctor_id = $1 AND fecha = $2 AND hora = $3
+                    AND LOWER(estado) NOT IN ('cancelada', 'eliminada')
+                LIMIT 1
+            `, [doctor_id, fecha, hora]);
+
+            if (conflict.rows.length > 0) {
+                return res.status(409).json({ success: false, message: 'El horario ya está reservado para este doctor' });
+            }
+
             const cita_id = generateId('CIT');
             
             const query = `
@@ -178,7 +237,7 @@ class AppointmentsController {
                     id, paciente_id, doctor_id, fecha, hora, 
                     diagnostico, tratamiento, observaciones, estado
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'activo')
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pendiente')
                 RETURNING *
             `;
 
@@ -208,30 +267,47 @@ class AppointmentsController {
     async updateAppointment(req, res) {
         try {
             const { id } = req.params;
-            const { diagnostico, tratamiento, observaciones, estado } = req.body;
-            
+            const { paciente_id, doctor_id, fecha, hora, diagnostico, tratamiento, observaciones, estado } = req.body;
+
+            const currentResult = await db.query('SELECT * FROM historia_clinica WHERE id = $1', [id]);
+            if (currentResult.rows.length === 0) {
+                return res.status(404).json({ success: false, message: 'Cita no encontrada' });
+            }
+
+            const current = currentResult.rows[0];
+            const nextDoctor = doctor_id || current.doctor_id;
+            const nextDate = fecha || current.fecha;
+            const nextTime = hora || current.hora;
+            const conflict = await db.query(`
+                SELECT id FROM historia_clinica
+                WHERE doctor_id = $1 AND fecha = $2 AND hora = $3 AND id <> $4
+                    AND LOWER(estado) NOT IN ('cancelada', 'eliminada')
+                LIMIT 1
+            `, [nextDoctor, nextDate, nextTime, id]);
+
+            if (conflict.rows.length > 0) {
+                return res.status(409).json({ success: false, message: 'El horario ya está reservado para este doctor' });
+            }
+
             const query = `
                 UPDATE historia_clinica
-                SET 
-                    diagnostico = COALESCE($1, diagnostico),
-                    tratamiento = COALESCE($2, tratamiento),
-                    observaciones = COALESCE($3, observaciones),
-                    estado = COALESCE($4, estado),
+                SET paciente_id = COALESCE($1, paciente_id),
+                    doctor_id = COALESCE($2, doctor_id),
+                    fecha = COALESCE($3, fecha),
+                    hora = COALESCE($4, hora),
+                    diagnostico = COALESCE($5, diagnostico),
+                    tratamiento = COALESCE($6, tratamiento),
+                    observaciones = COALESCE($7, observaciones),
+                    estado = COALESCE($8, estado),
                     updated_at = CURRENT_TIMESTAMP
-                WHERE id = $5
+                WHERE id = $9
                 RETURNING *
             `;
 
             const result = await db.query(query, [
+                paciente_id, doctor_id, fecha, hora,
                 diagnostico, tratamiento, observaciones, estado, id
             ]);
-
-            if (result.rows.length === 0) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Cita no encontrada'
-                });
-            }
 
             res.json({
                 success: true,
@@ -245,6 +321,29 @@ class AppointmentsController {
                 message: 'Error al actualizar cita',
                 error: error.message
             });
+        }
+    }
+
+    /**
+     * Eliminar una cita sin borrar su trazabilidad
+     */
+    async deleteAppointment(req, res) {
+        try {
+            const result = await db.query(`
+                UPDATE historia_clinica
+                SET estado = 'eliminada', updated_at = CURRENT_TIMESTAMP
+                WHERE id = $1 AND estado <> 'eliminada'
+                RETURNING id
+            `, [req.params.id]);
+
+            if (result.rows.length === 0) {
+                return res.status(404).json({ success: false, message: 'Cita no encontrada' });
+            }
+
+            res.json({ success: true, message: 'Cita eliminada exitosamente' });
+        } catch (error) {
+            console.error('Error en deleteAppointment:', error);
+            res.status(500).json({ success: false, message: 'Error al eliminar cita', error: error.message });
         }
     }
 }

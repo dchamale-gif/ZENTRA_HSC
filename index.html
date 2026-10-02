@@ -11,7 +11,10 @@
 <body>
     <div class="container-fluid">
         <!-- Sidebar -->
-        <aside class="sidebar">
+        <aside class="sidebar" id="mainSidebar" aria-label="Navegación principal" aria-hidden="true">
+            <button type="button" class="sidebar-close" id="closeSidebar" aria-label="Cerrar menú" title="Cerrar menú">
+                <i class="fas fa-xmark" aria-hidden="true"></i>
+            </button>
             <div class="logo-container">
                 <img src="img/zentra-logo.png" alt="Zentra MED Logo" class="logo-image">
             </div>
@@ -177,13 +180,15 @@
             </div>
         </aside>
 
+        <button type="button" class="sidebar-backdrop" id="sidebarBackdrop" aria-label="Cerrar menú" tabindex="-1"></button>
+
         <!-- Main Content -->
         <main class="main-content">
             <!-- Header -->
             <header class="header">
                 <div class="header-left">
-                    <button class="btn-menu" id="toggleSidebar">
-                        <i class="fas fa-bars"></i>
+                    <button type="button" class="btn-menu" id="toggleSidebar" aria-controls="mainSidebar" aria-expanded="false" aria-label="Abrir menú" title="Abrir menú">
+                        <i class="fas fa-bars" aria-hidden="true"></i>
                     </button>
                     <h2 class="page-title" id="pageTitle">Dashboard</h2>
                 </div>

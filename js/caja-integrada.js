@@ -102,6 +102,36 @@ const CajaIntegradaModule = {
 
         this.renderMovimientosCaja();
         this.calculateResumenCaja();
+        this.loadMovimientosFromAPI();
+    },
+
+    async loadMovimientosFromAPI() {
+        const token = authManager?.getToken?.();
+        const apiHost = authManager?.apiBaseUrl || 'http://178.128.72.110:3011';
+        const apiBase = apiHost.endsWith('/api') ? apiHost : `${apiHost}/api`;
+        if (!token) return;
+
+        try {
+            const response = await fetch(`${apiBase}/caja`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success || !Array.isArray(result.data)) {
+                throw new Error(result.message || 'Respuesta inválida de la API');
+            }
+
+            this.state.movimientosCaja = result.data.map(movimiento => ({
+                ...movimiento,
+                monto: Number(movimiento.monto),
+                fecha: String(movimiento.fecha).slice(0, 10),
+                hora: movimiento.hora ? String(movimiento.hora).slice(0, 8) : ''
+            }));
+            localStorage.setItem('movimientosCaja', JSON.stringify(this.state.movimientosCaja));
+            this.renderMovimientosCaja();
+            this.renderResumenCaja();
+        } catch (error) {
+            console.warn('No se pudo cargar Caja desde la API; se conserva el respaldo local:', error);
+        }
     },
 
     // Renderizar resumen de caja
@@ -441,7 +471,7 @@ const CajaIntegradaModule = {
         }
 
         this.showNotification('✅ Movimiento registrado', 'success');
-        this.saveToDB();
+        this.saveToDB(movimiento);
         this.closeMovimientoModal();
         this.renderMovimientosCaja();
         this.renderResumenCaja();
@@ -512,7 +542,7 @@ const CajaIntegradaModule = {
         }
 
         this.showNotification('✅ Microfactura generada exitosamente', 'success');
-        this.saveToDB();
+        this.saveToDB(microfactura);
         this.closeMicrofacturaModal();
         this.renderMovimientosCaja();
         this.renderResumenCaja();
@@ -525,9 +555,38 @@ const CajaIntegradaModule = {
     },
 
     // Guardar en DB
-    saveToDB() {
+    saveToDB(movimiento = null) {
         localStorage.setItem('movimientosCaja', JSON.stringify(this.state.movimientosCaja));
         localStorage.setItem('saldosPacientes', JSON.stringify(this.state.saldosPacientes));
+        if (movimiento) this.saveMovimientoToAPI(movimiento);
+    },
+
+    async saveMovimientoToAPI(movimiento) {
+        const token = authManager?.getToken?.();
+        const apiHost = authManager?.apiBaseUrl || 'http://178.128.72.110:3011';
+        const apiBase = apiHost.endsWith('/api') ? apiHost : `${apiHost}/api`;
+        if (!token) return;
+
+        try {
+            const response = await fetch(`${apiBase}/caja`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(movimiento)
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || 'No se pudo registrar el movimiento');
+            }
+
+            if (result.data?.id) movimiento.id = result.data.id;
+            localStorage.setItem('movimientosCaja', JSON.stringify(this.state.movimientosCaja));
+        } catch (error) {
+            console.warn('Movimiento conservado localmente; falló la API de Caja:', error);
+            this.showNotification('El movimiento quedó guardado localmente y se sincronizará al restablecer la conexión', 'warning');
+        }
     },
 
     // Notificación

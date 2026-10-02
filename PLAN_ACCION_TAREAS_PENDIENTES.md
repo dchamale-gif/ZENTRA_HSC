@@ -1,20 +1,26 @@
-# PLAN DE ACCIÓN - Problemas Restantes del Sistema
+# PLAN DE ACCIÓN - Tareas Implementadas
 
 Documento generado: 2026-08-07
+Última actualización: 2026-10-01
 
 ## Resumen Ejecutivo
 
-De los 9 problemas reportados:
-- ✅ **3 RESUELTOS**: Búsqueda pacientes, Botones acciones, Guardar compras (parcial)
-- 🔄 **3 EN PROGRESO**: Agenda, Cobros, Filtros avanzados
-- ❌ **2 NO INICIADOS**: Gestión personal, Órdenes médicas
-- ⚠️ **1 INCOMPLETO**: Órdenes médicas (incompleto en el reporte original)
+Las seis tareas de este plan ya cuentan con implementación funcional:
+- ✅ Filtros avanzados de pacientes y saldos.
+- ✅ Caja Integrada con persistencia mediante API y fallback local.
+- ✅ Agenda conectada a API, con validación de conflictos en servidor.
+- ✅ Órdenes médicas con CRUD y generación de PDF.
+- ✅ Personal médico con CRUD, especialidades y horarios.
+- ✅ Hospitalización con ingresos, traslados, altas y control transaccional de camas.
+
+La ejecución de las migraciones y las pruebas integrales contra PostgreSQL de producción forman parte del despliegue, no del desarrollo pendiente.
 
 ---
 
-## TAREAS POR COMPLETAR
+## TAREAS COMPLETADAS
 
 ### TAREA 1: Agregar Filtros Avanzados (Nivel: FÁCIL)
+**Estado**: ✅ COMPLETADA
 **Archivos**: `index.html`, `js/pacientes.js`, `js/saldo-paciente.js`
 
 **Paso 1**: Actualizar HTML (index.html línea 294-298)
@@ -39,6 +45,7 @@ De los 9 problemas reportados:
 ---
 
 ### TAREA 2: Arreglar Módulo de Cobros/Caja (Nivel: MEDIO)
+**Estado**: ✅ COMPLETADA
 **Archivos**: `js/caja.js`, `js/cuentas-por-cobrar.js`
 
 **Problema**: Los datos son hardcodeados, no hay búsqueda ni filtros
@@ -52,11 +59,18 @@ De los 9 problemas reportados:
    - Agregar filtros por tipo (ingreso/egreso)
    - Agregar filtros por fecha
 
+**Implementación final**:
+- API autenticada en `/api/caja` y resumen en `/api/caja/summary`.
+- Cálculo transaccional de saldo anterior/posterior.
+- Búsqueda y filtros en frontend; persistencia local como respaldo.
+- Migración idempotente sobre la tabla `caja` existente.
+
 **Estimado**: 3-4 horas
 
 ---
 
 ### TAREA 3: Arreglar Módulo de Agenda (Nivel: MEDIO)
+**Estado**: ✅ COMPLETADA
 **Archivos**: `js/agenda-avanzada.js`
 
 **Problema**: Usa localStorage, no integrado con API de citas
@@ -74,11 +88,18 @@ De los 9 problemas reportados:
    - Validar conflictos de horarios
    - Validar disponibilidad de doctor
 
+**Implementación final**:
+- API autenticada en `/api/appointments` con GET, POST, PUT y DELETE lógico.
+- Carga, creación, edición y cancelación conectadas desde el calendario.
+- Conflictos de doctor/fecha/hora validados también en servidor.
+- Fallback local cuando la API no está disponible.
+
 **Estimado**: 4-5 horas
 
 ---
 
 ### TAREA 4: Crear Módulo de Órdenes Médicas (Nivel: ALTO)
+**Estado**: ✅ COMPLETADA
 **Archivos**: Nuevos - crear `js/ordenes-medicas.js`
 
 **Requerimientos**:
@@ -115,6 +136,7 @@ CREATE TABLE ordenes_medicas (
 ---
 
 ### TAREA 5: Crear Módulo de Gestión de Personal (Nivel: ALTO)
+**Estado**: ✅ COMPLETADA
 **Archivos**: Nuevos - crear `js/personal.js`
 
 **Requerimientos**:
@@ -166,6 +188,7 @@ CREATE TABLE disponibilidad_personal (
 ---
 
 ### TAREA 6: Arreglar Hospitalización - Ingresos a Cama (Nivel: MEDIO)
+**Estado**: ✅ COMPLETADA
 **Archivos**: `js/hospitalizaciones.js`
 
 **Problema**: No valida disponibilidad de camas, no guarda datos
@@ -205,20 +228,24 @@ CREATE TABLE disponibilidad_personal (
    - Validar antes de ingresar
    - Guardar ingreso a BD
 
+**Implementación final**:
+- Maestros persistentes de habitaciones y camas con datos iniciales.
+- API autenticada para listar ingresos, ingresar, trasladar y dar de alta.
+- Bloqueos de fila y transacciones para impedir ocupación doble.
+- Historial persistente de traslados y fallback local en frontend.
+
 **Estimado**: 3-4 horas
 
 ---
 
-## ORDEN DE IMPLEMENTACIÓN RECOMENDADO
+## ORDEN DE IMPLEMENTACIÓN EJECUTADO
 
-1. **TAREA 1** (Filtros) - 1-2h - Mejora inmediata de usabilidad
-2. **TAREA 2** (Cobros) - 3-4h - Funcionalidad crítica
-3. **TAREA 6** (Hospitalización) - 3-4h - Funcionalidad crítica
-4. **TAREA 3** (Agenda) - 4-5h - Funcionalidad importante
-5. **TAREA 4** (Órdenes) - 6-8h - Funcionalidad médica
-6. **TAREA 5** (Personal) - 6-8h - Funcionalidad administrativa
-
-**Total estimado**: 23-31 horas de desarrollo
+1. ✅ Filtros avanzados.
+2. ✅ Órdenes médicas.
+3. ✅ Personal médico.
+4. ✅ Agenda API.
+5. ✅ Caja API.
+6. ✅ Hospitalización API.
 
 ---
 
@@ -226,16 +253,16 @@ CREATE TABLE disponibilidad_personal (
 
 Para cada tarea completada, verificar:
 
-- [ ] Código implementado y probado localmente
-- [ ] Validación de datos en formularios
-- [ ] Mensajes de error claros para usuarios
-- [ ] Datos se guardan correctamente en BD
-- [ ] Datos persisten después de recargar página
-- [ ] Búsqueda/filtros funcionan
-- [ ] Integración con otros módulos (si aplica)
-- [ ] Sin errores en consola del navegador
-- [ ] Sin errores en servidor backend
-- [ ] Documentación actualizada
+- [x] Código implementado y validado estáticamente
+- [x] Validación de datos en formularios
+- [x] Mensajes de error claros para usuarios
+- [x] Persistencia mediante API implementada
+- [x] Búsqueda/filtros implementados
+- [x] Integración con módulos relacionados
+- [x] Rutas y controladores cargan correctamente
+- [x] Documentación actualizada
+- [ ] Ejecutar migraciones en el servidor de producción
+- [ ] Ejecutar pruebas integrales con la base PostgreSQL de producción
 
 ---
 
@@ -276,5 +303,5 @@ Para preguntas sobre implementación, revisar:
 
 ---
 
-Documento finalizado: 2026-08-07
-Versión: 1.0.0
+Documento finalizado: 2026-10-01
+Versión: 2.0.0

@@ -280,10 +280,9 @@ function navigateToPage(pageId) {
 
     currentPage = pageId;
 
-    // Close sidebar on mobile
-    const sidebar = document.querySelector('.sidebar');
-    if (window.innerWidth <= 768 && sidebar.classList.contains('active')) {
-        sidebar.classList.remove('active');
+    // Cerrar el drawer después de navegar en pantallas pequeñas.
+    if (window.innerWidth <= 768) {
+        setSidebarOpen(false);
     }
 
     // Re-initialize charts if on dashboard or financial dashboard
@@ -1749,19 +1748,42 @@ function processBulkTransactions() {
 
 function setupResponsive() {
     const toggleBtn = document.getElementById('toggleSidebar');
-    const sidebar = document.querySelector('.sidebar');
+    const closeBtn = document.getElementById('closeSidebar');
+    const backdrop = document.getElementById('sidebarBackdrop');
+    const sidebar = document.getElementById('mainSidebar');
 
     if (toggleBtn && sidebar) {
         toggleBtn.addEventListener('click', function() {
-            sidebar.classList.toggle('active');
+            setSidebarOpen(!sidebar.classList.contains('active'));
         });
     }
 
-    window.addEventListener('resize', function() {
-        if (window.innerWidth > 768) {
-            sidebar.classList.remove('active');
+    closeBtn?.addEventListener('click', () => setSidebarOpen(false));
+    backdrop?.addEventListener('click', () => setSidebarOpen(false));
+
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && sidebar?.classList.contains('active')) {
+            setSidebarOpen(false);
+            toggleBtn?.focus();
         }
     });
+
+    window.addEventListener('resize', () => setSidebarOpen(false));
+    setSidebarOpen(false);
+}
+
+function setSidebarOpen(open) {
+    const sidebar = document.getElementById('mainSidebar');
+    const toggleBtn = document.getElementById('toggleSidebar');
+    const backdrop = document.getElementById('sidebarBackdrop');
+    if (!sidebar || !toggleBtn || !backdrop) return;
+
+    sidebar.classList.toggle('active', open);
+    backdrop.classList.toggle('active', open);
+    sidebar.setAttribute('aria-hidden', String(!open));
+    toggleBtn.setAttribute('aria-expanded', String(open));
+    toggleBtn.setAttribute('aria-label', open ? 'Cerrar menú' : 'Abrir menú');
+    toggleBtn.setAttribute('title', open ? 'Cerrar menú' : 'Abrir menú');
 }
 
 // ============================================

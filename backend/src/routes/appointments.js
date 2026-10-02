@@ -7,6 +7,11 @@ const router = express.Router();
 // Todas las rutas requieren autenticación
 router.use(authMiddleware);
 
+// Listar agenda
+router.get('/', (req, res) => {
+    appointmentsController.getAllAppointments(req, res);
+});
+
 // Citas del día
 router.get('/today', (req, res) => {
     appointmentsController.getTodayAppointments(req, res);
@@ -30,6 +35,11 @@ router.post('/', (req, res) => {
 // Actualizar cita
 router.put('/:id', (req, res) => {
     appointmentsController.updateAppointment(req, res);
+});
+
+// Eliminar cita
+router.delete('/:id', (req, res) => {
+    appointmentsController.deleteAppointment(req, res);
 });
 
 module.exports = router;

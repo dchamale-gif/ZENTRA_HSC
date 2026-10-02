@@ -105,36 +105,20 @@ const AgendaAvanzadaModule = {
 
     // Cargar datos iniciales
     loadData() {
-        try {
-            // Intentar cargar de API primero
-            this.loadCitasFromAPI();
-        } catch (error) {
-            console.warn('Error cargando de API, usando localStorage:', error);
-            
-            // Fallback a localStorage
-            const savedDoctores = localStorage.getItem('agendaDoctores');
-            const savedBloqueos = localStorage.getItem('agendaBloqueos');
-            const savedRestricciones = localStorage.getItem('agendaRestricciones');
-            const savedCitas = localStorage.getItem('agendaCitas');
+        const savedDoctores = localStorage.getItem('agendaDoctores');
+        const savedBloqueos = localStorage.getItem('agendaBloqueos');
+        const savedRestricciones = localStorage.getItem('agendaRestricciones');
+        const savedCitas = localStorage.getItem('agendaCitas');
 
-            if (savedDoctores) {
-                this.state.doctores = JSON.parse(savedDoctores);
-            } else {
-                this.loadDefaultDoctores();
-            }
-
-            if (savedBloqueos) {
-                this.state.bloqueoPersonal = JSON.parse(savedBloqueos);
-            }
-
-            if (savedRestricciones) {
-                this.state.restriccionesDoctor = JSON.parse(savedRestricciones);
-            }
-
-            if (savedCitas) {
-                this.state.citas = JSON.parse(savedCitas);
-            }
+        if (savedDoctores) {
+            this.state.doctores = JSON.parse(savedDoctores);
+        } else {
+            this.loadDefaultDoctores();
         }
+
+        if (savedBloqueos) this.state.bloqueoPersonal = JSON.parse(savedBloqueos);
+        if (savedRestricciones) this.state.restriccionesDoctor = JSON.parse(savedRestricciones);
+        if (savedCitas) this.state.citas = JSON.parse(savedCitas);
 
         this.state.especialidades = [
             { id: 1, nombre: 'Psiquiatría General', icon: 'fa-brain', color: '#8E44AD', bgColor: '#EBD6F7' },
@@ -147,36 +131,72 @@ const AgendaAvanzadaModule = {
 
         // Inicializar restricciones por defecto
         this.initDefaultRestricciones();
+        this.loadCitasFromAPI();
     },
 
     // Cargar citas desde API
-    loadCitasFromAPI() {
+    async loadCitasFromAPI() {
         const token = authManager?.getToken?.();
-        const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
+        const apiHost = authManager?.apiBaseUrl || 'http://178.128.72.110:3011';
+        const apiBase = apiHost.endsWith('/api') ? apiHost : `${apiHost}/api`;
 
         if (!token) {
-            throw new Error('No hay token de autenticación');
+            console.warn('No hay token, se conserva la agenda local');
+            return;
         }
 
-        // Para ahora, cargar de localStorage como fallback
-        const savedCitas = localStorage.getItem('agendaCitas');
-        const savedDoctores = localStorage.getItem('agendaDoctores');
+        try {
+            const response = await fetch(`${apiBase}/appointments`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success || !Array.isArray(result.data)) {
+                throw new Error(result.message || 'Respuesta inválida de la API');
+            }
 
-        if (savedCitas) {
-            this.state.citas = JSON.parse(savedCitas);
+            const localById = new Map(this.state.citas.map(cita => [String(cita.id), cita]));
+            this.state.citas = result.data.map(cita => this.mapCitaFromAPI(cita, localById.get(String(cita.id))));
+            this.saveCitasToStorage();
+            this.renderCalendar();
+        } catch (error) {
+            console.warn('No se pudo cargar la agenda desde la API; se conserva el respaldo local:', error);
         }
+    },
 
-        if (savedDoctores) {
-            this.state.doctores = JSON.parse(savedDoctores);
-        } else {
-            this.loadDefaultDoctores();
-        }
+    mapCitaFromAPI(cita, local = {}) {
+        const doctorId = cita.doctor_id || cita.doctorId;
+        const doctor = this.state.doctores.find(item => String(item.id) === String(doctorId));
+        const rawStatus = String(cita.estado || 'pendiente').toLowerCase();
+        const statuses = {
+            pendiente: 'Pendiente',
+            confirmada: 'Confirmada',
+            activo: 'Confirmada',
+            cancelada: 'Cancelada'
+        };
+        const status = statuses[rawStatus] || 'Pendiente';
 
-        // En el futuro, reemplazar con llamadas reales a API:
-        // fetch(`${apiBase}/citas`, { headers: { Authorization: `Bearer ${token}` } })
-        //     .then(r => r.json())
-        //     .then(data => this.state.citas = data.citas || [])
-        //     .catch(() => { /* fallback */ });
+        return {
+            ...local,
+            id: cita.id,
+            pacienteId: cita.paciente_id || cita.pacienteId,
+            paciente: cita.paciente_nombre
+                ? `${cita.paciente_nombre} ${cita.apellido_paterno || ''}`.trim()
+                : (cita.pacienteNombre || local.paciente || 'Paciente'),
+            email: cita.email || local.email || '',
+            telefono: cita.telefono || local.telefono || '',
+            doctorId,
+            doctorNombre: cita.doctor_nombre || cita.doctorNombre || doctor?.nombre || local.doctorNombre,
+            doctorColor: doctor?.color || local.doctorColor,
+            doctorBgColor: doctor?.bgColor || local.doctorBgColor,
+            especialidad: cita.especialidad || doctor?.especialidad || local.especialidad || 'Sin especialidad',
+            especialidadId: doctor?.especialidadId || local.especialidadId || 0,
+            fecha: String(cita.fecha).slice(0, 10),
+            hora: String(cita.hora).slice(0, 5),
+            condiciones: cita.diagnostico || local.condiciones || '',
+            notas: cita.observaciones || local.notas || '',
+            estado: status,
+            confirmada: status === 'Confirmada'
+        };
     },
 
     // Doctores por defecto
@@ -581,6 +601,7 @@ const AgendaAvanzadaModule = {
     openAppointmentModal() {
         const modal = document.getElementById('appointmentModal');
         if (modal) {
+            delete modal.dataset.editingAppointmentId;
             modal.style.display = 'block';
             document.getElementById('patientSearch').value = '';
             document.getElementById('patientId').value = '';
@@ -594,6 +615,8 @@ const AgendaAvanzadaModule = {
             document.getElementById('appointmentConditions').value = '';
             document.getElementById('appointmentNotes').value = '';
             document.getElementById('patientSuggestions').style.display = 'none';
+            const saveBtn = document.getElementById('saveAppointmentBtn');
+            if (saveBtn) saveBtn.textContent = 'Guardar Cita';
         }
     },
     
@@ -703,6 +726,10 @@ const AgendaAvanzadaModule = {
             AlertasModule.mostrarError('Nombre del paciente es obligatorio');
             return;
         }
+        if (!patientId || patientId.startsWith('PAC-TEMP-')) {
+            AlertasModule.mostrarError('Selecciona un paciente registrado de la lista de resultados');
+            return;
+        }
         if (!doctorId) {
             AlertasModule.mostrarError('Selecciona un doctor');
             return;
@@ -730,7 +757,9 @@ const AgendaAvanzadaModule = {
         }
 
         // Validación de disponibilidad del doctor
-        const validationResult = this.validateAvailability(doctorId, dateStr, time);
+        const modal = document.getElementById('appointmentModal');
+        const editingAppointmentId = modal?.dataset.editingAppointmentId;
+        const validationResult = this.validateAvailability(doctorId, dateStr, time, editingAppointmentId);
         if (!validationResult.available) {
             AlertasModule.mostrarError(validationResult.message);
             return;
@@ -740,9 +769,8 @@ const AgendaAvanzadaModule = {
         const doctor = this.state.doctores.find(d => d.id === doctorId);
         const specialty = this.state.especialidades.find(e => e.id == specialtyId);
 
-        const newAppointment = {
-            id: `CIT-${Date.now()}`,
-            pacienteId: patientId || `PAC-TEMP-${Date.now()}`,
+        const appointmentData = {
+            pacienteId: patientId,
             paciente: patientName,
             email: email || '',
             telefono: phone || '',
@@ -759,34 +787,43 @@ const AgendaAvanzadaModule = {
             condiciones: conditions,
             notas: notes || '',
             estado: 'Pendiente',
-            fechaCreacion: new Date().toISOString(),
             confirmada: false
         };
 
-        // Agregar a state
-        this.state.citas.push(newAppointment);
-        
-        // Guardar a localStorage
+        let appointment;
+        if (editingAppointmentId) {
+            appointment = this.state.citas.find(cita => String(cita.id) === String(editingAppointmentId));
+            if (!appointment) {
+                AlertasModule.mostrarError('No se encontró la cita que deseas actualizar');
+                return;
+            }
+            Object.assign(appointment, appointmentData);
+            this.updateCitaInAPI(appointment);
+        } else {
+            appointment = {
+                id: `CIT-${Date.now()}`,
+                ...appointmentData,
+                fechaCreacion: new Date().toISOString()
+            };
+            this.state.citas.push(appointment);
+            this.saveCitaToAPI(appointment);
+        }
+
         this.saveCitasToStorage();
-        
-        // Intentar guardar a API
-        this.saveCitaToAPI(newAppointment);
-        
-        // Actualizar vista
         this.renderCalendar();
 
-        // Cerrar modal
-        const modal = document.getElementById('appointmentModal');
         if (modal) {
+            delete modal.dataset.editingAppointmentId;
             modal.style.display = 'none';
         }
 
-        AlertasModule.mostrarExito(`✓ Cita agendada para ${patientName} el ${dateStr} a las ${time}`);
-        this.sendConfirmationEmail(newAppointment);
+        const action = editingAppointmentId ? 'actualizada' : 'agendada';
+        AlertasModule.mostrarExito(`✓ Cita ${action} para ${patientName} el ${dateStr} a las ${time}`);
+        if (!editingAppointmentId) this.sendConfirmationEmail(appointment);
     },
 
     // Validar disponibilidad del doctor
-    validateAvailability(doctorId, dateStr, timeStr) {
+    validateAvailability(doctorId, dateStr, timeStr, excludedAppointmentId = null) {
         const doctor = this.state.doctores.find(d => d.id === doctorId);
         
         // Verificar que el doctor existe
@@ -820,6 +857,7 @@ const AgendaAvanzadaModule = {
 
         // Verificar disponibilidad de la hora específica
         const citaExistente = this.state.citas.some(c =>
+            String(c.id) !== String(excludedAppointmentId) &&
             c.doctorId === doctorId &&
             c.fecha === dateStr &&
             c.hora === timeStr &&
@@ -850,26 +888,32 @@ const AgendaAvanzadaModule = {
     saveCitaToAPI(appointment) {
         try {
             const token = authManager?.getToken?.();
-            const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
+            const apiHost = authManager?.apiBaseUrl || 'http://178.128.72.110:3011';
+            const apiBase = apiHost.endsWith('/api') ? apiHost : `${apiHost}/api`;
 
             if (!token) {
                 console.warn('No hay token, cita solo guardada en localStorage');
                 return;
             }
 
-            // Para futuro: integrar con API real
-            // fetch(`${apiBase}/citas`, {
-            //     method: 'POST',
-            //     headers: {
-            //         'Authorization': `Bearer ${token}`,
-            //         'Content-Type': 'application/json'
-            //     },
-            //     body: JSON.stringify(appointment)
-            // })
-            // .then(r => r.json())
-            // .catch(e => console.warn('Error guardando a API:', e));
-
-            console.log('Cita guardada en localStorage (API no disponible aún)');
+            fetch(`${apiBase}/appointments`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(this.mapCitaToAPI(appointment))
+            })
+                .then(async response => {
+                    const result = await response.json();
+                    if (!response.ok || !result.success) throw new Error(result.message || 'No se pudo crear la cita');
+                    if (result.data?.id) appointment.id = result.data.id;
+                    this.saveCitasToStorage();
+                })
+                .catch(error => {
+                    console.warn('Cita conservada localmente; falló la API:', error);
+                    AlertasModule.mostrarError('La cita quedó guardada localmente por falta de conexión');
+                });
         } catch (error) {
             console.warn('Error intentando guardar a API:', error);
         }
@@ -918,8 +962,7 @@ const AgendaAvanzadaModule = {
             }
             
             // Cambiar botón de "Crear" a "Actualizar"
-            const saveBtn = document.querySelector('[onclick*="AgendaAvanzadaModule.saveAppointment"]') || 
-                          document.querySelector('button:contains("Guardar")');
+            const saveBtn = document.getElementById('saveAppointmentBtn');
             if (saveBtn) {
                 saveBtn.textContent = '✏️ Actualizar Cita';
             }
@@ -950,27 +993,50 @@ const AgendaAvanzadaModule = {
     updateCitaInAPI(appointment) {
         try {
             const token = authManager?.getToken?.();
-            const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
+            const apiHost = authManager?.apiBaseUrl || 'http://178.128.72.110:3011';
+            const apiBase = apiHost.endsWith('/api') ? apiHost : `${apiHost}/api`;
 
             if (!token) {
                 console.warn('No hay token, cambio solo en localStorage');
                 return;
             }
 
-            // Para futuro: integrar con API real
-            // fetch(`${apiBase}/citas/${appointment.id}`, {
-            //     method: 'PUT',
-            //     headers: {
-            //         'Authorization': `Bearer ${token}`,
-            //         'Content-Type': 'application/json'
-            //     },
-            //     body: JSON.stringify(appointment)
-            // })
-            // .then(r => r.json())
-            // .catch(e => console.warn('Error actualizando en API:', e));
+            fetch(`${apiBase}/appointments/${encodeURIComponent(appointment.id)}`, {
+                method: 'PUT',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(this.mapCitaToAPI(appointment))
+            })
+                .then(async response => {
+                    const result = await response.json();
+                    if (!response.ok || !result.success) throw new Error(result.message || 'No se pudo actualizar la cita');
+                })
+                .catch(error => {
+                    console.warn('Cambio conservado localmente; falló la API:', error);
+                    AlertasModule.mostrarError('El cambio quedó guardado localmente por falta de conexión');
+                });
         } catch (error) {
             console.warn('Error intentando actualizar en API:', error);
         }
+    },
+
+    mapCitaToAPI(appointment) {
+        const statuses = {
+            Pendiente: 'pendiente',
+            Confirmada: 'confirmada',
+            Cancelada: 'cancelada'
+        };
+        return {
+            paciente_id: appointment.pacienteId,
+            doctor_id: appointment.doctorId,
+            fecha: appointment.fecha,
+            hora: appointment.hora,
+            diagnostico: appointment.condiciones,
+            observaciones: appointment.notas || '',
+            estado: statuses[appointment.estado] || String(appointment.estado || 'pendiente').toLowerCase()
+        };
     },
 
     // Agregar bloqueo de personal

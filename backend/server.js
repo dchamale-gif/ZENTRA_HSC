@@ -27,6 +27,8 @@ const documentosPacienteRoutes = require('./src/routes/documentosPacienteRoutes'
 const personalMedicoRoutes = require('./src/routes/personalMedicoRoutes');
 const comprasRoutes = require('./src/routes/compras');
 const ventasRoutes = require('./src/routes/ventas');
+const cajaRoutes = require('./src/routes/caja');
+const hospitalizacionesRoutes = require('./src/routes/hospitalizaciones');
 
 // Importar middleware
 const { auditMiddleware } = require('./src/middleware/audit');
@@ -115,6 +117,12 @@ app.use('/api/expenses', expensesRoutes);
 
 // Cuentas por cobrar
 app.use('/api/receivables', receivablesRoutes);
+
+// Movimientos de caja
+app.use('/api/caja', cajaRoutes);
+
+// Hospitalizaciones, habitaciones y camas
+app.use('/api/hospitalizaciones', hospitalizacionesRoutes);
 
 // Lugar de Trabajo
 app.use('/api/empresas', empresasRoutes);

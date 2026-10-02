@@ -39,43 +39,28 @@ const HospitalizacionesModule = {
 
     // Cargar datos CON SOPORTE A API
     loadData() {
-        try {
-            console.log('🔄 Hospitalizaciones: Cargando datos...');
-            this.loadDataFromAPI();
-            console.log('✅ Hospitalizaciones: Datos cargados');
-        } catch (error) {
-            console.warn('⚠️ Error cargando de API, usando fallbacks:', error);
-            
-            // Cargar desde localStorage o mostrar error
+        if (typeof PacientesModule !== 'undefined' && PacientesModule.state?.pacientes?.length > 0) {
+            this.state.pacientes = JSON.parse(JSON.stringify(PacientesModule.state.pacientes));
+        } else {
             const pacientesFromStorage = localStorage.getItem('pacientes');
-            if (pacientesFromStorage) {
-                this.state.pacientes = JSON.parse(pacientesFromStorage);
-                console.log(`✅ Hospitalizaciones: ${this.state.pacientes.length} pacientes desde localStorage`);
-            } else {
-                console.error('❌ ERROR: No hay pacientes disponibles');
-                this.showNotification('❌ Error: No hay pacientes disponibles', 'error');
-                this.state.pacientes = [];
-            }
-            
-            const hospFromStorage = localStorage.getItem('hospitalizaciones');
-            if (hospFromStorage) {
-                this.state.hospitalizaciones = JSON.parse(hospFromStorage);
-            } else {
-                console.warn('⚠️ No hay hospitalizaciones en localStorage');
-                this.state.hospitalizaciones = [];
-            }
+            this.state.pacientes = pacientesFromStorage ? JSON.parse(pacientesFromStorage) : [];
         }
-        
+
+        const hospFromStorage = localStorage.getItem('hospitalizaciones');
+        this.state.hospitalizaciones = hospFromStorage ? JSON.parse(hospFromStorage) : [];
         this.render();
+        this.loadDataFromAPI();
     },
 
     // Cargar datos desde API
     async loadDataFromAPI() {
         const token = authManager?.getToken?.();
-        const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
+        const apiHost = authManager?.apiBaseUrl || 'http://178.128.72.110:3011';
+        const apiBase = apiHost.endsWith('/api') ? apiHost : `${apiHost}/api`;
 
         if (!token) {
-            throw new Error('No hay token de autenticación');
+            console.warn('No hay token, se conservan las hospitalizaciones locales');
+            return;
         }
 
         // PASO 1: Cargar pacientes desde PacientesModule (si está disponible)
@@ -89,7 +74,7 @@ const HospitalizacionesModule = {
             // PASO 2: Si PacientesModule no está disponible, cargar directamente desde API
             console.warn('⚠️ PacientesModule no disponible, cargando de API...');
             try {
-                const response = await fetch(`${apiBase}/api/pacientes`, {
+                const response = await fetch(`${apiBase}/pacientes`, {
                     method: 'GET',
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -102,22 +87,37 @@ const HospitalizacionesModule = {
                 }
 
                 const data = await response.json();
-                this.state.pacientes = data.pacientes || [];
+                this.state.pacientes = data.pacientes || data.data || [];
                 console.log(`✅ Hospitalizaciones: ${this.state.pacientes.length} pacientes desde API`);
             } catch (apiError) {
                 console.error('❌ Error cargando pacientes desde API:', apiError);
-                throw apiError;
+                console.warn('Se conservan los pacientes locales:', apiError);
             }
         }
-        
-        // PASO 3: Cargar hospitalizaciones desde localStorage
-        const hospFromStorage = localStorage.getItem('hospitalizaciones');
-        if (hospFromStorage) {
-            this.state.hospitalizaciones = JSON.parse(hospFromStorage);
-            console.log(`✅ Hospitalizaciones: ${this.state.hospitalizaciones.length} registros cargados`);
-        } else {
-            console.warn('⚠️ No hay hospitalizaciones registradas en localStorage');
-            this.state.hospitalizaciones = [];
+
+        try {
+            const response = await fetch(`${apiBase}/hospitalizaciones/ingresos`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success || !Array.isArray(result.data)) {
+                throw new Error(result.message || 'Respuesta inválida de la API');
+            }
+            this.state.hospitalizaciones = result.data.map(registro => {
+                const paciente = this.state.pacientes.find(item => String(item.id) === String(registro.pacienteId));
+                return {
+                    ...registro,
+                    pacienteId: paciente?.id ?? registro.pacienteId,
+                    fechaIngreso: String(registro.fechaIngreso).slice(0, 10),
+                    horaIngreso: registro.horaIngreso ? String(registro.horaIngreso).slice(0, 8) : '',
+                    fechaAlta: registro.fechaAlta ? String(registro.fechaAlta).slice(0, 10) : null,
+                    horaAlta: registro.horaAlta ? String(registro.horaAlta).slice(0, 8) : null
+                };
+            });
+            this.saveToDB();
+            this.render();
+        } catch (error) {
+            console.warn('No se pudo cargar Hospitalización desde la API; se conserva el respaldo local:', error);
         }
     },
 
@@ -254,8 +254,7 @@ const HospitalizacionesModule = {
     // Abrir modal para la razón del traslado
     openModalTraslado(hospId, pacienteId, camaOrigen, camaDestino) {
         const hosp = this.state.hospitalizaciones.find(h => h.id === hospId);
-        const pacienteIdNum = parseInt(pacienteId);
-        const paciente = this.state.pacientes.find(p => parseInt(p.id) === pacienteIdNum);
+        const paciente = this.state.pacientes.find(p => String(p.id) === String(pacienteId));
 
         if (!hosp || !paciente) {
             console.error('❌ No se encontró hospitalización o paciente');
@@ -307,7 +306,7 @@ const HospitalizacionesModule = {
     },
 
     // Confirmar traslado de paciente
-    confirmarTraslado(hospId, camaDestino) {
+    async confirmarTraslado(hospId, camaDestino) {
         const hosp = this.state.hospitalizaciones.find(h => h.id === hospId);
         if (!hosp) return;
 
@@ -322,6 +321,9 @@ const HospitalizacionesModule = {
             this.render();
             return;
         }
+
+        const transferResult = await this.transferHospitalizacionInAPI(hosp, camaDestino);
+        if (transferResult === false) return;
 
         // Actualizar hospitalización
         const camaDestinoInfo = camaDestino.split('-');
@@ -343,6 +345,38 @@ const HospitalizacionesModule = {
         document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
 
         this.showNotification(`Paciente trasladado exitosamente a Piso ${camaDestinoInfo[0]}, Habitación ${camaDestinoInfo[1]}`, 'success');
+    },
+
+    async transferHospitalizacionInAPI(hospitalizacion, camaDestino) {
+        const token = authManager?.getToken?.();
+        const apiHost = authManager?.apiBaseUrl || 'http://178.128.72.110:3011';
+        const apiBase = apiHost.endsWith('/api') ? apiHost : `${apiHost}/api`;
+        if (!token) return true;
+
+        try {
+            const response = await fetch(`${apiBase}/hospitalizaciones/traslados`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    hospitalizacionId: hospitalizacion.id,
+                    camaDestino
+                })
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                this.showNotification(result.message || 'No se pudo registrar el traslado', 'error');
+                await this.loadDataFromAPI();
+                return false;
+            }
+            return true;
+        } catch (error) {
+            console.warn('Traslado conservado localmente; falló la API:', error);
+            this.showNotification('Traslado guardado localmente por falta de conexión', 'warning');
+            return true;
+        }
     },
 
     // Renderizar una habitación individual
@@ -621,7 +655,7 @@ const HospitalizacionesModule = {
             );
 
             if (ocupada) {
-                const paciente = this.state.pacientes.find(p => parseInt(p.id) === parseInt(ocupada.pacienteId));
+                const paciente = this.state.pacientes.find(p => String(p.id) === String(ocupada.pacienteId));
                 html += `
                     <div style="border: 2px solid #ff6b6b; padding: 15px; border-radius: 5px; background: #ffe0e0;">
                         <strong>Cama ${idx + 1}</strong><br>
@@ -721,7 +755,7 @@ const HospitalizacionesModule = {
             // Filtrar pacientes que NO están hospitalizados
             pacientes = pacientes.filter(p => {
                 const yaHospitalizado = this.state.hospitalizaciones.find(h => 
-                    parseInt(h.pacienteId) === parseInt(p.id) && h.estado === 'activa'
+                    String(h.pacienteId) === String(p.id) && h.estado === 'activa'
                 );
                 return !yaHospitalizado;
             });
@@ -796,7 +830,7 @@ const HospitalizacionesModule = {
         try {
             console.log('✅ Paciente seleccionado para hospitalización:', pacienteNombre);
             
-            const paciente = this.state.pacientesDispHosp.find(p => parseInt(p.id) === parseInt(pacienteId));
+            const paciente = this.state.pacientesDispHosp.find(p => String(p.id) === String(pacienteId));
             if (!paciente) return;
 
             // Cerrar modal
@@ -843,7 +877,7 @@ const HospitalizacionesModule = {
         // Filtrar pacientes que no están hospitalizados o están dados de alta
         pacientesDisponibles = pacientesDisponibles.filter(p => {
             const yaHospitalizado = this.state.hospitalizaciones.find(h => 
-                parseInt(h.pacienteId) === parseInt(p.id) && h.estado === 'activa'
+                String(h.pacienteId) === String(p.id) && h.estado === 'activa'
             );
             return !yaHospitalizado;
         });
@@ -882,7 +916,7 @@ const HospitalizacionesModule = {
     // Abrir modal final para datos de hospitalización
     openDatosHospitalizacion(pacienteId, camaId) {
         // Convertir pacienteId a número para coincidencia correcta
-        const pacienteIdNum = parseInt(pacienteId);
+        const pacienteIdKey = String(pacienteId);
         
         // Validar que tenemos pacientes
         if (!this.state.pacientes || this.state.pacientes.length === 0) {
@@ -897,7 +931,7 @@ const HospitalizacionesModule = {
             }
         }
         
-        const paciente = this.state.pacientes.find(p => parseInt(p.id) === pacienteIdNum);
+        const paciente = this.state.pacientes.find(p => String(p.id) === pacienteIdKey);
         
         if (!paciente) {
             console.error('❌ Paciente no encontrado con ID:', pacienteIdNum);
@@ -914,7 +948,7 @@ const HospitalizacionesModule = {
         // Obtener diagnóstico previo si existe en la historia clínica
         let diagnosticoPrevio = '';
         if (window.HistoriaClinicaModule && window.HistoriaClinicaModule.state) {
-            const historia = window.HistoriaClinicaModule.state.historiasClinicas?.find(h => parseInt(h.pacienteId) === pacienteIdNum);
+            const historia = window.HistoriaClinicaModule.state.historiasClinicas?.find(h => String(h.pacienteId) === pacienteIdKey);
             if (historia && historia.prescripciones && historia.prescripciones.length > 0) {
                 // Obtener el diagnóstico de la prescripción más reciente
                 const ultimaPrescripcion = historia.prescripciones[historia.prescripciones.length - 1];
@@ -989,8 +1023,7 @@ const HospitalizacionesModule = {
         }
 
         // Validar que el paciente existe (convertir a número para coincidencia correcta)
-        const pacienteIdNum = parseInt(pacienteId);
-        const paciente = this.state.pacientes.find(p => parseInt(p.id) === pacienteIdNum);
+        const paciente = this.state.pacientes.find(p => String(p.id) === String(pacienteId));
         if (!paciente) {
             alert('❌ Paciente no encontrado');
             return;
@@ -998,7 +1031,7 @@ const HospitalizacionesModule = {
 
         // Validar que no está ya hospitalizado
         const yaHospitalizado = this.state.hospitalizaciones.find(h => 
-            parseInt(h.pacienteId) === pacienteIdNum && h.estado === 'activa'
+            String(h.pacienteId) === String(pacienteId) && h.estado === 'activa'
         );
         
         if (yaHospitalizado) {
@@ -1020,7 +1053,7 @@ const HospitalizacionesModule = {
         const habInfo = camaId.split('-');
         const hospitalizacion = {
             id: this.generateId('HOSP'),
-            pacienteId: pacienteIdNum,
+            pacienteId: paciente.id,
             habitacion: `${habInfo[0]}-${habInfo[1]}`,
             cama: camaId,
             fechaIngreso: new Date().toISOString().split('T')[0],
@@ -1052,31 +1085,35 @@ const HospitalizacionesModule = {
 
     // Guardar hospitalización a API
     saveHospitalizacionToAPI(hospitalizacion) {
-        try {
-            const token = authManager?.getToken?.();
-            const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
+        const token = authManager?.getToken?.();
+        const apiHost = authManager?.apiBaseUrl || 'http://178.128.72.110:3011';
+        const apiBase = apiHost.endsWith('/api') ? apiHost : `${apiHost}/api`;
+        if (!token) return;
 
-            if (!token) {
-                console.warn('No hay token, hospitalización solo guardada en localStorage');
-                return;
-            }
-
-            // Para futuro: integrar con API real
-            // fetch(`${apiBase}/hospitalizaciones/ingresos`, {
-            //     method: 'POST',
-            //     headers: {
-            //         'Authorization': `Bearer ${token}`,
-            //         'Content-Type': 'application/json'
-            //     },
-            //     body: JSON.stringify(hospitalizacion)
-            // })
-            // .then(r => r.json())
-            // .catch(e => console.warn('Error guardando a API:', e));
-
-            console.log('Hospitalización guardada en localStorage (API no disponible aún)');
-        } catch (error) {
-            console.warn('Error intentando guardar a API:', error);
-        }
+        fetch(`${apiBase}/hospitalizaciones/ingresos`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(hospitalizacion)
+        })
+            .then(async response => {
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    this.state.hospitalizaciones = this.state.hospitalizaciones.filter(item => item !== hospitalizacion);
+                    this.saveToDB();
+                    this.render();
+                    this.showNotification(result.message || 'No se pudo registrar el ingreso', 'error');
+                    return;
+                }
+                if (result.data?.id) hospitalizacion.id = result.data.id;
+                this.saveToDB();
+            })
+            .catch(error => {
+                console.warn('Ingreso conservado localmente; falló la API:', error);
+                this.showNotification('Ingreso guardado localmente por falta de conexión', 'warning');
+            });
     },
 
     // Abrir modal para agregar desde cama libre
@@ -1113,29 +1150,37 @@ const HospitalizacionesModule = {
 
     // Actualizar hospitalización en API
     updateHospitalizacionInAPI(hospitalizacion) {
-        try {
-            const token = authManager?.getToken?.();
-            const apiBase = authManager?.apiBaseUrl || 'http://178.128.72.110:3011/api';
+        const token = authManager?.getToken?.();
+        const apiHost = authManager?.apiBaseUrl || 'http://178.128.72.110:3011';
+        const apiBase = apiHost.endsWith('/api') ? apiHost : `${apiHost}/api`;
+        if (!token) return;
 
-            if (!token) {
-                console.warn('No hay token, cambio solo en localStorage');
-                return;
-            }
-
-            // Para futuro: integrar con API real
-            // fetch(`${apiBase}/hospitalizaciones/ingresos/${hospitalizacion.id}`, {
-            //     method: 'PUT',
-            //     headers: {
-            //         'Authorization': `Bearer ${token}`,
-            //         'Content-Type': 'application/json'
-            //     },
-            //     body: JSON.stringify(hospitalizacion)
-            // })
-            // .then(r => r.json())
-            // .catch(e => console.warn('Error actualizando en API:', e));
-        } catch (error) {
-            console.warn('Error intentando actualizar en API:', error);
-        }
+        fetch(`${apiBase}/hospitalizaciones/egresos`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                hospitalizacionId: hospitalizacion.id,
+                fechaAlta: hospitalizacion.fechaAlta
+            })
+        })
+            .then(async response => {
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    hospitalizacion.estado = 'activa';
+                    hospitalizacion.fechaAlta = null;
+                    hospitalizacion.horaAlta = null;
+                    this.saveToDB();
+                    this.render();
+                    this.showNotification(result.message || 'No se pudo registrar el alta', 'error');
+                }
+            })
+            .catch(error => {
+                console.warn('Alta conservada localmente; falló la API:', error);
+                this.showNotification('Alta guardada localmente por falta de conexión', 'warning');
+            });
     },
 
     // Ver detalles de hospitalización
