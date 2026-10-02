@@ -812,6 +812,9 @@ const SaldoPacienteModule = {
         const impuestosIncluidos = Number(estadoCuenta.totales?.impuestos_total) || 0;
         const totalAbonos = Number(estadoCuenta.totales?.total_abonos) ||
             abonos.reduce((total, abono) => total + (Number(abono.monto) || 0), 0);
+        const saldoAFavor = Math.max(0, -saldoPendiente);
+        const totalAPagar = Math.max(0, saldoPendiente);
+        const saldoMostradoPaciente = totalAPagar || saldoAFavor;
 
         const ventana = window.open('', '_blank', 'width=850,height=900');
         const fechaActual = new Date();
@@ -1318,31 +1321,31 @@ const SaldoPacienteModule = {
                                 <span class="summary-value">Q${descuentos.toFixed(2)}</span>
                             </div>
                             <div class="summary-row">
-                                <span class="summary-label">IVA incluido:</span>
-                                <span class="summary-value">Q${impuestosIncluidos.toFixed(2)}</span>
-                            </div>
-                            <div class="summary-row" style="font-weight: bold; border-top: 2px solid #ddd; padding-top: 8px; margin-top: 8px;">
-                                <span class="summary-label">TOTAL A PAGAR:</span>
-                                <span class="summary-value" style="color: #0066cc; font-size: 15px;">Q${saldoPendiente.toFixed(2)}</span>
-                            </div>
-                            <div class="summary-row">
                                 <span class="summary-label">Abonos:</span>
                                 <span class="summary-value" style="color: #27ae60;">(Q${totalAbonos.toFixed(2)})</span>
                             </div>
-                            <div class="summary-row" style="color: ${saldoPendiente > 0 ? '#e74c3c' : '#27ae60'}; font-weight: bold; border-top: 1px solid #ddd; padding-top: 8px; margin-top: 8px;">
+                            <div class="summary-row">
+                                <span class="summary-label">IVA:</span>
+                                <span class="summary-value">Q${impuestosIncluidos.toFixed(2)}</span>
+                            </div>
+                            <div class="summary-row" style="color: #c0392b; font-weight: bold; border-top: 1px solid #ddd; padding-top: 8px; margin-top: 8px;">
                                 <span>Saldo a Favor del Paciente:</span>
-                                <span class="summary-value">Q${Math.max(0, saldoPendiente).toFixed(2)}</span>
+                                <span class="summary-value">Q${saldoMostradoPaciente.toFixed(2)}</span>
+                            </div>
+                            <div class="summary-row" style="font-weight: bold; border-top: 1px solid #ddd; padding-top: 8px; margin-top: 8px;">
+                                <span class="summary-label">TOTAL A PAGAR:</span>
+                                <span class="summary-value" style="color: #0066cc; font-size: 15px;">Q${totalAPagar.toFixed(2)}</span>
                             </div>
                         </div>
 
                         <div class="total-box">
                             <div class="total-label">TOTAL A PAGAR</div>
-                            <div class="total-amount">Q${saldoPendiente.toFixed(2)}</div>
+                            <div class="total-amount">Q${totalAPagar.toFixed(2)}</div>
                             <div class="total-note">
-                                ${saldoPendiente === 0 ? '✓ SALDO PAGADO' : '⚠ DEUDA PENDIENTE'}
+                                ${totalAPagar === 0 ? (saldoAFavor > 0 ? 'SALDO A FAVOR' : '✓ SALDO PAGADO') : '⚠ DEUDA PENDIENTE'}
                             </div>
-                            <div class="status-badge ${saldoPendiente === 0 ? 'status-pagado' : 'status-deudor'}" style="margin-top: 12px;">
-                                ${saldoPendiente === 0 ? '✓ PAGADO' : '⚠ DEUDOR'}
+                            <div class="status-badge ${totalAPagar === 0 ? 'status-pagado' : 'status-deudor'}" style="margin-top: 12px;">
+                                ${totalAPagar === 0 ? (saldoAFavor > 0 ? `A FAVOR Q${saldoAFavor.toFixed(2)}` : '✓ PAGADO') : '⚠ DEUDOR'}
                             </div>
                         </div>
                     </div>
