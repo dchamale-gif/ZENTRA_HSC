@@ -117,7 +117,7 @@ const CajaIntegradaModule = {
             });
             const result = await response.json();
             if (!response.ok || !result.success || !Array.isArray(result.data)) {
-                throw new Error(result.message || 'Respuesta inválida de la API');
+                throw new Error(result.error || result.message || 'Respuesta inválida de la API');
             }
 
             this.state.movimientosCaja = result.data.map(movimiento => ({

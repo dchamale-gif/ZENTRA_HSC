@@ -29,7 +29,8 @@ class AppointmentsController {
                 SELECT hc.id, hc.paciente_id, hc.doctor_id, hc.fecha, hc.hora,
                     hc.diagnostico, hc.tratamiento, hc.observaciones, hc.estado,
                     p.nombre AS paciente_nombre, p.apellido_paterno,
-                    p.telefono, p.email, u.nombre AS doctor_nombre, u.especialidad
+                    p.telefono, p.email, u.nombre AS doctor_nombre,
+                    NULL::text AS especialidad
                 FROM historia_clinica hc
                 JOIN pacientes p ON hc.paciente_id = p.id
                 LEFT JOIN users u ON hc.doctor_id = u.id
@@ -58,7 +59,7 @@ class AppointmentsController {
                     p.apellido_paterno,
                     hc.doctor_id,
                     u.nombre as doctor_nombre,
-                    u.especialidad,
+                    NULL::text AS especialidad,
                     hc.fecha,
                     hc.hora,
                     hc.diagnostico,

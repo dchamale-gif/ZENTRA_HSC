@@ -398,7 +398,14 @@ const SaldoPacienteFacturacion = {
 
         const resumen = document.getElementById('resumenSaldos');
         if (!resumen) {
-            console.warn('⚠️ Elemento resumenSaldos no encontrado en HTML');
+            const totalPacientes = document.getElementById('totalPacientes');
+            const totalDeudores = document.getElementById('totalDeudores');
+            const totalPagados = document.getElementById('totalPagados');
+            const deudaTotal = document.getElementById('deudaTotal');
+            if (totalPacientes) totalPacientes.textContent = this.state.saldos.length;
+            if (totalDeudores) totalDeudores.textContent = pacientesDeudores;
+            if (totalPagados) totalPagados.textContent = this.state.saldos.length - pacientesDeudores;
+            if (deudaTotal) deudaTotal.textContent = `Q${totalPendiente.toFixed(2)}`;
             return;
         }
 

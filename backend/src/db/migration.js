@@ -36,7 +36,15 @@ async function runMigrations() {
         ALTER TABLE caja ADD COLUMN IF NOT EXISTS tipo_movimiento VARCHAR(50);
         ALTER TABLE caja ADD COLUMN IF NOT EXISTS paciente_id VARCHAR(50);
         ALTER TABLE caja ADD COLUMN IF NOT EXISTS referencia VARCHAR(100);
+        ALTER TABLE caja ADD COLUMN IF NOT EXISTS categoria VARCHAR(100);
+        ALTER TABLE caja ADD COLUMN IF NOT EXISTS descripcion TEXT;
+        ALTER TABLE caja ADD COLUMN IF NOT EXISTS user_id INTEGER;
+        ALTER TABLE caja ADD COLUMN IF NOT EXISTS hora TIME;
+        ALTER TABLE caja ADD COLUMN IF NOT EXISTS saldo_anterior DECIMAL(12, 2);
+        ALTER TABLE caja ADD COLUMN IF NOT EXISTS saldo_posterior DECIMAL(12, 2);
         ALTER TABLE caja ADD COLUMN IF NOT EXISTS estado VARCHAR(20) DEFAULT 'activo';
+        ALTER TABLE caja ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+        ALTER TABLE caja ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
         CREATE INDEX IF NOT EXISTS idx_caja_paciente ON caja(paciente_id);
         CREATE INDEX IF NOT EXISTS idx_caja_tipo_movimiento ON caja(tipo_movimiento);
         CREATE INDEX IF NOT EXISTS idx_caja_fecha_creacion ON caja(fecha DESC, created_at DESC);
