@@ -94,6 +94,7 @@ async function initializeApp() {
     setupInventory();
     setupTransactions();
     setupResponsive();
+    setupMobileListTables();
     updateCurrentDate();
     
     // PASO 1: Inicializar PacientesModule primero (es crítico)
@@ -259,7 +260,7 @@ function navigateToPage(pageId) {
         'caja': 'Gestión de Caja',
         'cuentas-por-cobrar': 'Cuentas por Cobrar',
         'estados-de-cuenta': 'Estados de Cuenta',
-        'dashboard-financiero': 'Dashboard Financiero',
+        'dashboard-financiero': 'Dashboard Ejecutivo',
         'transactions': 'Transacciones',
         'reports': 'Reportes',
         'pacientes': 'Pacientes',
@@ -1784,6 +1785,71 @@ function setSidebarOpen(open) {
     toggleBtn.setAttribute('aria-expanded', String(open));
     toggleBtn.setAttribute('aria-label', open ? 'Cerrar menú' : 'Abrir menú');
     toggleBtn.setAttribute('title', open ? 'Cerrar menú' : 'Abrir menú');
+}
+
+function setupMobileListTables() {
+    const pagesContainer = document.querySelector('.pages-container');
+    if (!pagesContainer) return;
+
+    labelMobileListTables(pagesContainer);
+
+    const observer = new MutationObserver(mutations => {
+        mutations.forEach(mutation => {
+            mutation.addedNodes.forEach(node => {
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                    labelMobileListTables(node);
+                }
+            });
+        });
+    });
+
+    observer.observe(pagesContainer, { childList: true, subtree: true });
+}
+
+function labelMobileListTables(root) {
+    const selector = [
+        '.table-container table',
+        '.table-responsive table',
+        'table.data-table',
+        'table.tabla-datos',
+        'table.report-table',
+        'table.statement-table'
+    ].join(', ');
+    const excludedSelector = [
+        '.bulk-table',
+        '.purchase-items-table',
+        '.prescripcion-table',
+        '[data-mobile-layout="grid"]'
+    ].join(', ');
+    const tables = [];
+
+    const containingTable = root.closest?.(selector);
+    if (containingTable) tables.push(containingTable);
+    if (root.matches?.(selector)) tables.push(root);
+    root.querySelectorAll?.(selector).forEach(table => tables.push(table));
+
+    [...new Set(tables)].forEach(table => {
+        if (table.matches(excludedSelector)) return;
+
+        const headers = Array.from(table.querySelectorAll('thead th'))
+            .map(header => header.textContent.trim());
+        if (!headers.length) return;
+
+        table.classList.add('mobile-card-table');
+        table.parentElement?.classList.add('mobile-card-table-container');
+        table.querySelectorAll('tbody tr').forEach(row => {
+            const cells = Array.from(row.children).filter(cell => cell.tagName === 'TD');
+            const isMessageRow = cells.length === 1 && Number(cells[0].colSpan) > 1;
+
+            cells.forEach((cell, index) => {
+                cell.classList.toggle('mobile-card-message', isMessageRow);
+                cell.classList.toggle('mobile-card-actions', !isMessageRow && /^acciones?$/i.test(headers[index]));
+                if (!isMessageRow) {
+                    cell.dataset.label = headers[index] || 'Detalle';
+                }
+            });
+        });
+    });
 }
 
 // ============================================

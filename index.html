@@ -87,7 +87,7 @@
                 </a>
                 <a href="#" class="nav-item" data-page="dashboard-financiero">
                     <i class="fas fa-chart-pie"></i>
-                    <span>Dashboard Financiero</span>
+                    <span>Dashboard Ejecutivo</span>
                 </a>
                 <a href="#" class="nav-item" data-page="gastos-servicios">
                     <i class="fas fa-receipt"></i>
@@ -1757,13 +1757,38 @@
                 <!-- Dashboard Financiero Page -->
                 <div id="page-dashboard-financiero" class="page">
                     <div class="page-header">
-                        <h1>Dashboard Financiero</h1>
+                        <h1>Dashboard Ejecutivo</h1>
                         <button class="btn btn-secondary" id="refreshFinancialBtn">
                             <i class="fas fa-sync"></i> Actualizar
                         </button>
                         <button class="btn btn-secondary" id="exportFinancialBtn">
                             <i class="fas fa-download"></i> Exportar
                         </button>
+                    </div>
+                    <section class="executive-section" aria-labelledby="executiveSummaryTitle">
+                        <div class="executive-section-header">
+                            <div>
+                                <h2 id="executiveSummaryTitle">Operación clínica</h2>
+                                <p>Estado actual de pacientes, agenda, órdenes y hospitalización.</p>
+                            </div>
+                            <span class="live-status"><span aria-hidden="true"></span> Datos actuales</span>
+                        </div>
+                        <div id="executiveKPIs" class="kpi-grid executive-kpi-grid"></div>
+                        <div id="executiveAlerts" class="executive-alerts" aria-live="polite"></div>
+                        <div class="charts-section executive-charts">
+                            <div class="chart-card">
+                                <h3>Órdenes por estado</h3>
+                                <div id="ordersStatusChart" class="operational-chart"></div>
+                            </div>
+                            <div class="chart-card">
+                                <h3>Demanda por hora</h3>
+                                <div id="appointmentsHourChart" class="operational-chart"></div>
+                            </div>
+                        </div>
+                    </section>
+                    <div class="section-heading">
+                        <h2>Resumen financiero</h2>
+                        <p>Facturación, cobros, cartera y flujo de caja.</p>
                     </div>
                     <div id="financialKPIs" class="kpi-grid"></div>
                     <div class="charts-section">

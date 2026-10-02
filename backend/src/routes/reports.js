@@ -16,6 +16,11 @@ router.get('/financial-summary', (req, res) => {
     reportsController.getFinancialSummary(req, res);
 });
 
+// Resumen operativo ejecutivo
+router.get('/executive-summary', (req, res) => {
+    reportsController.getExecutiveSummary(req, res);
+});
+
 // Datos mensuales históricos
 router.get('/monthly-data', (req, res) => {
     reportsController.getMonthlyData(req, res);

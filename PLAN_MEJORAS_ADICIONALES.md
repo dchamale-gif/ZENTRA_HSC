@@ -1,11 +1,26 @@
 # PLAN DE MEJORAS ADICIONALES - Sistema Contable
 
 Documento generado: 2026-08-07  
-Estado: Propuesta de Mejoras Avanzadas después de completar 6 tareas principales
+Última actualización: 2026-10-01
+Estado: En ejecución
 
 ---
 
 ## 📊 MEJORA 1: Dashboard Ejecutivo Integrado (Nivel: MEDIO)
+
+**Estado**: 🟡 AVANZADA
+
+### Implementado
+- KPIs financieros existentes integrados en una sola vista ejecutiva.
+- KPIs operativos de pacientes, citas del día, órdenes pendientes, ocupación, hospitalizados y personal activo.
+- Alertas automáticas por ocupación, órdenes pendientes, falta de personal y alertas clínicas recientes.
+- Gráficos de órdenes por estado y demanda de citas por hora.
+- Endpoint autenticado `GET /api/reports/executive-summary`, tolerante a tablas opcionales durante despliegues graduales.
+
+### Pendiente
+- Filtros operativos por especialidad y piso.
+- Distribución de pacientes por especialidad.
+- Navegación directa desde cada KPI hacia su módulo de detalle.
 
 ### Descripción
 Crear un dashboard centralizado que agrupe información crítica de todos los módulos en una única vista ejecutiva.
