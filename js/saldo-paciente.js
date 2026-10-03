@@ -1342,11 +1342,13 @@ const SaldoPacienteModule = {
                             <div class="total-label">TOTAL A PAGAR</div>
                             <div class="total-amount">Q${totalAPagar.toFixed(2)}</div>
                             <div class="total-note">
-                                ${totalAPagar === 0 ? (saldoAFavor > 0 ? 'SALDO A FAVOR' : '✓ SALDO PAGADO') : '⚠ DEUDA PENDIENTE'}
+                                ${totalAPagar === 0 ? (saldoAFavor > 0 ? 'SALDO A FAVOR' : '✓ SALDO PAGADO') : ''}
                             </div>
-                            <div class="status-badge ${totalAPagar === 0 ? 'status-pagado' : 'status-deudor'}" style="margin-top: 12px;">
-                                ${totalAPagar === 0 ? (saldoAFavor > 0 ? `A FAVOR Q${saldoAFavor.toFixed(2)}` : '✓ PAGADO') : '⚠ DEUDOR'}
-                            </div>
+                            ${totalAPagar === 0 ? `
+                                <div class="status-badge status-pagado" style="margin-top: 12px;">
+                                    ${saldoAFavor > 0 ? `A FAVOR Q${saldoAFavor.toFixed(2)}` : '✓ PAGADO'}
+                                </div>
+                            ` : ''}
                         </div>
                     </div>
 
