@@ -25,6 +25,7 @@ desktop.ini
 # Build
 dist/
 build/
+/ediciones/
 *.min.js
 *.min.css
 

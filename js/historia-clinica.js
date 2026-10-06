@@ -195,9 +195,10 @@ const HistoriaClinicaModule = {
 
     // Renderizar tarjeta de paciente
     renderPacientCard(pacient) {
-        const historiasCount = this.state.historiasClinicas.filter(h => String(h.pacienteId) === String(pacient.id)).length;
+        const historiasCount = this.state.historiasClinicas
+            .filter(h => String(h.pacienteId ?? h.pacientId) === String(pacient.id)).length;
         const notasCount = this.state.historiasClinicas
-            .filter(h => String(h.pacienteId) === String(pacient.id))
+            .filter(h => String(h.pacienteId ?? h.pacientId) === String(pacient.id))
             .reduce((sum, h) => sum + (h.notas ? h.notas.length : 0), 0);
         
         const medicamentosCount = this.state.medicamentosAsignados
@@ -256,7 +257,9 @@ const HistoriaClinicaModule = {
         if (!container || !this.state.pacienteSeleccionado) return;
 
         const pacient = this.state.pacienteSeleccionado;
-        const historia = this.state.historiasClinicas.find(h => String(h.pacienteId) === String(pacient.id));
+        const historia = this.state.historiasClinicas.find(h =>
+            String(h.pacienteId ?? h.pacientId) === String(pacient.id)
+        );
         const medicamentosActivos = this.state.medicamentosAsignados
             .filter(m => String(m.pacienteId) === String(pacient.id) && m.estado === 'activo');
 
@@ -485,6 +488,7 @@ const HistoriaClinicaModule = {
         // Limpiar formulario de notas
         this.state.editingNoteId = null;
         noteForm.reset();
+        document.getElementById('noteModalTitle').innerHTML = '<i class="fas fa-pen-medical"></i> Nueva nota médica';
         document.getElementById('noteTipo').value = 'Observación';
         document.getElementById('noteFecha').valueAsDate = new Date();
         document.getElementById('saveNoteBtn').innerHTML = '<i class="fas fa-save"></i> Guardar Nota';
@@ -517,10 +521,15 @@ const HistoriaClinicaModule = {
         await this.openNoteModal();
         this.state.editingNoteId = noteId;
         this.switchTab('nota');
+        document.getElementById('noteModalTitle').innerHTML = '<i class="fas fa-pen-medical"></i> Editar nota médica';
         document.getElementById('noteTipo').value = nota.tipo;
         document.getElementById('noteFecha').value = nota.fecha;
         document.getElementById('noteContenido').value = nota.contenido;
-        document.getElementById('noteMedico').value = nota.medico || '';
+        const medicoSelect = document.getElementById('noteMedico');
+        if (nota.medico && ![...medicoSelect.options].some(option => option.value === nota.medico)) {
+            medicoSelect.add(new Option(`${nota.medico} (registro histórico)`, nota.medico));
+        }
+        medicoSelect.value = nota.medico || '';
         document.getElementById('saveNoteBtn').innerHTML = '<i class="fas fa-save"></i> Actualizar Nota';
     },
 
@@ -568,6 +577,11 @@ const HistoriaClinicaModule = {
         }
 
         const editingNote = historia.notas.find(nota => String(nota.id) === String(this.state.editingNoteId));
+        if (this.state.editingNoteId && !editingNote) {
+            this.showNotification('La nota cambió o ya no existe. Cierra el editor e inténtalo de nuevo.', 'error');
+            return;
+        }
+
         if (editingNote) {
             Object.assign(editingNote, { tipo, contenido, fecha, medico });
             this.showNotification('Nota actualizada correctamente', 'success');
