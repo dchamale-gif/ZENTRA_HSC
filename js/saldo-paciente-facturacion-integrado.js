@@ -483,13 +483,24 @@ const SaldoPacienteFacturacion = {
         }
 
         tbody.innerHTML = this.state.cargos_existentes.map(cargo => `
-            <tr>
+            <tr data-cargo-id="${cargo.id}">
                 <td><strong>${cargo.numero_factura || 'Sin número'}</strong></td>
                 <td>${cargo.descripcion}</td>
-                <td class="text-center">${cargo.cantidad}</td>
-                <td class="text-right">Q${Number(cargo.precio_unitario || 0).toFixed(2)}</td>
-                <td class="text-right"><strong>Q${Number(cargo.total || 0).toFixed(2)}</strong></td>
                 <td class="text-center">
+                    <input type="number" min="1" step="1" value="${cargo.cantidad}"
+                        data-cargo-cantidad aria-label="Cantidad del cargo"
+                        style="width: 72px; padding: 6px; text-align: center; border: 1px solid #ccd6e0; border-radius: 3px;">
+                </td>
+                <td class="text-right">
+                    <input type="number" min="0" step="0.01" value="${Number(cargo.precio_unitario || 0).toFixed(2)}"
+                        data-cargo-precio aria-label="Precio del cargo"
+                        style="width: 100px; padding: 6px; text-align: right; border: 1px solid #ccd6e0; border-radius: 3px;">
+                </td>
+                <td class="text-right"><strong data-cargo-total>Q${Number(cargo.total || 0).toFixed(2)}</strong></td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-primary" onclick="SaldoPacienteFacturacion.actualizarCargoExistente('${cargo.id}', this)" title="Guardar cantidad y precio">
+                        <i class="fas fa-save"></i> Guardar
+                    </button>
                     <button type="button" class="btn btn-sm btn-danger" onclick="SaldoPacienteFacturacion.anularCargoExistente('${cargo.id}')" title="Anular cargo">
                         <i class="fas fa-ban"></i> Anular
                     </button>
@@ -501,13 +512,7 @@ const SaldoPacienteFacturacion = {
     async anularCargoExistente(itemId) {
         const cargo = this.state.cargos_existentes.find(item => String(item.id) === String(itemId));
         if (!cargo || !this.state.paciente_seleccionado) return;
-        if (!confirm(`¿Anular el cargo "${cargo.descripcion}"?\n\nLa anulación quedará registrada en el historial.`)) return;
-
-        const motivo = prompt('Indica el motivo de la anulación:');
-        if (!motivo?.trim()) {
-            alert('El motivo de anulación es obligatorio');
-            return;
-        }
+        if (!confirm(`¿Estás seguro de eliminar el cargo "${cargo.descripcion}"?`)) return;
 
         try {
             const response = await fetch(`${authManager.apiBaseUrl}/api/billing/cargos/${itemId}/anular`, {
@@ -518,7 +523,7 @@ const SaldoPacienteFacturacion = {
                 },
                 body: JSON.stringify({
                     paciente_id: this.state.paciente_seleccionado.id,
-                    motivo: motivo.trim()
+                    motivo: 'Eliminado desde el editor de cuenta'
                 })
             });
             const result = await response.json().catch(() => ({}));
@@ -532,6 +537,52 @@ const SaldoPacienteFacturacion = {
             this.renderTotales();
         } catch (error) {
             alert(`No se pudo anular el cargo: ${error.message}`);
+        }
+    },
+
+    async actualizarCargoExistente(itemId, button) {
+        const cargo = this.state.cargos_existentes.find(item => String(item.id) === String(itemId));
+        const row = button?.closest(`[data-cargo-id="${itemId}"]`);
+        if (!cargo || !row || !this.state.paciente_seleccionado) return;
+
+        const cantidad = Number(row.querySelector('[data-cargo-cantidad]')?.value);
+        const precioUnitario = Number(row.querySelector('[data-cargo-precio]')?.value);
+        if (!Number.isInteger(cantidad) || cantidad <= 0) {
+            alert('La cantidad debe ser un número entero mayor que cero');
+            return;
+        }
+        if (!Number.isFinite(precioUnitario) || precioUnitario < 0) {
+            alert('El precio debe ser un número mayor o igual a cero');
+            return;
+        }
+
+        button.disabled = true;
+        try {
+            const response = await fetch(`${authManager.apiBaseUrl}/api/billing/cargos/${itemId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${authManager.getToken()}`
+                },
+                body: JSON.stringify({
+                    paciente_id: this.state.paciente_seleccionado.id,
+                    cantidad,
+                    precio_unitario: precioUnitario
+                })
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || result.message || `Error ${response.status}`);
+            }
+
+            alert('Cargo actualizado correctamente');
+            await this.refrescarSaldoDelPaciente(this.state.paciente_seleccionado.id);
+            await this.cargarCargosExistentes(this.state.paciente_seleccionado.id);
+            this.renderTotales();
+        } catch (error) {
+            alert(`No se pudo actualizar el cargo: ${error.message}`);
+        } finally {
+            button.disabled = false;
         }
     },
 

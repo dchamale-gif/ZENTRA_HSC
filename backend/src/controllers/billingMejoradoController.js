@@ -774,6 +774,152 @@ class BillingMejoradoController {
     }
 
     /**
+     * Modificar cantidad y precio de un cargo existente
+     */
+    async actualizarCargo(req, res) {
+        let client;
+        try {
+            const itemId = String(req.params.item_id || '').trim();
+            const pacienteId = String(req.body.paciente_id || '').trim();
+            const cantidad = Number(req.body.cantidad);
+            const precioUnitario = Number(req.body.precio_unitario);
+            const userId = Number(req.user.id);
+
+            if (!itemId || !pacienteId || !Number.isInteger(cantidad) || cantidad <= 0 ||
+                !Number.isFinite(precioUnitario) || precioUnitario < 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Cargo, paciente, cantidad y precio válidos son requeridos'
+                });
+            }
+            if (!Number.isInteger(userId)) {
+                return res.status(400).json({ success: false, message: 'Usuario no válido' });
+            }
+
+            client = await db.connect();
+            await client.query('BEGIN');
+
+            const itemResult = await client.query(`
+                SELECT vi.id, vi.venta_id, vi.descripcion, vi.cantidad,
+                       vi.precio_unitario, vi.subtotal, vi.descuento,
+                       vi.total AS item_total, v.numero_factura,
+                       v.subtotal AS venta_subtotal, v.total_descuentos,
+                       v.base_impuesto, v.total_impuestos, v.total AS venta_total,
+                       ps.saldo_pendiente, ps.total_deuda
+                FROM venta_items vi
+                JOIN ventas v ON v.id = vi.venta_id
+                JOIN pacientes_saldo ps ON ps.paciente_id = v.paciente_id
+                WHERE vi.id = $1 AND v.paciente_id = $2
+                  AND COALESCE(vi.anulado, FALSE) = FALSE
+                FOR UPDATE OF vi, v, ps`,
+                [itemId, pacienteId]
+            );
+            if (itemResult.rows.length === 0) {
+                const error = new Error('El cargo no existe o ya fue anulado');
+                error.status = 404;
+                throw error;
+            }
+
+            const cargo = itemResult.rows[0];
+            const activosResult = await client.query(`
+                SELECT COALESCE(SUM(subtotal), 0) AS subtotal,
+                       COALESCE(SUM(COALESCE(descuento, 0)), 0) AS descuento,
+                       COALESCE(SUM(COALESCE(total, subtotal - COALESCE(descuento, 0))), 0) AS total
+                FROM venta_items
+                WHERE venta_id = $1 AND COALESCE(anulado, FALSE) = FALSE`,
+                [cargo.venta_id]
+            );
+            const subtotalItemsAnterior = Number(activosResult.rows[0].subtotal);
+            const descuentoItemsAnterior = Number(activosResult.rows[0].descuento);
+            const totalItemsAnterior = Number(activosResult.rows[0].total);
+            const totalItemAnterior = Number(cargo.item_total ?? Number(cargo.subtotal) - Number(cargo.descuento || 0));
+            if (![subtotalItemsAnterior, descuentoItemsAnterior, totalItemsAnterior, totalItemAnterior].every(Number.isFinite) ||
+                totalItemsAnterior < 0 || totalItemAnterior < 0) {
+                const error = new Error('La factura no tiene totales válidos para actualizar');
+                error.status = 400;
+                throw error;
+            }
+
+            const redondear = valor => Math.round((valor + Number.EPSILON) * 100) / 100;
+            const redondearPositivo = valor => Math.max(0, redondear(valor));
+            const subtotalItemNuevo = redondear(cantidad * precioUnitario);
+            const descuentoItemNuevo = Math.min(Number(cargo.descuento) || 0, subtotalItemNuevo);
+            const totalItemNuevo = redondearPositivo(subtotalItemNuevo - descuentoItemNuevo);
+            const nuevoSubtotal = redondearPositivo(subtotalItemsAnterior - Number(cargo.subtotal) + subtotalItemNuevo);
+            const nuevosDescuentos = redondearPositivo(descuentoItemsAnterior - Number(cargo.descuento || 0) + descuentoItemNuevo);
+            const totalItemsNuevo = redondearPositivo(totalItemsAnterior - totalItemAnterior + totalItemNuevo);
+            const ventaTotalAnterior = Number(cargo.venta_total) || 0;
+            const baseAnterior = Number(cargo.base_impuesto) || 0;
+            const tasaImpuesto = baseAnterior > 0 ? Number(cargo.total_impuestos || 0) / baseAnterior : 0;
+            const nuevaBase = totalItemsNuevo;
+            const nuevosImpuestos = redondearPositivo(nuevaBase * tasaImpuesto);
+            const nuevoTotal = redondearPositivo(nuevaBase + nuevosImpuestos);
+            const diferencia = redondear(nuevoTotal - ventaTotalAnterior);
+            const saldoAnterior = Number(cargo.saldo_pendiente) || 0;
+            const saldoNuevo = redondear(saldoAnterior + diferencia);
+            const deudaNueva = redondearPositivo(Number(cargo.total_deuda || 0) + diferencia);
+
+            await client.query(`
+                UPDATE venta_items
+                SET cantidad = $1, precio_unitario = $2, subtotal = $3,
+                    descuento = $4, total = $5
+                WHERE id = $6`,
+                [cantidad, precioUnitario, subtotalItemNuevo, descuentoItemNuevo, totalItemNuevo, itemId]
+            );
+            await client.query(`
+                UPDATE ventas
+                SET subtotal = $1, descuento = $2, impuesto = $3, total = $4,
+                    subtotal_original = $1, total_descuentos = $2,
+                    base_impuesto = $5, total_impuestos = $3,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = $6`,
+                [nuevoSubtotal, nuevosDescuentos, nuevosImpuestos, nuevoTotal, nuevaBase, cargo.venta_id]
+            );
+            await client.query(`
+                UPDATE pacientes_saldo
+                SET saldo_pendiente = $1, total_deuda = $2,
+                    ultima_transaccion = CURRENT_TIMESTAMP,
+                    usuario_actualizo = $3, updated_at = CURRENT_TIMESTAMP
+                WHERE paciente_id = $4`,
+                [saldoNuevo, deudaNueva, String(userId), pacienteId]
+            );
+            await client.query(`
+                INSERT INTO movimientos_paciente (
+                    paciente_id, tipo, descripcion, monto, saldo_anterior,
+                    saldo_nuevo, referencia_id, usuario_id
+                ) VALUES ($1, 'ajuste', $2, $3, $4, $5, $6, $7)`,
+                [pacienteId,
+                    `Ajuste de ${cargo.descripcion} (${cargo.numero_factura}): ${cargo.cantidad} x Q${Number(cargo.precio_unitario).toFixed(2)} a ${cantidad} x Q${precioUnitario.toFixed(2)}`,
+                    diferencia, saldoAnterior, saldoNuevo, itemId, userId]
+            );
+
+            await client.query('COMMIT');
+            res.json({
+                success: true,
+                message: 'Cargo y saldo actualizados',
+                data: {
+                    item_id: itemId,
+                    cantidad,
+                    precio_unitario: precioUnitario,
+                    total: totalItemNuevo,
+                    diferencia,
+                    saldo_nuevo: saldoNuevo
+                }
+            });
+        } catch (error) {
+            if (client) await client.query('ROLLBACK');
+            console.error('Error al actualizar cargo:', error);
+            res.status(error.status || 500).json({
+                success: false,
+                message: 'Error al actualizar el cargo',
+                error: error.message
+            });
+        } finally {
+            if (client) client.release();
+        }
+    }
+
+    /**
      * Generar número de factura
      */
     async generarNumeroFactura(databaseClient = db) {

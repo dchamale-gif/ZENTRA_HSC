@@ -59,6 +59,14 @@ router.post('/cargos/:item_id/anular', (req, res) => {
 });
 
 /**
+ * PUT /api/billing/cargos/:item_id
+ * Modificar cantidad y precio de un cargo y ajustar el saldo
+ */
+router.put('/cargos/:item_id', (req, res) => {
+    billingMejoradoController.actualizarCargo(req, res);
+});
+
+/**
  * GET /api/saldo-paciente/:paciente_id
  * Obtener saldo del paciente
  */

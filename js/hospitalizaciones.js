@@ -420,7 +420,7 @@ const HospitalizacionesModule = {
                             <strong>${paciente.nombre} ${paciente.apellido}</strong>
                             <small>${paciente.cedula}</small>
                         </div>
-                        <div class="diagnostico-badge">${hospitalizacion.diagnostico}</div>
+                        ${hospitalizacion.diagnostico ? `<div class="diagnostico-badge">${hospitalizacion.diagnostico}</div>` : ''}
                         <div class="dias-internacion">
                             <small>Desde: ${this.formatDate(hospitalizacion.fechaIngreso)}</small>
                         </div>
@@ -934,7 +934,7 @@ const HospitalizacionesModule = {
         const paciente = this.state.pacientes.find(p => String(p.id) === pacienteIdKey);
         
         if (!paciente) {
-            console.error('❌ Paciente no encontrado con ID:', pacienteIdNum);
+            console.error('❌ Paciente no encontrado con ID:', pacienteIdKey);
             console.log('📋 Pacientes disponibles:', this.state.pacientes.map(p => ({id: p.id, nombre: p.nombre})));
             alert('❌ No se encontró el paciente');
             return;
@@ -980,8 +980,8 @@ const HospitalizacionesModule = {
                             <input type="text" class="form-input" value="Piso ${piso}, Habitación ${habitacion}, Cama ${cama}" readonly>
                         </div>
                         <div class="form-group">
-                            <label>Diagnóstico <span class="required">*</span></label>
-                            <textarea id="hospDiagnostico" class="form-input" placeholder="Diagnóstico médico..." required>${diagnosticoPrevio}</textarea>
+                            <label>Diagnóstico</label>
+                            <textarea id="hospDiagnostico" class="form-input" placeholder="Diagnóstico médico (opcional)">${diagnosticoPrevio}</textarea>
                         </div>
                         <div class="form-group">
                             <label>Observaciones</label>
@@ -1001,20 +1001,9 @@ const HospitalizacionesModule = {
     },
 
     // Confirmar hospitalización CON VALIDACIONES MEJORADAS
-    confirmarHospitalizacion(pacienteId, camaId) {
+    async confirmarHospitalizacion(pacienteId, camaId) {
         const diagnostico = document.getElementById('hospDiagnostico')?.value?.trim();
         const observaciones = document.getElementById('hospObservaciones')?.value?.trim();
-
-        // Validación de campos obligatorios
-        if (!diagnostico) {
-            alert('❌ El diagnóstico es obligatorio');
-            return;
-        }
-
-        if (diagnostico.length < 10) {
-            alert('❌ El diagnóstico debe tener al menos 10 caracteres');
-            return;
-        }
 
         // Validar que la cama existe
         if (!camaId || typeof camaId !== 'string' || !camaId.includes('-')) {
@@ -1058,21 +1047,18 @@ const HospitalizacionesModule = {
             cama: camaId,
             fechaIngreso: new Date().toISOString().split('T')[0],
             horaIngreso: new Date().toTimeString().split(' ')[0],
-            diagnostico: diagnostico,
+            diagnostico: diagnostico || '',
             observaciones: observaciones || '',
             estado: 'activa',
             medico: 'Dr. (Asignado)',
             seguimiento: []
         };
 
-        // Agregar a estado
+        const guardado = await this.saveHospitalizacionToAPI(hospitalizacion);
+        if (!guardado) return;
+
         this.state.hospitalizaciones.push(hospitalizacion);
-        
-        // Guardar a localStorage
         this.saveToDB();
-        
-        // Intentar guardar a API
-        this.saveHospitalizacionToAPI(hospitalizacion);
         
         // Actualizar vista
         this.render();
@@ -1084,36 +1070,36 @@ const HospitalizacionesModule = {
     },
 
     // Guardar hospitalización a API
-    saveHospitalizacionToAPI(hospitalizacion) {
+    async saveHospitalizacionToAPI(hospitalizacion) {
         const token = authManager?.getToken?.();
         const apiHost = authManager?.apiBaseUrl || 'http://178.128.72.110:3011';
         const apiBase = apiHost.endsWith('/api') ? apiHost : `${apiHost}/api`;
-        if (!token) return;
+        if (!token) {
+            this.showNotification('Ingreso guardado localmente: no hay una sesión activa', 'warning');
+            return true;
+        }
 
-        fetch(`${apiBase}/hospitalizaciones/ingresos`, {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(hospitalizacion)
-        })
-            .then(async response => {
-                const result = await response.json();
-                if (!response.ok || !result.success) {
-                    this.state.hospitalizaciones = this.state.hospitalizaciones.filter(item => item !== hospitalizacion);
-                    this.saveToDB();
-                    this.render();
-                    this.showNotification(result.message || 'No se pudo registrar el ingreso', 'error');
-                    return;
-                }
-                if (result.data?.id) hospitalizacion.id = result.data.id;
-                this.saveToDB();
-            })
-            .catch(error => {
-                console.warn('Ingreso conservado localmente; falló la API:', error);
-                this.showNotification('Ingreso guardado localmente por falta de conexión', 'warning');
+        try {
+            const response = await fetch(`${apiBase}/hospitalizaciones/ingresos`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(hospitalizacion)
             });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || !result.success) {
+                this.showNotification(result.message || 'No se pudo registrar el ingreso', 'error');
+                return false;
+            }
+            if (result.data?.id) hospitalizacion.id = result.data.id;
+            return true;
+        } catch (error) {
+            console.warn('Ingreso conservado localmente; falló la API:', error);
+            this.showNotification('Ingreso guardado localmente por falta de conexión', 'warning');
+            return true;
+        }
     },
 
     // Abrir modal para agregar desde cama libre

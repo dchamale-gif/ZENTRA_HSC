@@ -14,7 +14,7 @@ function mapHospitalizacion(row) {
         horaIngreso: row.hora_entrada,
         fechaAlta: row.fecha_salida,
         horaAlta: row.hora_salida,
-        diagnostico: row.diagnostico || row.motivo,
+        diagnostico: row.diagnostico || '',
         observaciones: row.observaciones || '',
         estado: row.estado,
         medico: row.doctor_nombre || 'Sin asignar',
@@ -84,8 +84,9 @@ class HospitalizacionesController {
             const { pacienteId, paciente_id, cama, cama_id, diagnostico, observaciones } = req.body;
             const patientId = pacienteId || paciente_id;
             const bedId = cama || cama_id;
-            if (!patientId || !bedId || !diagnostico?.trim() || diagnostico.trim().length < 10) {
-                return res.status(400).json({ success: false, message: 'Paciente, cama y diagnóstico de al menos 10 caracteres son obligatorios' });
+            const diagnosticoTexto = String(diagnostico || '').trim();
+            if (!patientId || !bedId) {
+                return res.status(400).json({ success: false, message: 'Paciente y cama son obligatorios' });
             }
 
             await client.query('BEGIN');
@@ -111,9 +112,9 @@ class HospitalizacionesController {
                 INSERT INTO hospitalizaciones (
                     id, paciente_id, doctor_id, cama_id, fecha_entrada, hora_entrada,
                     motivo, diagnostico, estado, observaciones
-                ) VALUES ($1, $2, $3, $4, CURRENT_DATE, CURRENT_TIME, $5, $5, 'activa', $6)
+                ) VALUES ($1, $2, $3, $4, CURRENT_DATE, CURRENT_TIME, $5, $6, 'activa', $7)
                 RETURNING *
-            `, [id, patientId, doctorId, bedId, diagnostico.trim(), observaciones?.trim() || null]);
+            `, [id, patientId, doctorId, bedId, 'Ingreso hospitalario', diagnosticoTexto || null, observaciones?.trim() || null]);
             await client.query("UPDATE camas SET estado = 'ocupada', updated_at = CURRENT_TIMESTAMP WHERE id = $1", [bedId]);
             await client.query('COMMIT');
 
