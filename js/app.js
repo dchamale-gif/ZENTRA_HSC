@@ -1145,8 +1145,10 @@ function saveTransaction() {
 }
 
 function closeModal(modal) {
-    modal.classList.remove('active');
-    modal.style.removeProperty('display');
+    const element = typeof modal === 'string' ? document.getElementById(modal) : modal;
+    if (!element) return;
+    element.classList.remove('active');
+    element.style.removeProperty('display');
 }
 
 function saveProduct() {

@@ -1360,6 +1360,86 @@ select:disabled {
     color: var(--text-gray);
 }
 
+/* ============================================
+   BUSCADOR CON LISTADO DESPLEGABLE (LiveSearch)
+   ============================================ */
+.live-search-results {
+    position: fixed;
+    z-index: 2000;
+    max-height: 260px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-white);
+    box-shadow: 0 12px 28px -8px rgba(0, 0, 0, 0.25);
+}
+
+.live-search-results[hidden] {
+    display: none;
+}
+
+.live-search-option {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    padding: 9px 12px;
+    border: 0;
+    border-bottom: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-dark);
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.live-search-option:last-child {
+    border-bottom: 0;
+}
+
+.live-search-option:hover,
+.live-search-option.is-active {
+    background: var(--bg-light);
+}
+
+.live-search-option small {
+    color: var(--text-gray);
+    font-size: 11.5px;
+}
+
+.live-search-option mark {
+    padding: 0;
+    background: transparent;
+    color: var(--primary-color, #2563eb);
+    font-weight: 700;
+}
+
+.live-search-empty {
+    padding: 10px 12px;
+    color: var(--text-gray);
+    font-size: 13px;
+}
+
+.live-search-hit {
+    animation: liveSearchPulse 2.4s ease-out;
+}
+
+@keyframes liveSearchPulse {
+    0%, 60% {
+        background-color: rgba(37, 99, 235, 0.16);
+    }
+    100% {
+        background-color: transparent;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .live-search-hit {
+        animation: none;
+        background-color: rgba(37, 99, 235, 0.16);
+    }
+}
+
 .purchase-total {
     margin: 18px 0;
     text-align: right;
