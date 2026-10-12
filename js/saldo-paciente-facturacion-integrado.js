@@ -247,6 +247,8 @@ const SaldoPacienteFacturacion = {
 
                 if (typeof SaldoPacienteModule !== 'undefined' && SaldoPacienteModule.state) {
                     const saldoLegacy = {
+                        id: saldoActualizado.id,
+                        cuenta_id: saldoActualizado.cuenta_id,
                         pacienteId: paciente_id,
                         saldoPendiente: saldoActualizado.saldo_pendiente,
                         totalAcumulado: saldoActualizado.total_deuda,
@@ -354,6 +356,114 @@ const SaldoPacienteFacturacion = {
         this.actualizarResumen();
     },
 
+    // ============================================
+    // CONFIGURACIÓN DE IVA POR ESTADO DE CUENTA
+    // ============================================
+    // Se comparte con SaldoPacienteModule a través de la misma clave de
+    // localStorage, leyéndola siempre fresca para que ambas vistas coincidan.
+
+    IVA_STORAGE_KEY: 'saldoPacienteIVA',
+
+    getIvaConfig() {
+        try {
+            return JSON.parse(localStorage.getItem(this.IVA_STORAGE_KEY)) || {};
+        } catch (error) {
+            console.error('❌ Error leyendo configuración de IVA:', error);
+            return {};
+        }
+    },
+
+    // Clave única del estado de cuenta. Se prefiere el identificador propio de
+    // la cuenta para que varios estados de cuenta del mismo paciente puedan
+    // configurarse de forma independiente; sólo si la cuenta no trae id se cae
+    // al paciente (un único estado de cuenta).
+    cuentaIvaKey(saldo) {
+        if (saldo === null || saldo === undefined) return '';
+        if (typeof saldo !== 'object') return String(saldo);
+
+        const idCuenta = saldo.cuenta_id ?? saldo.cuentaId ?? saldo.estado_cuenta_id ??
+            saldo.estadoCuentaId ?? saldo.saldo_id ?? saldo.saldoId ?? saldo.id;
+        if (idCuenta !== undefined && idCuenta !== null && String(idCuenta) !== '') {
+            return `cuenta:${idCuenta}`;
+        }
+
+        const pacienteId = saldo.paciente_id ?? saldo.pacienteId;
+        return `paciente:${pacienteId}`;
+    },
+
+    // Resuelve la clave del estado de cuenta a partir del paciente, para los
+    // flujos (imprimir, cobrar) que sólo reciben el id del paciente.
+    cuentaIvaKeyPorPaciente(pacienteId) {
+        const saldo = this.state.saldos.find(s =>
+            String(s.paciente_id ?? s.pacienteId) === String(pacienteId)
+        );
+        return saldo ? this.cuentaIvaKey(saldo) : `paciente:${pacienteId}`;
+    },
+
+    incluyeIVA(cuentaKey) {
+        const config = this.getIvaConfig();
+        const clave = String(cuentaKey);
+        if (config[clave] === true) return true;
+
+        // Compatibilidad con configuraciones antiguas guardadas por id de paciente.
+        if (clave.startsWith('paciente:')) {
+            return config[clave.slice('paciente:'.length)] === true;
+        }
+        return false;
+    },
+
+    toggleIVA(cuentaKey) {
+        const clave = String(cuentaKey);
+        const config = this.getIvaConfig();
+        const nuevoValor = !this.incluyeIVA(clave);
+        config[clave] = nuevoValor;
+
+        // Limpiar la entrada heredada para que no vuelva a aplicarse al apagar.
+        if (clave.startsWith('paciente:')) {
+            delete config[clave.slice('paciente:'.length)];
+        }
+
+        try {
+            localStorage.setItem(this.IVA_STORAGE_KEY, JSON.stringify(config));
+        } catch (error) {
+            console.error('❌ Error guardando configuración de IVA:', error);
+        }
+
+        if (typeof SaldoPacienteModule !== 'undefined' && SaldoPacienteModule.state) {
+            SaldoPacienteModule.state.ivaPorCuenta = config;
+        }
+
+        this.renderSaldos();
+        console.log(`💰 IVA ${nuevoValor ? 'activado' : 'desactivado'} para el estado de cuenta ${clave}`);
+    },
+
+    // Calcula el IVA sobre el monto neto (descontando cualquier impuesto ya
+    // registrado en la cuenta) para no cobrarlo dos veces.
+    calcularMontosIVA(cuentaKey, monto, impuestosYaRegistrados = 0) {
+        const base = Math.max(0, (Number(monto) || 0) - (Number(impuestosYaRegistrados) || 0));
+        const aplica = this.incluyeIVA(cuentaKey);
+        const porcentaje = Number(this.state.config.iva) || 0;
+        const iva = aplica ? base * (porcentaje / 100) : 0;
+        return { aplica, porcentaje, base, iva, total: base + iva };
+    },
+
+    renderBotonIVA(cuentaKey) {
+        const activo = this.incluyeIVA(cuentaKey);
+        const porcentaje = this.state.config.iva;
+        const titulo = activo
+            ? `El estado de cuenta incluye IVA (${porcentaje}%). Clic para quitarlo.`
+            : `El estado de cuenta NO incluye IVA. Clic para aplicarlo (${porcentaje}%).`;
+
+        return `
+            <button class="btn btn-sm ${activo ? 'btn-success' : 'btn-secondary'}"
+                    title="${titulo}"
+                    style="background: ${activo ? '#27ae60' : '#95a5a6'}; color: white; border: none;"
+                    onclick="SaldoPacienteFacturacion.toggleIVA('${cuentaKey}')">
+                ${activo ? `✓ IVA ${porcentaje}%` : '✗ Sin IVA'}
+            </button>
+        `;
+    },
+
     renderTabla(saldos) {
         const tabla = document.getElementById('tablaSaldos');
         if (!tabla) return;
@@ -370,6 +480,7 @@ const SaldoPacienteFacturacion = {
             const estado = s.saldo_pendiente === 0 ? 'Pagado' : 'Deudor';
             const badgeClass = s.saldo_pendiente === 0 ? 'badge-success' : 'badge-danger';
             const fecha = new Date(s.ultima_transaccion).toLocaleDateString('es-GT');
+            const montosIVA = this.calcularMontosIVA(this.cuentaIvaKey(s), s.saldo_pendiente);
 
             return `
                 <tr>
@@ -377,11 +488,13 @@ const SaldoPacienteFacturacion = {
                     <td>${p.dpi}</td>
                     <td class="text-right"><strong>Q${s.total_deuda.toFixed(2)}</strong></td>
                     <td class="text-right" style="color: ${s.saldo_pendiente > 0 ? '#e74c3c' : '#27ae60'};">
-                        <strong>Q${s.saldo_pendiente.toFixed(2)}</strong>
+                        <strong>Q${montosIVA.total.toFixed(2)}</strong>
+                        ${montosIVA.aplica ? `<br><small style="color: #7f8c8d;">IVA ${montosIVA.porcentaje}%: Q${montosIVA.iva.toFixed(2)}</small>` : ''}
                     </td>
                     <td class="text-center"><span class="badge ${badgeClass}">${estado}</span></td>
                     <td><small>${fecha}</small></td>
                     <td class="text-center">
+                        ${this.renderBotonIVA(this.cuentaIvaKey(s))}
                         <button class="btn btn-sm btn-primary" onclick="SaldoPacienteFacturacion.abrirEditorCuenta('${s.paciente_id}')" title="Agregar o modificar cargos"><i class="fas fa-pen"></i> Editar cuenta</button>
                         <button class="btn btn-sm btn-info" onclick="SaldoPacienteFacturacion.imprimirSaldo('${s.paciente_id}')">🖨️</button>
                         <button class="btn btn-sm btn-success" onclick="SaldoPacienteFacturacion.abrirPagoDirecto('${s.paciente_id}')">Pago</button>
@@ -591,10 +704,13 @@ const SaldoPacienteFacturacion = {
         const saldo = this.state.saldos.find(s => s.paciente_id === pacienteId);
         const p = this.state.pacientes.find(pac => pac.id === pacienteId);
 
+        const montosIVA = this.calcularMontosIVA(this.cuentaIvaKey(saldo), saldo.saldo_pendiente);
+
         document.getElementById('pacienteIdPago').value = pacienteId;
         document.getElementById('pacienteNombrePago').value = p.nombre + ' ' + p.apellidoPaterno;
-        document.getElementById('saldoPendientePago').value = 'Q' + saldo.saldo_pendiente.toFixed(2);
-        document.getElementById('montoPago').value = saldo.saldo_pendiente;
+        document.getElementById('saldoPendientePago').value = 'Q' + montosIVA.total.toFixed(2) +
+            (montosIVA.aplica ? ` (IVA ${montosIVA.porcentaje}% incluido)` : '');
+        document.getElementById('montoPago').value = montosIVA.total.toFixed(2);
         document.getElementById('formPago').style.display = 'block';
     },
 
@@ -610,6 +726,7 @@ const SaldoPacienteFacturacion = {
         const ventana = window.open('', '_blank', 'width=700,height=600');
         const fecha = new Date().toLocaleDateString('es-GT');
         const hora = new Date().toLocaleTimeString('es-GT');
+        const montosIVA = this.calcularMontosIVA(this.cuentaIvaKey(saldo), saldo.saldo_pendiente);
 
         const html = `
             <!DOCTYPE html>
@@ -765,10 +882,22 @@ const SaldoPacienteFacturacion = {
                             <span class="saldo-value">Q${parseFloat(saldo.total_deuda).toFixed(2)}</span>
                         </div>
                         
+                        ${montosIVA.aplica ? `
+                            <div class="saldo-item">
+                                <span class="saldo-label">Saldo sin IVA:</span>
+                                <span class="saldo-value">Q${montosIVA.base.toFixed(2)}</span>
+                            </div>
+
+                            <div class="saldo-item">
+                                <span class="saldo-label">IVA (${montosIVA.porcentaje}%):</span>
+                                <span class="saldo-value">Q${montosIVA.iva.toFixed(2)}</span>
+                            </div>
+                        ` : ''}
+
                         <div class="saldo-item">
-                            <span class="saldo-label">Saldo Pendiente:</span>
+                            <span class="saldo-label">Saldo Pendiente${montosIVA.aplica ? ` (IVA ${montosIVA.porcentaje}% incluido)` : ' (sin IVA)'}:</span>
                             <span class="saldo-value saldo-${saldo.saldo_pendiente > 0 ? 'deuda' : 'pagado'}">
-                                Q${parseFloat(saldo.saldo_pendiente).toFixed(2)}
+                                Q${montosIVA.total.toFixed(2)}
                             </span>
                         </div>
 
