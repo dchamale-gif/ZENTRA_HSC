@@ -124,13 +124,11 @@ async function initializeApp() {
     // PASO 4: Inicializar otros módulos
     console.log('🔄 Inicializando módulos adicionales...');
     try { if (typeof CodigosArticulosModule !== 'undefined') CodigosArticulosModule.init(); } catch(e) { console.warn('CodigosArticulosModule error:', e); }
-    try { if (typeof CajaIntegradaModule !== 'undefined') CajaIntegradaModule.init(); } catch(e) { console.warn('CajaIntegradaModule error:', e); }
     try { if (typeof ComprasModule !== 'undefined') ComprasModule.init(); } catch(e) { console.warn('ComprasModule error:', e); }
     try { if (typeof AlertasModule !== 'undefined') AlertasModule.init(); } catch(e) { console.warn('AlertasModule error:', e); }
     try { if (typeof VentasModule !== 'undefined') VentasModule.init(); } catch(e) { console.warn('VentasModule error:', e); }
     try { if (typeof CajaModule !== 'undefined') CajaModule.init(); } catch(e) { console.warn('CajaModule error:', e); }
     try { if (typeof CuentasPorCobrarModule !== 'undefined') CuentasPorCobrarModule.init(); } catch(e) { console.warn('CuentasPorCobrarModule error:', e); }
-    try { if (typeof EstadosDeCuentaModule !== 'undefined') EstadosDeCuentaModule.init(); } catch(e) { console.warn('EstadosDeCuentaModule error:', e); }
     if (typeof DashboardFinancieroModule !== 'undefined' && DashboardFinancieroModule.init) {
         try { DashboardFinancieroModule.init(); } catch(e) { console.warn('DashboardFinancieroModule init error:', e); }
     }
@@ -259,7 +257,6 @@ function navigateToPage(pageId) {
         'ventas': 'Gestión de Ventas',
         'caja': 'Gestión de Caja',
         'cuentas-por-cobrar': 'Cuentas por Cobrar',
-        'estados-de-cuenta': 'Estados de Cuenta',
         'dashboard-financiero': 'Dashboard Ejecutivo',
         'transactions': 'Transacciones',
         'reports': 'Reportes',
@@ -270,7 +267,6 @@ function navigateToPage(pageId) {
         'hospitalizaciones': 'Hospitalizaciones',
         'ordenes-medicas': 'Órdenes Médicas',
         'codigos-articulos': 'Códigos de Artículos',
-        'caja-integrada': 'Caja Integrada',
         'agenda': 'Agenda Médica',
         'reservas-web': 'Reservas desde Web',
         'confirmaciones': 'Confirmaciones Automáticas',
@@ -319,9 +315,6 @@ function navigateToPage(pageId) {
     }
     if (pageId === 'hospitalizaciones') {
         HospitalizacionesModule.loadData();
-    }
-    if (pageId === 'estados-de-cuenta') {
-        EstadosDeCuentaModule.loadStatement();
     }
     if (pageId === 'agenda') {
         setTimeout(() => {
@@ -870,17 +863,16 @@ function viewTransaction(transactionId) {
 // ============================================
 
 function setupModals() {
-    const modal = document.getElementById('productModal');
     const closeButtons = document.querySelectorAll('.modal-close, .modal-close-btn');
     const saveBtn = document.getElementById('saveProductBtn');
 
-    if (modal) {
+    document.querySelectorAll('.modal').forEach(modal => {
         modal.addEventListener('click', function(e) {
-            if (e.target === modal) {
+            if (e.target === this) {
                 closeModal(modal);
             }
         });
-    }
+    });
 
     closeButtons.forEach(btn => {
         btn.addEventListener('click', function() {
@@ -892,6 +884,15 @@ function setupModals() {
     if (saveBtn) {
         saveBtn.addEventListener('click', saveProduct);
     }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Escape') return;
+
+        const openModal = Array.from(document.querySelectorAll('.modal')).reverse()
+            .find(modal => modal.classList.contains('active') ||
+                (modal.style.display && modal.style.display !== 'none'));
+        if (openModal) closeModal(openModal);
+    });
 }
 
 function openProductModal() {
@@ -1145,6 +1146,7 @@ function saveTransaction() {
 
 function closeModal(modal) {
     modal.classList.remove('active');
+    modal.style.removeProperty('display');
 }
 
 function saveProduct() {

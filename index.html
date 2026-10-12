@@ -61,10 +61,6 @@
                     <i class="fas fa-barcode"></i>
                     <span>Códigos Artículos</span>
                 </a>
-                <a href="#" class="nav-item" data-page="caja-integrada">
-                    <i class="fas fa-cash-register"></i>
-                    <span>Caja Integrada</span>
-                </a>
                 <a href="#" class="nav-item" data-page="compras">
                     <i class="fas fa-shopping-cart"></i>
                     <span>Compras</span>
@@ -80,10 +76,6 @@
                 <a href="#" class="nav-item" data-page="cuentas-por-cobrar">
                     <i class="fas fa-handshake"></i>
                     <span>Cuentas por Cobrar</span>
-                </a>
-                <a href="#" class="nav-item" data-page="estados-de-cuenta">
-                    <i class="fas fa-file-invoice"></i>
-                    <span>Estados de Cuenta</span>
                 </a>
                 <a href="#" class="nav-item" data-page="dashboard-financiero">
                     <i class="fas fa-chart-pie"></i>
@@ -1277,40 +1269,6 @@
                     </div>
                 </div>
 
-                <!-- Caja Integrada Page -->
-                <div id="page-caja-integrada" class="page">
-                    <div class="page-header">
-                        <h1>Caja Integrada</h1>
-                        <div class="button-group">
-                            <button class="btn btn-primary" id="addMovimientoCajaBtn">
-                                <i class="fas fa-plus"></i> Nuevo Movimiento
-                            </button>
-                            <button class="btn btn-success" id="addMicrofacturaBtn">
-                                <i class="fas fa-receipt"></i> Generar Microfactura
-                            </button>
-                        </div>
-                    </div>
-
-                    <div id="resumenCajaContainer" class="resumen-container">
-                        <!-- Poblada por JavaScript -->
-                    </div>
-
-                    <div class="caja-filters">
-                        <input type="text" id="searchCaja" class="form-input" placeholder="Buscar movimiento...">
-                        <select id="filterTipoCaja" class="form-input">
-                            <option value="todos">Todos los Movimientos</option>
-                            <option value="Ingreso por Cobro">Ingreso por Cobro</option>
-                            <option value="Egreso">Egresos</option>
-                            <option value="Microfactura">Microfacturas</option>
-                            <option value="Devolución">Devoluciones</option>
-                        </select>
-                    </div>
-
-                    <div id="movimientosCajaTableContainer" class="table-responsive">
-                        <!-- Poblada por JavaScript -->
-                    </div>
-                </div>
-
                 <!-- Medicinas Page -->
                 <div id="page-medicinas" class="page">
                     <div class="page-header">
@@ -1730,28 +1688,6 @@
                             <tbody></tbody>
                         </table>
                     </div>
-                </div>
-
-                <!-- Estados de Cuenta Page -->
-                <div id="page-estados-de-cuenta" class="page">
-                    <div class="page-header">
-                        <h1>Estados de Cuenta</h1>
-                    </div>
-                    <div class="filters-row">
-                        <select id="accountFilter" class="form-input">
-                            <option value="">Selecciona una cuenta...</option>
-                        </select>
-                        <select id="periodFilter" class="form-input">
-                            <option value="">Todos los períodos</option>
-                        </select>
-                        <button class="btn btn-secondary" id="generateStatementBtn">
-                            <i class="fas fa-download"></i> Generar
-                        </button>
-                        <button class="btn btn-secondary" id="exportStatementBtn">
-                            <i class="fas fa-file-download"></i> Exportar
-                        </button>
-                    </div>
-                    <div id="statementContent" class="statement-container"></div>
                 </div>
 
                 <!-- Dashboard Financiero Page -->
@@ -3786,55 +3722,6 @@
         </div>
     </div>
 
-    <!-- Modal for microfactura -->
-    <div id="microfacturaModal" class="modal">
-        <div class="modal-content modal-content-xl">
-            <div class="modal-header">
-                <h2><i class="fas fa-receipt"></i> Generar Microfactura</h2>
-                <button class="close-btn">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="editMicrofacturaForm">
-                    <p class="info-text">
-                        <i class="fas fa-info-circle"></i> 
-                        Las microfacturas permiten cobros parciales sin cerrar la cuenta del paciente
-                    </p>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Paciente <span class="required">*</span></label>
-                            <select id="microfacturaPacienteSelect" class="form-input" required>
-                                <option value="">-- Selecciona paciente --</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Monto <span class="required">*</span></label>
-                            <input type="number" id="microfacturaMonto" class="form-input" step="0.01" min="0.01" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Fecha <span class="required">*</span></label>
-                            <input type="date" id="microfacturaFecha" class="form-input" required>
-                        </div>
-                    </div>
-
-                    <div class="form-group full-width">
-                        <label>Descripción / Concepto</label>
-                        <textarea id="microfacturaDesc" class="form-input" rows="3" placeholder="Detalle de servicios/productos incluidos en esta microfactura..."></textarea>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="CajaIntegradaModule.closeMicrofacturaModal()">Cancelar</button>
-                <button class="btn btn-primary" id="saveMicrofacturaBtn">
-                    <i class="fas fa-receipt"></i> Generar Microfactura
-                </button>
-            </div>
-        </div>
-    </div>
-
     <!-- Modal for medical notes and prescriptions -->
     <div id="noteModal" class="modal">
         <div class="modal-content modal-content-xl">
@@ -4921,13 +4808,11 @@
     <script src="js/ordenes-medicas.js"></script>
     <script src="js/personal.js"></script>
     <script src="js/codigos-articulos.js"></script>
-    <script src="js/caja-integrada.js"></script>
     <script src="js/compras.js"></script>
     <script src="js/alertas.js"></script>
     <script src="js/ventas.js"></script>
     <script src="js/caja.js"></script>
     <script src="js/cuentas-por-cobrar.js"></script>
-    <script src="js/estados-de-cuenta.js"></script>
     <script src="js/dashboard-financiero.js"></script>
     <script src="js/reports.js"></script>
     

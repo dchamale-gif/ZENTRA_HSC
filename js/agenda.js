@@ -94,8 +94,7 @@ const AgendaModule = {
             }
         } catch (error) {
             console.error('Error al cargar datos:', error);
-            }
-        ];
+        }
     },
 
     // Cargar filtros
