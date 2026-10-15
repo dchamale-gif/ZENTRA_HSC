@@ -456,11 +456,9 @@ const SaldoPacienteFacturacion = {
             : `El estado de cuenta NO incluye IVA. Clic para aplicarlo (${porcentaje}%).`;
 
         return `
-            <button class="btn btn-sm ${activo ? 'btn-success' : 'btn-secondary'}"
-                    title="${titulo}"
-                    style="background: ${activo ? '#27ae60' : '#95a5a6'}; color: white; border: none;"
-                    onclick="SaldoPacienteFacturacion.toggleIVA('${cuentaKey}')">
-                ${activo ? `✓ IVA ${porcentaje}%` : '✗ Sin IVA'}
+            <button type="button" class="btn-iva${activo ? ' activo' : ''}" title="${titulo}" aria-pressed="${activo}"
+                    onclick="event.stopPropagation(); SaldoPacienteFacturacion.toggleIVA('${cuentaKey}')">
+                <i class="fas ${activo ? 'fa-check' : 'fa-plus'}" aria-hidden="true"></i> IVA ${porcentaje}%
             </button>
         `;
     },
@@ -470,7 +468,7 @@ const SaldoPacienteFacturacion = {
         if (!tabla) return;
 
         if (saldos.length === 0) {
-            tabla.innerHTML = '<tr><td colspan="7" class="text-center">No hay datos</td></tr>';
+            tabla.innerHTML = '<tr><td colspan="6" class="text-center">No hay datos</td></tr>';
             return;
         }
 
@@ -485,20 +483,24 @@ const SaldoPacienteFacturacion = {
 
             return `
                 <tr>
-                    <td><strong>${p.nombre} ${p.apellidoPaterno}</strong></td>
-                    <td>${p.dpi}</td>
+                    <td>
+                        <strong>${p.nombre} ${p.apellidoPaterno}</strong>
+                        <small class="saldo-iva-nota">DPI ${p.dpi || '—'}</small>
+                    </td>
                     <td class="text-right"><strong>${formatQ(s.total_deuda)}</strong></td>
                     <td class="text-right" style="color: ${s.saldo_pendiente > 0 ? '#e74c3c' : '#27ae60'};">
                         <strong>${formatQ(montosIVA.total)}</strong>
-                        ${montosIVA.aplica ? `<br><small style="color: #7f8c8d;">+ IVA ${montosIVA.porcentaje}%: ${formatQ(montosIVA.iva)}</small>` : ''}
+                        <small class="saldo-iva-nota">${montosIVA.aplica ? `+ IVA ${montosIVA.porcentaje}%: ${formatQ(montosIVA.iva)}` : 'Sin IVA'}</small>
                     </td>
                     <td class="text-center"><span class="badge ${badgeClass}">${estado}</span></td>
                     <td><small>${fecha}</small></td>
                     <td class="text-center">
-                        ${this.renderBotonIVA(this.cuentaIvaKey(s))}
-                        <button class="btn btn-sm btn-primary" onclick="SaldoPacienteFacturacion.abrirEditorCuenta('${s.paciente_id}')" title="Agregar o modificar cargos"><i class="fas fa-pen"></i> Editar cuenta</button>
-                        <button class="btn btn-sm btn-info" onclick="SaldoPacienteFacturacion.imprimirSaldo('${s.paciente_id}')">🖨️</button>
-                        <button class="btn btn-sm btn-success" onclick="SaldoPacienteFacturacion.abrirPagoDirecto('${s.paciente_id}')">Pago</button>
+                        <div class="acciones-saldo">
+                            ${this.renderBotonIVA(this.cuentaIvaKey(s))}
+                            <button type="button" class="btn-accion btn-accion-icono" onclick="SaldoPacienteFacturacion.abrirEditorCuenta('${s.paciente_id}')" title="Editar cuenta (agregar o modificar cargos)" aria-label="Editar cuenta"><i class="fas fa-pen" aria-hidden="true"></i></button>
+                            <button type="button" class="btn-accion btn-accion-icono" onclick="SaldoPacienteFacturacion.imprimirSaldo('${s.paciente_id}')" title="Imprimir estado de cuenta" aria-label="Imprimir estado de cuenta"><i class="fas fa-print" aria-hidden="true"></i></button>
+                            <button type="button" class="btn-accion btn-accion-primaria" onclick="SaldoPacienteFacturacion.abrirPagoDirecto('${s.paciente_id}')" title="Registrar pago"><i class="fas fa-money-bill-wave" aria-hidden="true"></i> Pago</button>
+                        </div>
                     </td>
                 </tr>
             `;

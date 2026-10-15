@@ -169,6 +169,14 @@ const SaldoPacienteModule = {
             return;
         }
 
+        // La tabla y su encabezado pertenecen a SaldoPacienteFacturacion. Si este
+        // módulo la dibujara con su propio formato, al tocar el botón de IVA la
+        // tabla cambiaría de columnas y botones.
+        if (typeof SaldoPacienteFacturacion !== 'undefined' && SaldoPacienteFacturacion.renderSaldos) {
+            SaldoPacienteFacturacion.renderSaldos(); // también actualiza el panel de estadísticas
+            return;
+        }
+
         // Si no hay pacientes, mostrar mensaje
         if (!this.state.pacientes || this.state.pacientes.length === 0) {
             tbody.innerHTML = '<tr><td colspan="8" class="text-center" style="padding: 20px; color: #999;">No hay pacientes registrados</td></tr>';
@@ -356,23 +364,15 @@ const SaldoPacienteModule = {
     },
 
     // Botón de IVA para la tabla y el modal de detalles
-    renderBotonIVA(cuentaKey, { compacto = true } = {}) {
+    renderBotonIVA(cuentaKey) {
         const activo = this.incluyeIVA(cuentaKey);
-        const estilosBase = 'border: none; border-radius: 3px; cursor: pointer; font-weight: bold; color: white;';
-        const color = activo ? '#27ae60' : '#95a5a6';
-        const etiqueta = activo ? `IVA ${this.IVA_PORCENTAJE}%` : 'Sin IVA';
         const titulo = activo
             ? `El estado de cuenta incluye IVA (${this.IVA_PORCENTAJE}%). Clic para quitarlo.`
             : `El estado de cuenta NO incluye IVA. Clic para aplicarlo (${this.IVA_PORCENTAJE}%).`;
-        const tamano = compacto
-            ? 'padding: 4px 8px; font-size: 11px;'
-            : 'padding: 6px 12px; font-size: 12px;';
-
         return `
-            <button class="btn-iva-toggle" title="${titulo}"
-                    style="${estilosBase} ${tamano} background: ${color};"
+            <button type="button" class="btn-iva${activo ? ' activo' : ''}" title="${titulo}" aria-pressed="${activo}"
                     onclick="event.stopPropagation(); SaldoPacienteModule.toggleIVA('${cuentaKey}')">
-                ${activo ? '✓' : '✗'} ${etiqueta}
+                <i class="fas ${activo ? 'fa-check' : 'fa-plus'}" aria-hidden="true"></i> IVA ${this.IVA_PORCENTAJE}%
             </button>
         `;
     },
@@ -398,7 +398,7 @@ const SaldoPacienteModule = {
                 <td>${formatQ(abonosRealizados)}</td>
                 <td>${saldo.ultimaTransaccion}</td>
                 <td>${estadoBadge}</td>
-                <td class="actions">
+                <td class="actions acciones-saldo">
                     ${this.renderBotonIVA(this.cuentaIvaKey(saldo))}
                     <button class="btn-icon btn-view" title="Ver Detalles" onclick="SaldoPacienteModule.viewSaldoDetails('${saldo.pacienteId}')">
                         <i class="fas fa-eye"></i>
@@ -447,7 +447,7 @@ const SaldoPacienteModule = {
                     <button onclick="SaldoPacienteModule.cargarEstadoCuentaCompleto('${pacienteId}')" class="btn-small" style="background: #3498db; color: white; border: none; padding: 6px 12px; border-radius: 3px; cursor: pointer; font-size: 12px; margin-left: auto;">
                         🔄 Cargar Estado Completo
                     </button>
-                    ${this.renderBotonIVA(this.cuentaIvaKey(saldo), { compacto: false })}
+                    ${this.renderBotonIVA(this.cuentaIvaKey(saldo))}
                 </div>
 
                 <div class="saldo-summary">

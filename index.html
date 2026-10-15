@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-    <link rel="stylesheet" href="css/style.css?v=20261015-11">
+    <link rel="stylesheet" href="css/style.css?v=20261015-16">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -609,8 +609,8 @@
 
                     <!-- TAB 1: SALDOS DE PACIENTES -->
                     <div id="saldos" class="tab-content active">
-                        <div style="display: grid; grid-template-columns: 1fr 350px; gap: 20px;">
-                            <div>
+                        <div class="saldos-layout">
+                            <div class="saldos-principal">
                                 <div style="position: relative; margin-bottom: 20px; display: flex; gap: 10px;">
                                     <input type="text" id="searchSaldo" placeholder="Buscar por nombre, apellido o DPI..." style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
                                     <button class="btn btn-primary" onclick="SaldoPacienteModule.abrirModalFiltros()" style="padding: 10px 20px; white-space: nowrap;">
@@ -622,7 +622,7 @@
                                         <thead>
                                             <tr>
                                                 <th>Paciente</th>
-                                                <th>DPI</th>
+                                                
                                                 <th class="text-right">Total Deuda</th>
                                                 <th class="text-right">Saldo Pendiente</th>
                                                 <th class="text-center">Estado</th>
@@ -4943,45 +4943,45 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="js/config.js?v=20261015-11"></script>
-    <script src="js/data-normalizer.js?v=20261015-11"></script>
-    <script src="js/file-utils.js?v=20261015-11"></script>
-    <script src="data/demo-data.js?v=20261015-11"></script>
-    <script src="js/api-helper.js?v=20261015-11"></script>
+    <script src="js/config.js?v=20261015-16"></script>
+    <script src="js/data-normalizer.js?v=20261015-16"></script>
+    <script src="js/file-utils.js?v=20261015-16"></script>
+    <script src="data/demo-data.js?v=20261015-16"></script>
+    <script src="js/api-helper.js?v=20261015-16"></script>
     
     <!-- Autenticación (DEBE SER ANTES DE LOS MÓDULOS) -->
-    <script src="js/auth-utils.js?v=20261015-11"></script>
+    <script src="js/auth-utils.js?v=20261015-16"></script>
     
     <!-- Módulos Administrativos -->
-    <script src="js/live-search.js?v=20261015-11"></script>
-    <script src="js/pacientes.js?v=20261015-11"></script>
-    <script src="js/pacientes-file-manager.js?v=20261015-11"></script>
-    <script src="js/medicinas.js?v=20261015-11"></script>
-    <script src="js/historia-clinica.js?v=20261015-11"></script>
-    <script src="js/saldo-paciente.js?v=20261015-11"></script>
-    <script src="js/saldo-paciente-facturacion-integrado.js?v=20261015-11"></script>
-    <script src="js/hospitalizaciones.js?v=20261015-11"></script>
-    <script src="js/ordenes-medicas.js?v=20261015-11"></script>
-    <script src="js/personal.js?v=20261015-11"></script>
-    <script src="js/codigos-articulos.js?v=20261015-11"></script>
-    <script src="js/compras.js?v=20261015-11"></script>
-    <script src="js/alertas.js?v=20261015-11"></script>
-    <script src="js/ventas.js?v=20261015-11"></script>
-    <script src="js/caja.js?v=20261015-11"></script>
-    <script src="js/cuentas-por-cobrar.js?v=20261015-11"></script>
-    <script src="js/dashboard-financiero.js?v=20261015-11"></script>
-    <script src="js/reports.js?v=20261015-11"></script>
+    <script src="js/live-search.js?v=20261015-16"></script>
+    <script src="js/pacientes.js?v=20261015-16"></script>
+    <script src="js/pacientes-file-manager.js?v=20261015-16"></script>
+    <script src="js/medicinas.js?v=20261015-16"></script>
+    <script src="js/historia-clinica.js?v=20261015-16"></script>
+    <script src="js/saldo-paciente.js?v=20261015-16"></script>
+    <script src="js/saldo-paciente-facturacion-integrado.js?v=20261015-16"></script>
+    <script src="js/hospitalizaciones.js?v=20261015-16"></script>
+    <script src="js/ordenes-medicas.js?v=20261015-16"></script>
+    <script src="js/personal.js?v=20261015-16"></script>
+    <script src="js/codigos-articulos.js?v=20261015-16"></script>
+    <script src="js/compras.js?v=20261015-16"></script>
+    <script src="js/alertas.js?v=20261015-16"></script>
+    <script src="js/ventas.js?v=20261015-16"></script>
+    <script src="js/caja.js?v=20261015-16"></script>
+    <script src="js/cuentas-por-cobrar.js?v=20261015-16"></script>
+    <script src="js/dashboard-financiero.js?v=20261015-16"></script>
+    <script src="js/reports.js?v=20261015-16"></script>
     
     <!-- Módulos Agenda -->
-    <script src="js/agenda-avanzada.js?v=20261015-11"></script>
-    <script src="js/reservas-web.js?v=20261015-11"></script>
-    <script src="js/confirmaciones.js?v=20261015-11"></script>
-    <script src="js/google-calendar.js?v=20261015-11"></script>
-    <script src="js/agenda-api.js?v=20261015-11"></script>
-    <script src="js/gastos-servicios.js?v=20261015-11"></script>
+    <script src="js/agenda-avanzada.js?v=20261015-16"></script>
+    <script src="js/reservas-web.js?v=20261015-16"></script>
+    <script src="js/confirmaciones.js?v=20261015-16"></script>
+    <script src="js/google-calendar.js?v=20261015-16"></script>
+    <script src="js/agenda-api.js?v=20261015-16"></script>
+    <script src="js/gastos-servicios.js?v=20261015-16"></script>
     
     <!-- App Principal -->
-    <script src="js/app.js?v=20261015-11"></script>
-    <script src="js/inicio.js?v=20261015-11"></script>
+    <script src="js/app.js?v=20261015-16"></script>
+    <script src="js/inicio.js?v=20261015-16"></script>
 </body>
 </html>

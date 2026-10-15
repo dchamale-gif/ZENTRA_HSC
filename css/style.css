@@ -6252,3 +6252,141 @@ tr.medicina-inactiva td {
     gap: 10px;
     flex-wrap: wrap;
 }
+
+/* ---------- Saldo paciente: botón de IVA y acciones ---------- */
+.btn-iva {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 92px;
+    height: 30px;
+    padding: 0 10px;
+    flex-shrink: 0;
+    border: 1px solid #cfd8db;
+    border-radius: 999px;
+    background: var(--bg-white);
+    color: var(--text-gray);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.btn-iva i {
+    width: 12px;
+    font-size: 11px;
+}
+
+.btn-iva:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.btn-iva.activo {
+    background: var(--primary-soft);
+    border-color: var(--primary-color);
+    color: var(--primary-hover);
+}
+
+.btn-iva:focus-visible,
+.btn-accion:focus-visible {
+    outline: 2px solid #14b8a6;
+    outline-offset: 2px;
+}
+
+.acciones-saldo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+}
+
+.btn-accion {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 10px;
+    flex-shrink: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-white);
+    color: var(--text-dark);
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.btn-accion:hover {
+    background: var(--bg-light);
+    border-color: #cfd8db;
+}
+
+.btn-accion-icono {
+    width: 30px;
+    justify-content: center;
+    padding: 0;
+}
+
+.btn-accion-primaria {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #fff;
+}
+
+.btn-accion-primaria:hover {
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
+}
+
+.saldo-iva-nota {
+    display: block;
+    color: var(--text-gray);
+    font-size: 11.5px;
+    font-weight: 400;
+}
+
+/* Saldo paciente: la tabla se desplaza dentro de su caja en lugar de ensanchar la página */
+.saldos-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 350px;
+    gap: 20px;
+}
+
+.saldos-principal {
+    min-width: 0;
+}
+
+#tablaSaldos td:first-child strong {
+    white-space: nowrap;
+}
+
+.saldo-iva-nota {
+    white-space: nowrap;
+}
+
+/* El panel lateral solo va al lado cuando hay espacio para la tabla completa */
+@media (max-width: 1599px) {
+    .saldos-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+#tablaSaldos td,
+#tablaSaldos ~ thead th,
+.saldos-principal .data-table th {
+    padding-left: 12px;
+    padding-right: 12px;
+}
+
+/* Ancho reservado para "+ IVA 12%: Q 00,000.00" y así no se reacomodan las columnas */
+#tablaSaldos td:nth-child(3) {
+    min-width: 160px;
+}
