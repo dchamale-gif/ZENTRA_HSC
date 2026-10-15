@@ -5688,3 +5688,322 @@ tbody tr:hover {
         display: none;
     }
 }
+
+/* ---------- Agenda: filtros y búsqueda ---------- */
+.agenda-filtros {
+    display: grid;
+    grid-template-columns: minmax(220px, 2fr) repeat(3, minmax(150px, 1fr)) auto;
+    gap: 12px;
+    align-items: end;
+    padding: 16px;
+    margin-bottom: 16px;
+    background: var(--bg-white);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+}
+
+.agenda-filtro {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.agenda-filtro label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-gray);
+}
+
+.agenda-input-icono {
+    position: relative;
+}
+
+.agenda-input-icono i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-gray);
+    font-size: 13px;
+    pointer-events: none;
+}
+
+.agenda-input-icono .form-input {
+    width: 100%;
+    padding-left: 34px;
+}
+
+.agenda-filtro-acciones {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.agenda-resultados {
+    background: var(--bg-white);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 12px;
+    margin-bottom: 16px;
+}
+
+.agenda-resultados-titulo,
+.agenda-resultados-vacio {
+    font-size: 13px;
+    color: var(--text-gray);
+    margin: 0 4px 8px;
+}
+
+.agenda-resultados-vacio {
+    margin-bottom: 0;
+}
+
+.agenda-resultados-lista {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.agenda-resultado {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr) minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 9px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    text-align: left;
+    font: inherit;
+    font-size: 14px;
+    color: var(--text-dark);
+    cursor: pointer;
+}
+
+.agenda-resultado:hover {
+    background: var(--bg-light);
+}
+
+.agenda-resultado.pasada {
+    opacity: 0.6;
+}
+
+.agenda-resultado-fecha {
+    font-variant-numeric: tabular-nums;
+    color: var(--text-gray);
+    text-transform: capitalize;
+}
+
+.agenda-resultado-paciente {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.agenda-resultado-doctor {
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Modal de cita: búsqueda de paciente */
+.patient-search-row {
+    display: grid;
+    grid-template-columns: 120px minmax(0, 1fr) auto;
+    gap: 8px;
+}
+
+.patient-search-box {
+    position: relative;
+    min-width: 0;
+}
+
+.patient-search-box .form-input {
+    width: 100%;
+}
+
+.patient-suggestions {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    max-height: 280px;
+    overflow-y: auto;
+    background: var(--bg-white);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: var(--shadow-lg);
+}
+
+.patient-suggestion {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    padding: 10px 12px;
+    border: 0;
+    border-bottom: 1px solid var(--border-color);
+    background: transparent;
+    text-align: left;
+    font: inherit;
+    font-size: 14px;
+    color: var(--text-dark);
+    cursor: pointer;
+}
+
+.patient-suggestion:last-child {
+    border-bottom: 0;
+}
+
+.patient-suggestion:hover,
+.patient-suggestion:focus-visible {
+    background: var(--primary-soft);
+    outline: none;
+}
+
+.patient-suggestion span {
+    font-size: 12.5px;
+    color: var(--text-gray);
+}
+
+.patient-suggestion .patient-suggestion-cita {
+    color: var(--primary-color);
+}
+
+.patient-suggestion-empty {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px;
+    font-size: 13px;
+    color: var(--text-gray);
+}
+
+.patient-selected-info {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--primary-soft);
+    color: var(--primary-hover);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.patient-selected-info i {
+    margin-top: 2px;
+}
+
+@media (max-width: 1100px) {
+    .agenda-filtros {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .agenda-filtro-busqueda,
+    .agenda-filtro-acciones {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 640px) {
+    .agenda-filtros {
+        grid-template-columns: 1fr;
+    }
+
+    .agenda-resultado {
+        grid-template-columns: 1fr auto;
+        gap: 2px 8px;
+    }
+
+    .agenda-resultado-fecha,
+    .agenda-resultado-doctor {
+        grid-column: 1;
+    }
+
+    .patient-search-row {
+        grid-template-columns: 1fr auto;
+    }
+
+    .patient-search-row select {
+        grid-column: 1 / -1;
+    }
+}
+
+.page-header-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.agenda-filtros {
+    grid-template-columns: minmax(200px, 1.6fr) repeat(3, minmax(0, 1fr)) auto;
+}
+
+.agenda-filtro-acciones:not(:has(:not([hidden]))) {
+    display: none;
+}
+
+.agenda-estado {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #fff4e5;
+    color: #92400e;
+    white-space: nowrap;
+}
+
+.agenda-estado-confirmada {
+    background: #e8f5ec;
+    color: #166534;
+}
+
+.agenda-estado-cancelada {
+    background: #f1f3f4;
+    color: var(--text-gray);
+}
+
+/* Agenda: el calendario se ajusta al ancho disponible */
+.calendar-container {
+    grid-template-columns: minmax(0, 1fr) 320px;
+}
+
+.calendar-weekdays,
+.calendar-days {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.calendar-day {
+    min-width: 0;
+}
+
+@media (max-width: 1023px) {
+    .calendar-container {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    .calendar-grid {
+        padding: 10px;
+    }
+
+    .calendar-weekdays,
+    .calendar-days {
+        gap: 4px;
+    }
+
+    .calendar-day {
+        padding: 4px;
+    }
+}

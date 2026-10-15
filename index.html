@@ -1903,9 +1903,14 @@
                 <div id="page-agenda" class="page">
                     <div class="page-header">
                         <h1>Agenda Médica</h1>
-                        <button class="btn btn-primary" id="addAppointmentBtn">
-                            <i class="fas fa-plus"></i> Nueva Cita
-                        </button>
+                        <div class="page-header-actions">
+                            <button type="button" class="btn btn-secondary" onclick="openAgendaManagementPanel()">
+                                <i class="fas fa-gear" aria-hidden="true"></i> Admin agenda
+                            </button>
+                            <button class="btn btn-primary" id="addAppointmentBtn">
+                                <i class="fas fa-plus" aria-hidden="true"></i> Nueva cita
+                            </button>
+                        </div>
                     </div>
                     
                     <div class="calendar-controls">
@@ -1918,17 +1923,43 @@
                         </button>
                     </div>
 
-                    <div class="filters-row">
-                        <select id="doctorFilter" class="form-input">
-                            <option value="">Todos los doctores</option>
-                        </select>
-                        <select id="specialtyFilter" class="form-input">
-                            <option value="">Todas las especialidades</option>
-                        </select>
-                        <button class="btn btn-sm btn-info" onclick="openAgendaManagementPanel()">
-                            <i class="fas fa-cog"></i> Admin Agenda
-                        </button>
+                    <div class="agenda-filtros">
+                        <div class="agenda-filtro agenda-filtro-busqueda">
+                            <label for="agendaBusqueda">Buscar paciente</label>
+                            <div class="agenda-input-icono">
+                                <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                                <input type="search" id="agendaBusqueda" class="form-input" placeholder="Nombre, DPI, teléfono o motivo" autocomplete="off">
+                            </div>
+                        </div>
+                        <div class="agenda-filtro">
+                            <label for="specialtyFilter">Especialidad</label>
+                            <select id="specialtyFilter" class="form-input">
+                                <option value="">Todas las especialidades</option>
+                            </select>
+                        </div>
+                        <div class="agenda-filtro">
+                            <label for="doctorFilter">Doctor</label>
+                            <select id="doctorFilter" class="form-input">
+                                <option value="">Todos los doctores</option>
+                            </select>
+                        </div>
+                        <div class="agenda-filtro">
+                            <label for="estadoCitaFilter">Estado</label>
+                            <select id="estadoCitaFilter" class="form-input">
+                                <option value="">Activas (sin canceladas)</option>
+                                <option value="Pendiente">Pendientes</option>
+                                <option value="Confirmada">Confirmadas</option>
+                                <option value="Cancelada">Canceladas</option>
+                            </select>
+                        </div>
+                        <div class="agenda-filtro-acciones">
+                            <button type="button" class="btn btn-secondary" id="agendaLimpiarFiltros" hidden>
+                                <i class="fas fa-xmark" aria-hidden="true"></i> Limpiar filtros
+                            </button>
+                        </div>
                     </div>
+
+                    <div id="agendaResultados" class="agenda-resultados" aria-live="polite" hidden></div>
 
                     <div class="calendar-container">
                         <div class="calendar-grid">
@@ -4586,16 +4617,24 @@
                 
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Paciente <span class="required">*</span></label>
-                        <div style="display: flex; gap: 10px;">
-                            <div style="flex: 1; position: relative;">
-                                <input type="text" id="patientSearch" class="form-input" placeholder="Buscar o crear paciente..." required autocomplete="off">
-                                <div id="patientSuggestions" style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; border-radius: 4px; max-height: 200px; overflow-y: auto; z-index: 1000; display: none;"></div>
+                        <label for="patientSearch">Paciente <span class="required">*</span></label>
+                        <div class="patient-search-row">
+                            <select id="patientSearchField" class="form-input" aria-label="Buscar paciente por">
+                                <option value="todo">Todo</option>
+                                <option value="nombre">Nombre</option>
+                                <option value="dpi">DPI</option>
+                                <option value="telefono">Teléfono</option>
+                                <option value="email">Email</option>
+                            </select>
+                            <div class="patient-search-box">
+                                <input type="search" id="patientSearch" class="form-input" placeholder="Escribe para buscar un paciente registrado" required autocomplete="off">
+                                <div id="patientSuggestions" class="patient-suggestions" style="display: none;"></div>
                             </div>
-                            <button type="button" class="btn btn-primary" id="createPatientQuickBtn" style="padding: 10px 15px; white-space: nowrap;">
-                                <i class="fas fa-plus"></i> Crear
+                            <button type="button" class="btn btn-secondary" id="createPatientQuickBtn">
+                                <i class="fas fa-user-plus" aria-hidden="true"></i> Nuevo
                             </button>
                         </div>
+                        <p id="patientSelectedInfo" class="patient-selected-info" hidden></p>
                         <input type="hidden" id="patientId">
                         <input type="hidden" id="patientName">
                         <input type="hidden" id="patientEmail">
@@ -4607,18 +4646,19 @@
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Especialidad <span class="required">*</span></label>
-                        <select id="appointmentSpecialty" class="form-input" required>
-                            <option value="">Selecciona especialidad...</option>
+                        <label for="appointmentSpecialty">Filtrar por especialidad</label>
+                        <select id="appointmentSpecialty" class="form-input">
+                            <option value="">Todas las especialidades</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Doctor <span class="required">*</span></label>
+                        <label for="appointmentDoctor">Doctor <span class="required">*</span></label>
                         <select id="appointmentDoctor" class="form-input" required>
-                            <option value="">Selecciona especialidad primero...</option>
+                            <option value="">Selecciona doctor...</option>
                         </select>
                     </div>
                 </div>
+                <p id="appointmentDoctorInfo" class="form-hint"></p>
 
                 <div class="form-section-title">Fecha y Hora</div>
 

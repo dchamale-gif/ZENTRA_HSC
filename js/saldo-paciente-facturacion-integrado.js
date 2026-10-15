@@ -286,7 +286,7 @@ const SaldoPacienteFacturacion = {
         if (!this.state.paciente_seleccionado) return;
 
         const paciente_id = this.state.paciente_seleccionado.id;
-        const saldo = this.state.saldos.find(s => s.paciente_id === paciente_id) || {
+        const saldo = this.state.saldos.find(s => String(s.paciente_id) === String(paciente_id)) || {
             saldo_pendiente: 0,
             total_deuda: 0
         };
@@ -701,8 +701,8 @@ const SaldoPacienteFacturacion = {
 
     abrirPagoDirecto(pacienteId) {
         document.querySelector('[onclick="switchTab(\'pagos\')"]').click();
-        const saldo = this.state.saldos.find(s => s.paciente_id === pacienteId);
-        const p = this.state.pacientes.find(pac => pac.id === pacienteId);
+        const saldo = this.state.saldos.find(s => String(s.paciente_id) === String(pacienteId));
+        const p = this.state.pacientes.find(pac => String(pac.id) === String(pacienteId));
 
         const montosIVA = this.calcularMontosIVA(this.cuentaIvaKey(saldo), saldo.saldo_pendiente);
 
@@ -715,8 +715,8 @@ const SaldoPacienteFacturacion = {
     },
 
     imprimirSaldo(pacienteId) {
-        const saldo = this.state.saldos.find(s => s.paciente_id === pacienteId);
-        const p = this.state.pacientes.find(pac => pac.id === pacienteId);
+        const saldo = this.state.saldos.find(s => String(s.paciente_id) === String(pacienteId));
+        const p = this.state.pacientes.find(pac => String(pac.id) === String(pacienteId));
 
         if (!p || !saldo) {
             alert('Datos de paciente no encontrados');
@@ -972,13 +972,13 @@ const SaldoPacienteFacturacion = {
         document.getElementById('pacienteSeleccionado').textContent = '✓ ' + nombre + ' seleccionado';
 
         // Mostrar datos en sidebar
-        const p = this.state.pacientes.find(pac => pac.id === pacienteId);
+        const p = this.state.pacientes.find(pac => String(pac.id) === String(pacienteId));
         if (!p) {
             console.error('Paciente no encontrado:', pacienteId);
             return;
         }
         
-        const saldo = this.state.saldos.find(s => s.paciente_id === pacienteId);
+        const saldo = this.state.saldos.find(s => String(s.paciente_id) === String(pacienteId));
         const apellidoPaterno = p.apellidoPaterno || p.apellido_paterno || '';
         const dpi = p.dpi || '';
         const telefono = p.telefono || 'N/A';
@@ -1047,7 +1047,7 @@ const SaldoPacienteFacturacion = {
     },
 
     actualizarItem(itemId, campo, valor) {
-        const item = this.state.items_actuales.find(current => current.id === itemId);
+        const item = this.state.items_actuales.find(current => String(current.id) === String(itemId));
         if (!item) return;
 
         if (campo === 'descripcion') {
@@ -1106,7 +1106,7 @@ const SaldoPacienteFacturacion = {
     },
 
     abrirDescuentoItem(itemId) {
-        const item = this.state.items_actuales.find(i => i.id === itemId);
+        const item = this.state.items_actuales.find(i => String(i.id) === String(itemId));
         if (!item) return;
 
         const tipo = prompt('Descuento:\n1. Porcentaje (%)\n2. Cantidad Fija (Q)\n\nSelecciona 1 o 2:');
@@ -1815,7 +1815,7 @@ const SaldoPacienteFacturacion = {
         let filtrados = this.state.pagos_realizados;
 
         if (pacienteId) {
-            filtrados = filtrados.filter(p => p.paciente_id === pacienteId);
+            filtrados = filtrados.filter(p => String(p.paciente_id) === String(pacienteId));
         }
 
         this.mostrarPagosRealizados(filtrados);
@@ -1833,10 +1833,10 @@ const SaldoPacienteFacturacion = {
     },
 
     abrirEditarPago(pagoId) {
-        const pago = this.state.pagos_realizados.find(p => p.id === pagoId);
+        const pago = this.state.pagos_realizados.find(p => String(p.id) === String(pagoId));
         if (!pago) return;
 
-        const paciente = this.state.pacientes.find(p => p.id === pago.paciente_id);
+        const paciente = this.state.pacientes.find(p => String(p.id) === String(pago.paciente_id));
         this.state.pago_en_edicion = pago;
 
         document.getElementById('editarPagoId').value = pagoId;
@@ -1909,7 +1909,7 @@ const SaldoPacienteFacturacion = {
                 this.cargarPagosRealizados();
             } else {
                 // Guardar localmente
-                const index = this.state.pagos_realizados.findIndex(p => p.id === pagoId);
+                const index = this.state.pagos_realizados.findIndex(p => String(p.id) === String(pagoId));
                 if (index >= 0) {
                     this.state.pagos_realizados[index] = { ...this.state.pagos_realizados[index], ...datosActualizados };
                     localStorage.setItem('pagosRealizados', JSON.stringify(this.state.pagos_realizados));
@@ -2179,13 +2179,13 @@ const SaldoPacienteFacturacion = {
 
     mostrarEstadoCuentaLocal(pacienteId) {
         try {
-            const paciente = this.state.pacientes.find(p => p.id === pacienteId);
+            const paciente = this.state.pacientes.find(p => String(p.id) === String(pacienteId));
             if (!paciente) return;
 
             document.getElementById('estadoCuentaContainer').style.display = 'block';
             
             // Obtener saldo del paciente desde localStorage
-            const saldo = this.state.saldos.find(s => s.paciente_id === pacienteId) || {
+            const saldo = this.state.saldos.find(s => String(s.paciente_id) === String(pacienteId)) || {
                 total_deuda: 0,
                 saldo_pendiente: 0
             };

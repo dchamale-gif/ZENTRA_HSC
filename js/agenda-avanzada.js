@@ -15,7 +15,47 @@ const AgendaAvanzadaModule = {
         currentDate: new Date(),
         selectedDate: null,
         filterDoctor: '',
-        filterSpecialty: ''
+        filterSpecialty: '',
+        filterEstado: '',
+        busqueda: '',
+        busquedaPacienteCampo: 'todo'
+    },
+
+    DIAS_SEMANA: ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'],
+
+    // Colores asignados a cada doctor según su posición
+    PALETA_DOCTORES: [
+        ['#0f766e', '#e6f4f2'], ['#1d4ed8', '#e8efff'], ['#b45309', '#fff4e5'],
+        ['#7c3aed', '#f1eafe'], ['#be123c', '#fdeaf0'], ['#0e7490', '#e6f3f7'],
+        ['#15803d', '#e8f5ec'], ['#9333ea', '#f5ebfe'], ['#c2410c', '#fdeee6']
+    ],
+
+    // 'YYYY-MM-DD' como fecha local (new Date('YYYY-MM-DD') usa UTC y en
+    // Guatemala, UTC-6, cae en el día anterior)
+    parseFechaLocal(dateStr) {
+        const [y, m, d] = String(dateStr).slice(0, 10).split('-').map(Number);
+        return new Date(y, m - 1, d);
+    },
+
+    diaSemana(dateStr) {
+        return this.DIAS_SEMANA[this.parseFechaLocal(dateStr).getDay()];
+    },
+
+    fechaISO(date) {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    },
+
+    escapeHTML(valor) {
+        return String(valor ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    },
+
+    getApiBase() {
+        const apiHost = (authManager?.apiBaseUrl || 'http://178.128.72.110:3011').replace(/\/$/, '');
+        return apiHost.endsWith('/api') ? apiHost : `${apiHost}/api`;
+    },
+
+    getDoctor(doctorId) {
+        return this.state.doctores.find(d => String(d.id) === String(doctorId));
     },
 
     // Inicializar
@@ -66,7 +106,7 @@ const AgendaAvanzadaModule = {
         if (doctorFilter) {
             doctorFilter.addEventListener('change', (e) => {
                 this.state.filterDoctor = e.target.value;
-                this.renderCalendar();
+                this.aplicarFiltros();
             });
         }
 
@@ -74,9 +114,28 @@ const AgendaAvanzadaModule = {
         if (specialtyFilter) {
             specialtyFilter.addEventListener('change', (e) => {
                 this.state.filterSpecialty = e.target.value;
-                this.renderCalendar();
+                this.loadDoctorFilter();
+                this.aplicarFiltros();
             });
         }
+
+        document.getElementById('estadoCitaFilter')?.addEventListener('change', (e) => {
+            this.state.filterEstado = e.target.value;
+            this.aplicarFiltros();
+        });
+
+        document.getElementById('agendaBusqueda')?.addEventListener('input', (e) => {
+            this.state.busqueda = e.target.value;
+            this.aplicarFiltros();
+        });
+
+        document.getElementById('agendaLimpiarFiltros')?.addEventListener('click', () => this.limpiarFiltros());
+
+        document.getElementById('patientSearchField')?.addEventListener('change', (e) => {
+            this.state.busquedaPacienteCampo = e.target.value;
+            const term = document.getElementById('patientSearch')?.value || '';
+            if (term.trim()) this.handlePatientSearch(term);
+        });
 
         // Cuando cambia la especialidad en el formulario, actualizar doctores
         const appointmentSpecialty = document.getElementById('appointmentSpecialty');
@@ -90,6 +149,7 @@ const AgendaAvanzadaModule = {
         const appointmentDoctor = document.getElementById('appointmentDoctor');
         if (appointmentDoctor) {
             appointmentDoctor.addEventListener('change', () => {
+                this.syncSpecialtyFromDoctor();
                 this.updateAvailableHours();
             });
         }
@@ -105,33 +165,97 @@ const AgendaAvanzadaModule = {
 
     // Cargar datos iniciales
     loadData() {
-        const savedDoctores = localStorage.getItem('agendaDoctores');
         const savedBloqueos = localStorage.getItem('agendaBloqueos');
         const savedRestricciones = localStorage.getItem('agendaRestricciones');
         const savedCitas = localStorage.getItem('agendaCitas');
-
-        if (savedDoctores) {
-            this.state.doctores = JSON.parse(savedDoctores);
-        } else {
-            this.loadDefaultDoctores();
-        }
 
         if (savedBloqueos) this.state.bloqueoPersonal = JSON.parse(savedBloqueos);
         if (savedRestricciones) this.state.restriccionesDoctor = JSON.parse(savedRestricciones);
         if (savedCitas) this.state.citas = JSON.parse(savedCitas);
 
-        this.state.especialidades = [
-            { id: 1, nombre: 'Psiquiatría General', icon: 'fa-brain', color: '#8E44AD', bgColor: '#EBD6F7' },
-            { id: 2, nombre: 'Psiquiatría Infantil', icon: 'fa-child', color: '#3498DB', bgColor: '#D6EAF8' },
-            { id: 3, nombre: 'Psicología Clínica', icon: 'fa-couch', color: '#E74C3C', bgColor: '#FADBD8' },
-            { id: 4, nombre: 'Terapia Cognitivo-Conductual', icon: 'fa-lightbulb', color: '#F39C12', bgColor: '#FCF3CF' },
-            { id: 5, nombre: 'Adicciones y Rehabilitación', icon: 'fa-leaf', color: '#27AE60', bgColor: '#D5F4E6' },
-            { id: 6, nombre: 'Psiquiatría Forense', icon: 'fa-gavel', color: '#34495E', bgColor: '#D7DBDD' }
-        ];
-
-        // Inicializar restricciones por defecto
+        // Doctores y especialidades salen del módulo Personal Médico
+        this.loadDoctoresDesdeStorage();
         this.initDefaultRestricciones();
-        this.loadCitasFromAPI();
+        this.loadDoctoresReales().then(() => this.loadCitasFromAPI());
+    },
+
+    // Convierte un registro de Personal Médico al formato que usa la agenda
+    mapPersonalADoctor(personal, index) {
+        const [color, bgColor] = this.PALETA_DOCTORES[index % this.PALETA_DOCTORES.length];
+        const dias = personal.dias_disponibles ?? personal.diasDisponibles ?? [];
+        const inicio = String(personal.horario_inicio ?? personal.horarioInicio ?? '08:00').slice(0, 5);
+        const fin = String(personal.horario_fin ?? personal.horarioFin ?? '16:00').slice(0, 5);
+        const horariosLaborales = {};
+        this.DIAS_SEMANA.forEach(dia => {
+            horariosLaborales[dia] = dias.includes(dia) ? { inicio, fin } : { inicio: null, fin: null };
+        });
+
+        const nombre = [personal.nombre, personal.apellido_paterno ?? personal.apellidoPaterno, personal.apellido_materno ?? personal.apellidoMaterno]
+            .filter(Boolean).join(' ');
+
+        return {
+            id: String(personal.id),
+            nombre,
+            especialidad: personal.especialidad || '',
+            especialidadId: Number(personal.especialidad_id ?? personal.especialidadId) || 0,
+            numeroColegiado: personal.numero_colegiado ?? personal.numeroColegiado ?? '',
+            email: personal.email || '',
+            telefono: personal.telefono || '',
+            estado: personal.estado || 'activo',
+            color,
+            bgColor,
+            horariosLaborales,
+            horarioTexto: `${inicio}–${fin}`,
+            diasTexto: dias.map(d => d.slice(0, 3)).join(', ')
+        };
+    },
+
+    setDoctores(personal, especialidades = []) {
+        this.state.doctores = personal.map((p, i) => this.mapPersonalADoctor(p, i));
+
+        const porId = new Map();
+        especialidades.forEach(e => porId.set(Number(e.id), e.nombre));
+        // Incluir especialidades de los doctores aunque el catálogo no cargue
+        this.state.doctores.forEach(d => {
+            if (d.especialidadId && !porId.has(d.especialidadId)) porId.set(d.especialidadId, d.especialidad);
+        });
+        this.state.especialidades = [...porId.entries()]
+            .map(([id, nombre]) => ({ id, nombre }))
+            .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+
+        this.initDefaultRestricciones();
+        this.loadFilters();
+        this.renderCalendar();
+    },
+
+    // Respaldo: lo último que guardó el módulo Personal Médico en este navegador
+    loadDoctoresDesdeStorage() {
+        try {
+            const personal = JSON.parse(localStorage.getItem('personalMedico') || '[]');
+            this.setDoctores(Array.isArray(personal) ? personal : []);
+        } catch (error) {
+            this.setDoctores([]);
+        }
+    },
+
+    async loadDoctoresReales() {
+        const token = authManager?.getToken?.();
+        if (!token) return;
+
+        try {
+            const headers = { Authorization: `Bearer ${token}` };
+            const [personalRes, especialidadesRes] = await Promise.all([
+                fetch(`${this.getApiBase()}/personal-medico`, { headers }),
+                fetch(`${this.getApiBase()}/personal-medico/especialidades`, { headers })
+            ]);
+            if (!personalRes.ok) throw new Error(`Personal médico respondió ${personalRes.status}`);
+
+            const personalData = await personalRes.json();
+            const especialidadesData = especialidadesRes.ok ? await especialidadesRes.json() : {};
+            this.setDoctores(personalData.personal || [], especialidadesData.especialidades || []);
+        } catch (error) {
+            console.warn('No se pudo cargar el personal médico; se usa el respaldo local:', error);
+        }
     },
 
     // Cargar citas desde API
@@ -164,8 +288,11 @@ const AgendaAvanzadaModule = {
     },
 
     mapCitaFromAPI(cita, local = {}) {
-        const doctorId = cita.doctor_id || cita.doctorId;
-        const doctor = this.state.doctores.find(item => String(item.id) === String(doctorId));
+        const personalId = cita.personal_medico_id ?? cita.personalMedicoId;
+        const userDoctorId = cita.doctor_id ?? cita.doctorId;
+        // Citas antiguas (sin personal médico) quedan ligadas al usuario que las registró
+        const doctorId = personalId ? String(personalId) : (userDoctorId ? `user-${userDoctorId}` : (local.doctorId || ''));
+        const doctor = this.getDoctor(doctorId);
         const rawStatus = String(cita.estado || 'pendiente').toLowerCase();
         const statuses = {
             pendiente: 'Pendiente',
@@ -189,7 +316,7 @@ const AgendaAvanzadaModule = {
             doctorColor: doctor?.color || local.doctorColor,
             doctorBgColor: doctor?.bgColor || local.doctorBgColor,
             especialidad: cita.especialidad || doctor?.especialidad || local.especialidad || 'Sin especialidad',
-            especialidadId: doctor?.especialidadId || local.especialidadId || 0,
+            especialidadId: Number(cita.especialidad_id) || doctor?.especialidadId || local.especialidadId || 0,
             fecha: String(cita.fecha).slice(0, 10),
             hora: String(cita.hora).slice(0, 5),
             condiciones: cita.diagnostico || local.condiciones || '',
@@ -197,75 +324,6 @@ const AgendaAvanzadaModule = {
             estado: status,
             confirmada: status === 'Confirmada'
         };
-    },
-
-    // Doctores por defecto
-    loadDefaultDoctores() {
-        this.state.doctores = [
-            {
-                id: 'DOC-001',
-                nombre: 'Dra. Carolina Mendoza',
-                especialidad: 'Psiquiatría General',
-                especialidadId: 1,
-                email: 'carolina@clinic.com',
-                telefono: '+584121234567',
-                estado: 'activo',
-                color: '#E91E63',
-                bgColor: '#FCE4EC',
-                condiciones: ['Depresión', 'Ansiedad', 'Trastornos del Sueño'],
-                horariosLaborales: {
-                    'lunes': { inicio: '08:00', fin: '17:00' },
-                    'martes': { inicio: '08:00', fin: '17:00' },
-                    'miercoles': { inicio: '08:00', fin: '17:00' },
-                    'jueves': { inicio: '08:00', fin: '17:00' },
-                    'viernes': { inicio: '08:00', fin: '17:00' },
-                    'sabado': { inicio: '09:00', fin: '13:00' },
-                    'domingo': { inicio: null, fin: null }
-                }
-            },
-            {
-                id: 'DOC-002',
-                nombre: 'Dr. Luis Fernando Rodríguez',
-                especialidad: 'Psiquiatría Infantil',
-                especialidadId: 2,
-                email: 'luis@clinic.com',
-                telefono: '+584125678901',
-                estado: 'activo',
-                color: '#2196F3',
-                bgColor: '#E3F2FD',
-                condiciones: ['TDAH', 'Autismo', 'Problemas de Conducta'],
-                horariosLaborales: {
-                    'lunes': { inicio: '09:00', fin: '18:00' },
-                    'martes': { inicio: '09:00', fin: '18:00' },
-                    'miercoles': { inicio: '09:00', fin: '18:00' },
-                    'jueves': { inicio: '09:00', fin: '18:00' },
-                    'viernes': { inicio: '09:00', fin: '18:00' },
-                    'sabado': { inicio: null, fin: null },
-                    'domingo': { inicio: null, fin: null }
-                }
-            },
-            {
-                id: 'DOC-003',
-                nombre: 'Dra. Sofía García López',
-                especialidad: 'Psicología Clínica',
-                especialidadId: 3,
-                email: 'sofia@clinic.com',
-                telefono: '+584129876543',
-                estado: 'activo',
-                color: '#FF5722',
-                bgColor: '#FFEBEE',
-                condiciones: ['Terapia Individual', 'Trauma', 'Estrés Postraumático'],
-                horariosLaborales: {
-                    'lunes': { inicio: '08:30', fin: '16:30' },
-                    'martes': { inicio: '08:30', fin: '16:30' },
-                    'miercoles': { inicio: '08:30', fin: '16:30' },
-                    'jueves': { inicio: '08:30', fin: '16:30' },
-                    'viernes': { inicio: '08:30', fin: '16:30' },
-                    'sabado': { inicio: null, fin: null },
-                    'domingo': { inicio: null, fin: null }
-                }
-            }
-        ];
     },
 
     // Inicializar restricciones por defecto
@@ -283,61 +341,111 @@ const AgendaAvanzadaModule = {
         });
     },
 
-    // Cargar filtros
-    loadFilters() {
+    // Opciones de doctor agrupadas por especialidad
+    doctorOptionsHTML(doctores) {
+        const grupos = new Map();
+        doctores.forEach(d => {
+            const clave = d.especialidad || 'Sin especialidad';
+            if (!grupos.has(clave)) grupos.set(clave, []);
+            grupos.get(clave).push(d);
+        });
+        return [...grupos.entries()]
+            .sort(([a], [b]) => a.localeCompare(b, 'es'))
+            .map(([especialidad, lista]) => `<optgroup label="${this.escapeHTML(especialidad)}">${
+                lista.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+                    .map(d => `<option value="${this.escapeHTML(d.id)}">${this.escapeHTML(d.nombre)}</option>`).join('')
+            }</optgroup>`).join('');
+    },
+
+    doctoresActivos(especialidadId = '') {
+        return this.state.doctores.filter(d =>
+            d.estado === 'activo' && (!especialidadId || String(d.especialidadId) === String(especialidadId))
+        );
+    },
+
+    loadDoctorFilter() {
         const doctorSelect = document.getElementById('doctorFilter');
-        if (doctorSelect) {
-            doctorSelect.innerHTML = '<option value="">Todos los doctores</option>' +
-                this.state.doctores
-                    .filter(d => d.estado === 'activo')
-                    .map(d => `<option value="${d.id}">${d.nombre}</option>`)
-                    .join('');
-        }
-
-        const specialtySelect = document.getElementById('specialtyFilter');
-        if (specialtySelect) {
-            specialtySelect.innerHTML = '<option value="">Todas las especialidades</option>' +
-                this.state.especialidades.map(e => `<option value="${e.id}">${e.nombre}</option>`).join('');
-        }
-
-        // Cargar doctores en modal
-        const appointmentSpecialty = document.getElementById('appointmentSpecialty');
-        if (appointmentSpecialty) {
-            appointmentSpecialty.innerHTML = '<option value="">Selecciona especialidad...</option>' +
-                this.state.especialidades.map(e => `<option value="${e.id}">${e.nombre}</option>`).join('');
+        if (!doctorSelect) return;
+        const doctores = this.doctoresActivos(this.state.filterSpecialty);
+        doctorSelect.innerHTML = `<option value="">Todos los doctores (${doctores.length})</option>` + this.doctorOptionsHTML(doctores);
+        if (doctores.some(d => d.id === this.state.filterDoctor)) {
+            doctorSelect.value = this.state.filterDoctor;
+        } else {
+            this.state.filterDoctor = '';
         }
     },
 
-    // Actualizar doctores según especialidad seleccionada
+    // Cargar filtros
+    loadFilters() {
+        const especialidadesOptions = this.state.especialidades
+            .map(e => `<option value="${e.id}">${this.escapeHTML(e.nombre)}</option>`).join('');
+
+        const specialtySelect = document.getElementById('specialtyFilter');
+        if (specialtySelect) {
+            specialtySelect.innerHTML = '<option value="">Todas las especialidades</option>' + especialidadesOptions;
+            specialtySelect.value = this.state.filterSpecialty;
+        }
+        this.loadDoctorFilter();
+
+        const appointmentSpecialty = document.getElementById('appointmentSpecialty');
+        if (appointmentSpecialty) {
+            const actual = appointmentSpecialty.value;
+            appointmentSpecialty.innerHTML = '<option value="">Todas las especialidades</option>' + especialidadesOptions;
+            appointmentSpecialty.value = actual;
+        }
+        this.updateDoctorsBySpecialty();
+    },
+
+    // Lista de doctores del formulario, filtrada por especialidad si se eligió una
     updateDoctorsBySpecialty() {
         const specialtySelect = document.getElementById('appointmentSpecialty');
         const doctorSelect = document.getElementById('appointmentDoctor');
-
         if (!specialtySelect || !doctorSelect) return;
 
-        const selectedSpecialty = specialtySelect.value;
-        const specialty = this.state.especialidades.find(e => e.id == selectedSpecialty);
+        const actual = doctorSelect.value;
+        const doctores = this.doctoresActivos(specialtySelect.value);
 
-        if (!specialty) {
-            doctorSelect.innerHTML = '<option value="">Selecciona especialidad primero...</option>';
-            return;
+        if (this.state.doctores.length === 0) {
+            doctorSelect.innerHTML = '<option value="">No hay personal médico registrado</option>';
+        } else if (doctores.length === 0) {
+            doctorSelect.innerHTML = '<option value="">No hay doctores activos en esta especialidad</option>';
+        } else {
+            doctorSelect.innerHTML = `<option value="">Selecciona doctor (${doctores.length})...</option>` + this.doctorOptionsHTML(doctores);
         }
 
-        const availableDoctors = this.state.doctores.filter(d =>
-            d.estado === 'activo' && d.especialidad === specialty.nombre
-        );
+        doctorSelect.value = doctores.some(d => d.id === actual) ? actual : '';
+        this.renderDoctorInfo();
+        this.updateAvailableHours();
+    },
 
-        if (availableDoctors.length === 0) {
-            doctorSelect.innerHTML = '<option value="">No hay doctores disponibles</option>';
+    // Al elegir doctor, mostrar su especialidad y horario
+    syncSpecialtyFromDoctor() {
+        const doctor = this.getDoctor(document.getElementById('appointmentDoctor')?.value);
+        const specialtySelect = document.getElementById('appointmentSpecialty');
+        if (doctor && specialtySelect && specialtySelect.value && String(specialtySelect.value) !== String(doctor.especialidadId)) {
+            specialtySelect.value = String(doctor.especialidadId);
+        }
+        this.renderDoctorInfo();
+    },
+
+    renderDoctorInfo() {
+        const info = document.getElementById('appointmentDoctorInfo');
+        if (!info) return;
+        const doctor = this.getDoctor(document.getElementById('appointmentDoctor')?.value);
+        if (!doctor) {
+            info.innerHTML = this.state.doctores.length === 0
+                ? 'Registra doctores en <a href="#" onclick="event.preventDefault(); AgendaAvanzadaModule.irAPersonalMedico()">Personal Médico</a> para poder agendar.'
+                : '';
             return;
         }
+        info.innerHTML = `<i class="fas fa-stethoscope" aria-hidden="true"></i> ${this.escapeHTML(doctor.especialidad || 'Sin especialidad')}
+            · <i class="fas fa-clock" aria-hidden="true"></i> ${this.escapeHTML(doctor.horarioTexto)} (${this.escapeHTML(doctor.diasTexto || 'sin días')})
+            ${doctor.numeroColegiado ? `· Col. ${this.escapeHTML(doctor.numeroColegiado)}` : ''}`;
+    },
 
-        doctorSelect.innerHTML = '<option value="">Selecciona doctor...</option>' +
-            availableDoctors.map(d => {
-                const bgColor = d.bgColor || '#f0f0f0';
-                const color = d.color || '#666';
-                return `<option value="${d.id}" style="background: ${bgColor}; color: ${color};">🟤 ${d.nombre}</option>`;
-            }).join('');
+    irAPersonalMedico() {
+        document.querySelectorAll('#appointmentModal, #agendaManagementModal, #doctorModal').forEach(m => { m.style.display = 'none'; });
+        navigateToPage('personal');
     },
 
     // Actualizar horas disponibles
@@ -356,26 +464,32 @@ const AgendaAvanzadaModule = {
             return;
         }
 
-        const availableHours = this.getAvailableHours(doctorId, dateStr);
+        const editingId = document.getElementById('appointmentModal')?.dataset.editingAppointmentId;
+        const availableHours = this.getAvailableHours(doctorId, dateStr, editingId);
+        const actual = hoursSelect.value;
 
         if (availableHours.length === 0) {
-            hoursSelect.innerHTML = '<option value="">No hay horas disponibles</option>';
+            const doctor = this.getDoctor(doctorId);
+            const motivo = doctor && !doctor.horariosLaborales?.[this.diaSemana(dateStr)]?.inicio
+                ? `No atiende los ${this.diaSemana(dateStr)}`
+                : 'No hay horas disponibles';
+            hoursSelect.innerHTML = `<option value="">${motivo}</option>`;
             return;
         }
 
-        hoursSelect.innerHTML = availableHours
+        hoursSelect.innerHTML = '<option value="">Selecciona hora...</option>' + availableHours
             .map(hour => `<option value="${hour}">${hour}</option>`)
             .join('');
+        if (availableHours.includes(actual)) hoursSelect.value = actual;
     },
 
     // Obtener horas disponibles para un doctor en una fecha
-    getAvailableHours(doctorId, dateStr) {
-        const doctor = this.state.doctores.find(d => d.id === doctorId);
+    getAvailableHours(doctorId, dateStr, excludedAppointmentId = null) {
+        const doctor = this.getDoctor(doctorId);
         if (!doctor) return [];
 
-        const date = new Date(dateStr);
-        const dayName = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'][date.getDay()];
-        const horarios = doctor.horariosLaborales[dayName];
+        const dayName = this.diaSemana(dateStr);
+        const horarios = doctor.horariosLaborales?.[dayName];
 
         // Si no trabaja ese día
         if (!horarios || !horarios.inicio) {
@@ -384,7 +498,7 @@ const AgendaAvanzadaModule = {
 
         // Verificar si hay bloqueo de personal
         const enBloqueo = this.state.bloqueoPersonal.some(bloqueo =>
-            bloqueo.doctorId === doctorId &&
+            String(bloqueo.doctorId) === String(doctorId) &&
             this.isFechaEnRango(dateStr, bloqueo.fechaInicio, bloqueo.fechaFin)
         );
 
@@ -408,7 +522,8 @@ const AgendaAvanzadaModule = {
         while (currentTime < endTime) {
             const timeStr = currentTime.toTimeString().substring(0, 5);
             const citaExistente = this.state.citas.some(cita =>
-                cita.doctorId === doctorId &&
+                String(cita.id) !== String(excludedAppointmentId) &&
+                String(cita.doctorId) === String(doctorId) &&
                 cita.fecha === dateStr &&
                 cita.hora === timeStr &&
                 cita.estado !== 'Cancelada'
@@ -426,9 +541,9 @@ const AgendaAvanzadaModule = {
 
     // Verificar si una fecha está en un rango
     isFechaEnRango(fecha, fechaInicio, fechaFin) {
-        const f = new Date(fecha);
-        const fi = new Date(fechaInicio);
-        const ff = new Date(fechaFin);
+        const f = this.parseFechaLocal(fecha);
+        const fi = this.parseFechaLocal(fechaInicio);
+        const ff = this.parseFechaLocal(fechaFin);
         return f >= fi && f <= ff;
     },
 
@@ -465,7 +580,7 @@ const AgendaAvanzadaModule = {
         const today = new Date();
         for (let day = 1; day <= daysInMonth; day++) {
             const date = new Date(year, month, day);
-            const dateStr = date.toISOString().split('T')[0];
+            const dateStr = this.fechaISO(date);
             const dayDiv = document.createElement('div');
             dayDiv.className = 'calendar-day current-month';
 
@@ -507,13 +622,112 @@ const AgendaAvanzadaModule = {
     },
 
     // Obtener citas para una fecha
+    normalizarTexto(valor) {
+        return String(valor ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    },
+
+    // Aplica doctor, especialidad, estado y búsqueda de paciente
+    citaCoincideFiltros(cita) {
+        const { filterDoctor, filterSpecialty, filterEstado, busqueda } = this.state;
+        if (filterDoctor && String(cita.doctorId) !== String(filterDoctor)) return false;
+        if (filterSpecialty) {
+            const especialidadId = this.getDoctor(cita.doctorId)?.especialidadId || cita.especialidadId;
+            if (String(especialidadId) !== String(filterSpecialty)) return false;
+        }
+        if (filterEstado) {
+            if (cita.estado !== filterEstado) return false;
+        } else if (cita.estado === 'Cancelada') {
+            return false;
+        }
+        if (busqueda.trim()) {
+            const termino = this.normalizarTexto(busqueda.trim());
+            const paciente = this.getPacienteDeCita(cita);
+            const texto = this.normalizarTexto([
+                cita.paciente, cita.telefono, cita.email, cita.condiciones,
+                paciente?.dpi, paciente?.telefono
+            ].join(' '));
+            if (!texto.includes(termino)) return false;
+        }
+        return true;
+    },
+
+    getPacienteDeCita(cita) {
+        const pacientes = (typeof PacientesModule !== 'undefined' && PacientesModule.state?.pacientes) || [];
+        return pacientes.find(p => String(p.id) === String(cita.pacienteId));
+    },
+
     getAppointmentsForDate(dateStr) {
-        return this.state.citas.filter(cita => {
-            const matchDate = cita.fecha === dateStr;
-            const matchDoctor = !this.state.filterDoctor || cita.doctorId === this.state.filterDoctor;
-            const matchSpecialty = !this.state.filterSpecialty || cita.especialidad === this.state.filterSpecialty;
-            return matchDate && matchDoctor && matchSpecialty && cita.estado !== 'Cancelada';
+        return this.state.citas.filter(cita => cita.fecha === dateStr && this.citaCoincideFiltros(cita));
+    },
+
+    hayFiltrosActivos() {
+        const { filterDoctor, filterSpecialty, filterEstado, busqueda } = this.state;
+        return Boolean(filterDoctor || filterSpecialty || filterEstado || busqueda.trim());
+    },
+
+    aplicarFiltros() {
+        this.renderCalendar();
+        if (this.state.selectedDate) this.displayAppointmentsForDate(this.state.selectedDate);
+        this.renderResultadosBusqueda();
+    },
+
+    limpiarFiltros() {
+        Object.assign(this.state, { filterDoctor: '', filterSpecialty: '', filterEstado: '', busqueda: '' });
+        ['agendaBusqueda', 'specialtyFilter', 'estadoCitaFilter'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
         });
+        this.loadDoctorFilter();
+        this.aplicarFiltros();
+    },
+
+    // Lista de citas que coinciden con los filtros (próximas primero)
+    renderResultadosBusqueda() {
+        const panel = document.getElementById('agendaResultados');
+        const limpiar = document.getElementById('agendaLimpiarFiltros');
+        if (limpiar) limpiar.hidden = !this.hayFiltrosActivos();
+        if (!panel) return;
+
+        if (!this.hayFiltrosActivos()) {
+            panel.hidden = true;
+            panel.innerHTML = '';
+            return;
+        }
+
+        const hoy = this.fechaISO(new Date());
+        const citas = this.state.citas.filter(c => this.citaCoincideFiltros(c));
+        const proximas = citas.filter(c => c.fecha >= hoy).sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
+        const pasadas = citas.filter(c => c.fecha < hoy).sort((a, b) => (b.fecha + b.hora).localeCompare(a.fecha + a.hora));
+        const lista = [...proximas, ...pasadas].slice(0, 30);
+
+        panel.hidden = false;
+        if (lista.length === 0) {
+            panel.innerHTML = '<p class="agenda-resultados-vacio">No hay citas con estos filtros.</p>';
+            return;
+        }
+
+        panel.innerHTML = `
+            <p class="agenda-resultados-titulo">${citas.length} cita${citas.length === 1 ? '' : 's'} encontrada${citas.length === 1 ? '' : 's'}${citas.length > lista.length ? ` · mostrando ${lista.length}` : ''}</p>
+            <ul class="agenda-resultados-lista">
+                ${lista.map(c => {
+                    const doctor = this.getDoctor(c.doctorId);
+                    return `<li><button type="button" class="agenda-resultado ${c.fecha < hoy ? 'pasada' : ''}" onclick="AgendaAvanzadaModule.irAFecha('${c.fecha}')">
+                        <span class="agenda-resultado-fecha">${formatFecha(c.fecha, { weekday: 'short', day: '2-digit', month: 'short' })} · ${this.escapeHTML(c.hora)}</span>
+                        <span class="agenda-resultado-paciente">${this.escapeHTML(c.paciente)}</span>
+                        <span class="agenda-resultado-doctor" style="color: ${doctor?.color || 'inherit'}">${this.escapeHTML(doctor?.nombre || c.doctorNombre || 'Doctor')}</span>
+                        <span class="agenda-estado agenda-estado-${String(c.estado).toLowerCase()}">${this.escapeHTML(c.estado)}</span>
+                    </button></li>`;
+                }).join('')}
+            </ul>`;
+    },
+
+    irAFecha(dateStr) {
+        const fecha = this.parseFechaLocal(dateStr);
+        this.state.currentDate = new Date(fecha.getFullYear(), fecha.getMonth(), 1);
+        this.state.selectedDate = dateStr;
+        this.renderCalendar();
+        this.displayAppointmentsForDate(dateStr);
+        document.getElementById('selectedDayAppointments')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     },
 
     // Mostrar citas del día seleccionado
@@ -529,7 +743,7 @@ const AgendaAvanzadaModule = {
         }
 
         container.innerHTML = `
-            <div class="date-header">${new Date(dateStr).toLocaleDateString('es-GT', {
+            <div class="date-header">${this.parseFechaLocal(dateStr).toLocaleDateString('es-GT', {
                 weekday: 'long',
                 year: 'numeric',
                 month: 'long',
@@ -538,8 +752,8 @@ const AgendaAvanzadaModule = {
             ${appointments
                 .sort((a, b) => a.hora.localeCompare(b.hora))
                 .map(apt => {
-                    const doctor = this.state.doctores.find(d => d.id === apt.doctorId);
-                    const specialty = this.state.especialidades.find(e => e.id == apt.especialidadId);
+                    const doctor = this.getDoctor(apt.doctorId);
+                    const specialty = this.state.especialidades.find(e => e.id == (doctor?.especialidadId || apt.especialidadId));
                     const doctorColor = doctor?.color || '#666';
                     const doctorBgColor = doctor?.bgColor || '#f0f0f0';
                     const specialtyColor = specialty?.color || '#666';
@@ -552,7 +766,7 @@ const AgendaAvanzadaModule = {
                             </div>
                             <div class="appointment-details">
                                 <p class="patient-name"><strong>${apt.paciente}</strong></p>
-                                <p class="doctor-name" style="color: ${doctorColor};"><i class="fas fa-user-md"></i> ${doctor?.nombre || 'Doctor'}</p>
+                                <p class="doctor-name" style="color: ${doctorColor};"><i class="fas fa-user-md"></i> ${doctor?.nombre || apt.doctorNombre || 'Doctor'}</p>
                                 <p class="specialty" style="background: ${specialtyBgColor}; color: ${specialtyColor}; padding: 4px 8px; border-radius: 3px; display: inline-block; font-size: 12px;">
                                     <i class="fas fa-stethoscope"></i> ${apt.especialidad}
                                 </p>
@@ -615,70 +829,101 @@ const AgendaAvanzadaModule = {
             document.getElementById('appointmentConditions').value = '';
             document.getElementById('appointmentNotes').value = '';
             document.getElementById('patientSuggestions').style.display = 'none';
+            this.renderPacienteSeleccionado(null);
+            // Si hay un día seleccionado en el calendario, proponerlo
+            if (this.state.selectedDate && this.state.selectedDate >= this.fechaISO(new Date())) {
+                document.getElementById('appointmentDate').value = this.state.selectedDate;
+            }
+            // Si se filtró por doctor, proponerlo
+            if (this.state.filterSpecialty) document.getElementById('appointmentSpecialty').value = this.state.filterSpecialty;
+            this.updateDoctorsBySpecialty();
+            if (this.state.filterDoctor) {
+                document.getElementById('appointmentDoctor').value = this.state.filterDoctor;
+                this.syncSpecialtyFromDoctor();
+                this.updateAvailableHours();
+            }
             const saveBtn = document.getElementById('saveAppointmentBtn');
-            if (saveBtn) saveBtn.textContent = 'Guardar Cita';
+            if (saveBtn) saveBtn.innerHTML = '<i class="fas fa-save"></i> Agendar cita';
+            setTimeout(() => document.getElementById('patientSearch')?.focus(), 50);
         }
     },
     
-    // Búsqueda de pacientes - MEJORADA
+    // Búsqueda de pacientes con filtro por campo (nombre, DPI, teléfono, email)
     handlePatientSearch(searchTerm) {
         const suggestionsDiv = document.getElementById('patientSuggestions');
         if (!suggestionsDiv) return;
-        
+
+        // Si se escribe de nuevo, el paciente elegido deja de estar seleccionado
+        if (document.getElementById('patientName')?.value !== searchTerm) {
+            document.getElementById('patientId').value = '';
+            this.renderPacienteSeleccionado(null);
+        }
+
         if (!searchTerm.trim()) {
             suggestionsDiv.style.display = 'none';
             return;
         }
-        
-        // Obtener pacientes del módulo PacientesModule con normalización
-        let pacientes = [];
-        if (typeof PacientesModule !== 'undefined' && PacientesModule.state && PacientesModule.state.pacientes) {
-            pacientes = PacientesModule.state.pacientes;
-        }
-        
-        const searchLower = searchTerm.toLowerCase();
+
+        const pacientes = (typeof PacientesModule !== 'undefined' && PacientesModule.state?.pacientes) || [];
+        const termino = this.normalizarTexto(searchTerm.trim());
+        const soloDigitos = termino.replace(/\D/g, '');
+        const campo = this.state.busquedaPacienteCampo;
+
+        const camposDe = p => ({
+            nombre: this.normalizarTexto(`${p.nombre || ''} ${p.apellidoPaterno || p.apellido_paterno || ''} ${p.apellidoMaterno || p.apellido_materno || ''}`),
+            dpi: String(p.dpi || p.cedula || '').replace(/\D/g, ''),
+            telefono: String(p.telefono || '').replace(/\D/g, ''),
+            email: this.normalizarTexto(p.email)
+        });
+        const coincide = (valor, esNumero) => esNumero ? (soloDigitos && valor.includes(soloDigitos)) : valor.includes(termino);
+
         const filtered = pacientes.filter(p => {
-            // Usar campos normalizados (camelCase)
-            const nombre = (p.nombre || '').toLowerCase();
-            const apellidoPaterno = (p.apellidoPaterno || p.apellido_paterno || '').toLowerCase();
-            const apellidoMaterno = (p.apellidoMaterno || p.apellido_materno || '').toLowerCase();
-            const dpi = (p.dpi || p.cedula || '').toLowerCase();
-            const email = (p.email || '').toLowerCase();
-            const telefono = (p.telefono || '').toLowerCase();
-            
-            return nombre.includes(searchLower) ||
-                   apellidoPaterno.includes(searchLower) ||
-                   apellidoMaterno.includes(searchLower) ||
-                   dpi.includes(searchLower) ||
-                   email.includes(searchLower) ||
-                   telefono.includes(searchLower);
+            const c = camposDe(p);
+            if (campo === 'nombre') return coincide(c.nombre);
+            if (campo === 'dpi') return coincide(c.dpi, true);
+            if (campo === 'telefono') return coincide(c.telefono, true);
+            if (campo === 'email') return coincide(c.email);
+            return coincide(c.nombre) || coincide(c.email) || coincide(c.dpi, true) || coincide(c.telefono, true);
         }).slice(0, 8);
-        
+
         if (filtered.length === 0) {
-            suggestionsDiv.innerHTML = '<div style="padding: 10px; color: #999;">No hay pacientes que coincidan</div>';
+            suggestionsDiv.innerHTML = `<div class="patient-suggestion-empty">No hay pacientes que coincidan.
+                <button type="button" class="btn btn-secondary btn-small" onclick="AgendaAvanzadaModule.createPatientQuick()"><i class="fas fa-user-plus" aria-hidden="true"></i> Registrar paciente</button></div>`;
             suggestionsDiv.style.display = 'block';
             return;
         }
-        
-        suggestionsDiv.innerHTML = filtered.map(p => {
-            const nombreCompleto = `${p.nombre || ''} ${p.apellidoPaterno || p.apellido_paterno || ''} ${p.apellidoMaterno || p.apellido_materno || ''}`.trim();
-            const dpi = p.dpi || p.cedula || 'Sin DPI';
-            const email = p.email || 'Sin email';
-            
+
+        this._sugerencias = filtered;
+        suggestionsDiv.innerHTML = filtered.map((p, i) => {
+            const nombreCompleto = `${p.nombre || ''} ${p.apellidoPaterno || p.apellido_paterno || ''} ${p.apellidoMaterno || p.apellido_materno || ''}`.replace(/\s+/g, ' ').trim();
+            const proxima = this.proximaCitaDePaciente(p.id);
             return `
-                <div style="padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; background: white;" 
-                     onclick="AgendaAvanzadaModule.selectPatient('${p.id}', '${nombreCompleto.replace(/'/g, '\\\'')}', '${email.replace(/'/g, '\\\'')}', '${(p.telefono || '').replace(/'/g, '\\\'')}')" 
-                     onmouseover="this.style.background='#f5f5f5'" 
-                     onmouseout="this.style.background='white'">
-                    <strong>${nombreCompleto}</strong>
-                    <div style="font-size: 12px; color: #666;">${dpi} | ${email}</div>
-                </div>
+                <button type="button" class="patient-suggestion" onmousedown="event.preventDefault()" onclick="AgendaAvanzadaModule.selectPatientIndex(${i})">
+                    <strong>${this.escapeHTML(nombreCompleto)}</strong>
+                    <span>DPI ${this.escapeHTML(p.dpi || p.cedula || '—')} · Tel. ${this.escapeHTML(p.telefono || '—')}</span>
+                    ${proxima ? `<span class="patient-suggestion-cita"><i class="fas fa-calendar-check" aria-hidden="true"></i> Próxima cita: ${formatFecha(proxima.fecha)} ${this.escapeHTML(proxima.hora)}</span>` : ''}
+                </button>
             `;
         }).join('');
-        
+
         suggestionsDiv.style.display = 'block';
     },
-    
+
+    proximaCitaDePaciente(pacienteId) {
+        const hoy = this.fechaISO(new Date());
+        return this.state.citas
+            .filter(c => String(c.pacienteId) === String(pacienteId) && c.fecha >= hoy && c.estado !== 'Cancelada')
+            .sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora))[0];
+    },
+
+    selectPatientIndex(index) {
+        const p = this._sugerencias?.[index];
+        if (!p) return;
+        const nombre = `${p.nombre || ''} ${p.apellidoPaterno || p.apellido_paterno || ''} ${p.apellidoMaterno || p.apellido_materno || ''}`.replace(/\s+/g, ' ').trim();
+        this.selectPatient(p.id, nombre, p.email || '', p.telefono || '');
+        this.renderPacienteSeleccionado(p);
+    },
+
     // Seleccionar paciente
     selectPatient(patientId, nombre, email, telefono) {
         document.getElementById('patientSearch').value = nombre;
@@ -688,24 +933,27 @@ const AgendaAvanzadaModule = {
         document.getElementById('patientPhone').value = telefono;
         document.getElementById('patientSuggestions').style.display = 'none';
     },
-    
-    // Crear paciente rápido
-    createPatientQuick() {
-        const searchTerm = document.getElementById('patientSearch').value.trim();
-        if (!searchTerm) {
-            alert('Por favor escribe el nombre del paciente');
+
+    renderPacienteSeleccionado(p) {
+        const info = document.getElementById('patientSelectedInfo');
+        if (!info) return;
+        if (!p) {
+            info.hidden = true;
+            info.innerHTML = '';
             return;
         }
-        
-        const newPatientId = `PAC-${Date.now()}`;
-        let nombre = searchTerm;
-        let email = '';
-        let telefono = '';
-        
-        // Llenar los campos
-        this.selectPatient(newPatientId, nombre, email, telefono);
-        
-        alert(`✓ Paciente creado: ${nombre}\\n\\nPuedes completar más datos después de la consulta.`);
+        const proxima = this.proximaCitaDePaciente(p.id);
+        info.hidden = false;
+        info.innerHTML = `<i class="fas fa-circle-check" aria-hidden="true"></i>
+            <span>DPI ${this.escapeHTML(p.dpi || '—')} · Tel. ${this.escapeHTML(p.telefono || '—')}${p.email ? ` · ${this.escapeHTML(p.email)}` : ''}
+            ${proxima ? `<br>Ya tiene cita el ${formatFecha(proxima.fecha)} a las ${this.escapeHTML(proxima.hora)}` : ''}</span>`;
+    },
+
+    // Registrar un paciente nuevo en el módulo Pacientes (la cita necesita un paciente real)
+    createPatientQuick() {
+        document.getElementById('appointmentModal').style.display = 'none';
+        navigateToPage('pacientes');
+        setTimeout(() => document.getElementById('addPacientBtn')?.click(), 150);
     },
 
     // Guardar cita CON VALIDACIONES MEJORADAS
@@ -748,7 +996,7 @@ const AgendaAvanzadaModule = {
         }
 
         // Validación de fecha (no puede ser en el pasado)
-        const appointmentDate = new Date(dateStr);
+        const appointmentDate = this.parseFechaLocal(dateStr);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         if (appointmentDate < today) {
@@ -766,8 +1014,8 @@ const AgendaAvanzadaModule = {
         }
 
         // Crear nueva cita
-        const doctor = this.state.doctores.find(d => d.id === doctorId);
-        const specialty = this.state.especialidades.find(e => e.id == specialtyId);
+        const doctor = this.getDoctor(doctorId);
+        const specialty = this.state.especialidades.find(e => e.id == (doctor?.especialidadId || specialtyId));
 
         const appointmentData = {
             pacienteId: patientId,
@@ -779,7 +1027,7 @@ const AgendaAvanzadaModule = {
             doctorColor: doctor?.color,
             doctorBgColor: doctor?.bgColor,
             especialidad: specialty?.nombre || 'Sin especialidad',
-            especialidadId: specialtyId || 0,
+            especialidadId: doctor?.especialidadId || specialtyId || 0,
             especialidadColor: specialty?.color,
             especialidadBgColor: specialty?.bgColor,
             fecha: dateStr,
@@ -824,7 +1072,7 @@ const AgendaAvanzadaModule = {
 
     // Validar disponibilidad del doctor
     validateAvailability(doctorId, dateStr, timeStr, excludedAppointmentId = null) {
-        const doctor = this.state.doctores.find(d => d.id === doctorId);
+        const doctor = this.getDoctor(doctorId);
         
         // Verificar que el doctor existe
         if (!doctor) {
@@ -832,13 +1080,13 @@ const AgendaAvanzadaModule = {
         }
 
         // Verificar que la fecha es válida
-        const date = new Date(dateStr);
+        const date = this.parseFechaLocal(dateStr);
         if (isNaN(date)) {
             return { available: false, message: 'Fecha inválida' };
         }
 
         // Verificar el día de la semana
-        const dayName = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'][date.getDay()];
+        const dayName = this.diaSemana(dateStr);
         const horarios = doctor.horariosLaborales?.[dayName];
 
         if (!horarios || !horarios.inicio) {
@@ -847,7 +1095,7 @@ const AgendaAvanzadaModule = {
 
         // Verificar si hay bloqueo de personal (vacaciones, permisos)
         const enBloqueo = this.state.bloqueoPersonal.some(bloqueo =>
-            bloqueo.doctorId === doctorId &&
+            String(bloqueo.doctorId) === String(doctorId) &&
             this.isFechaEnRango(dateStr, bloqueo.fechaInicio, bloqueo.fechaFin)
         );
 
@@ -858,7 +1106,7 @@ const AgendaAvanzadaModule = {
         // Verificar disponibilidad de la hora específica
         const citaExistente = this.state.citas.some(c =>
             String(c.id) !== String(excludedAppointmentId) &&
-            c.doctorId === doctorId &&
+            String(c.doctorId) === String(doctorId) &&
             c.fecha === dateStr &&
             c.hora === timeStr &&
             c.estado !== 'Cancelada'
@@ -921,7 +1169,7 @@ const AgendaAvanzadaModule = {
 
     // Confirmar cita
     confirmAppointment(appointmentId) {
-        const appointment = this.state.citas.find(c => c.id === appointmentId);
+        const appointment = this.state.citas.find(c => String(c.id) === String(appointmentId));
         if (appointment) {
             appointment.estado = 'Confirmada';
             appointment.confirmada = true;
@@ -940,17 +1188,22 @@ const AgendaAvanzadaModule = {
 
     // Editar cita
     editAppointment(appointmentId) {
-        const appointment = this.state.citas.find(c => c.id === appointmentId);
+        const appointment = this.state.citas.find(c => String(c.id) === String(appointmentId));
         if (appointment) {
             // Llenar el formulario modal con los datos de la cita
             document.getElementById('patientName').value = appointment.paciente;
             document.getElementById('patientId').value = appointment.pacienteId;
             document.getElementById('patientEmail').value = appointment.email;
             document.getElementById('patientPhone').value = appointment.telefono;
-            document.getElementById('appointmentSpecialty').value = appointment.especialidadId;
+            document.getElementById('patientSearch').value = appointment.paciente;
+            document.getElementById('patientSuggestions').style.display = 'none';
+            const paciente = this.getPacienteDeCita(appointment);
+            this.renderPacienteSeleccionado(paciente || null);
+            document.getElementById('appointmentSpecialty').value = '';
+            this.updateDoctorsBySpecialty();
             document.getElementById('appointmentDoctor').value = appointment.doctorId;
+            this.renderDoctorInfo();
             document.getElementById('appointmentDate').value = appointment.fecha;
-            document.getElementById('appointmentTime').value = appointment.hora;
             document.getElementById('appointmentConditions').value = appointment.condiciones;
             document.getElementById('appointmentNotes').value = appointment.notas || '';
             
@@ -960,11 +1213,13 @@ const AgendaAvanzadaModule = {
                 modal.dataset.editingAppointmentId = appointmentId;
                 modal.style.display = 'block';
             }
+            this.updateAvailableHours();
+            document.getElementById('appointmentTime').value = appointment.hora;
             
             // Cambiar botón de "Crear" a "Actualizar"
             const saveBtn = document.getElementById('saveAppointmentBtn');
             if (saveBtn) {
-                saveBtn.textContent = '✏️ Actualizar Cita';
+                saveBtn.innerHTML = '<i class="fas fa-save"></i> Actualizar cita';
             }
         }
     },
@@ -972,7 +1227,7 @@ const AgendaAvanzadaModule = {
     // Cancelar cita
     cancelAppointment(appointmentId) {
         if (confirm('¿Estás seguro de cancelar esta cita?')) {
-            const appointment = this.state.citas.find(c => c.id === appointmentId);
+            const appointment = this.state.citas.find(c => String(c.id) === String(appointmentId));
             if (appointment) {
                 appointment.estado = 'Cancelada';
                 appointment.fechaCancelacion = new Date().toISOString();
@@ -1030,7 +1285,8 @@ const AgendaAvanzadaModule = {
         };
         return {
             paciente_id: appointment.pacienteId,
-            doctor_id: appointment.doctorId,
+            // El doctor es un registro de Personal Médico; doctor_id (usuario) lo asigna el servidor
+            personal_medico_id: /^\d+$/.test(String(appointment.doctorId)) ? Number(appointment.doctorId) : undefined,
             fecha: appointment.fecha,
             hora: appointment.hora,
             diagnostico: appointment.condiciones,
@@ -1119,11 +1375,12 @@ const AgendaAvanzadaModule = {
         if (!container) return;
 
         if (this.state.doctores.length === 0) {
-            container.innerHTML = '<p class="empty-message">No hay doctores registrados</p>';
+            container.innerHTML = '<p class="empty-message">No hay personal médico registrado. Agrégalo en Personal Médico.</p>';
             return;
         }
 
         container.innerHTML = `
+            <p class="form-hint">Estos doctores vienen de <strong>Personal Médico</strong>. Para agregar, editar o dar de baja, hazlo desde ese módulo.</p>
             <div class="doctors-grid">
                 ${this.state.doctores.map(doc => {
                     const bgColor = doc.bgColor || '#f0f0f0';
@@ -1132,7 +1389,8 @@ const AgendaAvanzadaModule = {
                     <div class="doctor-card" style="border-left: 4px solid ${color}; background: linear-gradient(to right, ${bgColor}, white); padding: 15px; border-radius: 5px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                         <div style="display: flex; justify-content: space-between; align-items: start;">
                             <div>
-                                <h4 style="color: ${color}; margin: 0 0 8px 0;">${doc.nombre}</h4>
+                                <h4 style="color: ${color}; margin: 0 0 8px 0;">${this.escapeHTML(doc.nombre)}</h4>
+                                <p style="margin: 5px 0; font-size: 13px;"><i class="fas fa-clock"></i> ${this.escapeHTML(doc.horarioTexto || '')} · ${this.escapeHTML(doc.diasTexto || '')}</p>
                                 <p style="margin: 5px 0; font-size: 13px; color: ${color}; font-weight: bold;">
                                     <i class="fas fa-stethoscope"></i> ${doc.especialidad}
                                 </p>
@@ -1155,9 +1413,7 @@ const AgendaAvanzadaModule = {
                                 <button class="btn btn-sm btn-info" onclick="editDoctorFormAction('${doc.id}')" style="display: block; margin-bottom: 5px;">
                                     <i class="fas fa-edit"></i> Editar
                                 </button>
-                                <button class="btn btn-sm btn-danger" onclick="removeDoctorAction('${doc.id}')">
-                                    <i class="fas fa-trash"></i> Eliminar
-                                </button>
+
                             </div>
                         </div>
                     </div>
@@ -1168,6 +1424,10 @@ const AgendaAvanzadaModule = {
     },
 
     openAddDoctorForm() {
+        // Los doctores se registran en Personal Médico (fuente única)
+        this.irAPersonalMedico();
+        setTimeout(() => document.getElementById('btnNuevoPersonal')?.click(), 150);
+        return;
         document.getElementById('doctorName').value = '';
         document.getElementById('doctorSpecialty').value = '';
         document.getElementById('doctorEmail').value = '';
@@ -1184,6 +1444,8 @@ const AgendaAvanzadaModule = {
     },
 
     editDoctorForm(doctorId) {
+        this.irAPersonalMedico();
+        return;
         const doctor = this.state.doctores.find(d => d.id === doctorId);
         if (!doctor) return;
 
@@ -1325,12 +1587,8 @@ const AgendaAvanzadaModule = {
     },
 
     removeDoctor(doctorId) {
-        if (confirm('¿Estás seguro de eliminar este doctor?')) {
-            this.state.doctores = this.state.doctores.filter(d => d.id !== doctorId);
-            this.saveDoctorestoStorage();
-            this.renderDoctoresList();
-            alert('✓ Doctor eliminado');
-        }
+        // Las bajas se hacen en Personal Médico para no desincronizar la agenda
+        this.irAPersonalMedico();
     },
 
     // ========== GESTIÓN DE RESTRICCIONES ==========

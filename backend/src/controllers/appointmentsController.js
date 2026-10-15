@@ -5,13 +5,28 @@
 const db = require('../db/connection');
 const { generateId } = require('../utils/helpers');
 
+// Nombre y especialidad del doctor: primero el personal médico ligado a la cita,
+// luego el usuario que la registró (citas antiguas).
+const DOCTOR_JOINS = `
+    LEFT JOIN personal_medico pm ON hc.personal_medico_id = pm.id
+    LEFT JOIN especialidades_medicas em ON pm.especialidad_id = em.id
+    LEFT JOIN users u ON hc.doctor_id = u.id
+`;
+const DOCTOR_NOMBRE = `COALESCE(NULLIF(TRIM(CONCAT_WS(' ', pm.nombre, pm.apellido_paterno, pm.apellido_materno)), ''), u.nombre)`;
+
+const aEnteroOpcional = (valor) => {
+    if (valor === undefined || valor === null || valor === '') return null;
+    const numero = Number(valor);
+    return Number.isInteger(numero) && numero > 0 ? numero : NaN;
+};
+
 class AppointmentsController {
     /**
      * Obtener agenda con filtros opcionales
      */
     async getAllAppointments(req, res) {
         try {
-            const { desde, hasta, doctor_id, estado } = req.query;
+            const { desde, hasta, doctor_id, personal_medico_id, estado } = req.query;
             const values = [];
             const conditions = ["hc.estado <> 'eliminada'"];
 
@@ -23,17 +38,18 @@ class AppointmentsController {
             if (desde) addCondition('hc.fecha >= ?', desde);
             if (hasta) addCondition('hc.fecha <= ?', hasta);
             if (doctor_id) addCondition('hc.doctor_id = ?', doctor_id);
+            if (personal_medico_id) addCondition('hc.personal_medico_id = ?', personal_medico_id);
             if (estado) addCondition('LOWER(hc.estado) = LOWER(?)', estado);
 
             const result = await db.query(`
-                SELECT hc.id, hc.paciente_id, hc.doctor_id, hc.fecha, hc.hora,
+                SELECT hc.id, hc.paciente_id, hc.doctor_id, hc.personal_medico_id, hc.fecha, hc.hora,
                     hc.diagnostico, hc.tratamiento, hc.observaciones, hc.estado,
                     p.nombre AS paciente_nombre, p.apellido_paterno,
-                    p.telefono, p.email, u.nombre AS doctor_nombre,
-                    NULL::text AS especialidad
+                    p.telefono, p.email, ${DOCTOR_NOMBRE} AS doctor_nombre,
+                    em.nombre AS especialidad, pm.especialidad_id
                 FROM historia_clinica hc
                 JOIN pacientes p ON hc.paciente_id = p.id
-                LEFT JOIN users u ON hc.doctor_id = u.id
+                ${DOCTOR_JOINS}
                 WHERE ${conditions.join(' AND ')}
                 ORDER BY hc.fecha ASC, hc.hora ASC
                 LIMIT 500
@@ -58,8 +74,9 @@ class AppointmentsController {
                     p.nombre as paciente_nombre,
                     p.apellido_paterno,
                     hc.doctor_id,
-                    u.nombre as doctor_nombre,
-                    NULL::text AS especialidad,
+                    hc.personal_medico_id,
+                    ${DOCTOR_NOMBRE} as doctor_nombre,
+                    em.nombre AS especialidad,
                     hc.fecha,
                     hc.hora,
                     hc.diagnostico,
@@ -67,7 +84,7 @@ class AppointmentsController {
                     hc.estado
                 FROM historia_clinica hc
                 JOIN pacientes p ON hc.paciente_id = p.id
-                LEFT JOIN users u ON hc.doctor_id = u.id
+                ${DOCTOR_JOINS}
                 WHERE DATE(hc.fecha) = CURRENT_DATE
                     AND LOWER(hc.estado) NOT IN ('cancelada', 'eliminada')
                 ORDER BY hc.hora ASC
@@ -82,6 +99,7 @@ class AppointmentsController {
                     pacienteId: cita.paciente_id,
                     pacienteNombre: `${cita.paciente_nombre} ${cita.apellido_paterno}`,
                     doctorId: cita.doctor_id,
+                    personalMedicoId: cita.personal_medico_id,
                     doctorNombre: cita.doctor_nombre,
                     especialidad: cita.especialidad,
                     fecha: cita.fecha,
@@ -211,21 +229,27 @@ class AppointmentsController {
      */
     async createAppointment(req, res) {
         try {
-            const { paciente_id, doctor_id, fecha, hora, diagnostico, tratamiento, observaciones } = req.body;
+            const { paciente_id, fecha, hora, diagnostico, tratamiento, observaciones } = req.body;
+            const personal_medico_id = aEnteroOpcional(req.body.personal_medico_id);
+            // doctor_id referencia a users; si no viene, se registra el usuario que agenda
+            const doctor_id = aEnteroOpcional(req.body.doctor_id) || req.user?.id || null;
 
-            if (!paciente_id || !doctor_id || !fecha || !hora) {
+            if (!paciente_id || (!personal_medico_id && !doctor_id) || !fecha || !hora) {
                 return res.status(400).json({
                     success: false,
                     message: 'Paciente, doctor, fecha y hora son obligatorios'
                 });
             }
+            if (Number.isNaN(personal_medico_id)) {
+                return res.status(400).json({ success: false, message: 'El doctor seleccionado no es válido' });
+            }
 
             const conflict = await db.query(`
                 SELECT id FROM historia_clinica
-                WHERE doctor_id = $1 AND fecha = $2 AND hora = $3
+                WHERE ${personal_medico_id ? 'personal_medico_id' : 'doctor_id'} = $1 AND fecha = $2 AND hora = $3
                     AND LOWER(estado) NOT IN ('cancelada', 'eliminada')
                 LIMIT 1
-            `, [doctor_id, fecha, hora]);
+            `, [personal_medico_id || doctor_id, fecha, hora]);
 
             if (conflict.rows.length > 0) {
                 return res.status(409).json({ success: false, message: 'El horario ya está reservado para este doctor' });
@@ -235,15 +259,15 @@ class AppointmentsController {
             
             const query = `
                 INSERT INTO historia_clinica (
-                    id, paciente_id, doctor_id, fecha, hora, 
+                    id, paciente_id, doctor_id, personal_medico_id, fecha, hora,
                     diagnostico, tratamiento, observaciones, estado
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pendiente')
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pendiente')
                 RETURNING *
             `;
 
             const result = await db.query(query, [
-                cita_id, paciente_id, doctor_id, fecha, hora,
+                cita_id, paciente_id, doctor_id, personal_medico_id, fecha, hora,
                 diagnostico, tratamiento, observaciones
             ]);
 
@@ -268,7 +292,12 @@ class AppointmentsController {
     async updateAppointment(req, res) {
         try {
             const { id } = req.params;
-            const { paciente_id, doctor_id, fecha, hora, diagnostico, tratamiento, observaciones, estado } = req.body;
+            const { paciente_id, fecha, hora, diagnostico, tratamiento, observaciones, estado } = req.body;
+            const doctor_id = aEnteroOpcional(req.body.doctor_id);
+            const personal_medico_id = aEnteroOpcional(req.body.personal_medico_id);
+            if (Number.isNaN(doctor_id) || Number.isNaN(personal_medico_id)) {
+                return res.status(400).json({ success: false, message: 'El doctor seleccionado no es válido' });
+            }
 
             const currentResult = await db.query('SELECT * FROM historia_clinica WHERE id = $1', [id]);
             if (currentResult.rows.length === 0) {
@@ -276,15 +305,16 @@ class AppointmentsController {
             }
 
             const current = currentResult.rows[0];
+            const nextPersonal = personal_medico_id || current.personal_medico_id;
             const nextDoctor = doctor_id || current.doctor_id;
             const nextDate = fecha || current.fecha;
             const nextTime = hora || current.hora;
             const conflict = await db.query(`
                 SELECT id FROM historia_clinica
-                WHERE doctor_id = $1 AND fecha = $2 AND hora = $3 AND id <> $4
+                WHERE ${nextPersonal ? 'personal_medico_id' : 'doctor_id'} = $1 AND fecha = $2 AND hora = $3 AND id <> $4
                     AND LOWER(estado) NOT IN ('cancelada', 'eliminada')
                 LIMIT 1
-            `, [nextDoctor, nextDate, nextTime, id]);
+            `, [nextPersonal || nextDoctor, nextDate, nextTime, id]);
 
             if (conflict.rows.length > 0) {
                 return res.status(409).json({ success: false, message: 'El horario ya está reservado para este doctor' });
@@ -300,14 +330,15 @@ class AppointmentsController {
                     tratamiento = COALESCE($6, tratamiento),
                     observaciones = COALESCE($7, observaciones),
                     estado = COALESCE($8, estado),
+                    personal_medico_id = COALESCE($9, personal_medico_id),
                     updated_at = CURRENT_TIMESTAMP
-                WHERE id = $9
+                WHERE id = $10
                 RETURNING *
             `;
 
             const result = await db.query(query, [
                 paciente_id, doctor_id, fecha, hora,
-                diagnostico, tratamiento, observaciones, estado, id
+                diagnostico, tratamiento, observaciones, estado, personal_medico_id, id
             ]);
 
             res.json({

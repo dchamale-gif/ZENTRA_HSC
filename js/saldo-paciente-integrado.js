@@ -151,7 +151,7 @@ const SaldoPacienteIntegrado = {
         // Búsqueda
         if (this.searchTerm) {
             filtered = filtered.filter(s => {
-                const pacient = this.state.pacientes.find(p => p.id === s.paciente_id);
+                const pacient = this.state.pacientes.find(p => String(p.id) === String(s.paciente_id));
                 return pacient && (
                     pacient.nombre.toLowerCase().includes(this.searchTerm) ||
                     pacient.apellidoPaterno.toLowerCase().includes(this.searchTerm) ||
@@ -181,7 +181,7 @@ const SaldoPacienteIntegrado = {
                     </thead>
                     <tbody>
                         ${filtered.map(saldo => {
-                            const pacient = this.state.pacientes.find(p => p.id === saldo.paciente_id);
+                            const pacient = this.state.pacientes.find(p => String(p.id) === String(saldo.paciente_id));
                             if (!pacient) return '';
 
                             const estado = saldo.saldo_pendiente === 0 ? 'Pagado' : saldo.saldo_pendiente > 0 ? 'Deudor' : 'Acreedor';
@@ -217,8 +217,8 @@ const SaldoPacienteIntegrado = {
     },
 
     abrirDetalles(pacienteId) {
-        const saldo = this.state.saldosPacientes.find(s => s.paciente_id === pacienteId);
-        const pacient = this.state.pacientes.find(p => p.id === pacienteId);
+        const saldo = this.state.saldosPacientes.find(s => String(s.paciente_id) === String(pacienteId));
+        const pacient = this.state.pacientes.find(p => String(p.id) === String(pacienteId));
 
         if (!saldo || !pacient) return;
 
@@ -266,8 +266,8 @@ const SaldoPacienteIntegrado = {
     },
 
     abrirModalPagoDirecto(pacienteId, nombrePaciente) {
-        const pacient = this.state.pacientes.find(p => p.id === pacienteId);
-        const saldo = this.state.saldosPacientes.find(s => s.paciente_id === pacienteId);
+        const pacient = this.state.pacientes.find(p => String(p.id) === String(pacienteId));
+        const saldo = this.state.saldosPacientes.find(s => String(s.paciente_id) === String(pacienteId));
 
         if (!saldo) {
             alert('No hay información de saldo para este paciente');
@@ -328,7 +328,7 @@ const SaldoPacienteIntegrado = {
     },
 
     async generarEstadoCuentaDetallado(pacienteId) {
-        const pacient = this.state.pacientes.find(p => p.id === pacienteId);
+        const pacient = this.state.pacientes.find(p => String(p.id) === String(pacienteId));
 
         try {
             const response = await fetch(`http://localhost:3011/api/billing/estado-cuenta/${pacienteId}`, {
@@ -622,8 +622,8 @@ const SaldoPacienteIntegrado = {
     },
 
     imprimirSaldo(pacienteId) {
-        const saldo = this.state.saldosPacientes.find(s => s.paciente_id === pacienteId);
-        const pacient = this.state.pacientes.find(p => p.id === pacienteId);
+        const saldo = this.state.saldosPacientes.find(s => String(s.paciente_id) === String(pacienteId));
+        const pacient = this.state.pacientes.find(p => String(p.id) === String(pacienteId));
 
         if (!saldo || !pacient) {
             alert('Datos de paciente no encontrados');
