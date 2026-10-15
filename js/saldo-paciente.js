@@ -1213,7 +1213,7 @@ const SaldoPacienteModule = {
                     <!-- HEADER -->
                     <div class="header-top">
                         <div class="logo-section">
-                            <div class="logo-circle">�</div>
+                            <div class="logo-circle"><svg width="38" height="38" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z" fill="#0066cc"/></svg></div>
                             <div class="institution">
                                 PSIQUIATRÍA<br>
                                 SANTA CLARA<br>
@@ -1232,42 +1232,36 @@ const SaldoPacienteModule = {
                                         <!-- INFORMACIÓN DEL PACIENTE -->
                     <div class="patient-info">
                         <div class="info-block">
-                            <div class="info-block-icon">ℹ️</div>
                             <div class="info-block-content">
                                 <div class="info-label">Paciente:</div>
                                 <div class="info-value">${pacient.nombre} ${apellidos}</div>
                             </div>
                         </div>
                         <div class="info-block">
-                            <div class="info-block-icon">👤</div>
                             <div class="info-block-content">
                                 <div class="info-label">Médico:</div>
                                 <div class="info-value">${pacient.medico || 'N/A'}</div>
                             </div>
                         </div>
                         <div class="info-block">
-                            <div class="info-block-icon">📅</div>
                             <div class="info-block-content">
                                 <div class="info-label">Estado de Cuenta al:</div>
                                 <div class="info-value">${fechaFormato}</div>
                             </div>
                         </div>
                         <div class="info-block">
-                            <div class="info-block-icon">📋</div>
                             <div class="info-block-content">
                                 <div class="info-label">Edad:</div>
                                 <div class="info-value">${pacient.edad || 'N/A'} años</div>
                             </div>
                         </div>
                         <div class="info-block">
-                            <div class="info-block-icon">📋</div>
                             <div class="info-block-content">
                                 <div class="info-label">Fecha de Ingreso:</div>
                                 <div class="info-value">${pacient.fecha_ingreso || pacient.fechaIngreso || 'N/A'}</div>
                             </div>
                         </div>
                         <div class="info-block">
-                            <div class="info-block-icon">📄</div>
                             <div class="info-block-content">
                                 <div class="info-label">Período:</div>
                                 <div class="info-value">Del período actual</div>
@@ -1276,7 +1270,7 @@ const SaldoPacienteModule = {
                     </div>
 
                     <!-- TABLA DE SALDO CON CONCEPTOS -->
-                    <div class="section-title">🏥 INTERNAMIENTO</div>
+                    <div class="section-title">INTERNAMIENTO</div>
                     <table>
                         <thead>
                             <tr>
@@ -1296,7 +1290,7 @@ const SaldoPacienteModule = {
                         </tbody>
                     </table>
 
-                    <div class="section-title">💊 MEDICAMENTOS</div>
+                    <div class="section-title">MEDICAMENTOS</div>
                     <table>
                         <thead>
                             <tr>
@@ -1326,7 +1320,7 @@ const SaldoPacienteModule = {
                         </tbody>
                     </table>
 
-                    <div class="section-title">📦 INSUMOS</div>
+                    <div class="section-title">INSUMOS</div>
                     <table>
                         <thead>
                             <tr>
@@ -1346,7 +1340,7 @@ const SaldoPacienteModule = {
                         </tbody>
                     </table>
 
-                    <div class="section-title">⚙️ EQUIPO MÉDICO</div>
+                    <div class="section-title">EQUIPO MÉDICO</div>
                     <table>
                         <thead>
                             <tr>
@@ -1366,7 +1360,7 @@ const SaldoPacienteModule = {
                         </tbody>
                     </table>
 
-                    <div class="section-title">🔬 EXÁMENES DE LABORATORIO</div>
+                    <div class="section-title">EXÁMENES DE LABORATORIO</div>
                     <table>
                         <thead>
                             <tr>
@@ -1386,7 +1380,7 @@ const SaldoPacienteModule = {
                         </tbody>
                     </table>
 
-                    <div class="section-title">👨‍⚕️ HONORARIOS</div>
+                    <div class="section-title">HONORARIOS</div>
                     <table>
                         <thead>
                             <tr>
@@ -1406,7 +1400,7 @@ const SaldoPacienteModule = {
                         </tbody>
                     </table>
 
-                    <div class="section-title">➕ EXTRAS</div>
+                    <div class="section-title">EXTRAS</div>
                     <table>
                         <thead>
                             <tr>
@@ -1426,7 +1420,7 @@ const SaldoPacienteModule = {
                         </tbody>
                     </table>
 
-                    <div class="section-title">💳 ABONOS / PAGOS</div>
+                    <div class="section-title">ABONOS / PAGOS</div>
                     <table>
                         <thead>
                             <tr>
@@ -1456,7 +1450,7 @@ const SaldoPacienteModule = {
                     <!-- RESUMEN Y TOTAL -->
                     <div class="summary-section">
                         <div class="summary-box">
-                            <div class="summary-title">📌 Resumen Financiero</div>
+                            <div class="summary-title">Resumen Financiero</div>
                             <div class="summary-row">
                                 <span class="summary-label">Subtotal:</span>
                                 <span class="summary-value">${formatQ(subtotalFacturado)}</span>
@@ -1488,11 +1482,11 @@ const SaldoPacienteModule = {
                                 </div>
                             ` : ''}
                             <div class="total-note">
-                                ${totalAPagar === 0 ? (saldoAFavor > 0 ? 'SALDO A FAVOR' : '✓ SALDO PAGADO') : ''}
+                                ${totalAPagar === 0 ? (saldoAFavor > 0 ? 'SALDO A FAVOR' : 'SALDO PAGADO') : ''}
                             </div>
                             ${totalAPagar === 0 ? `
                                 <div class="status-badge status-pagado" style="margin-top: 12px;">
-                                    ${saldoAFavor > 0 ? `A FAVOR ${formatQ(saldoAFavor)}` : '✓ PAGADO'}
+                                    ${saldoAFavor > 0 ? `A FAVOR ${formatQ(saldoAFavor)}` : 'PAGADO'}
                                 </div>
                             ` : ''}
                         </div>
