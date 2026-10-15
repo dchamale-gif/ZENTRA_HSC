@@ -346,13 +346,13 @@ const SaldoPacienteModule = {
         );
     },
 
-    // La opción de IVA es informativa: los precios ya incluyen IVA, así que solo
-    // se muestra el IVA contenido en el monto (monto × 12/112). El total no cambia.
+    // Con el IVA activado se calcula el 12% sobre el saldo (ya restados descuentos
+    // y abonos) y se suma al total a pagar.
     calcularMontosIVA(cuentaKey, monto) {
-        const total = Math.max(0, Number(monto) || 0);
+        const base = Math.round(Math.max(0, Number(monto) || 0) * 100) / 100;
         const aplica = this.incluyeIVA(cuentaKey);
-        const iva = aplica ? Math.round(total * this.IVA_PORCENTAJE / (100 + this.IVA_PORCENTAJE) * 100) / 100 : 0;
-        return { aplica, base: Math.round((total - iva) * 100) / 100, iva, total };
+        const iva = aplica ? Math.round(base * this.IVA_PORCENTAJE / 100 * 100) / 100 : 0;
+        return { aplica, base, iva, total: Math.round((base + iva) * 100) / 100 };
     },
 
     // Botón de IVA para la tabla y el modal de detalles
@@ -466,9 +466,9 @@ const SaldoPacienteModule = {
                         </div>
                     ` : ''}
                     <div class="summary-item">
-                        <label>Saldo Pendiente</label>
+                        <label>Saldo Pendiente${montosIVA.aplica ? ' (con IVA)' : ''}</label>
                         <p class="amount ${saldoPendiente > 0 ? 'negative' : 'positive'}" style="font-size: 18px; font-weight: bold;">
-                            ${formatQ(saldoPendiente)}
+                            ${formatQ(saldoPendiente > 0 ? montosIVA.total : saldoPendiente)}
                         </p>
                     </div>
                     <div class="summary-item">
@@ -957,8 +957,10 @@ const SaldoPacienteModule = {
         const descuentos = Number(estadoCuenta.totales?.descuentos_total) || 0;
         const totalAbonos = Number(estadoCuenta.totales?.total_abonos) ||
             abonos.reduce((total, abono) => total + (Number(abono.monto) || 0), 0);
-        const saldoAFavor = Math.max(0, -saldoPendiente);
-        const montosIVA = this.calcularMontosIVA(this.cuentaIvaKey(saldo), Math.max(0, saldoPendiente));
+        // El IVA se calcula después de restar descuentos y abonos, y se suma al total
+        const saldoAntesIVA = Math.round((subtotalFacturado - descuentos - totalAbonos) * 100) / 100;
+        const saldoAFavor = Math.max(0, -saldoAntesIVA);
+        const montosIVA = this.calcularMontosIVA(this.cuentaIvaKey(saldo), Math.max(0, saldoAntesIVA));
         const totalAPagar = montosIVA.total;
 
         const ventana = window.open('', '_blank', 'width=850,height=900');
@@ -1456,19 +1458,29 @@ const SaldoPacienteModule = {
                                 <span class="summary-value">${formatQ(subtotalFacturado)}</span>
                             </div>
                             <div class="summary-row">
-                                <span class="summary-label">Descuentos:</span>
+                                <span class="summary-label">(−) Descuentos:</span>
                                 <span class="summary-value">${formatQ(descuentos)}</span>
                             </div>
                             <div class="summary-row">
-                                <span class="summary-label">Abonos:</span>
+                                <span class="summary-label">(−) Abonos:</span>
                                 <span class="summary-value" style="color: #27ae60;">(${formatQ(totalAbonos)})</span>
                             </div>
                             <div class="summary-row" style="color: #27ae60; font-weight: bold; border-top: 1px solid #ddd; padding-top: 8px; margin-top: 8px;">
                                 <span>Saldo a Favor del Paciente (abonos):</span>
                                 <span class="summary-value">${formatQ(totalAbonos)}</span>
                             </div>
+                            <div class="summary-row" style="border-top: 1px solid #ddd; padding-top: 8px; margin-top: 8px;">
+                                <span class="summary-label">Saldo${montosIVA.aplica ? ' antes de IVA' : ''}:</span>
+                                <span class="summary-value">${formatQ(Math.max(0, saldoAntesIVA))}</span>
+                            </div>
+                            ${montosIVA.aplica ? `
+                                <div class="summary-row">
+                                    <span class="summary-label">(+) IVA ${this.IVA_PORCENTAJE}%:</span>
+                                    <span class="summary-value">${formatQ(montosIVA.iva)}</span>
+                                </div>
+                            ` : ''}
                             <div class="summary-row" style="font-weight: bold; border-top: 1px solid #ddd; padding-top: 8px; margin-top: 8px;">
-                                <span class="summary-label">TOTAL A PAGAR:</span>
+                                <span class="summary-label">TOTAL A PAGAR${montosIVA.aplica ? ' (con IVA)' : ''}:</span>
                                 <span class="summary-value" style="color: #0066cc; font-size: 15px;">${formatQ(totalAPagar)}</span>
                             </div>
                         </div>
@@ -1478,7 +1490,7 @@ const SaldoPacienteModule = {
                             <div class="total-amount">${formatQ(totalAPagar)}</div>
                             ${montosIVA.aplica ? `
                                 <div class="total-note" style="font-size: 11px;">
-                                    Incluye IVA (${this.IVA_PORCENTAJE}%): ${formatQ(montosIVA.iva)}
+                                    ${formatQ(montosIVA.base)} + IVA ${this.IVA_PORCENTAJE}% (${formatQ(montosIVA.iva)})
                                 </div>
                             ` : ''}
                             <div class="total-note">
@@ -1657,7 +1669,7 @@ const SaldoPacienteModule = {
                     </div>
                     ${montosIVA.aplica ? `
                         <div>
-                            <label style="color: #666;">IVA incluido (${this.IVA_PORCENTAJE}%):</label>
+                            <label style="color: #666;">IVA (${this.IVA_PORCENTAJE}%):</label>
                             <p style="margin: 5px 0; font-weight: bold; font-size: 16px;">${formatQ(montosIVA.iva)}</p>
                         </div>
                     ` : ''}

@@ -439,14 +439,13 @@ const SaldoPacienteFacturacion = {
 
     // Calcula el IVA sobre el monto neto (descontando cualquier impuesto ya
     // registrado en la cuenta) para no cobrarlo dos veces.
-    // La opción de IVA es informativa: solo muestra el IVA contenido en el
-    // monto (monto × 12/112). Nunca se suma al total.
+    // Con el IVA activado se calcula el porcentaje sobre el saldo y se suma al total.
     calcularMontosIVA(cuentaKey, monto) {
-        const total = Math.max(0, Number(monto) || 0);
+        const base = Math.round(Math.max(0, Number(monto) || 0) * 100) / 100;
         const aplica = this.incluyeIVA(cuentaKey);
         const porcentaje = Number(this.state.config.iva) || 0;
-        const iva = aplica ? Math.round(total * porcentaje / (100 + porcentaje) * 100) / 100 : 0;
-        return { aplica, porcentaje, base: Math.round((total - iva) * 100) / 100, iva, total };
+        const iva = aplica ? Math.round(base * porcentaje / 100 * 100) / 100 : 0;
+        return { aplica, porcentaje, base, iva, total: Math.round((base + iva) * 100) / 100 };
     },
 
     renderBotonIVA(cuentaKey) {
@@ -491,7 +490,7 @@ const SaldoPacienteFacturacion = {
                     <td class="text-right"><strong>${formatQ(s.total_deuda)}</strong></td>
                     <td class="text-right" style="color: ${s.saldo_pendiente > 0 ? '#e74c3c' : '#27ae60'};">
                         <strong>${formatQ(montosIVA.total)}</strong>
-                        ${montosIVA.aplica ? `<br><small style="color: #7f8c8d;">Incluye IVA ${montosIVA.porcentaje}%: ${formatQ(montosIVA.iva)}</small>` : ''}
+                        ${montosIVA.aplica ? `<br><small style="color: #7f8c8d;">+ IVA ${montosIVA.porcentaje}%: ${formatQ(montosIVA.iva)}</small>` : ''}
                     </td>
                     <td class="text-center"><span class="badge ${badgeClass}">${estado}</span></td>
                     <td><small>${fecha}</small></td>
@@ -711,7 +710,7 @@ const SaldoPacienteFacturacion = {
         document.getElementById('pacienteIdPago').value = pacienteId;
         document.getElementById('pacienteNombrePago').value = p.nombre + ' ' + p.apellidoPaterno;
         document.getElementById('saldoPendientePago').value = formatQ(montosIVA.total) +
-            (montosIVA.aplica ? ` (IVA ${montosIVA.porcentaje}% incluido)` : '');
+            (montosIVA.aplica ? ` (saldo ${formatQ(montosIVA.base)} + IVA ${montosIVA.porcentaje}%)` : '');
         document.getElementById('montoPago').value = montosIVA.total.toFixed(2);
         document.getElementById('formPago').style.display = 'block';
     },
