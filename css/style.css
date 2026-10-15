@@ -6390,3 +6390,226 @@ tr.medicina-inactiva td {
 #tablaSaldos td:nth-child(3) {
     min-width: 160px;
 }
+
+/* ---------- Historia clínica: registro de administración (agenda general) ---------- */
+.historia-button-bar {
+    gap: 10px;
+}
+
+.mar-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 7px 8px;
+    margin-bottom: 6px;
+    border: 1px solid var(--border-color);
+    border-left: 3px solid #93a4ab;
+    border-radius: 6px;
+    background: var(--bg-white);
+}
+
+.mar-item.mar-dado {
+    border-left-color: var(--success-color);
+    background: #f2faf5;
+}
+
+.mar-item.mar-suspendido {
+    border-left-color: var(--danger-color);
+    background: #fdf3f3;
+}
+
+.mar-check {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    margin-top: 1px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #93a4ab;
+    border-radius: 5px;
+    background: #fff;
+    color: #fff;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.mar-check:hover {
+    border-color: var(--primary-color);
+}
+
+.mar-dado .mar-check {
+    background: var(--success-color);
+    border-color: var(--success-color);
+}
+
+.mar-suspendido .mar-check {
+    background: var(--danger-color);
+    border-color: var(--danger-color);
+}
+
+.mar-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    font-size: 11.5px;
+    line-height: 1.35;
+    color: var(--text-gray);
+}
+
+.mar-info strong {
+    color: var(--text-dark);
+    font-size: 12px;
+}
+
+.mar-dosis {
+    color: var(--primary-color);
+}
+
+.mar-motivo {
+    color: #991b1b;
+    font-style: italic;
+}
+
+.mar-suspendido .mar-info strong {
+    text-decoration: line-through;
+    color: #7b8794;
+}
+
+.mar-suspender {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: #9aa5ab;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.mar-suspender:hover {
+    background: #fdecec;
+    color: var(--danger-color);
+}
+
+.mar-check:focus-visible,
+.mar-suspender:focus-visible {
+    outline: 2px solid #14b8a6;
+    outline-offset: 2px;
+}
+
+.mar-suspendido-tag {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: #fdecec;
+    color: #991b1b;
+    font-size: 10.5px;
+    font-weight: 600;
+}
+
+/* La semana cabe en el ancho disponible; en pantallas angostas se desplaza dentro de su caja */
+#agendaWeeklyGeneral {
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+}
+
+#agendaWeeklyGeneral .day-card-agenda {
+    min-width: 0;
+}
+
+@media (max-width: 1100px) {
+    #agendaWeeklyGeneral {
+        grid-template-columns: repeat(7, minmax(150px, 1fr)) !important;
+        overflow-x: auto;
+        padding-bottom: 6px;
+    }
+}
+
+.mar-motivo {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Dosis compactas para columnas angostas */
+#agendaWeeklyGeneral .day-card-agenda {
+    padding: 8px !important;
+}
+
+#agendaWeeklyGeneral .day-card-agenda > div:nth-child(2) {
+    overflow-x: hidden !important;
+}
+
+.mar-item {
+    position: relative;
+    gap: 6px;
+    padding: 6px 6px 6px 6px;
+}
+
+.mar-info {
+    padding-right: 16px;
+}
+
+.mar-info strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mar-info span {
+    overflow-wrap: anywhere;
+}
+
+.mar-suspender {
+    position: absolute;
+    top: 4px;
+    right: 3px;
+    width: 20px;
+    height: 20px;
+    font-size: 11px;
+}
+
+/* El nombre del medicamento siempre completo; suspender va abajo a la derecha */
+.mar-info {
+    padding-right: 0;
+}
+
+.mar-info strong {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+}
+
+.mar-dosis {
+    padding-right: 18px;
+}
+
+.mar-suspender {
+    top: auto;
+    bottom: 4px;
+}
+
+.mar-check {
+    width: 18px;
+    height: 18px;
+    font-size: 10.5px;
+    border-radius: 4px;
+}
+
+.mar-item {
+    gap: 5px;
+    padding: 6px 5px;
+}
+
+.mar-info strong {
+    font-size: 11.5px;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+}

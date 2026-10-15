@@ -19,7 +19,9 @@ const HistoriaClinicaModule = {
         filtroEstado: 'activos', // activos, todos
         agendaWeekStart: new Date(), // Se inicializa correctamente en init()
         agendaWeekStartGeneral: new Date(), // Para la vista general
-        filtroAgendaPaciente: '' // Filtro de paciente en agenda general
+        filtroAgendaPaciente: '', // Filtro de paciente en agenda general
+        // Registro de administración: { dosis: { clave: {estado, registrado} }, suspensiones: { prescId|medId: {...} } }
+        administracion: { dosis: {}, suspensiones: {} }
     },
 
     // Inicializar el módulo
@@ -1713,18 +1715,21 @@ const HistoriaClinicaModule = {
     // Parsear frecuencia a número de aplicaciones por día
     parseFrequencia(frecuencia) {
         if (!frecuencia) return 1;
-        
+
         const freq = frecuencia.toLowerCase();
-        if (freq.includes('cada 4 horas')) return 6;
-        if (freq.includes('cada 6 horas')) return 4;
-        if (freq.includes('cada 8 horas')) return 3;
-        if (freq.includes('cada 12 horas')) return 2;
+        // "Cada 8 h", "cada 8 horas", "c/12h", "cada 6hrs"
+        const cadaHoras = freq.match(/(?:cada|c\/)\s*(\d+)\s*(?:h|hr|hrs|hora|horas)\b/);
+        if (cadaHoras) {
+            const horas = Number(cadaHoras[1]);
+            if (horas > 0 && horas <= 24) return Math.max(1, Math.round(24 / horas));
+        }
+        const vecesDia = freq.match(/(\d+)\s*(?:veces|vez)/);
+        if (vecesDia) return Math.max(1, Number(vecesDia[1]));
         if (freq.includes('dos veces')) return 2;
         if (freq.includes('tres veces')) return 3;
-        if (freq.includes('diario') || freq.includes('una vez')) return 1;
-        if (freq.includes('cada día')) return 1;
-        
-        return 1; // Default
+        if (freq.includes('cuatro veces')) return 4;
+
+        return 1; // diario, una vez, noche, mañana, etc.
     },
 
     // Parsear duración a número de días
@@ -1746,10 +1751,9 @@ const HistoriaClinicaModule = {
         const startDate = weekStartDate || this.state.agendaWeekStart;
         const weekDays = this.getWeekDays(startDate);
         
-        // Inicializar los 7 días
+        // Inicializar los 7 días (fecha local de Guatemala, no UTC)
         weekDays.forEach(day => {
-            const dateKey = day.toISOString().split('T')[0];
-            medicinesByDay[dateKey] = [];
+            medicinesByDay[this.fechaKey(day)] = [];
         });
 
         // Procesar todas las prescripciones activas
@@ -1763,7 +1767,7 @@ const HistoriaClinicaModule = {
             const paciente = this.state.pacientes.find(p => String(p.id) === String(presc.pacienteId));
             if (!paciente) return;
 
-            const prescDate = new Date(presc.fecha);
+            const prescDate = this.parseFechaLocal(presc.fecha);
 
             // Procesar cada medicina en la prescripción
             presc.medicinas.forEach(med => {
@@ -1773,7 +1777,7 @@ const HistoriaClinicaModule = {
                 // Para cada día de la prescripción
                 let currentDate = new Date(prescDate);
                 for (let d = 0; d < duration; d++) {
-                    const dateKey = currentDate.toISOString().split('T')[0];
+                    const dateKey = this.fechaKey(currentDate);
                     
                     // Verificar que la fecha esté en la semana actual
                     if (medicinesByDay[dateKey]) {
@@ -1783,6 +1787,9 @@ const HistoriaClinicaModule = {
                                     .filter(Boolean)
                                     .join(' '),
                                 pacienteId: paciente.id,
+                                medicineId: med.medicineId,
+                                fecha: dateKey,
+                                aplicacionesDia: appsByDay,
                                 medicinaNombre: med.medicinaNombre,
                                 dosis: med.dosis,
                                 cantidad: med.cantidad,
@@ -1820,7 +1827,7 @@ const HistoriaClinicaModule = {
         agendaWeekly.innerHTML = '';
 
         weekDays.forEach(day => {
-            const dateKey = day.toISOString().split('T')[0];
+            const dateKey = this.fechaKey(day);
             const dayName = day.toLocaleDateString('es-GT', { weekday: 'short' });
             const dayNum = day.toLocaleDateString('es-GT', { day: '2-digit' });
             const medicines = medicinesByDay[dateKey] || [];
@@ -1837,7 +1844,7 @@ const HistoriaClinicaModule = {
                 flex-direction: column;
             `;
 
-            const isToday = dateKey === new Date().toISOString().split('T')[0];
+            const isToday = dateKey === this.fechaKey(new Date());
             if (isToday) {
                 dayCard.style.borderColor = '#4CAF50';
                 dayCard.style.background = '#f1f8f4';
@@ -2078,8 +2085,11 @@ const HistoriaClinicaModule = {
             });
         }
 
+        this.cargarAdministracion();
+        this.setupAgendaAdministracion(agendaWeekly);
+
         weekDays.forEach(day => {
-            const dateKey = day.toISOString().split('T')[0];
+            const dateKey = this.fechaKey(day);
             const dayName = day.toLocaleDateString('es-GT', { weekday: 'short' });
             const dayNum = day.toLocaleDateString('es-GT', { day: '2-digit' });
             const medicines = medicinesByDayFiltered[dateKey] || [];
@@ -2096,7 +2106,7 @@ const HistoriaClinicaModule = {
                 flex-direction: column;
             `;
 
-            const isToday = dateKey === new Date().toISOString().split('T')[0];
+            const isToday = dateKey === this.fechaKey(new Date());
             if (isToday) {
                 dayCard.style.borderColor = '#4CAF50';
                 dayCard.style.background = '#f1f8f4';
@@ -2123,22 +2133,8 @@ const HistoriaClinicaModule = {
             if (medicines.length === 0) {
                 medicinesContainer.innerHTML = '<div style="color: #999; text-align: center; padding: 20px 5px;">Sin medicinas</div>';
             } else {
-                medicines.forEach((med, idx) => {
-                    const medItem = document.createElement('div');
-                    medItem.style.cssText = `
-                        background: #f5f5f5;
-                        padding: 8px;
-                        margin-bottom: 6px;
-                        border-left: 4px solid #2196F3;
-                        border-radius: 3px;
-                    `;
-                    medItem.innerHTML = `
-                        <strong>${med.medicinaNombre}</strong><br>
-                        <span style="color: #666; font-size: 11px;">${med.pacienteNombre}</span><br>
-                        <span style="color: #2196F3;">Dosis: ${med.dosis}</span><br>
-                        <span style="color: #999; font-size: 11px;">Aplicación ${med.aplicacion}</span>
-                    `;
-                    medicinesContainer.appendChild(medItem);
+                medicines.forEach(med => {
+                    medicinesContainer.appendChild(this.renderDosisItem(med));
                 });
             }
             dayCard.appendChild(medicinesContainer);
@@ -2152,7 +2148,12 @@ const HistoriaClinicaModule = {
                 color: #999;
                 text-align: center;
             `;
-            count.textContent = `${medicines.length} aplicación${medicines.length !== 1 ? 'es' : ''}`;
+            const dadas = medicines.filter(med => this.estadoDosis(med) === 'dado').length;
+            const suspendidas = medicines.filter(med => this.estadoDosis(med) === 'suspendido').length;
+            const activas = medicines.length - suspendidas;
+            count.textContent = medicines.length
+                ? `${dadas} de ${activas} dada${activas !== 1 ? 's' : ''}${suspendidas ? ` · ${suspendidas} suspendida${suspendidas !== 1 ? 's' : ''}` : ''}`
+                : '0 aplicaciones';
             dayCard.appendChild(count);
 
             agendaWeekly.appendChild(dayCard);
@@ -2210,9 +2211,11 @@ const HistoriaClinicaModule = {
                     `;
                     
                     presc.medicinas.forEach(med => {
+                        const susp = this.getSuspension(presc.id, med.medicineId);
                         html += `
                             <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #f0f0f0;">
-                                <strong style="color: #333;">${med.medicinaNombre}</strong><br>
+                                <strong style="color: #333;">${med.medicinaNombre}</strong>
+                                ${susp ? `<span class="mar-suspendido-tag">Suspendido desde ${formatFecha(susp.desde)}: ${this.escapeHTML(susp.motivo)}</span>` : ''}<br>
                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11px; color: #666; margin-top: 4px;">
                                     <span><i class="fas fa-cube"></i> Cant: ${med.cantidad}</span>
                                     <span><i class="fas fa-weight"></i> Dosis: ${med.dosis}</span>
@@ -2237,6 +2240,361 @@ const HistoriaClinicaModule = {
 
         html += '</div>';
         summary.innerHTML = html;
+    },
+
+    // ============================================
+    // REGISTRO DE ADMINISTRACIÓN DE MEDICAMENTOS
+    // ============================================
+
+    fechaKey(date) {
+        const d = date instanceof Date ? date : new Date(date);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    },
+
+    // 'YYYY-MM-DD' como fecha local (new Date('YYYY-MM-DD') usa UTC)
+    parseFechaLocal(valor) {
+        const texto = String(valor || '').slice(0, 10);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
+            const [y, m, d] = texto.split('-').map(Number);
+            return new Date(y, m - 1, d);
+        }
+        return new Date(valor);
+    },
+
+    escapeHTML(valor) {
+        return String(valor ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    },
+
+    ADMIN_STORAGE_KEY: 'administracionMedicamentos',
+
+    cargarAdministracion() {
+        try {
+            const guardado = JSON.parse(localStorage.getItem(this.ADMIN_STORAGE_KEY) || 'null');
+            this.state.administracion = {
+                dosis: guardado?.dosis || {},
+                suspensiones: guardado?.suspensiones || {}
+            };
+        } catch (error) {
+            this.state.administracion = { dosis: {}, suspensiones: {} };
+        }
+        return this.state.administracion;
+    },
+
+    guardarAdministracion() {
+        localStorage.setItem(this.ADMIN_STORAGE_KEY, JSON.stringify(this.state.administracion));
+    },
+
+    claveDosis(med) {
+        return `${med.prescripcionId}|${med.medicineId}|${med.fecha}|${med.aplicacion}`;
+    },
+
+    getSuspension(prescripcionId, medicineId) {
+        return this.state.administracion.suspensiones[`${prescripcionId}|${medicineId}`] || null;
+    },
+
+    // pendiente | dado | suspendido
+    estadoDosis(med) {
+        const susp = this.getSuspension(med.prescripcionId, med.medicineId);
+        if (susp && (med.fecha > susp.desde || (med.fecha === susp.desde && med.aplicacion >= susp.desdeAplicacion))) {
+            // Una dosis ya dada antes de suspender se conserva como dada
+            if (this.state.administracion.dosis[this.claveDosis(med)]?.estado !== 'dado') return 'suspendido';
+        }
+        return this.state.administracion.dosis[this.claveDosis(med)]?.estado === 'dado' ? 'dado' : 'pendiente';
+    },
+
+    renderDosisItem(med) {
+        const estado = this.estadoDosis(med);
+        const susp = this.getSuspension(med.prescripcionId, med.medicineId);
+        const registro = this.state.administracion.dosis[this.claveDosis(med)];
+        const e = valor => this.escapeHTML(valor);
+        const datos = `data-presc="${e(med.prescripcionId)}" data-med="${e(med.medicineId)}" data-fecha="${e(med.fecha)}" data-aplicacion="${med.aplicacion}"`;
+
+        const titulos = {
+            pendiente: 'No se ha dado. Clic para marcar como dada.',
+            dado: `Dada${registro?.registrado ? ` el ${formatFechaHora(registro.registrado)}` : ''}. Clic para desmarcar.`,
+            suspendido: `Suspendido desde ${susp ? formatFecha(susp.desde) : ''}: ${susp?.motivo || ''}. Clic para reanudar.`
+        };
+        const iconos = { pendiente: '', dado: '<i class="fas fa-check" aria-hidden="true"></i>', suspendido: '<i class="fas fa-xmark" aria-hidden="true"></i>' };
+
+        const item = document.createElement('div');
+        item.className = `mar-item mar-${estado}`;
+        item.innerHTML = `
+            <button type="button" class="mar-check" data-accion="${estado === 'suspendido' ? 'reanudar' : 'marcar'}" ${datos}
+                    title="${e(titulos[estado])}" aria-label="${e(titulos[estado])}">${iconos[estado]}</button>
+            <div class="mar-info">
+                <strong title="${e(med.medicinaNombre)}">${e(med.medicinaNombre)}</strong>
+                <span>${e(med.pacienteNombre)}</span>
+                <span class="mar-dosis">${e(med.dosis || 'Sin dosis')}${med.aplicacionesDia > 1 ? ` · ${med.aplicacion}/${med.aplicacionesDia}` : ''}</span>
+                ${estado === 'suspendido' && susp ? `<span class="mar-motivo" title="${e(susp.motivo)}">${e(susp.motivo)}</span>` : ''}
+            </div>
+            ${estado !== 'suspendido' ? `
+                <button type="button" class="mar-suspender" data-accion="suspender" ${datos}
+                        title="Suspender este medicamento a partir de esta dosis" aria-label="Suspender medicamento">
+                    <i class="fas fa-ban" aria-hidden="true"></i>
+                </button>` : ''}
+        `;
+        return item;
+    },
+
+    // Un solo listener para todas las casillas de la semana
+    setupAgendaAdministracion(contenedor) {
+        if (!contenedor || contenedor._marListener) return;
+        contenedor._marListener = true;
+        contenedor.addEventListener('click', event => {
+            const boton = event.target.closest('[data-accion]');
+            if (!boton) return;
+            const med = {
+                prescripcionId: boton.dataset.presc,
+                medicineId: boton.dataset.med,
+                fecha: boton.dataset.fecha,
+                aplicacion: Number(boton.dataset.aplicacion)
+            };
+            if (boton.dataset.accion === 'marcar') this.toggleDosis(med);
+            if (boton.dataset.accion === 'suspender') this.abrirSuspension(med);
+            if (boton.dataset.accion === 'reanudar') this.reanudarMedicamento(med);
+        });
+    },
+
+    toggleDosis(med) {
+        const clave = this.claveDosis(med);
+        if (this.state.administracion.dosis[clave]?.estado === 'dado') {
+            delete this.state.administracion.dosis[clave];
+        } else {
+            this.state.administracion.dosis[clave] = {
+                estado: 'dado',
+                registrado: new Date().toISOString(),
+                usuario: (typeof authManager !== 'undefined' && authManager.getUser?.()?.nombre) || ''
+            };
+        }
+        this.guardarAdministracion();
+        this.renderAgendaSemanalGeneral();
+    },
+
+    abrirSuspension(med) {
+        const presc = this.state.prescripciones.find(p => String(p.id) === String(med.prescripcionId));
+        const medicina = presc?.medicinas?.find(m => String(m.medicineId) === String(med.medicineId));
+        const paciente = this.state.pacientes.find(p => String(p.id) === String(presc?.pacienteId));
+        if (!presc || !medicina) return;
+        const e = valor => this.escapeHTML(valor);
+
+        document.getElementById('hcSuspenderModal')?.remove();
+        const modal = document.createElement('div');
+        modal.id = 'hcSuspenderModal';
+        modal.className = 'modal';
+        modal.style.display = 'flex';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 460px;">
+                <div class="modal-header">
+                    <h2><i class="fas fa-ban" aria-hidden="true"></i> Suspender medicamento</h2>
+                    <button type="button" class="modal-close" aria-label="Cerrar" onclick="document.getElementById('hcSuspenderModal').remove()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p style="margin-bottom: 4px;"><strong>${e(medicina.medicinaNombre)}</strong> · ${e(medicina.dosis || '')}</p>
+                    <p class="form-hint" style="margin-bottom: 14px;">${e(paciente ? `${paciente.nombre} ${paciente.apellidoPaterno || ''}` : '')} · Se suspende desde el ${formatFecha(med.fecha)}${med.aplicacion > 1 ? `, aplicación ${med.aplicacion}` : ''} en adelante.</p>
+                    <div class="form-group">
+                        <label for="hcSuspenderMotivo">Motivo de la suspensión <span class="required">*</span></label>
+                        <textarea id="hcSuspenderMotivo" class="form-input" rows="3" placeholder="Ej: Reacción adversa, indicación médica, alta del paciente..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('hcSuspenderModal').remove()">Cancelar</button>
+                    <button type="button" class="btn btn-danger" id="hcSuspenderConfirmar"><i class="fas fa-ban" aria-hidden="true"></i> Suspender medicamento</button>
+                </div>
+            </div>`;
+        document.body.appendChild(modal);
+        const motivoInput = modal.querySelector('#hcSuspenderMotivo');
+        motivoInput.focus();
+        modal.querySelector('#hcSuspenderConfirmar').addEventListener('click', () => {
+            const motivo = motivoInput.value.trim();
+            if (!motivo) {
+                motivoInput.focus();
+                this.showNotification('Escribe el motivo de la suspensión', 'warning');
+                return;
+            }
+            this.suspenderMedicamento(med, motivo);
+            modal.remove();
+        });
+    },
+
+    suspenderMedicamento(med, motivo) {
+        this.state.administracion.suspensiones[`${med.prescripcionId}|${med.medicineId}`] = {
+            desde: med.fecha,
+            desdeAplicacion: med.aplicacion,
+            motivo,
+            registrado: new Date().toISOString()
+        };
+        this.guardarAdministracion();
+
+        // El medicamento sale del tratamiento activo del paciente
+        this.state.medicamentosAsignados
+            .filter(a => a.prescripcionId === med.prescripcionId && String(a.medicineId) === String(med.medicineId))
+            .forEach(a => Object.assign(a, { estado: 'suspendido', fechaSuspension: med.fecha, motivoSuspension: motivo }));
+        this.guardarMedicamentosAsignados();
+
+        this.renderAgendaSemanalGeneral();
+        if (this.state.pacienteSeleccionado) this.renderHistoriaClinica();
+        this.showNotification('Medicamento suspendido', 'success');
+    },
+
+    reanudarMedicamento(med) {
+        const susp = this.getSuspension(med.prescripcionId, med.medicineId);
+        if (!susp) return;
+        if (!confirm(`¿Reanudar este medicamento?\n\nSe quitará la suspensión del ${formatFecha(susp.desde)} (motivo: ${susp.motivo}).`)) return;
+
+        delete this.state.administracion.suspensiones[`${med.prescripcionId}|${med.medicineId}`];
+        this.guardarAdministracion();
+        this.state.medicamentosAsignados
+            .filter(a => a.prescripcionId === med.prescripcionId && String(a.medicineId) === String(med.medicineId))
+            .forEach(a => {
+                a.estado = 'activo';
+                delete a.fechaSuspension;
+                delete a.motivoSuspension;
+            });
+        this.guardarMedicamentosAsignados();
+
+        this.renderAgendaSemanalGeneral();
+        if (this.state.pacienteSeleccionado) this.renderHistoriaClinica();
+        this.showNotification('Medicamento reanudado', 'success');
+    },
+
+    // ============================================
+    // IMPRIMIR HISTORIA CLÍNICA
+    // ============================================
+
+    imprimirHistoriaClinica() {
+        const paciente = this.state.pacienteSeleccionado;
+        if (!paciente) {
+            this.showNotification('Selecciona un paciente primero', 'warning');
+            return;
+        }
+        this.cargarAdministracion();
+        const e = valor => this.escapeHTML(valor);
+        const historia = this.getHistoria(paciente.id) || {};
+        const prescripciones = [...(historia.prescripciones || [])].sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+        const notas = [...(historia.notas || [])].sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+        const asignaciones = this.state.medicamentosAsignados.filter(a => String(a.pacienteId) === String(paciente.id));
+        const clinica = (typeof CONFIG !== 'undefined' && CONFIG.CLINICA) || { nombre: 'Zentra MED' };
+        const nombreMedico = id => {
+            const m = (this.state.medicos || []).find(item => String(item.id) === String(id));
+            return m ? [m.nombre, m.apellidoPaterno, m.apellidoMaterno].filter(Boolean).join(' ') : '';
+        };
+        const fecha = valor => valor ? formatFecha(valor) : '—';
+        const seccion = (titulo, contenido) => `<section><h2>${titulo}</h2>${contenido}</section>`;
+        const vacio = texto => `<p class="vacio">${texto}</p>`;
+
+        // Registro de administración por medicina de cada prescripción
+        const dosis = this.state.administracion.dosis;
+        const registroAdmin = prescripciones.flatMap(presc => (presc.medicinas || []).map(med => {
+            const prefijo = `${presc.id}|${med.medicineId}|`;
+            const dadas = Object.entries(dosis)
+                .filter(([clave, d]) => clave.startsWith(prefijo) && d.estado === 'dado')
+                .map(([clave, d]) => ({ fecha: clave.split('|')[2], registrado: d.registrado }))
+                .sort((a, b) => a.fecha.localeCompare(b.fecha));
+            const porDia = dadas.reduce((acc, d) => { acc[d.fecha] = (acc[d.fecha] || 0) + 1; return acc; }, {});
+            return { presc, med, dadas, porDia, susp: this.getSuspension(presc.id, med.medicineId) };
+        }));
+
+        const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Historia clínica - ${e(paciente.nombre)} ${e(paciente.apellidoPaterno || '')}</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #1f2933; font-size: 12px; line-height: 1.45; padding: 28px; }
+    .doc { max-width: 900px; margin: 0 auto; }
+    header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #0f766e; padding-bottom: 12px; margin-bottom: 16px; }
+    header .clinica { font-size: 16px; font-weight: 700; color: #0f766e; }
+    header .clinica small { display: block; font-size: 11px; font-weight: 400; color: #52606d; }
+    header h1 { font-size: 20px; text-align: right; letter-spacing: .04em; }
+    header .fecha { text-align: right; font-size: 11px; color: #52606d; }
+    section { margin-bottom: 16px; page-break-inside: avoid; }
+    h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: #0f766e; border-bottom: 1px solid #d9e2e6; padding-bottom: 4px; margin-bottom: 8px; }
+    .datos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 16px; }
+    .datos div span { display: block; font-size: 10px; text-transform: uppercase; color: #7b8794; }
+    .alerta { border: 1px solid #f3b4b4; background: #fdecec; color: #991b1b; padding: 8px 10px; border-radius: 4px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+    th, td { border: 1px solid #d9e2e6; padding: 5px 7px; text-align: left; vertical-align: top; }
+    th { background: #f1f5f7; font-size: 10.5px; text-transform: uppercase; }
+    .presc { margin-bottom: 10px; }
+    .presc-cab { display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 4px; }
+    .suspendido { color: #b91c1c; font-weight: 600; }
+    .nota { border-left: 3px solid #0f766e; padding: 4px 0 4px 10px; margin-bottom: 8px; }
+    .nota-cab { font-weight: 600; }
+    .nota-cab span { font-weight: 400; color: #52606d; }
+    .vacio { color: #7b8794; font-style: italic; }
+    .firmas { display: flex; gap: 40px; margin-top: 50px; }
+    .firmas div { flex: 1; border-top: 1px solid #1f2933; padding-top: 4px; text-align: center; font-size: 11px; }
+    footer { margin-top: 20px; font-size: 10px; color: #7b8794; text-align: center; }
+    @media print { body { padding: 0; } @page { size: letter; margin: 14mm; } }
+</style>
+</head>
+<body><div class="doc">
+<header>
+    <div class="clinica">${e(clinica.nombre || 'Zentra MED')}
+        <small>${e([clinica.nit && `NIT ${clinica.nit}`, clinica.direccion, clinica.municipio, clinica.telefono].filter(x => x && String(x).trim() && String(x).trim() !== '+502').join(' · '))}</small>
+    </div>
+    <div><h1>HISTORIA CLÍNICA</h1><div class="fecha">Impresa el ${e(formatFechaHora())}</div></div>
+</header>
+
+${seccion('Datos del paciente', `<div class="datos">
+    <div><span>Nombre</span>${e([paciente.nombre, paciente.apellidoPaterno, paciente.apellidoMaterno].filter(Boolean).join(' '))}</div>
+    <div><span>DPI</span>${e(paciente.dpi || paciente.pasaporte || '—')}</div>
+    <div><span>Edad</span>${e(this.calculateAge(paciente.fechaNacimiento))} años</div>
+    <div><span>Fecha de nacimiento</span>${fecha(paciente.fechaNacimiento)}</div>
+    <div><span>Género</span>${e(paciente.genero || '—')}</div>
+    <div><span>Tipo de servicio</span>${e({ agudo: 'Agudo', cronico: 'Crónico', coex: 'COEX' }[paciente.tipoServicio] || paciente.tipoServicio || '—')}</div>
+    <div><span>Teléfono</span>${e(paciente.telefono || '—')}</div>
+    <div><span>Email</span>${e(paciente.email || '—')}</div>
+    <div><span>Municipio</span>${e(paciente.municipio || '—')}</div>
+</div>`)}
+
+${historia.alergias ? seccion('Alergias', `<p class="alerta">${e(historia.alergias)}</p>`) : ''}
+${seccion('Antecedentes médicos', historia.antecedentesMedicos ? `<p>${e(historia.antecedentesMedicos)}</p>` : vacio('Sin antecedentes registrados'))}
+${historia.antecedentesfamiliares ? seccion('Antecedentes familiares', `<p>${e(historia.antecedentesfamiliares)}</p>`) : ''}
+${(historia.diagnosticosActivos || []).length ? seccion('Diagnósticos activos', `<table><thead><tr><th>Diagnóstico</th><th>Fecha</th><th>Descripción</th></tr></thead><tbody>${
+    historia.diagnosticosActivos.map(d => `<tr><td>${e(d.nombre)}</td><td>${e(d.fecha)}</td><td>${e(d.descripcion)}</td></tr>`).join('')
+}</tbody></table>`) : ''}
+
+${seccion('Tratamiento farmacológico', asignaciones.length ? `<table><thead><tr><th>Medicamento</th><th>Dosis</th><th>Frecuencia</th><th>Duración</th><th>Desde</th><th>Estado</th></tr></thead><tbody>${
+    asignaciones.map(a => {
+        const susp = this.getSuspension(a.prescripcionId, a.medicineId);
+        const suspendido = a.estado === 'suspendido' || susp;
+        return `<tr><td>${e(a.medicineName || '')}</td><td>${e(a.dosis || '—')}</td><td>${e(a.frecuencia || '—')}</td><td>${e(a.duracion || '—')}</td><td>${fecha(a.fechaAsignacion || a.fechaInicio)}</td>
+            <td>${suspendido ? `<span class="suspendido">Suspendido ${fecha(susp?.desde || a.fechaSuspension)}</span><br>${e(susp?.motivo || a.motivoSuspension || '')}` : 'Activo'}</td></tr>`;
+    }).join('')
+}</tbody></table>` : vacio('Sin medicamentos en tratamiento'))}
+
+${seccion('Prescripciones', prescripciones.length ? prescripciones.map(p => `<div class="presc">
+    <div class="presc-cab"><span>${e(p.id)} · ${fecha(p.fecha)}</span><span>${e(nombreMedico(p.medicoId) || '')}</span></div>
+    <p><strong>Diagnóstico:</strong> ${e(p.diagnostico || '—')}</p>
+    <table><thead><tr><th>Medicina</th><th>Cantidad</th><th>Dosis</th><th>Frecuencia</th><th>Duración</th></tr></thead><tbody>${
+        (p.medicinas || []).map(m => `<tr><td>${e(m.medicinaNombre)}</td><td>${e(m.cantidad)}</td><td>${e(m.dosis || '—')}</td><td>${e(m.frecuencia || '—')}</td><td>${e(m.duracion || '—')}</td></tr>`).join('')
+    }</tbody></table></div>`).join('') : vacio('Sin prescripciones'))}
+
+${seccion('Registro de administración de medicamentos', registroAdmin.length ? `<table><thead><tr><th>Medicamento</th><th>Prescripción</th><th>Dosis dadas</th><th>Detalle por día</th><th>Suspensión</th></tr></thead><tbody>${
+    registroAdmin.map(r => `<tr><td>${e(r.med.medicinaNombre)}<br><small>${e(r.med.dosis || '')} · ${e(r.med.frecuencia || '')}</small></td>
+        <td>${e(r.presc.id)}</td><td>${r.dadas.length}</td>
+        <td>${Object.keys(r.porDia).length ? Object.entries(r.porDia).map(([f, n]) => `${fecha(f)}: ${n}/${this.parseFrequencia(r.med.frecuencia)}`).join('<br>') : '<span class="vacio">Sin registros</span>'}</td>
+        <td>${r.susp ? `<span class="suspendido">Desde ${fecha(r.susp.desde)}</span><br>${e(r.susp.motivo)}` : '—'}</td></tr>`).join('')
+}</tbody></table>` : vacio('Sin medicamentos prescritos'))}
+
+${seccion('Evolución y notas médicas', notas.length ? notas.map(n => `<div class="nota">
+    <div class="nota-cab">${e(n.tipo)} <span>· ${fecha(n.fecha)}${n.medico ? ` · ${e(n.medico)}` : ''}</span></div>
+    <p>${e(n.contenido)}</p></div>`).join('') : vacio('Sin notas registradas'))}
+
+<div class="firmas"><div>Médico tratante</div><div>Firma y sello</div></div>
+<footer>Documento generado por ${e(clinica.nombre || 'Zentra MED')} · ${e(formatFechaHora())}</footer>
+</div></body></html>`;
+
+        const ventana = window.open('', '_blank', 'width=900,height=900');
+        if (!ventana) {
+            this.showNotification('El navegador bloqueó la ventana de impresión. Permite las ventanas emergentes.', 'warning');
+            return;
+        }
+        ventana.document.write(html);
+        ventana.document.close();
+        setTimeout(() => ventana.print(), 300);
     },
 
     // Navegar a semana anterior en vista general
