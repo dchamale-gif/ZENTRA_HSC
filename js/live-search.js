@@ -395,9 +395,18 @@ const LiveSearch = {
             source: () => (typeof MedicinasModule !== 'undefined'
                 ? MedicinasModule.state?.medicinas : []) || [],
             label: m => m.nombre || 'Medicina sin nombre',
-            meta: m => [m.concentracion, m.familia, m.codigo_externo || m.codigoBarra]
-                .filter(Boolean).join(' · '),
+            meta: m => [
+                m.principioActivo,
+                m.dosis && `${m.dosis} ${m.unidadDosis || ''}`.trim(),
+                m.presentacion,
+                m.lote && `Lote ${m.lote}`,
+                m.codigoBarra,
+                m.activo === false && 'Inactiva'
+            ].filter(Boolean).join(' · '),
             query: m => m.nombre || '',
+            // Mismos campos que usa la búsqueda del listado de medicinas
+            extra: m => (typeof MedicinasModule !== 'undefined' && MedicinasModule.textoBusqueda)
+                ? MedicinasModule.textoBusqueda(m) : '',
             container: 'medicinesTableContainer',
             emptyText: 'Sin medicinas que coincidan'
         });

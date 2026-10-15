@@ -219,7 +219,9 @@ const MedicinasModule = {
             precioUnitario: precio,
             fecha_vencimiento: vencimiento,
             fechaVencimiento: vencimiento,
+            precioCosto: Number(m.precio_costo) || 0,
             fechaRegistro: m.created_at ? formatFecha(m.created_at) : 'N/A',
+            fechaActualizacion: m.updated_at ? formatFechaHora(m.updated_at) : 'N/A',
             activo,
             activa: activo
         };
@@ -298,7 +300,7 @@ const MedicinasModule = {
         if (sectionSelect) {
             sectionSelect.innerHTML = '<option value="">Todas las Secciones</option>' +
                 this.state.seccionesDisponibles.map(item => `<option value="${item.id}">${item.nombre}</option>`).join('');
-            sectionSelect.value = this.seccionFiltro;
+            sectionSelect.value = this.seccionFiltro || '';
         }
 
         const familySelect = document.getElementById('filterMedicineFamily');
@@ -705,6 +707,17 @@ const MedicinasModule = {
                 const activo = m.activo !== false && m.activa !== false;
                 return stock <= stockMinimo || !activo;
             });
+        } else if (this.filtroActivo === 'activas') {
+            filtered = filtered.filter(m => m.activo);
+        } else if (this.filtroActivo === 'inactivas') {
+            filtered = filtered.filter(m => !m.activo);
+        } else if (this.filtroActivo === 'por-vencer') {
+            filtered = filtered.filter(m => {
+                const dias = this.diasParaVencer(m.fechaVencimiento);
+                return dias !== null && dias >= 0 && dias <= 90;
+            });
+        } else if (this.filtroActivo === 'vencidas') {
+            filtered = filtered.filter(m => this.isExpired(m.fechaVencimiento));
         }
 
         // Filtro por sección
@@ -724,14 +737,8 @@ const MedicinasModule = {
 
         // Búsqueda
         if (this.searchTerm) {
-            filtered = filtered.filter(m =>
-                (m.nombre && m.nombre.toLowerCase().includes(this.searchTerm)) ||
-                (m.codigo_externo && m.codigo_externo.includes(this.searchTerm)) ||
-                (m.codigoBarra && m.codigoBarra.includes(this.searchTerm)) ||
-                (m.familia && m.familia.toLowerCase().includes(this.searchTerm)) ||
-                (m.concentracion && m.concentracion.toLowerCase().includes(this.searchTerm)) ||
-                (m.principioActivo && m.principioActivo.toLowerCase().includes(this.searchTerm))
-            );
+            const termino = this.normalizarTexto(this.searchTerm);
+            filtered = filtered.filter(m => this.textoBusqueda(m).includes(termino));
         }
 
         // Aplicar orden
@@ -741,6 +748,12 @@ const MedicinasModule = {
                 break;
             case 'alfabetico-desc':
                 filtered.sort((a, b) => (b.nombre || '').localeCompare(a.nombre || ''));
+                break;
+            case 'vencimiento-asc':
+                filtered.sort((a, b) => (a.fechaVencimiento || '9999').localeCompare(b.fechaVencimiento || '9999'));
+                break;
+            case 'precio-desc':
+                filtered.sort((a, b) => b.precioUnitario - a.precioUnitario);
                 break;
             case 'stock-asc':
                 filtered.sort((a, b) => (a.stock || a.cantidad || 0) - (b.stock || b.cantidad || 0));
@@ -765,14 +778,13 @@ const MedicinasModule = {
                     <thead>
                         <tr>
                             <th>Código</th>
-                            <th>Nombre</th>
-                            <th>Sección</th>
-                            <th>Familia</th>
-                            <th>Subfamilia</th>
-                            <th>Presentación</th>
+                            <th>Medicina</th>
                             <th>Principio activo / dosis</th>
+                            <th>Clasificación</th>
                             <th>Stock</th>
-                            <th>Vencimiento</th>
+                            <th class="text-right">Precio</th>
+                            <th>Lote / vencimiento</th>
+                            <th>Proveedor</th>
                             <th>Estado</th>
                             <th>Acciones</th>
                         </tr>
@@ -787,42 +799,88 @@ const MedicinasModule = {
 
     // Renderizar fila de medicina
     renderMedicineRow(medicine) {
-        const stockBadge = this.getStockBadge(medicine);
-        const activaBadge = medicine.activo || medicine.activa
+        const e = valor => this.escapeHTML(valor);
+        const estadoBadge = medicine.activo
             ? '<span class="badge badge-success">Activa</span>'
             : '<span class="badge badge-inactive">Inactiva</span>';
-        
-        const fechaVencimiento = medicine.vencimiento || medicine.fecha_vencimiento || medicine.fechaVencimiento || 'N/A';
-        const vencida = this.isExpired(fechaVencimiento);
-        const vencimientoBadge = vencida
-            ? '<span class="badge badge-danger">Vencida</span>'
-            : `<span class="badge badge-info">${fechaVencimiento}</span>`;
+        const clasificacion = [
+            this.getClassificationName('seccion', medicine.seccion || medicine.categoria || 'SEC-001'),
+            medicine.familia && this.getClassificationName('familia', medicine.familia),
+            medicine.subfamilia && this.getClassificationName('subfamilia', medicine.subfamilia)
+        ].filter(Boolean).map(e).join(' › ');
 
         return `
-            <tr data-medicine-id="${medicine.id}">
-                <td><strong>${medicine.codigoBarra || 'N/A'}</strong></td>
-                <td>${medicine.nombre || 'N/A'}</td>
-                <td>${this.getClassificationName('seccion', medicine.seccion || medicine.categoria || 'SEC-001')}</td>
-                <td>${this.getClassificationName('familia', medicine.familia)}</td>
-                <td>${this.getClassificationName('subfamilia', medicine.subfamilia)}</td>
-                <td>${medicine.presentacion || medicine.forma_farmaceutica || 'N/A'}</td>
-                <td>${medicine.principioActivo || 'N/A'}${medicine.dosis ? `<br><small>${medicine.dosis} ${medicine.unidadDosis}</small>` : ''}</td>
-                <td>${stockBadge}</td>
-                <td>${vencimientoBadge}</td>
-                <td>${activaBadge}</td>
+            <tr data-medicine-id="${e(medicine.id)}" class="${medicine.activo ? '' : 'medicina-inactiva'}">
+                <td><strong>${e(medicine.codigoBarra || 'N/A')}</strong></td>
+                <td>
+                    <div class="medicina-nombre">${e(medicine.nombre || 'N/A')}</div>
+                    <small class="medicina-sub">${e(medicine.presentacion || medicine.forma_farmaceutica || 'Sin presentación')}</small>
+                </td>
+                <td>
+                    ${e(medicine.principioActivo || 'N/A')}
+                    ${medicine.dosis ? `<br><small class="medicina-sub">${e(medicine.dosis)} ${e(medicine.unidadDosis)}</small>` : ''}
+                </td>
+                <td><small>${clasificacion}</small></td>
+                <td>${this.getStockBadge(medicine)}<br><small class="medicina-sub">Mín. ${medicine.cantidadMinima}</small></td>
+                <td class="text-right">${formatQ(medicine.precioUnitario)}</td>
+                <td>
+                    ${medicine.lote ? `<small class="medicina-sub">Lote ${e(medicine.lote)}</small><br>` : ''}
+                    ${this.getVencimientoBadge(medicine.fechaVencimiento)}
+                </td>
+                <td><small>${e(medicine.proveedor || '—')}</small></td>
+                <td>${estadoBadge}</td>
                 <td class="actions">
+                    <button class="btn-icon btn-view" title="Ver detalles" data-action="view">
+                        <i class="fas fa-eye"></i>
+                    </button>
                     <button class="btn-icon btn-edit" title="Editar" data-action="edit">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button class="btn-icon btn-delete" title="Eliminar" data-action="delete">
+                    <button class="btn-icon btn-delete" title="Desactivar" data-action="delete">
                         <i class="fas fa-trash"></i>
-                    </button>
-                    <button class="btn-icon btn-view" title="Detalles" data-action="view">
-                        <i class="fas fa-eye"></i>
                     </button>
                 </td>
             </tr>
         `;
+    },
+
+    escapeHTML(valor) {
+        return String(valor ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    },
+
+    normalizarTexto(valor) {
+        return String(valor ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    },
+
+    // Todo el texto de una medicina sobre el que busca el listado
+    textoBusqueda(m) {
+        return this.normalizarTexto([
+            m.nombre, m.codigoBarra, m.codigo_externo, m.codigo_interno,
+            m.principioActivo, m.concentracion, m.dosis, m.unidadDosis,
+            m.presentacion, m.forma_farmaceutica, m.lote, m.proveedor,
+            m.seccion, m.familia, m.subfamilia,
+            this.getClassificationName('seccion', m.seccion),
+            this.getClassificationName('familia', m.familia),
+            this.getClassificationName('subfamilia', m.subfamilia),
+            m.contraindicaciones, m.efectosSecundarios, m.descripcion
+        ].filter(Boolean).join(' '));
+    },
+
+    diasParaVencer(fecha) {
+        if (!fecha) return null;
+        const [y, mes, d] = String(fecha).slice(0, 10).split('-').map(Number);
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+        return Math.round((new Date(y, mes - 1, d) - hoy) / 86400000);
+    },
+
+    getVencimientoBadge(fecha) {
+        const dias = this.diasParaVencer(fecha);
+        if (dias === null) return '<span class="medicina-sub">Sin vencimiento</span>';
+        const texto = formatFecha(fecha);
+        if (dias < 0) return `<span class="badge badge-danger">Vencida ${texto}</span>`;
+        if (dias <= 90) return `<span class="badge badge-warning">Vence ${texto}</span>`;
+        return `<span class="badge badge-info">${texto}</span>`;
     },
 
     getClassificationName(type, id) {
@@ -850,103 +908,128 @@ const MedicinasModule = {
 
     // Verificar si está vencida
     isExpired(fechaVencimiento) {
-        if (!fechaVencimiento) return false;
-        return new Date(fechaVencimiento) < new Date();
+        const dias = this.diasParaVencer(fechaVencimiento);
+        return dias !== null && dias < 0;
     },
 
-    // Ver detalles de medicina
-    viewMedicineDetails(id) {
-        const medicine = this.state.medicinas.find(m => String(m.id) === String(id));
-        if (!medicine) return;
-
+    // Ver detalles de medicina: trae la versión más reciente desde la API
+    async viewMedicineDetails(id) {
+        let medicine = this.state.medicinas.find(m => String(m.id) === String(id));
         const detailsModal = document.getElementById('medicineDetailsModal');
         const detailsContent = document.getElementById('medicineDetailsContent');
         if (!detailsModal || !detailsContent) return;
 
-        // Contar asignaciones
-        const asignaciones = this.state.medicamentosAsignados.filter(a => a.medicineId === id);
+        if (medicine) this.renderMedicineDetails(medicine);
+        else detailsContent.innerHTML = '<p class="form-hint">Cargando información…</p>';
+        detailsModal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+
+        try {
+            const token = authManager.getToken();
+            const response = await fetch(`${authManager.apiBaseUrl}/api/medicinas/${encodeURIComponent(id)}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (!response.ok) throw new Error(`Error ${response.status}`);
+            const data = await response.json();
+            if (!data.medicina) throw new Error('Respuesta sin medicina');
+
+            const [conClasificacion] = this.mergeMedicineClassifications([data.medicina], []);
+            medicine = this.normalizarMedicina(conClasificacion);
+            // Mantener el listado sincronizado con lo que hay en la base de datos
+            this.state.medicinas = this.state.medicinas.map(m => String(m.id) === String(id) ? medicine : m);
+            if (detailsModal.style.display !== 'none') this.renderMedicineDetails(medicine);
+        } catch (error) {
+            console.warn('No se pudo actualizar el detalle desde la API:', error);
+            if (!medicine) detailsContent.innerHTML = '<p class="form-hint">No se pudo cargar la medicina.</p>';
+        }
+    },
+
+    renderMedicineDetails(medicine) {
+        const detailsContent = document.getElementById('medicineDetailsContent');
+        if (!detailsContent) return;
+        const e = valor => this.escapeHTML(valor);
+        const dato = (label, valor) => `
+            <div class="detail-group">
+                <label>${label}</label>
+                <p>${valor === undefined || valor === null || valor === '' ? '<span class="medicina-sub">N/A</span>' : valor}</p>
+            </div>`;
+        const asignaciones = this.state.medicamentosAsignados.filter(a => String(a.medicineId) === String(medicine.id));
+        const dias = this.diasParaVencer(medicine.fechaVencimiento);
+        const vencimientoTexto = dias === null ? '' : dias < 0
+            ? `${formatFecha(medicine.fechaVencimiento)} (vencida hace ${Math.abs(dias)} días)`
+            : `${formatFecha(medicine.fechaVencimiento)} (${dias} días)`;
 
         detailsContent.innerHTML = `
             <div class="details-card">
                 <div class="details-header">
-                    <h3>${medicine.nombre}</h3>
-                    <span class="badge ${medicine.activa ? 'badge-success' : 'badge-inactive'}">
-                        ${medicine.activa ? 'ACTIVA' : 'INACTIVA'}
+                    <div>
+                        <h3>${e(medicine.nombre)}</h3>
+                        <p class="medicina-sub">${e([medicine.principioActivo, medicine.dosis && `${medicine.dosis} ${medicine.unidadDosis}`, medicine.presentacion].filter(Boolean).join(' · '))}</p>
+                    </div>
+                    <span class="badge ${medicine.activo ? 'badge-success' : 'badge-inactive'}">
+                        ${medicine.activo ? 'ACTIVA' : 'INACTIVA'}
                     </span>
                 </div>
 
-                <div class="details-grid">
-                    <div class="detail-group">
-                        <label>Código de Barra</label>
-                        <p>${medicine.codigoBarra || 'N/A'}</p>
-                    </div>
-                    <div class="detail-group">
-                        <label>Familia</label>
-                        <p>${this.getClassificationName('familia', medicine.familia)}</p>
-                    </div>
-                    <div class="detail-group">
-                        <label>Subfamilia</label>
-                        <p>${medicine.subfamilia ? this.getClassificationName('subfamilia', medicine.subfamilia) : 'N/A'}</p>
-                    </div>
-                    <div class="detail-group">
-                        <label>Presentación</label>
-                        <p>${medicine.presentacion}</p>
+                <div class="detail-section">
+                    <h4>Identificación</h4>
+                    <div class="details-grid">
+                        ${dato('Código de barra', e(medicine.codigoBarra))}
+                        ${dato('Código externo', e(medicine.codigo_externo))}
+                        ${dato('ID en sistema', e(medicine.id))}
+                        ${dato('Nombre', e(medicine.nombre))}
                     </div>
                 </div>
 
                 <div class="detail-section">
-                    <h4>Información Farmacológica</h4>
+                    <h4>Clasificación</h4>
                     <div class="details-grid">
-                        <div class="detail-group">
-                            <label>Principio Activo</label>
-                            <p>${medicine.principioActivo || 'N/A'}</p>
-                        </div>
-                        <div class="detail-group">
-                            <label>Dosis Recomendada</label>
-                            <p>${medicine.dosis ? `${medicine.dosis} ${medicine.unidadDosis}` : 'N/A'}</p>
-                        </div>
-                        <div class="detail-group">
-                            <label>Lote</label>
-                            <p>${medicine.lote || 'N/A'}</p>
-                        </div>
-                        <div class="detail-group">
-                            <label>Fecha Vencimiento</label>
-                            <p>${medicine.fechaVencimiento ? `${this.isExpired(medicine.fechaVencimiento) ? 'VENCIDA: ' : ''}${formatFecha(medicine.fechaVencimiento)}` : 'N/A'}</p>
-                        </div>
+                        ${dato('Sección', e(this.getClassificationName('seccion', medicine.seccion || 'SEC-001')))}
+                        ${dato('Familia', medicine.familia && e(this.getClassificationName('familia', medicine.familia)))}
+                        ${dato('Subfamilia', medicine.subfamilia && e(this.getClassificationName('subfamilia', medicine.subfamilia)))}
+                        ${dato('Presentación', e(medicine.presentacion || medicine.forma_farmaceutica))}
                     </div>
                 </div>
 
                 <div class="detail-section">
-                    <h4>Inventario</h4>
+                    <h4>Información farmacológica</h4>
                     <div class="details-grid">
-                        <div class="detail-group">
-                            <label>Stock Actual</label>
-                            <p><strong>${medicine.cantidad}</strong> unidades</p>
-                        </div>
-                        <div class="detail-group">
-                            <label>Stock Mínimo</label>
-                            <p>${medicine.cantidadMinima} unidades</p>
-                        </div>
-                        <div class="detail-group">
-                            <label>Precio Unitario</label>
-                            <p>${formatQ(medicine.precioUnitario)}</p>
-                        </div>
-                        <div class="detail-group">
-                            <label>Valor Total</label>
-                            <p>${formatQ(medicine.cantidad * medicine.precioUnitario)}</p>
-                        </div>
+                        ${dato('Principio activo', e(medicine.principioActivo))}
+                        ${dato('Dosis', e(medicine.dosis))}
+                        ${dato('Unidad de dosis', e(medicine.unidadDosis))}
+                        ${dato('Concentración', e(medicine.concentracion))}
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h4>Inventario y precio</h4>
+                    <div class="details-grid">
+                        ${dato('Stock actual', `${this.getStockBadge(medicine)}`)}
+                        ${dato('Stock mínimo (alerta)', `${medicine.cantidadMinima} unidades`)}
+                        ${dato('Precio unitario', formatQ(medicine.precioUnitario))}
+                        ${dato('Valor del inventario', formatQ(medicine.cantidad * medicine.precioUnitario))}
+                        ${medicine.precioCosto ? dato('Precio de costo', formatQ(medicine.precioCosto)) : ''}
+                        ${dato('Lote', e(medicine.lote))}
+                        ${dato('Fecha de vencimiento', vencimientoTexto && `${this.getVencimientoBadge(medicine.fechaVencimiento)}<br><small class="medicina-sub">${vencimientoTexto}</small>`)}
+                        ${dato('Proveedor', e(medicine.proveedor))}
                     </div>
                 </div>
 
                 <div class="detail-section">
                     <h4>Contraindicaciones</h4>
-                    <p>${medicine.contraindicaciones || 'Sin información'}</p>
+                    <p>${e(medicine.contraindicaciones) || '<span class="medicina-sub">Sin información</span>'}</p>
                 </div>
 
                 <div class="detail-section">
-                    <h4>Efectos Secundarios</h4>
-                    <p>${medicine.efectosSecundarios || 'Sin información'}</p>
+                    <h4>Efectos secundarios</h4>
+                    <p>${e(medicine.efectosSecundarios) || '<span class="medicina-sub">Sin información</span>'}</p>
                 </div>
+
+                ${medicine.descripcion && medicine.descripcion !== medicine.contraindicaciones ? `
+                <div class="detail-section">
+                    <h4>Descripción</h4>
+                    <p>${e(medicine.descripcion)}</p>
+                </div>` : ''}
 
                 <div class="detail-section">
                     <h4>Asignaciones</h4>
@@ -954,16 +1037,15 @@ const MedicinasModule = {
                 </div>
 
                 <div class="details-footer">
-                    <p class="text-muted">Proveedor: ${medicine.proveedor || 'N/A'} | Registrado: ${medicine.fechaRegistro}</p>
+                    <p class="text-muted">Registrada: ${e(medicine.fechaRegistro)} · Última actualización: ${e(medicine.fechaActualizacion)}</p>
+                    <button type="button" class="btn btn-primary btn-small" onclick="MedicinasModule.closeMedicineDetailsModal(); MedicinasModule.editMedicine('${e(medicine.id)}')">
+                        <i class="fas fa-edit" aria-hidden="true"></i> Editar medicina
+                    </button>
                 </div>
             </div>
         `;
-
-        detailsModal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
     },
 
-    // Cerrar modal de detalles
     closeMedicineDetailsModal() {
         const modal = document.getElementById('medicineDetailsModal');
         if (modal) {

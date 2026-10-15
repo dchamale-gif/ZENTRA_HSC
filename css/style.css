@@ -341,7 +341,8 @@ a,
     color: var(--primary-color);
 }
 
-.badge {
+/* Contador de notificaciones sobre un botón de ícono */
+.btn-icon .badge {
     position: absolute;
     top: -5px;
     right: -5px;
@@ -6189,4 +6190,44 @@ tbody tr:hover {
 .foto-tile-acciones .btn {
     flex: 1 1 auto;
     padding: 6px 10px;
+}
+
+/* ---------- Medicinas: listado y detalles ---------- */
+.medicina-nombre {
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.medicina-sub {
+    color: var(--text-gray);
+    font-size: 12px;
+}
+
+tr.medicina-inactiva td {
+    opacity: 0.6;
+}
+
+#medicineDetailsContent .details-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+#medicineDetailsContent .details-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+#medicineDetailsContent .details-grid {
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 14px 20px;
+    padding: 4px 0 0;
+}
+
+#medicineDetailsContent .detail-section {
+    padding: 16px 20px;
 }
