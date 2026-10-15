@@ -211,7 +211,7 @@ const CuentasPorCobrarModule = {
             <tr>
                 <td>${deuda.id}</td>
                 <td>${deuda.cliente}</td>
-                <td>$${deuda.monto.toFixed(2)}</td>
+                <td>${formatQ(deuda.monto)}</td>
                 <td>${deuda.fechaVencimiento}</td>
                 <td><span class="badge badge-${deuda.estado.toLowerCase()}">${deuda.estado}</span></td>
                 <td>${deuda.diasVencido > 0 ? `<span class="warning">${deuda.diasVencido} días vencida</span>` : 'Al día'}</td>
@@ -231,7 +231,7 @@ const CuentasPorCobrarModule = {
     sendReminder(debtId) {
         const debt = this.state.deudas.find(d => d.id === debtId);
         if (debt) {
-            showNotification(`Recordatorio enviado a ${debt.cliente} por $${debt.monto.toFixed(2)}`, 'info');
+            showNotification(`Recordatorio enviado a ${debt.cliente} por ${formatQ(debt.monto)}`, 'info');
             console.log('Recordatorio enviado:', debt);
         }
     },

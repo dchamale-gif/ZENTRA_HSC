@@ -671,10 +671,10 @@ const FacturacionMejorada = {
                             <tr>
                                 <td>${item.descripcion}</td>
                                 <td class="right">${item.cantidad}</td>
-                                <td class="right">Q${item.precio_unitario.toFixed(2)}</td>
-                                <td class="right">Q${item.subtotal.toFixed(2)}</td>
-                                <td class="right">Q${(item.descuento_total || 0).toFixed(2)}</td>
-                                <td class="right">Q${(item.total_item || item.subtotal - (item.descuento_total || 0)).toFixed(2)}</td>
+                                <td class="right">${formatQ(item.precio_unitario)}</td>
+                                <td class="right">${formatQ(item.subtotal)}</td>
+                                <td class="right">${formatQ(item.descuento_total || 0)}</td>
+                                <td class="right">${formatQ(item.total_item || item.subtotal - (item.descuento_total || 0))}</td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -683,21 +683,21 @@ const FacturacionMejorada = {
                 <div class="totales">
                     <div class="total-row">
                         <span>Subtotal:</span>
-                        <strong>Q${factura.totales.subtotal.toFixed(2)}</strong>
+                        <strong>${formatQ(factura.totales.subtotal)}</strong>
                     </div>
                     ${factura.totales.total_descuentos > 0 ? `
                         <div class="total-row">
                             <span>Descuentos:</span>
-                            <strong>-Q${factura.totales.total_descuentos.toFixed(2)}</strong>
+                            <strong>-${formatQ(factura.totales.total_descuentos)}</strong>
                         </div>
                     ` : ''}
                     <div class="total-row">
                         <span>IVA 12%:</span>
-                        <strong>Q${factura.totales.total_impuestos.toFixed(2)}</strong>
+                        <strong>${formatQ(factura.totales.total_impuestos)}</strong>
                     </div>
                     <div class="total-row total-final">
                         <span>TOTAL:</span>
-                        <strong>Q${factura.totales.total_neto.toFixed(2)}</strong>
+                        <strong>${formatQ(factura.totales.total_neto)}</strong>
                     </div>
                 </div>
 
@@ -735,7 +735,7 @@ const FacturacionMejorada = {
             console.log('=====================================');
             
             if (result.success) {
-                alert(`Estado de Cuenta de ${result.data.paciente.nombre}\n\nSubtotal: Q${result.data.totales.subtotal_total.toFixed(2)}\nTotal: Q${result.data.totales.total_facturado.toFixed(2)}\nSaldo Pendiente: Q${result.data.totales.saldo_pendiente.toFixed(2)}`);
+                alert(`Estado de Cuenta de ${result.data.paciente.nombre}\n\nSubtotal: ${formatQ(result.data.totales.subtotal_total)}\nTotal: ${formatQ(result.data.totales.total_facturado)}\nSaldo Pendiente: ${formatQ(result.data.totales.saldo_pendiente)}`);
             } else {
                 alert('Error: ' + result.message);
             }
@@ -863,17 +863,17 @@ const FacturacionMejorada = {
                                         <td style="padding: 8px; text-align: left;">${item.descripcion}</td>
                                         <td style="padding: 8px; text-align: center;">-</td>
                                         <td style="padding: 8px; text-align: center;">${item.cantidad}</td>
-                                        <td style="padding: 8px; text-align: right;">Q${item.precio_unitario.toFixed(2)}</td>
-                                        <td style="padding: 8px; text-align: right;">${item.descuento > 0 ? 'Q' + item.descuento.toFixed(2) : 'Q 0.00'}</td>
-                                        <td style="padding: 8px; text-align: right;">Q${(item.precio_unitario - (item.descuento / item.cantidad)).toFixed(2)}</td>
-                                        <td style="padding: 8px; text-align: right; font-weight: bold;">Q${item.total.toFixed(2)}</td>
+                                        <td style="padding: 8px; text-align: right;">${formatQ(item.precio_unitario)}</td>
+                                        <td style="padding: 8px; text-align: right;">${item.descuento > 0 ? formatQ(item.descuento) : 'Q 0.00'}</td>
+                                        <td style="padding: 8px; text-align: right;">${formatQ(item.precio_unitario - (item.descuento / item.cantidad))}</td>
+                                        <td style="padding: 8px; text-align: right; font-weight: bold;">${formatQ(item.total)}</td>
                                     </tr>
                                 `).join('')}
                             </tbody>
                             <tfoot>
                                 <tr style="background: #ecf0f1; font-weight: bold; border-top: 2px solid #34495e;">
                                     <td colspan="6" style="padding: 10px; text-align: right;">TOTAL ${categoriasNombres[categoria] || categoria.toUpperCase()}:</td>
-                                    <td style="padding: 10px; text-align: right;">Q${totalCategoria.toFixed(2)}</td>
+                                    <td style="padding: 10px; text-align: right;">${formatQ(totalCategoria)}</td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -1108,17 +1108,17 @@ const FacturacionMejorada = {
                             <div>
                                 <div class="total-row subtotal">
                                     <span>Subtotal:</span>
-                                    <strong>Q${data.totales.subtotal_total.toFixed(2)}</strong>
+                                    <strong>${formatQ(data.totales.subtotal_total)}</strong>
                                 </div>
                                 <div class="total-row">
                                     <span>Descuentos:</span>
-                                    <strong>Q${data.totales.descuentos_total.toFixed(2)}</strong>
+                                    <strong>${formatQ(data.totales.descuentos_total)}</strong>
                                 </div>
                             </div>
                             <div>
                                 <div class="total-row iva">
                                     <span>IVA (12%):</span>
-                                    <strong>Q${data.totales.impuestos_total.toFixed(2)}</strong>
+                                    <strong>${formatQ(data.totales.impuestos_total)}</strong>
                                 </div>
                             </div>
                         </div>
@@ -1128,18 +1128,18 @@ const FacturacionMejorada = {
                     <div class="total-section">
                         <div class="total-row grande">
                             <span>TOTAL FACTURADO:</span>
-                            <strong class="right">Q${data.totales.total_facturado.toFixed(2)}</strong>
+                            <strong class="right">${formatQ(data.totales.total_facturado)}</strong>
                         </div>
                         <div class="total-row" style="margin-top: 15px; padding: 12px; background: white; border-radius: 4px;">
                             <span>Saldo Pendiente:</span>
                             <strong class="right ${data.totales.saldo_pendiente > 0 ? 'saldo-deuda' : 'saldo-favor'}">
-                                Q${Math.abs(data.totales.saldo_pendiente).toFixed(2)}
+                                ${formatQ(Math.abs(data.totales.saldo_pendiente))}
                             </strong>
                         </div>
                         ${data.totales.saldo_favor > 0 ? `
                             <div class="total-row" style="padding: 12px; background: #d5f4e6; border-radius: 4px; margin-top: 8px;">
                                 <span>💚 Saldo a Favor del Paciente:</span>
-                                <strong class="right saldo-favor">Q${data.totales.saldo_favor.toFixed(2)}</strong>
+                                <strong class="right saldo-favor">${formatQ(data.totales.saldo_favor)}</strong>
                             </div>
                         ` : ''}
                     </div>
@@ -1404,9 +1404,9 @@ const FacturacionMejorada = {
                                     <td>${new Date(mov.fecha).toLocaleDateString('es-GT')}</td>
                                     <td>${mov.descripcion}</td>
                                     <td>${mov.tipo}</td>
-                                    <td class="right">${mov.tipo === 'cargo' ? 'Q' + mov.monto.toFixed(2) : '-'}</td>
-                                    <td class="right">${mov.tipo === 'abono' ? 'Q' + mov.monto.toFixed(2) : '-'}</td>
-                                    <td class="right"><strong>Q${mov.saldo_acumulado.toFixed(2)}</strong></td>
+                                    <td class="right">${mov.tipo === 'cargo' ? formatQ(mov.monto) : '-'}</td>
+                                    <td class="right">${mov.tipo === 'abono' ? formatQ(mov.monto) : '-'}</td>
+                                    <td class="right"><strong>${formatQ(mov.saldo_acumulado)}</strong></td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -1415,15 +1415,15 @@ const FacturacionMejorada = {
                     <div class="total-section">
                         <div class="total-row">
                             <span>Total de Cargos:</span>
-                            <strong class="right">Q${data.totales.total_cargos.toFixed(2)}</strong>
+                            <strong class="right">${formatQ(data.totales.total_cargos)}</strong>
                         </div>
                         <div class="total-row">
                             <span>Total de Abonos:</span>
-                            <strong class="right">Q${data.totales.total_abonos.toFixed(2)}</strong>
+                            <strong class="right">${formatQ(data.totales.total_abonos)}</strong>
                         </div>
                         <div class="total-row grande">
                             <span>SALDO ACTUAL:</span>
-                            <strong class="right" style="color: ${data.totales.saldo_actual < 0 ? '#27ae60' : '#e74c3c'};">Q${data.totales.saldo_actual.toFixed(2)}</strong>
+                            <strong class="right" style="color: ${data.totales.saldo_actual < 0 ? '#27ae60' : '#e74c3c'};">${formatQ(data.totales.saldo_actual)}</strong>
                         </div>
                     </div>
 
@@ -1478,7 +1478,7 @@ const FacturacionMejorada = {
     },
 
     formatearMoneda(valor) {
-        return 'Q' + valor.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        return formatQ(valor);
     }
 };
 

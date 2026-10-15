@@ -288,12 +288,7 @@ class GastosServiciosModule {
 
     // ==================== UTILIDADES ====================
     formatarMoneda(valor) {
-        return new Intl.NumberFormat('es-GT', {
-            style: 'currency',
-            currency: 'GTQ',
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }).format(valor);
+        return formatQ(valor);
     }
 
     formatarFecha(fecha) {

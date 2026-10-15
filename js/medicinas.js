@@ -886,11 +886,11 @@ const MedicinasModule = {
                         </div>
                         <div class="detail-group">
                             <label>Precio Unitario</label>
-                            <p>$${medicine.precioUnitario.toFixed(2)}</p>
+                            <p>${formatQ(medicine.precioUnitario)}</p>
                         </div>
                         <div class="detail-group">
                             <label>Valor Total</label>
-                            <p>$${(medicine.cantidad * medicine.precioUnitario).toFixed(2)}</p>
+                            <p>${formatQ(medicine.cantidad * medicine.precioUnitario)}</p>
                         </div>
                     </div>
                 </div>

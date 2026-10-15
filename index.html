@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
-    <meta name="theme-color" content="#ffffff">
+    <meta name="theme-color" content="#0f3d3e">
     <title>Zentra MED</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -16,12 +19,13 @@
                 <i class="fas fa-xmark" aria-hidden="true"></i>
             </button>
             <div class="logo-container">
-                <img src="img/zentra-logo.png" alt="Zentra MED Logo" class="logo-image">
+                <div class="brand" aria-label="Zentra MED"><span class="brand-mark" aria-hidden="true"><i class="fas fa-plus"></i></span><span class="brand-name">ZENTRA <span>MED</span></span></div>
             </div>
+            <p class="sidebar-region">Guatemala · Quetzales (GTQ)</p>
             <nav class="nav-menu">
                 <a href="#" class="nav-item active" data-page="dashboard">
                     <i class="fas fa-chart-line"></i>
-                    <span>Dashboard</span>
+                    <span>Inicio</span>
                 </a>
 
                 <!-- MÓDULO MÉDICO -->
@@ -182,7 +186,7 @@
                     <button type="button" class="btn-menu" id="toggleSidebar" aria-controls="mainSidebar" aria-expanded="false" aria-label="Abrir menú" title="Abrir menú">
                         <i class="fas fa-bars" aria-hidden="true"></i>
                     </button>
-                    <h2 class="page-title" id="pageTitle">Dashboard</h2>
+                    <h2 class="page-title" id="pageTitle">Inicio</h2>
                 </div>
                 <div class="header-right">
                     <button class="btn-icon" title="Notificaciones">
@@ -200,57 +204,81 @@
 
                 <!-- Dashboard Page -->
                 <div id="page-dashboard" class="page active">
-                    <div class="page-header">
-                        <h1>Dashboard</h1>
-                        <p class="date-info"><i class="fas fa-calendar-alt"></i> <span id="currentDate"></span></p>
+                    <div class="page-header inicio-header">
+                        <div>
+                            <p class="inicio-eyebrow" id="inicioClinicaDetalle"></p>
+                            <h1 id="inicioClinicaNombre">Zentra MED</h1>
+                            <p class="date-info"><i class="fas fa-calendar-alt" aria-hidden="true"></i> <span id="currentDate"></span> · <span id="inicioActualizado">Cargando…</span></p>
+                        </div>
+                        <button type="button" class="btn btn-secondary" id="inicioRefreshBtn">
+                            <i class="fas fa-rotate" aria-hidden="true"></i> Actualizar datos
+                        </button>
                     </div>
 
-                    <!-- KPI Cards -->
-                    <div class="kpi-grid">
-                        <div class="kpi-card kpi-revenue">
-                            <div class="kpi-header">
-                                <h3>Ingresos Totales</h3>
-                                <i class="fas fa-dollar-sign"></i>
-                            </div>
-                            <div class="kpi-value">Q. 378,300</div>
-                            <div class="kpi-change positive">
-                                <i class="fas fa-arrow-up"></i> 12.5% este mes
-                            </div>
+                    <!-- Finanzas del mes (Quetzales) -->
+                    <section class="inicio-section" aria-labelledby="inicioFinanzasTitulo">
+                        <h2 class="inicio-section-title" id="inicioFinanzasTitulo">Finanzas del mes <span class="inicio-tag">GTQ · IVA 12% incluido</span></h2>
+                        <div class="kpi-grid">
+                            <a href="#" class="kpi-card kpi-revenue" data-goto="ventas">
+                                <div class="kpi-header">
+                                    <h3>Ingresos</h3>
+                                    <i class="fas fa-arrow-trend-up" aria-hidden="true"></i>
+                                </div>
+                                <div class="kpi-value" id="kpiIngresos">—</div>
+                                <div class="kpi-change" id="kpiGanancia"></div>
+                            </a>
+                            <a href="#" class="kpi-card kpi-expenses" data-goto="compras">
+                                <div class="kpi-header">
+                                    <h3>Egresos</h3>
+                                    <i class="fas fa-arrow-trend-down" aria-hidden="true"></i>
+                                </div>
+                                <div class="kpi-value" id="kpiEgresos">—</div>
+                                <div class="kpi-change">Compras y gastos registrados</div>
+                            </a>
+                            <a href="#" class="kpi-card kpi-inventory" data-goto="saldo-paciente">
+                                <div class="kpi-header">
+                                    <h3>Saldo por cobrar</h3>
+                                    <i class="fas fa-wallet" aria-hidden="true"></i>
+                                </div>
+                                <div class="kpi-value" id="kpiPorCobrar">—</div>
+                                <div class="kpi-change" id="kpiCobros"></div>
+                            </a>
+                            <a href="#" class="kpi-card kpi-margin" data-goto="dashboard-financiero">
+                                <div class="kpi-header">
+                                    <h3>Margen neto</h3>
+                                    <i class="fas fa-percent" aria-hidden="true"></i>
+                                </div>
+                                <div class="kpi-value" id="kpiMargen">—</div>
+                                <div class="kpi-change">Ver Dashboard Ejecutivo</div>
+                            </a>
                         </div>
+                    </section>
 
-                        <div class="kpi-card kpi-expenses">
-                            <div class="kpi-header">
-                                <h3>Gastos Totales</h3>
-                                <i class="fas fa-shopping-cart"></i>
-                            </div>
-                            <div class="kpi-value">Q. 173,940</div>
-                            <div class="kpi-change positive">
-                                <i class="fas fa-arrow-down"></i> 8.2% este mes
-                            </div>
-                        </div>
-
-                        <div class="kpi-card kpi-inventory">
-                            <div class="kpi-header">
-                                <h3>Valor Inventario</h3>
-                                <i class="fas fa-boxes"></i>
-                            </div>
-                            <div class="kpi-value">Q. 975,000</div>
-                            <div class="kpi-change positive">
-                                <i class="fas fa-arrow-up"></i> 5.3% este mes
+                    <!-- Operación clínica -->
+                    <section class="inicio-section inicio-grid" aria-labelledby="inicioOperacionTitulo">
+                        <div class="inicio-panel">
+                            <h2 class="inicio-section-title" id="inicioOperacionTitulo">Operación de hoy</h2>
+                            <div class="inicio-stats">
+                                <a href="#" class="inicio-stat" data-goto="pacientes"><span class="inicio-stat-label"><i class="fas fa-users" aria-hidden="true"></i> Pacientes activos</span><strong id="opPacientes">—</strong></a>
+                                <a href="#" class="inicio-stat" data-goto="agenda"><span class="inicio-stat-label"><i class="fas fa-calendar-day" aria-hidden="true"></i> Citas hoy</span><strong id="opCitas">—</strong></a>
+                                <a href="#" class="inicio-stat" data-goto="ordenes-medicas"><span class="inicio-stat-label"><i class="fas fa-file-prescription" aria-hidden="true"></i> Órdenes pendientes</span><strong id="opOrdenes">—</strong></a>
+                                <a href="#" class="inicio-stat" data-goto="hospitalizaciones"><span class="inicio-stat-label"><i class="fas fa-bed" aria-hidden="true"></i> Camas ocupadas</span><strong id="opCamas">—</strong></a>
+                                <a href="#" class="inicio-stat" data-goto="hospitalizaciones"><span class="inicio-stat-label"><i class="fas fa-hospital-user" aria-hidden="true"></i> Hospitalizados</span><strong id="opHospitalizados">—</strong></a>
+                                <a href="#" class="inicio-stat" data-goto="personal"><span class="inicio-stat-label"><i class="fas fa-user-doctor" aria-hidden="true"></i> Personal activo</span><strong id="opPersonal">—</strong></a>
                             </div>
                         </div>
-
-                        <div class="kpi-card kpi-margin">
-                            <div class="kpi-header">
-                                <h3>Margen Neto</h3>
-                                <i class="fas fa-percentage"></i>
-                            </div>
-                            <div class="kpi-value">45.9%</div>
-                            <div class="kpi-change positive">
-                                <i class="fas fa-arrow-up"></i> 2.1% este mes
+                        <div class="inicio-panel">
+                            <h2 class="inicio-section-title">Alertas</h2>
+                            <ul class="inicio-alertas" id="inicioAlertas"></ul>
+                            <h2 class="inicio-section-title">Accesos rápidos</h2>
+                            <div class="inicio-accesos">
+                                <a href="#" class="btn btn-secondary" data-goto="pacientes"><i class="fas fa-user-plus" aria-hidden="true"></i> Paciente</a>
+                                <a href="#" class="btn btn-secondary" data-goto="agenda"><i class="fas fa-calendar-plus" aria-hidden="true"></i> Cita</a>
+                                <a href="#" class="btn btn-secondary" data-goto="saldo-paciente"><i class="fas fa-file-invoice" aria-hidden="true"></i> Facturar</a>
+                                <a href="#" class="btn btn-secondary" data-goto="caja"><i class="fas fa-cash-register" aria-hidden="true"></i> Caja</a>
                             </div>
                         </div>
-                    </div>
+                    </section>
 
                     <!-- Charts Section -->
                     <div class="charts-section">
@@ -296,7 +324,7 @@
                     </div>
 
                     <div class="pacients-filters filter-grid">
-                        <input type="text" id="searchPacient" class="form-input" placeholder="Buscar por nombre, cédula o email..." style="grid-column: 1 / -1;">
+                        <input type="text" id="searchPacient" class="form-input" placeholder="Buscar por nombre, DPI o email..." style="grid-column: 1 / -1;">
                         
                         <div style="display: flex; flex-direction: column;">
                             <label style="font-size: 12px; font-weight: 600; color: #667eea; margin-bottom: 5px;">
@@ -856,7 +884,7 @@
                                         <thead>
                                             <tr>
                                                 <th>Paciente</th>
-                                                <th>DPI/Cédula</th>
+                                                <th>DPI</th>
                                                 <th class="text-right">Saldo Pendiente</th>
                                                 <th class="text-center">Estado</th>
                                                 <th class="text-center">Acciones</th>
@@ -917,7 +945,7 @@
                                         <thead>
                                             <tr>
                                                 <th>Paciente</th>
-                                                <th>DPI/Cédula</th>
+                                                <th>DPI</th>
                                                 <th class="text-right">Saldo Pendiente</th>
                                                 <th class="text-center">Acciones</th>
                                             </tr>
@@ -1026,7 +1054,7 @@
                                         <thead>
                                             <tr>
                                                 <th>Paciente</th>
-                                                <th>DPI/Cédula</th>
+                                                <th>DPI</th>
                                                 <th>Edad</th>
                                                 <th class="text-right">Saldo Pendiente</th>
                                                 <th class="text-center">Acciones</th>
@@ -1474,26 +1502,57 @@
 
                     <div class="settings-container">
                         <div class="settings-section">
-                            <h3><i class="fas fa-building"></i> Información de la Empresa</h3>
-                            <div class="settings-form">
+                            <h3><i class="fas fa-hospital" aria-hidden="true"></i> Datos de la clínica</h3>
+                            <form class="settings-form" id="clinicaForm">
                                 <div class="form-group">
-                                    <label>Nombre de la Empresa</label>
-                                    <input type="text" value="Mi Empresa" class="form-input">
+                                    <label for="clinicaNombre">Nombre comercial</label>
+                                    <input type="text" id="clinicaNombre" name="nombre" class="form-input" required>
                                 </div>
                                 <div class="form-group">
-                                    <label>RIF/NIT</label>
-                                    <input type="text" value="J-12345678-9" class="form-input">
+                                    <label for="clinicaRazonSocial">Razón social</label>
+                                    <input type="text" id="clinicaRazonSocial" name="razonSocial" class="form-input">
                                 </div>
                                 <div class="form-group">
-                                    <label>Teléfono</label>
-                                    <input type="tel" value="+58 XXX XXX XXXX" class="form-input">
+                                    <label for="clinicaNit">NIT</label>
+                                    <input type="text" id="clinicaNit" name="nit" class="form-input" placeholder="Ej. 1234567-8 o CF">
                                 </div>
                                 <div class="form-group">
-                                    <label>Email</label>
-                                    <input type="email" value="info@empresa.com" class="form-input">
+                                    <label for="clinicaTelefono">Teléfono</label>
+                                    <input type="tel" id="clinicaTelefono" name="telefono" class="form-input" placeholder="+502 2222 3333">
                                 </div>
-                                <button class="btn btn-primary">Guardar Cambios</button>
-                            </div>
+                                <div class="form-group">
+                                    <label for="clinicaEmail">Email</label>
+                                    <input type="email" id="clinicaEmail" name="email" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label for="clinicaDireccion">Dirección</label>
+                                    <input type="text" id="clinicaDireccion" name="direccion" class="form-input" placeholder="Ej. 6a Avenida 10-50, Zona 10">
+                                </div>
+                                <div class="form-group">
+                                    <label for="clinicaMunicipio">Municipio</label>
+                                    <input type="text" id="clinicaMunicipio" name="municipio" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label for="clinicaDepartamento">Departamento</label>
+                                    <select id="clinicaDepartamento" name="departamento" class="form-input">
+                                        <option>Alta Verapaz</option><option>Baja Verapaz</option><option>Chimaltenango</option><option>Chiquimula</option><option>El Progreso</option><option>Escuintla</option><option>Guatemala</option><option>Huehuetenango</option><option>Izabal</option><option>Jalapa</option><option>Jutiapa</option><option>Petén</option><option>Quetzaltenango</option><option>Quiché</option><option>Retalhuleu</option><option>Sacatepéquez</option><option>San Marcos</option><option>Santa Rosa</option><option>Sololá</option><option>Suchitepéquez</option><option>Totonicapán</option><option>Zacapa</option>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Guardar datos de la clínica</button>
+                            </form>
+                        </div>
+
+                        <div class="settings-section">
+                            <h3><i class="fas fa-earth-americas" aria-hidden="true"></i> Región y moneda</h3>
+                            <dl class="settings-region">
+                                <div><dt>País</dt><dd>Guatemala</dd></div>
+                                <div><dt>Moneda</dt><dd>Quetzal (GTQ) · <span id="regionEjemploMonto"></span></dd></div>
+                                <div><dt>IVA</dt><dd>12% (incluido en precios)</dd></div>
+                                <div><dt>Formato de fecha</dt><dd>dd/mm/aaaa · <span id="regionEjemploFecha"></span></dd></div>
+                                <div><dt>Zona horaria</dt><dd>America/Guatemala (UTC−6)</dd></div>
+                                <div><dt>Documentos</dt><dd>DPI (identidad) · NIT (tributario)</dd></div>
+                            </dl>
+                            <p class="form-hint">Estos valores se definen en <code>js/config.js</code> y los usan todos los módulos: montos, facturas, estados de cuenta y reportes.</p>
                         </div>
 
                         <div class="settings-section">
@@ -2034,7 +2093,7 @@
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label>Monto (Q.) *</label>
+                                    <label>Monto (Q) *</label>
                                     <input type="number" id="inputMonto" placeholder="0.00" step="0.01" required>
                                 </div>
                                 <div class="form-group">
@@ -2102,7 +2161,7 @@
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label>Monto (Q.) *</label>
+                                    <label>Monto (Q) *</label>
                                     <input type="number" id="inputMontoCPP" placeholder="0.00" step="0.01" required>
                                 </div>
                                 <div class="form-group">
@@ -2131,19 +2190,19 @@
                             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
                                 <div class="summary-card" style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); color: white; padding: 15px; border-radius: 8px; text-align: center;">
                                     <h4 style="margin: 0 0 5px 0; font-size: 12px; opacity: 0.9;">PENDIENTE</h4>
-                                    <p id="totalPendiente" style="margin: 0; font-size: 20px; font-weight: bold;">Q. 0.00</p>
+                                    <p id="totalPendiente" style="margin: 0; font-size: 20px; font-weight: bold;">Q0.00</p>
                                 </div>
                                 <div class="summary-card" style="background: linear-gradient(135deg, #f39c12 0%, #d68910 100%); color: white; padding: 15px; border-radius: 8px; text-align: center;">
                                     <h4 style="margin: 0 0 5px 0; font-size: 12px; opacity: 0.9;">PARCIAL</h4>
-                                    <p id="totalParcial" style="margin: 0; font-size: 20px; font-weight: bold;">Q. 0.00</p>
+                                    <p id="totalParcial" style="margin: 0; font-size: 20px; font-weight: bold;">Q0.00</p>
                                 </div>
                                 <div class="summary-card" style="background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%); color: white; padding: 15px; border-radius: 8px; text-align: center;">
                                     <h4 style="margin: 0 0 5px 0; font-size: 12px; opacity: 0.9;">PAGADA</h4>
-                                    <p id="totalPagada" style="margin: 0; font-size: 20px; font-weight: bold;">Q. 0.00</p>
+                                    <p id="totalPagada" style="margin: 0; font-size: 20px; font-weight: bold;">Q0.00</p>
                                 </div>
                                 <div class="summary-card" style="background: linear-gradient(135deg, #c0392b 0%, #a93226 100%); color: white; padding: 15px; border-radius: 8px; text-align: center;">
                                     <h4 style="margin: 0 0 5px 0; font-size: 12px; opacity: 0.9;">VENCIDAS</h4>
-                                    <p id="totalVencidas" style="margin: 0; font-size: 20px; font-weight: bold;">Q. 0.00</p>
+                                    <p id="totalVencidas" style="margin: 0; font-size: 20px; font-weight: bold;">Q0.00</p>
                                 </div>
                             </div>
                         </div>
@@ -3960,7 +4019,7 @@
                             <input type="number" id="medicineCantidadMinima" class="form-input" placeholder="0" min="0" value="0">
                         </div>
                         <div class="form-group">
-                            <label>Precio Unitario ($)</label>
+                            <label>Precio unitario (Q)</label>
                             <input type="number" id="medicinePrecioUnitario" class="form-input" placeholder="0.00" step="0.01" min="0">
                         </div>
                     </div>
@@ -4098,7 +4157,7 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Precio Unitario ($)</label>
+                    <label>Precio unitario (Q)</label>
                     <input type="number" id="productPrice" class="form-input" step="0.01" placeholder="0.00" min="0">
                 </div>
                 <div class="form-group">
@@ -4146,14 +4205,14 @@
                         <input type="number" id="transactionQuantity" class="form-input" placeholder="0" min="1" required>
                     </div>
                     <div class="form-group">
-                        <label>Precio Unitario ($)</label>
+                        <label>Precio unitario (Q)</label>
                         <input type="number" id="transactionUnitPrice" class="form-input" placeholder="0.00" step="0.01" min="0" readonly>
                     </div>
                 </div>
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Monto Total ($) <span class="required">*</span></label>
+                        <label>Monto total (Q) <span class="required">*</span></label>
                         <input type="number" id="transactionAmount" class="form-input" placeholder="0.00" step="0.01" min="0" readonly>
                         <small class="form-hint">Se calcula automáticamente</small>
                     </div>
@@ -4187,7 +4246,7 @@
                 <div class="price-summary">
                     <div class="summary-item">
                         <span>Precio Unitario:</span>
-                        <strong id="summaryUnitPrice">Q. 0.00</strong>
+                        <strong id="summaryUnitPrice">Q0.00</strong>
                     </div>
                     <div class="summary-item">
                         <span>Cantidad:</span>
@@ -4195,7 +4254,7 @@
                     </div>
                     <div class="summary-item total">
                         <span>Total:</span>
-                        <strong id="summaryTotal">Q. 0.00</strong>
+                        <strong id="summaryTotal">Q0.00</strong>
                     </div>
                 </div>
             </div>
@@ -4240,7 +4299,7 @@
                                 <th style="width: 50px;"></th>
                             </tr>
                         </thead>
-                        <tbody id="bulkTableBody">                        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+                        <tbody id="bulkTableBody">
                             <!-- Rows will be added here -->
                         </tbody>
                     </table>
@@ -4254,7 +4313,7 @@
                     </div>
                     <div class="summary-stat">
                         <label>Monto total:</label>
-                        <span id="bulkTotalAmount">$0.00</span>
+                        <span id="bulkTotalAmount">Q0.00</span>
                     </div>
                     <div class="summary-stat">
                         <label>Estado:</label>
@@ -4482,7 +4541,7 @@
                     </div>
                     <div class="form-group">
                         <label>Teléfono <span class="required">*</span></label>
-                        <input type="tel" id="doctorPhone" class="form-input" placeholder="+58412..." required>
+                        <input type="tel" id="doctorPhone" class="form-input" placeholder="+502 5555 1234" required>
                     </div>
                 </div>
 
@@ -4827,5 +4886,6 @@
     
     <!-- App Principal -->
     <script src="js/app.js"></script>
+    <script src="js/inicio.js"></script>
 </body>
 </html>

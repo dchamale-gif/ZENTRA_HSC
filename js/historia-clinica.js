@@ -1437,9 +1437,9 @@ const HistoriaClinicaModule = {
         // Actualizar display de semana
         const startDate = weekDays[0];
         const endDate = weekDays[6];
-        const startStr = startDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
-        const endStr = endDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
-        const monthYear = startDate.toLocaleDateString('es-ES', { year: 'numeric', month: 'long' });
+        const startStr = startDate.toLocaleDateString('es-GT', { day: '2-digit', month: 'short' });
+        const endStr = endDate.toLocaleDateString('es-GT', { day: '2-digit', month: 'short' });
+        const monthYear = startDate.toLocaleDateString('es-GT', { year: 'numeric', month: 'long' });
         
         document.getElementById('weekDisplay').textContent = `Semana del ${startStr} al ${endStr} de ${monthYear}`;
 
@@ -1449,8 +1449,8 @@ const HistoriaClinicaModule = {
 
         weekDays.forEach(day => {
             const dateKey = day.toISOString().split('T')[0];
-            const dayName = day.toLocaleDateString('es-ES', { weekday: 'short' });
-            const dayNum = day.toLocaleDateString('es-ES', { day: '2-digit' });
+            const dayName = day.toLocaleDateString('es-GT', { weekday: 'short' });
+            const dayNum = day.toLocaleDateString('es-GT', { day: '2-digit' });
             const medicines = medicinesByDay[dateKey] || [];
             
             const dayCard = document.createElement('div');
@@ -1662,9 +1662,9 @@ const HistoriaClinicaModule = {
         // Actualizar display de semana
         const startDate = weekDays[0];
         const endDate = weekDays[6];
-        const startStr = startDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
-        const endStr = endDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
-        const monthYear = startDate.toLocaleDateString('es-ES', { year: 'numeric', month: 'long' });
+        const startStr = startDate.toLocaleDateString('es-GT', { day: '2-digit', month: 'short' });
+        const endStr = endDate.toLocaleDateString('es-GT', { day: '2-digit', month: 'short' });
+        const monthYear = startDate.toLocaleDateString('es-GT', { year: 'numeric', month: 'long' });
         
         document.getElementById('weekDisplayGeneral').textContent = `Semana del ${startStr} al ${endStr} de ${monthYear}`;
         
@@ -1708,8 +1708,8 @@ const HistoriaClinicaModule = {
 
         weekDays.forEach(day => {
             const dateKey = day.toISOString().split('T')[0];
-            const dayName = day.toLocaleDateString('es-ES', { weekday: 'short' });
-            const dayNum = day.toLocaleDateString('es-ES', { day: '2-digit' });
+            const dayName = day.toLocaleDateString('es-GT', { weekday: 'short' });
+            const dayNum = day.toLocaleDateString('es-GT', { day: '2-digit' });
             const medicines = medicinesByDayFiltered[dateKey] || [];
             
             const dayCard = document.createElement('div');

@@ -194,10 +194,10 @@ const SaldoPacienteIntegrado = {
                                         <br><small style="color: #999;">${pacient.apellidoMaterno || ''}</small>
                                     </td>
                                     <td>${pacient.dpi}</td>
-                                    <td class="text-right font-weight-bold">Q${saldo.total_deuda.toFixed(2)}</td>
+                                    <td class="text-right font-weight-bold">${formatQ(saldo.total_deuda)}</td>
                                     <td class="text-right">
                                         <span style="color: ${saldo.saldo_pendiente > 0 ? '#e74c3c' : '#27ae60'}; font-weight: bold;">
-                                            Q${saldo.saldo_pendiente.toFixed(2)}
+                                            ${formatQ(saldo.saldo_pendiente)}
                                         </span>
                                     </td>
                                     <td><span class="badge ${badgeClass}">${estado}</span></td>
@@ -234,11 +234,11 @@ const SaldoPacienteIntegrado = {
                 <div class="info-saldo">
                     <div class="info-item">
                         <span>Total Deuda:</span>
-                        <strong>Q${saldo.total_deuda.toFixed(2)}</strong>
+                        <strong>${formatQ(saldo.total_deuda)}</strong>
                     </div>
                     <div class="info-item">
                         <span>Saldo Pendiente:</span>
-                        <strong style="color: ${saldo.saldo_pendiente > 0 ? '#e74c3c' : '#27ae60'};">Q${saldo.saldo_pendiente.toFixed(2)}</strong>
+                        <strong style="color: ${saldo.saldo_pendiente > 0 ? '#e74c3c' : '#27ae60'};">${formatQ(saldo.saldo_pendiente)}</strong>
                     </div>
                     <div class="info-item">
                         <span>Última Transacción:</span>
@@ -278,7 +278,7 @@ const SaldoPacienteIntegrado = {
         if (modal) {
             document.getElementById('modalPagoPacienteId').value = pacienteId;
             document.getElementById('modalPagoNombrePaciente').textContent = nombrePaciente;
-            document.getElementById('modalPagoSaldoPendiente').textContent = 'Q' + saldo.saldo_pendiente.toFixed(2);
+            document.getElementById('modalPagoSaldoPendiente').textContent = formatQ(saldo.saldo_pendiente);
             document.getElementById('modalPagoMonto').value = saldo.saldo_pendiente;
             modal.style.display = 'block';
         }
@@ -576,9 +576,9 @@ const SaldoPacienteIntegrado = {
                                     <td>${new Date(mov.fecha).toLocaleDateString('es-GT')}</td>
                                     <td>${mov.descripcion}</td>
                                     <td>${mov.tipo}</td>
-                                    <td class="right">${mov.tipo === 'factura' || mov.tipo === 'cargo' ? 'Q' + parseFloat(mov.monto).toFixed(2) : '-'}</td>
-                                    <td class="right">${mov.tipo === 'pago' || mov.tipo === 'abono' ? 'Q' + parseFloat(mov.monto).toFixed(2) : '-'}</td>
-                                    <td class="right"><strong class="${parseFloat(mov.saldo_acumulado) > 0 ? 'text-danger' : 'text-success'}">Q${parseFloat(mov.saldo_acumulado).toFixed(2)}</strong></td>
+                                    <td class="right">${mov.tipo === 'factura' || mov.tipo === 'cargo' ? formatQ(parseFloat(mov.monto)) : '-'}</td>
+                                    <td class="right">${mov.tipo === 'pago' || mov.tipo === 'abono' ? formatQ(parseFloat(mov.monto)) : '-'}</td>
+                                    <td class="right"><strong class="${parseFloat(mov.saldo_acumulado) > 0 ? 'text-danger' : 'text-success'}">${formatQ(mov.saldo_acumulado)}</strong></td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -587,16 +587,16 @@ const SaldoPacienteIntegrado = {
                     <div class="total-section">
                         <div class="total-row">
                             <span>Total de Cargos:</span>
-                            <strong class="right">Q${data.totales.total_cargos.toFixed(2)}</strong>
+                            <strong class="right">${formatQ(data.totales.total_cargos)}</strong>
                         </div>
                         <div class="total-row">
                             <span>Total de Abonos:</span>
-                            <strong class="right">Q${data.totales.total_abonos.toFixed(2)}</strong>
+                            <strong class="right">${formatQ(data.totales.total_abonos)}</strong>
                         </div>
                         <div class="total-row grande">
                             <span>SALDO ACTUAL:</span>
                             <strong class="right ${data.totales.saldo_actual < 0 ? 'text-success' : 'text-danger'}" style="font-size: 18px;">
-                                Q${data.totales.saldo_actual.toFixed(2)}
+                                ${formatQ(data.totales.saldo_actual)}
                             </strong>
                         </div>
                     </div>
@@ -785,13 +785,13 @@ const SaldoPacienteIntegrado = {
                         
                         <div class="saldo-item">
                             <span class="saldo-label">Total Deuda:</span>
-                            <span class="saldo-value">Q${parseFloat(saldo.total_deuda || 0).toFixed(2)}</span>
+                            <span class="saldo-value">${formatQ(saldo.total_deuda || 0)}</span>
                         </div>
                         
                         <div class="saldo-item">
                             <span class="saldo-label">Saldo Pendiente:</span>
                             <span class="saldo-value saldo-${saldo.saldo_pendiente > 0 ? 'deuda' : 'pagado'}">
-                                Q${parseFloat(saldo.saldo_pendiente || 0).toFixed(2)}
+                                ${formatQ(saldo.saldo_pendiente || 0)}
                             </span>
                         </div>
 
@@ -825,7 +825,7 @@ const SaldoPacienteIntegrado = {
     },
 
     formatearMoneda(valor) {
-        return 'Q' + valor.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        return formatQ(valor);
     }
 };
 

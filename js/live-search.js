@@ -501,7 +501,7 @@ const LiveSearch = {
             input: 'buscarPago',
             source: () => facturacion()?.pagos_realizados || [],
             label: p => p.referencia || p.voucher || p.numero_cheque || `Pago ${p.id || ''}`.trim(),
-            meta: p => [p.metodo, p.monto != null ? `Q${p.monto}` : '', p.fecha]
+            meta: p => [p.metodo, p.monto != null ? formatQ(p.monto) : '', p.fecha]
                 .filter(Boolean).join(' · '),
             // buscarPagos() sólo filtra por referencia, voucher o número de cheque.
             query: p => p.referencia || p.voucher || p.numero_cheque || '',

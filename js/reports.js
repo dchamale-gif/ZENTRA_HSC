@@ -742,11 +742,7 @@ const ReportsModule = {
 
     // Formatear moneda
     formatarMoneda(valor) {
-        return new Intl.NumberFormat('es-GT', {
-            style: 'currency',
-            currency: 'GTQ',
-            minimumFractionDigits: 0
-        }).format(valor);
+        return formatQ(valor);
     },
 
     // Datos de demo - Compras

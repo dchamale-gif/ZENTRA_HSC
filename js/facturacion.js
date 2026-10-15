@@ -537,11 +537,7 @@ const BillingModule = {
      * Formatear moneda
      */
     formatearMoneda(valor) {
-        return new Intl.NumberFormat('es-GT', {
-            style: 'currency',
-            currency: this.state.config.moneda,
-            minimumFractionDigits: 2
-        }).format(valor);
+        return formatQ(valor);
     },
 
     /**

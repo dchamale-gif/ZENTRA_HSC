@@ -872,7 +872,7 @@ const OrdenesmedicasModule = {
 
                 <div class="footer">
                     <p style="text-align: center; color: #999; font-size: 12px;">
-                        Generado el: ${new Date().toLocaleString()}
+                        Generado el: ${formatFechaHora()}
                     </p>
                 </div>
             </body>
@@ -890,11 +890,7 @@ const OrdenesmedicasModule = {
     },
 
     formatCurrency(value) {
-        return new Intl.NumberFormat('es-GT', {
-            style: 'currency',
-            currency: 'GTQ',
-            minimumFractionDigits: 2
-        }).format(Number(value) || 0);
+        return formatQ(Number(value) || 0);
     },
 
     // Mostrar notificación

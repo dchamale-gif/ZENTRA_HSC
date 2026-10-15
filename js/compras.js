@@ -92,7 +92,7 @@ const ComprasModule = {
                 <td><strong>${this.escapeHtml(compra.numero_compra)}</strong></td>
                 <td>${this.formatDate(compra.fecha)}</td>
                 <td>${this.escapeHtml(compra.proveedor_nombre)}</td>
-                <td>Q${Number(compra.total || 0).toFixed(2)}</td>
+                <td>${formatQ(compra.total || 0)}</td>
                 <td><span class="badge badge-${this.escapeHtml(compra.estado)}">${this.capitalize(compra.estado)}</span></td>
                 <td class="actions">
                     <button class="btn-icon btn-edit" title="Editar compra" onclick="ComprasModule.editPurchase('${compra.id}')">
@@ -363,7 +363,7 @@ const ComprasModule = {
                     </td>
                     <td><input class="form-input" type="number" min="1" step="1" value="${item.cantidad}" onchange="ComprasModule.updateItem(${index}, 'cantidad', this.value)"></td>
                     <td><input id="purchaseItemPrice-${index}" class="form-input" type="number" min="0" step="0.01" value="${item.precio_unitario}" onchange="ComprasModule.updateItem(${index}, 'precio_unitario', this.value)"></td>
-                    <td><strong id="purchaseItemSubtotal-${index}">Q${subtotal.toFixed(2)}</strong></td>
+                    <td><strong id="purchaseItemSubtotal-${index}">${formatQ(subtotal)}</strong></td>
                     <td>
                         <button class="btn-icon btn-delete" type="button" title="Quitar concepto" onclick="ComprasModule.removeItem(${index})" ${this.state.items.length === 1 ? 'disabled' : ''}>
                             <i class="fas fa-trash"></i>
@@ -375,7 +375,7 @@ const ComprasModule = {
     },
 
     updateCalculatedTotal() {
-        document.getElementById('purchaseCalculatedTotal').textContent = `Q${this.calculateTotal().toFixed(2)}`;
+        document.getElementById('purchaseCalculatedTotal').textContent = `${formatQ(this.calculateTotal())}`;
     },
 
     calculateTotal() {

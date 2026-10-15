@@ -318,8 +318,8 @@ const CodigosArticulosModule = {
                 <td>${seccion ? seccion.nombre : '-'}</td>
                 <td>${familia ? familia.nombre : '-'}</td>
                 <td>${subfamilia ? subfamilia.nombre : '-'}</td>
-                <td>Q${(articulo.precioCompra || 0).toFixed(2)}</td>
-                <td>Q${(articulo.precioVenta || 0).toFixed(2)}</td>
+                <td>${formatQ(articulo.precioCompra || 0)}</td>
+                <td>${formatQ(articulo.precioVenta || 0)}</td>
                 <td><span class="badge badge-info">${margen}${margen !== '-' ? '%' : ''}</span></td>
                 <td>${estadoBadge}</td>
                 <td class="actions">
@@ -394,15 +394,15 @@ const CodigosArticulosModule = {
                 <div class="pricing-section">
                     <div class="price-item">
                         <label>Precio de Compra</label>
-                        <p class="price">Q${precioCompra.toFixed(2)}</p>
+                        <p class="price">${formatQ(precioCompra)}</p>
                     </div>
                     <div class="price-item">
                         <label>Precio de Venta</label>
-                        <p class="price">Q${precioVenta.toFixed(2)}</p>
+                        <p class="price">${formatQ(precioVenta)}</p>
                     </div>
                     <div class="price-item">
                         <label>Margen</label>
-                        <p class="price">${margen}% | Q${margenPeso}</p>
+                        <p class="price">${margen}% | ${formatQ(margenPeso)}</p>
                     </div>
                 </div>
 

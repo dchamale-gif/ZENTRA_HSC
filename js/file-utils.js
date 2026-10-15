@@ -107,7 +107,7 @@ const FileUtils = {
                 ` : ''}
 
                 <h2>Fecha de Generación</h2>
-                <p>${new Date().toLocaleDateString('es-ES', { 
+                <p>${new Date().toLocaleDateString('es-GT', { 
                     year: 'numeric', 
                     month: 'long', 
                     day: 'numeric',

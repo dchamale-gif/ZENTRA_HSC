@@ -486,10 +486,10 @@ const SaldoPacienteFacturacion = {
                 <tr>
                     <td><strong>${p.nombre} ${p.apellidoPaterno}</strong></td>
                     <td>${p.dpi}</td>
-                    <td class="text-right"><strong>Q${s.total_deuda.toFixed(2)}</strong></td>
+                    <td class="text-right"><strong>${formatQ(s.total_deuda)}</strong></td>
                     <td class="text-right" style="color: ${s.saldo_pendiente > 0 ? '#e74c3c' : '#27ae60'};">
-                        <strong>Q${montosIVA.total.toFixed(2)}</strong>
-                        ${montosIVA.aplica ? `<br><small style="color: #7f8c8d;">IVA ${montosIVA.porcentaje}%: Q${montosIVA.iva.toFixed(2)}</small>` : ''}
+                        <strong>${formatQ(montosIVA.total)}</strong>
+                        ${montosIVA.aplica ? `<br><small style="color: #7f8c8d;">IVA ${montosIVA.porcentaje}%: ${formatQ(montosIVA.iva)}</small>` : ''}
                     </td>
                     <td class="text-center"><span class="badge ${badgeClass}">${estado}</span></td>
                     <td><small>${fecha}</small></td>
@@ -518,18 +518,18 @@ const SaldoPacienteFacturacion = {
             if (totalPacientes) totalPacientes.textContent = this.state.saldos.length;
             if (totalDeudores) totalDeudores.textContent = pacientesDeudores;
             if (totalPagados) totalPagados.textContent = this.state.saldos.length - pacientesDeudores;
-            if (deudaTotal) deudaTotal.textContent = `Q${totalPendiente.toFixed(2)}`;
+            if (deudaTotal) deudaTotal.textContent = `${formatQ(totalPendiente)}`;
             return;
         }
 
         resumen.innerHTML = `
             <div class="saldo-item">
                 <div class="saldo-label">Total Deuda General</div>
-                <div class="saldo-value positivo">Q${totalDeuda.toFixed(2)}</div>
+                <div class="saldo-value positivo">${formatQ(totalDeuda)}</div>
             </div>
             <div class="saldo-item">
                 <div class="saldo-label">Total Pendiente</div>
-                <div class="saldo-value positivo">Q${totalPendiente.toFixed(2)}</div>
+                <div class="saldo-value positivo">${formatQ(totalPendiente)}</div>
             </div>
             <div class="saldo-item">
                 <div class="saldo-label">Pacientes Deudores</div>
@@ -609,7 +609,7 @@ const SaldoPacienteFacturacion = {
                         data-cargo-precio aria-label="Precio del cargo"
                         style="width: 100px; padding: 6px; text-align: right; border: 1px solid #ccd6e0; border-radius: 3px;">
                 </td>
-                <td class="text-right"><strong data-cargo-total>Q${Number(cargo.total || 0).toFixed(2)}</strong></td>
+                <td class="text-right"><strong data-cargo-total>${formatQ(cargo.total || 0)}</strong></td>
                 <td class="text-center">
                     <button type="button" class="btn btn-sm btn-primary" onclick="SaldoPacienteFacturacion.actualizarCargoExistente('${cargo.id}', this)" title="Guardar cantidad y precio">
                         <i class="fas fa-save"></i> Guardar
@@ -644,7 +644,7 @@ const SaldoPacienteFacturacion = {
                 throw new Error(result.error || result.message || `Error ${response.status}`);
             }
 
-            alert(`Cargo anulado. Ajuste aplicado: Q${Number(result.data.monto_anulado).toFixed(2)}`);
+            alert(`Cargo anulado. Ajuste aplicado: ${formatQ(result.data.monto_anulado)}`);
             await this.refrescarSaldoDelPaciente(this.state.paciente_seleccionado.id);
             await this.cargarCargosExistentes(this.state.paciente_seleccionado.id);
             this.renderTotales();
@@ -708,7 +708,7 @@ const SaldoPacienteFacturacion = {
 
         document.getElementById('pacienteIdPago').value = pacienteId;
         document.getElementById('pacienteNombrePago').value = p.nombre + ' ' + p.apellidoPaterno;
-        document.getElementById('saldoPendientePago').value = 'Q' + montosIVA.total.toFixed(2) +
+        document.getElementById('saldoPendientePago').value = formatQ(montosIVA.total) +
             (montosIVA.aplica ? ` (IVA ${montosIVA.porcentaje}% incluido)` : '');
         document.getElementById('montoPago').value = montosIVA.total.toFixed(2);
         document.getElementById('formPago').style.display = 'block';
@@ -879,25 +879,25 @@ const SaldoPacienteFacturacion = {
                         
                         <div class="saldo-item">
                             <span class="saldo-label">Total Deuda Acumulada:</span>
-                            <span class="saldo-value">Q${parseFloat(saldo.total_deuda).toFixed(2)}</span>
+                            <span class="saldo-value">${formatQ(saldo.total_deuda)}</span>
                         </div>
                         
                         ${montosIVA.aplica ? `
                             <div class="saldo-item">
                                 <span class="saldo-label">Saldo sin IVA:</span>
-                                <span class="saldo-value">Q${montosIVA.base.toFixed(2)}</span>
+                                <span class="saldo-value">${formatQ(montosIVA.base)}</span>
                             </div>
 
                             <div class="saldo-item">
                                 <span class="saldo-label">IVA (${montosIVA.porcentaje}%):</span>
-                                <span class="saldo-value">Q${montosIVA.iva.toFixed(2)}</span>
+                                <span class="saldo-value">${formatQ(montosIVA.iva)}</span>
                             </div>
                         ` : ''}
 
                         <div class="saldo-item">
                             <span class="saldo-label">Saldo Pendiente${montosIVA.aplica ? ` (IVA ${montosIVA.porcentaje}% incluido)` : ' (sin IVA)'}:</span>
                             <span class="saldo-value saldo-${saldo.saldo_pendiente > 0 ? 'deuda' : 'pagado'}">
-                                Q${montosIVA.total.toFixed(2)}
+                                ${formatQ(montosIVA.total)}
                             </span>
                         </div>
 
@@ -987,7 +987,7 @@ const SaldoPacienteFacturacion = {
             <p><strong>${p.nombre} ${apellidoPaterno}</strong></p>
             <p>DPI: ${dpi}</p>
             <p>Teléfono: ${telefono}</p>
-            ${saldo ? `<p style="color: #e74c3c;">Saldo Pendiente: Q${saldo.saldo_pendiente.toFixed(2)}</p>` : ''}
+            ${saldo ? `<p style="color: #e74c3c;">Saldo Pendiente: ${formatQ(saldo.saldo_pendiente)}</p>` : ''}
         `;
     },
 
@@ -1036,9 +1036,9 @@ const SaldoPacienteFacturacion = {
                 <td><input type="text" value="${item.descripcion}" oninput="SaldoPacienteFacturacion.actualizarItem('${item.id}', 'descripcion', this.value)" style="width: 100%; min-width: 150px; padding: 7px; border: 1px solid #ccd6e0; border-radius: 3px;"></td>
                 <td class="text-center"><input type="number" min="1" step="1" value="${item.cantidad}" oninput="SaldoPacienteFacturacion.actualizarItem('${item.id}', 'cantidad', this.value)" style="width: 65px; padding: 7px; border: 1px solid #ccd6e0; border-radius: 3px;"></td>
                 <td class="text-right"><input type="number" min="0" step="0.01" value="${item.precio_unitario.toFixed(2)}" oninput="SaldoPacienteFacturacion.actualizarItem('${item.id}', 'precio_unitario', this.value)" style="width: 90px; padding: 7px; text-align: right; border: 1px solid #3498db; border-radius: 3px; background: #f7fbff;"></td>
-                <td class="text-right" data-item-subtotal>Q${item.subtotal.toFixed(2)}</td>
+                <td class="text-right" data-item-subtotal>${formatQ(item.subtotal)}</td>
                 <td class="text-right"><input type="number" min="0" max="${item.subtotal}" step="0.01" value="${item.descuento_total.toFixed(2)}" oninput="SaldoPacienteFacturacion.actualizarItem('${item.id}', 'descuento_total', this.value)" title="Descuento en quetzales" data-item-discount style="width: 85px; padding: 7px; text-align: right; border: 1px solid #ccd6e0; border-radius: 3px;"></td>
-                <td class="text-right"><strong data-item-total>Q${item.total_item.toFixed(2)}</strong></td>
+                <td class="text-right"><strong data-item-total>${formatQ(item.total_item)}</strong></td>
                 <td class="text-center">
                     <button class="btn btn-sm btn-danger" onclick="SaldoPacienteFacturacion.eliminarItem('${item.id}')" title="Quitar cargo" aria-label="Quitar cargo"><i class="fas fa-trash"></i></button>
                 </td>
@@ -1072,8 +1072,8 @@ const SaldoPacienteFacturacion = {
             const subtotalCell = row.querySelector('[data-item-subtotal]');
             const totalCell = row.querySelector('[data-item-total]');
             const discountInput = row.querySelector('[data-item-discount]');
-            if (subtotalCell) subtotalCell.textContent = `Q${item.subtotal.toFixed(2)}`;
-            if (totalCell) totalCell.textContent = `Q${item.total_item.toFixed(2)}`;
+            if (subtotalCell) subtotalCell.textContent = `${formatQ(item.subtotal)}`;
+            if (totalCell) totalCell.textContent = `${formatQ(item.total_item)}`;
             if (discountInput) {
                 discountInput.max = item.subtotal;
                 if (Number(discountInput.value) !== item.descuento_total) {
@@ -1179,10 +1179,10 @@ const SaldoPacienteFacturacion = {
         tbody.innerHTML = this.state.descuentos_actuales.map((desc, idx) => `
             <tr>
                 <td>${idx + 1}</td>
-                <td><strong>${desc.tipo === 'porcentaje' ? desc.valor + '%' : 'Q' + desc.valor.toFixed(2)}</strong></td>
+                <td><strong>${desc.tipo === 'porcentaje' ? desc.valor + '%' : formatQ(desc.valor)}</strong></td>
                 <td>${desc.tipo}</td>
                 <td>${desc.motivo}</td>
-                <td class="text-right">Q${this.calcularMontoDescuento(desc).toFixed(2)}</td>
+                <td class="text-right">${formatQ(this.calcularMontoDescuento(desc))}</td>
                 <td class="text-center">
                     <button class="btn btn-sm btn-danger" onclick="SaldoPacienteFacturacion.eliminarDescuento('${desc.id}')">X</button>
                 </td>
@@ -1243,25 +1243,25 @@ const SaldoPacienteFacturacion = {
         document.getElementById('totalesFactura').innerHTML = `
             <div class="total-row">
                 <span>Subtotal:</span>
-                <strong>Q${t.subtotal.toFixed(2)}</strong>
+                <strong>${formatQ(t.subtotal)}</strong>
             </div>
             ${t.total_descuentos > 0 ? `
                 <div class="total-row descuento">
                     <span>Descuentos:</span>
-                    <strong>-Q${t.total_descuentos.toFixed(2)}</strong>
+                    <strong>-${formatQ(t.total_descuentos)}</strong>
                 </div>
             ` : ''}
             <div class="total-row">
                 <span>Base Imponible:</span>
-                <strong>Q${t.base_impuesto.toFixed(2)}</strong>
+                <strong>${formatQ(t.base_impuesto)}</strong>
             </div>
             <div class="total-row">
                 <span>IVA ${this.state.config.iva}%:</span>
-                <strong>Q${t.total_impuestos.toFixed(2)}</strong>
+                <strong>${formatQ(t.total_impuestos)}</strong>
             </div>
             <div class="total-row final">
                 <span>TOTAL:</span>
-                <strong style="color: #e74c3c; font-size: 20px;">Q${t.total_neto.toFixed(2)}</strong>
+                <strong style="color: #e74c3c; font-size: 20px;">${formatQ(t.total_neto)}</strong>
             </div>
         `;
 
@@ -1273,9 +1273,9 @@ const SaldoPacienteFacturacion = {
         const previewSaldoActual = document.getElementById('previewSaldoActual');
         const previewNuevosCargos = document.getElementById('previewNuevosCargos');
         const previewSaldoProyectado = document.getElementById('previewSaldoProyectado');
-        if (previewSaldoActual) previewSaldoActual.textContent = `Q${saldoActual.toFixed(2)}`;
-        if (previewNuevosCargos) previewNuevosCargos.textContent = `Q${t.total_neto.toFixed(2)}`;
-        if (previewSaldoProyectado) previewSaldoProyectado.textContent = `Q${saldoProyectado.toFixed(2)}`;
+        if (previewSaldoActual) previewSaldoActual.textContent = `${formatQ(saldoActual)}`;
+        if (previewNuevosCargos) previewNuevosCargos.textContent = `${formatQ(t.total_neto)}`;
+        if (previewSaldoProyectado) previewSaldoProyectado.textContent = `${formatQ(saldoProyectado)}`;
     },
 
     async guardarFactura() {
@@ -1394,14 +1394,14 @@ const SaldoPacienteFacturacion = {
                 <table>
                     <thead><tr><th>Descripción</th><th class="text-right">Cant.</th><th class="text-right">P.U.</th><th class="text-right">Total</th></tr></thead>
                     <tbody>
-                        ${items.map(i => `<tr><td>${i.descripcion}</td><td class="text-right">${i.cantidad}</td><td class="text-right">Q${Number(i.precio_unitario || 0).toFixed(2)}</td><td class="text-right">Q${Number(i.total_item ?? i.subtotal ?? 0).toFixed(2)}</td></tr>`).join('')}
+                        ${items.map(i => `<tr><td>${i.descripcion}</td><td class="text-right">${i.cantidad}</td><td class="text-right">${formatQ(i.precio_unitario || 0)}</td><td class="text-right">${formatQ(i.total_item ?? i.subtotal ?? 0)}</td></tr>`).join('')}
                     </tbody>
                 </table>
                 <div style="margin-top: 20px;">
-                    <div class="total-row"><span>Subtotal:</span><strong>Q${Number(totales.subtotal || 0).toFixed(2)}</strong></div>
-                    ${Number(totales.total_descuentos || 0) > 0 ? `<div class="total-row"><span>Descuentos:</span><strong>-Q${Number(totales.total_descuentos).toFixed(2)}</strong></div>` : ''}
-                    <div class="total-row"><span>IVA 12%:</span><strong>Q${Number(totales.total_impuestos || 0).toFixed(2)}</strong></div>
-                    <div class="total-row total-final"><span>TOTAL:</span><strong>Q${Number(totales.total_neto ?? totales.total ?? 0).toFixed(2)}</strong></div>
+                    <div class="total-row"><span>Subtotal:</span><strong>${formatQ(totales.subtotal || 0)}</strong></div>
+                    ${Number(totales.total_descuentos || 0) > 0 ? `<div class="total-row"><span>Descuentos:</span><strong>-${formatQ(totales.total_descuentos)}</strong></div>` : ''}
+                    <div class="total-row"><span>IVA 12%:</span><strong>${formatQ(totales.total_impuestos || 0)}</strong></div>
+                    <div class="total-row total-final"><span>TOTAL:</span><strong>${formatQ(totales.total_neto ?? totales.total ?? 0)}</strong></div>
                 </div>
             </body>
             </html>
@@ -1504,9 +1504,9 @@ const SaldoPacienteFacturacion = {
                 <tr>
                     <td>${new Date(m.fecha).toLocaleDateString('es-GT')}</td>
                     <td>${m.descripcion}</td>
-                    <td class="text-right">${m.tipo === 'factura' ? 'Q' + parseFloat(m.monto).toFixed(2) : '-'}</td>
-                    <td class="text-right">${m.tipo === 'pago' ? 'Q' + parseFloat(m.monto).toFixed(2) : '-'}</td>
-                    <td class="text-right"><strong>Q${parseFloat(m.saldo_acumulado).toFixed(2)}</strong></td>
+                    <td class="text-right">${m.tipo === 'factura' ? formatQ(parseFloat(m.monto)) : '-'}</td>
+                    <td class="text-right">${m.tipo === 'pago' ? formatQ(parseFloat(m.monto)) : '-'}</td>
+                    <td class="text-right"><strong>${formatQ(m.saldo_acumulado)}</strong></td>
                 </tr>
             `;
         });
@@ -1516,9 +1516,9 @@ const SaldoPacienteFacturacion = {
             </table>
 
             <div style="margin-top: 20px;">
-                <div class="total-row"><span>Total Cargos:</span><strong>Q${t.total_cargos.toFixed(2)}</strong></div>
-                <div class="total-row"><span>Total Abonos:</span><strong>Q${t.total_abonos.toFixed(2)}</strong></div>
-                <div class="total-row total-final"><span>SALDO ACTUAL:</span><strong style="color: ${t.saldo_actual > 0 ? '#e74c3c' : '#27ae60'};">Q${t.saldo_actual.toFixed(2)}</strong></div>
+                <div class="total-row"><span>Total Cargos:</span><strong>${formatQ(t.total_cargos)}</strong></div>
+                <div class="total-row"><span>Total Abonos:</span><strong>${formatQ(t.total_abonos)}</strong></div>
+                <div class="total-row total-final"><span>SALDO ACTUAL:</span><strong style="color: ${t.saldo_actual > 0 ? '#e74c3c' : '#27ae60'};">${formatQ(t.saldo_actual)}</strong></div>
             </div>
         `;
 
@@ -1571,7 +1571,7 @@ const SaldoPacienteFacturacion = {
             return `
                 <div class="search-result-item" onclick="SaldoPacienteFacturacion.seleccionarPacientePago('${s.paciente_id}', '${p.nombre} ${apellidoPaterno}', ${s.saldo_pendiente})">
                     <strong>${p.nombre} ${apellidoPaterno}</strong> - DPI: ${dpi}
-                    <br><small>Saldo Pendiente: Q${s.saldo_pendiente.toFixed(2)}</small>
+                    <br><small>Saldo Pendiente: ${formatQ(s.saldo_pendiente)}</small>
                 </div>
             `;
         }).join('');
@@ -1582,7 +1582,7 @@ const SaldoPacienteFacturacion = {
     seleccionarPacientePago(pacienteId, nombre, saldo) {
         document.getElementById('pacienteIdPago').value = pacienteId;
         document.getElementById('pacienteNombrePago').value = nombre;
-        document.getElementById('saldoPendientePago').value = 'Q' + saldo.toFixed(2);
+        document.getElementById('saldoPendientePago').value = formatQ(saldo);
         document.getElementById('montoPago').value = saldo;
         document.getElementById('busquedaPacientePago').value = nombre;
         document.getElementById('resultadosPago').innerHTML = '';
@@ -1799,7 +1799,7 @@ const SaldoPacienteFacturacion = {
                 <tr style="border-bottom: 1px solid #ecf0f1;">
                     <td style="padding: 12px;">${nombrePaciente}</td>
                     <td style="padding: 12px; text-align: center;">${fecha}</td>
-                    <td style="padding: 12px; text-align: right; font-weight: bold; color: #27ae60;">${new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ' }).format(pago.monto)}</td>
+                    <td style="padding: 12px; text-align: right; font-weight: bold; color: #27ae60;">${formatQ(pago.monto)}</td>
                     <td style="padding: 12px; text-align: center;">${metodos[pago.metodo] || pago.metodo}</td>
                     <td style="padding: 12px; text-align: center;"><small>${referencia}</small></td>
                     <td style="padding: 12px; text-align: center;">
@@ -2054,7 +2054,7 @@ const SaldoPacienteFacturacion = {
                         </td>
                         <td>${paciente.dpi || paciente.cedula || 'N/A'}</td>
                         <td class="text-right">
-                            Q${parseFloat(saldo.saldo_pendiente || 0).toFixed(2)}
+                            ${formatQ(saldo.saldo_pendiente || 0)}
                         </td>
                         <td class="text-center">
                             <button class="btn btn-sm btn-info" onclick="SaldoPacienteFacturacion.seleccionarPacienteEstado('${paciente.id}', '${paciente.nombre || ''} ${paciente.apellidoPaterno || paciente.apellido_paterno || ''}')" style="padding: 4px 8px; font-size: 11px;">
@@ -2155,15 +2155,15 @@ const SaldoPacienteFacturacion = {
                         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
                             <div style="padding: 15px; background: #f9f9f9; border-radius: 4px;">
                                 <div style="font-size: 12px; color: #666;">Total Deuda</div>
-                                <div style="font-size: 18px; font-weight: bold; color: #e74c3c;">Q${totalDeuda.toFixed(2)}</div>
+                                <div style="font-size: 18px; font-weight: bold; color: #e74c3c;">${formatQ(totalDeuda)}</div>
                             </div>
                             <div style="padding: 15px; background: #f9f9f9; border-radius: 4px;">
                                 <div style="font-size: 12px; color: #666;">Saldo Pendiente</div>
-                                <div style="font-size: 18px; font-weight: bold; color: ${saldoPendiente > 0 ? '#e74c3c' : '#27ae60'};">Q${Math.abs(saldoPendiente).toFixed(2)}</div>
+                                <div style="font-size: 18px; font-weight: bold; color: ${saldoPendiente > 0 ? '#e74c3c' : '#27ae60'};">${formatQ(Math.abs(saldoPendiente))}</div>
                             </div>
                             <div style="padding: 15px; background: #f9f9f9; border-radius: 4px;">
                                 <div style="font-size: 12px; color: #666;">Total Pagado</div>
-                                <div style="font-size: 18px; font-weight: bold; color: #27ae60;">Q${totalPagado.toFixed(2)}</div>
+                                <div style="font-size: 18px; font-weight: bold; color: #27ae60;">${formatQ(totalPagado)}</div>
                             </div>
                         </div>
                     </div>
@@ -2200,15 +2200,15 @@ const SaldoPacienteFacturacion = {
                         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
                             <div style="padding: 15px; background: #f9f9f9; border-radius: 4px;">
                                 <div style="font-size: 12px; color: #666;">Total Deuda</div>
-                                <div style="font-size: 18px; font-weight: bold; color: #e74c3c;">Q${parseFloat(saldo.total_deuda || 0).toFixed(2)}</div>
+                                <div style="font-size: 18px; font-weight: bold; color: #e74c3c;">${formatQ(saldo.total_deuda || 0)}</div>
                             </div>
                             <div style="padding: 15px; background: #f9f9f9; border-radius: 4px;">
                                 <div style="font-size: 12px; color: #666;">Saldo Pendiente</div>
-                                <div style="font-size: 18px; font-weight: bold; color: ${saldo.saldo_pendiente > 0 ? '#e74c3c' : '#27ae60'};">Q${parseFloat(saldo.saldo_pendiente || 0).toFixed(2)}</div>
+                                <div style="font-size: 18px; font-weight: bold; color: ${saldo.saldo_pendiente > 0 ? '#e74c3c' : '#27ae60'};">${formatQ(saldo.saldo_pendiente || 0)}</div>
                             </div>
                             <div style="padding: 15px; background: #f9f9f9; border-radius: 4px;">
                                 <div style="font-size: 12px; color: #666;">Total Pagado</div>
-                                <div style="font-size: 18px; font-weight: bold; color: #27ae60;">Q${totalPagado.toFixed(2)}</div>
+                                <div style="font-size: 18px; font-weight: bold; color: #27ae60;">${formatQ(totalPagado)}</div>
                             </div>
                         </div>
                     </div>
@@ -2325,7 +2325,7 @@ const SaldoPacienteFacturacion = {
                         <td>${paciente.dpi || paciente.cedula || 'N/A'}</td>
                         <td>${edad} años</td>
                         <td class="text-right">
-                            Q${parseFloat(saldo.saldo_pendiente || 0).toFixed(2)}
+                            ${formatQ(saldo.saldo_pendiente || 0)}
                         </td>
                         <td class="text-center">
                             <button class="btn btn-sm btn-success" onclick="SaldoPacienteFacturacion.seleccionarPacienteFactura('${paciente.id}', '${paciente.nombre || ''} ${paciente.apellidoPaterno || paciente.apellido_paterno || ''}')" style="padding: 4px 8px; font-size: 11px;">
@@ -2376,7 +2376,7 @@ const SaldoPacienteFacturacion = {
                     <p><strong>${paciente.nombre || ''} ${paciente.apellidoPaterno || paciente.apellido_paterno || ''}</strong></p>
                     <p>DPI: ${paciente.dpi || paciente.cedula || 'N/A'}</p>
                     <p>Teléfono: ${paciente.telefono || 'N/A'}</p>
-                    <p style="color: ${Number(saldo?.saldo_pendiente || 0) > 0 ? '#e74c3c' : '#27ae60'};">Saldo pendiente: Q${Number(saldo?.saldo_pendiente || 0).toFixed(2)}</p>
+                    <p style="color: ${Number(saldo?.saldo_pendiente || 0) > 0 ? '#e74c3c' : '#27ae60'};">Saldo pendiente: ${formatQ(saldo?.saldo_pendiente || 0)}</p>
                 `;
             }
 
@@ -2561,7 +2561,7 @@ const SaldoPacienteFacturacion = {
                         <td>${codigoVenta}</td>
                         <td>${familia}</td>
                         <td class="text-right">
-                            Q${precioBase.toFixed(2)}
+                            ${formatQ(precioBase)}
                         </td>
                         <td class="text-center">
                             <button class="btn btn-sm btn-success" onclick="SaldoPacienteFacturacion.seleccionarProducto('${encodeURIComponent(JSON.stringify({ nombre: nombreProducto, precio: precioBase, medicina_id: producto.medicina_id || null, tipo_item: producto.tipo_item || 'general' })).replace(/'/g, '%27')}')" style="padding: 4px 8px; font-size: 11px;">
@@ -2607,7 +2607,7 @@ const SaldoPacienteFacturacion = {
                 divSeleccionado.style.display = 'block';
                 document.getElementById('productoFacturaNombre').textContent = nombreProducto;
                 document.getElementById('productoFacturaCodigo').textContent = 
-                    `Precio Base: Q${parseFloat(precioBase).toFixed(2)}`;
+                    `Precio Base: ${formatQ(precioBase)}`;
             }
 
             this.cerrarModalBuscarProducto();

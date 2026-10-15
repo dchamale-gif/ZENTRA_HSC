@@ -215,7 +215,7 @@ const CajaModule = {
         this.state.movimientos = [];
 
         this.updateCashStatus();
-        showNotification(`Caja cerrada. Saldo final: $${saldoFinal.toFixed(2)}`, 'success');
+        showNotification(`Caja cerrada. Saldo final: ${formatQ(saldoFinal)}`, 'success');
     },
 
     // Abrir modal de movimiento
@@ -344,7 +344,7 @@ const CajaModule = {
                     <td><span class="badge ${tipoClass}">${mov.tipo}</span></td>
                     <td class="text-right">
                         <span class="${mov.tipo.includes('Ingreso') ? 'positive' : 'negative'}">
-                            ${mov.tipo.includes('Ingreso') ? '+' : '-'}Q${mov.monto.toFixed(2)}
+                            ${mov.tipo.includes('Ingreso') ? '+' : '-'}${formatQ(mov.monto)}
                         </span>
                     </td>
                     <td>${mov.usuario}</td>
@@ -359,7 +359,7 @@ const CajaModule = {
             <tr style="background: #f5f5f5; font-weight: bold;">
                 <td colspan="6">TOTALES</td>
                 <td class="text-right">
-                    <span class="positive">+Q${totalIngresos.toFixed(2)}</span> / <span class="negative">-Q${totalEgresos.toFixed(2)}</span> = <span>${neto >= 0 ? 'positive' : 'negative'}">Q${neto.toFixed(2)}</span>
+                    <span class="positive">+${formatQ(totalIngresos)}</span> / <span class="negative">-${formatQ(totalEgresos)}</span> = <span>${neto >= 0 ? 'positive' : 'negative'}">${formatQ(neto)}</span>
                 </td>
                 <td colspan="2"></td>
             </tr>
@@ -398,19 +398,19 @@ const CajaModule = {
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px;">
                     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
                         <div style="font-size: 12px; opacity: 0.9; margin-bottom: 5px;">💰 Saldo Inicial</div>
-                        <div style="font-size: 24px; font-weight: bold;">Q${this.state.saldoActual.toFixed(2)}</div>
+                        <div style="font-size: 24px; font-weight: bold;">${formatQ(this.state.saldoActual)}</div>
                     </div>
                     <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
                         <div style="font-size: 12px; opacity: 0.9; margin-bottom: 5px;">📈 Total Ingresos</div>
-                        <div style="font-size: 24px; font-weight: bold;">+Q${totalIngresos.toFixed(2)}</div>
+                        <div style="font-size: 24px; font-weight: bold;">+${formatQ(totalIngresos)}</div>
                     </div>
                     <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
                         <div style="font-size: 12px; opacity: 0.9; margin-bottom: 5px;">📉 Total Egresos</div>
-                        <div style="font-size: 24px; font-weight: bold;">-Q${totalEgresos.toFixed(2)}</div>
+                        <div style="font-size: 24px; font-weight: bold;">-${formatQ(totalEgresos)}</div>
                     </div>
                     <div style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
                         <div style="font-size: 12px; opacity: 0.9; margin-bottom: 5px;">✓ Saldo Final</div>
-                        <div style="font-size: 24px; font-weight: bold;">Q${neto.toFixed(2)}</div>
+                        <div style="font-size: 24px; font-weight: bold;">${formatQ(neto)}</div>
                     </div>
                 </div>
             `;

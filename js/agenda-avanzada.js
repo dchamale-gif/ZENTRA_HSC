@@ -529,7 +529,7 @@ const AgendaAvanzadaModule = {
         }
 
         container.innerHTML = `
-            <div class="date-header">${new Date(dateStr).toLocaleDateString('es-ES', {
+            <div class="date-header">${new Date(dateStr).toLocaleDateString('es-GT', {
                 weekday: 'long',
                 year: 'numeric',
                 month: 'long',

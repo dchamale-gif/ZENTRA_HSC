@@ -591,14 +591,11 @@ function getLowStockProducts() {
 }
 
 function formatCurrency(value) {
-    return new Intl.NumberFormat('es-GT', {
-        style: 'currency',
-        currency: 'GTQ'
-    }).format(value);
+    return formatQ(value);
 }
 
 function formatDate(date) {
-    return new Intl.DateTimeFormat('es-ES', {
+    return new Intl.DateTimeFormat('es-GT', {
         year: 'numeric',
         month: 'long',
         day: 'numeric'

@@ -1,5 +1,5 @@
 // ============================================
-// STOCK FLOW - APLICACIÓN PRINCIPAL
+// ZENTRA MED - APLICACIÓN PRINCIPAL
 // ============================================
 
 // Global state
@@ -95,6 +95,7 @@ async function initializeApp() {
     setupTransactions();
     setupResponsive();
     setupMobileListTables();
+    setupClinicaSettings();
     updateCurrentDate();
     
     // PASO 1: Inicializar PacientesModule primero (es crítico)
@@ -251,7 +252,7 @@ function navigateToPage(pageId) {
 
     // Update page title
     const titleMap = {
-        'dashboard': 'Dashboard',
+        'dashboard': 'Inicio',
         'inventory': 'Gestión de Inventario',
         'compras': 'Gestión de Compras',
         'ventas': 'Gestión de Ventas',
@@ -278,7 +279,7 @@ function navigateToPage(pageId) {
     currentPage = pageId;
 
     // Cerrar el drawer después de navegar en pantallas pequeñas.
-    if (window.innerWidth <= 768) {
+    if (!DESKTOP_SIDEBAR_QUERY.matches) {
         setSidebarOpen(false);
     }
 
@@ -287,6 +288,7 @@ function navigateToPage(pageId) {
         setTimeout(() => {
             initializeDashboardCharts();
         }, 100);
+        if (typeof InicioModule !== 'undefined') InicioModule.refresh();
     }
     
     if (pageId === 'dashboard-financiero') {
@@ -527,7 +529,7 @@ function initializeDashboardCharts() {
             data: {
                 labels: salesData.map(d => d.day),
                 datasets: [{
-                    label: 'Ventas ($)',
+                    label: 'Ventas (Q)',
                     data: salesData.map(d => d.sales),
                     borderColor: '#1e3a8a',
                     backgroundColor: 'rgba(30, 58, 138, 0.1)',
@@ -556,7 +558,7 @@ function initializeDashboardCharts() {
                         beginAtZero: true,
                         ticks: {
                             callback: function(value) {
-                                return 'Q.' + value.toLocaleString();
+                                return formatQ(value);
                             }
                         }
                     }
@@ -1738,7 +1740,7 @@ function processBulkTransactions() {
                 populateInventoryTable();
             }
             populateRecentTransactions();
-            updateDashboard();
+            if (typeof InicioModule !== 'undefined') InicioModule.refresh();
         }, 1500);
     }
 
@@ -1777,11 +1779,21 @@ function setupResponsive() {
     setSidebarOpen(false);
 }
 
+const DESKTOP_SIDEBAR_QUERY = window.matchMedia('(min-width: 1024px)');
+
 function setSidebarOpen(open) {
     const sidebar = document.getElementById('mainSidebar');
     const toggleBtn = document.getElementById('toggleSidebar');
     const backdrop = document.getElementById('sidebarBackdrop');
     if (!sidebar || !toggleBtn || !backdrop) return;
+
+    // En escritorio el menú siempre está visible y no usa backdrop
+    if (DESKTOP_SIDEBAR_QUERY.matches) {
+        sidebar.classList.remove('active');
+        backdrop.classList.remove('active');
+        sidebar.removeAttribute('aria-hidden');
+        return;
+    }
 
     sidebar.classList.toggle('active', open);
     backdrop.classList.toggle('active', open);
@@ -1870,6 +1882,32 @@ function labelMobileListTables(root) {
 // ============================================
 // UTILIDADES
 // ============================================
+
+// ============================================
+// CONFIGURACIÓN: DATOS DE LA CLÍNICA
+// ============================================
+
+function setupClinicaSettings() {
+    const form = document.getElementById('clinicaForm');
+    if (!form) return;
+
+    Object.entries(CONFIG.CLINICA).forEach(([campo, valor]) => {
+        if (form.elements[campo]) form.elements[campo].value = valor;
+    });
+
+    const ejemploMonto = document.getElementById('regionEjemploMonto');
+    if (ejemploMonto) ejemploMonto.textContent = formatQ(1234.5);
+    const ejemploFecha = document.getElementById('regionEjemploFecha');
+    if (ejemploFecha) ejemploFecha.textContent = formatFecha();
+
+    form.addEventListener('submit', event => {
+        event.preventDefault();
+        const datos = Object.fromEntries(new FormData(form).entries());
+        datos.nit = (datos.nit || '').trim().toUpperCase() || 'CF';
+        guardarDatosClinica(datos);
+        showNotification('Datos de la clínica guardados', 'success');
+    });
+}
 
 function updateCurrentDate() {
     const dateElement = document.getElementById('currentDate');
@@ -2170,11 +2208,7 @@ function actualizarResumenCuentasPorPagar() {
     });
 
     const formatarMoneda = (valor) => {
-        return new Intl.NumberFormat('es-GT', {
-            style: 'currency',
-            currency: 'GTQ',
-            minimumFractionDigits: 2
-        }).format(valor);
+        return formatQ(valor);
     };
 
     const elem1 = document.getElementById('totalPendiente');

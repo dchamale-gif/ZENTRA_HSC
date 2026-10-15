@@ -1,5 +1,6 @@
 // ============================================
-// CONFIGURACIÓN DE STOCK FLOW
+// CONFIGURACIÓN CENTRAL DE ZENTRA MED
+// Única fuente de verdad para región, moneda, impuestos y datos de la clínica.
 // ============================================
 
 const CONFIG = {
@@ -7,11 +8,46 @@ const CONFIG = {
     // INFORMACIÓN DE LA APLICACIÓN
     // ============================================
     APP: {
-        name: 'Stock Flow',
-        version: '1.0.0',
+        name: 'Zentra MED',
+        version: '1.1.0',
         description: 'Zentra MED - Sistema Médico Integral',
-        author: 'Tu Empresa',
+        author: 'Zentra MED',
         releaseDate: '2026-03-23'
+    },
+
+    // ============================================
+    // REGIÓN: GUATEMALA
+    // ============================================
+    REGION: {
+        pais: 'Guatemala',
+        codigoPais: 'GT',
+        locale: 'es-GT',
+        timeZone: 'America/Guatemala',
+        prefijoTelefono: '+502',
+        moneda: {
+            code: 'GTQ',
+            nombre: 'Quetzal',
+            nombrePlural: 'Quetzales',
+            symbol: 'Q'
+        },
+        // IVA general de Guatemala (Decreto 27-92)
+        iva: 12,
+        documentoIdentidad: 'DPI',
+        documentoTributario: 'NIT'
+    },
+
+    // ============================================
+    // DATOS DE LA CLÍNICA (editables en Configuración)
+    // ============================================
+    CLINICA: {
+        nombre: 'Zentra MED',
+        razonSocial: '',
+        nit: 'CF',
+        telefono: '+502 ',
+        email: '',
+        direccion: '',
+        municipio: 'Guatemala',
+        departamento: 'Guatemala'
     },
 
     // ============================================
@@ -147,26 +183,26 @@ const CONFIG = {
         // Formato de moneda
         currency: {
             code: 'GTQ',
-            symbol: 'Q.',
+            symbol: 'Q',
             locale: 'es-GT'
         },
         
         // Formato de fecha
         date: {
-            locale: 'es-ES',
+            locale: 'es-GT',
             format: 'DD/MM/YYYY'
         },
         
         // Formato de números
         number: {
-            locale: 'es-ES',
+            locale: 'es-GT',
             decimals: 2,
             separator: ','
         },
         
         // Formato de hora
         time: {
-            locale: 'es-ES',
+            locale: 'es-GT',
             format: '24h'  // '12h' o '24h'
         }
     },
@@ -179,7 +215,7 @@ const CONFIG = {
         enabled: true,
         
         // Clave de prefijo para localStorage
-        prefix: 'StockFlow_',
+        prefix: 'ZentraMED_',
         
         // Tiempo de expiración en minutos
         cacheExpiration: 60,
@@ -200,9 +236,10 @@ const CONFIG = {
         },
         
         // Teléfono
+        // Teléfono de Guatemala: 8 dígitos, opcionalmente con +502
         phone: {
-            pattern: /^\+?[\d\s\-()]{10,}$/,
-            minLength: 10
+            pattern: /^(\+?502[\s-]?)?\d{4}[\s-]?\d{4}$/,
+            minLength: 8
         },
         
         // Contraseña (para futura autenticación)
@@ -335,16 +372,114 @@ function getRolePermissions(role) {
     return getConfig(`USER.permissions.${role}`, []);
 }
 
-/**
- * Formatear valor con configuración de moneda
- */
-function formatWithConfig(value) {
-    const currencyConfig = getConfig('FORMAT.currency');
-    return new Intl.NumberFormat(currencyConfig.locale, {
-        style: 'currency',
-        currency: currencyConfig.code
-    }).format(value);
+// ============================================
+// DATOS DE CLÍNICA PERSISTIDOS
+// ============================================
+
+const CLINICA_STORAGE_KEY = 'ZentraMED_clinica';
+
+function cargarDatosClinica() {
+    try {
+        const guardado = JSON.parse(localStorage.getItem(CLINICA_STORAGE_KEY) || 'null');
+        if (guardado && typeof guardado === 'object') {
+            Object.assign(CONFIG.CLINICA, guardado);
+        }
+    } catch (error) {
+        console.warn('No se pudieron leer los datos de la clínica guardados', error);
+    }
+    return CONFIG.CLINICA;
 }
+
+function guardarDatosClinica(datos) {
+    Object.assign(CONFIG.CLINICA, datos);
+    try {
+        localStorage.setItem(CLINICA_STORAGE_KEY, JSON.stringify(CONFIG.CLINICA));
+    } catch (error) {
+        console.warn('No se pudieron guardar los datos de la clínica', error);
+    }
+    document.dispatchEvent(new CustomEvent('zentra:clinica-actualizada', { detail: CONFIG.CLINICA }));
+    return CONFIG.CLINICA;
+}
+
+// ============================================
+// FORMATEADORES REGIONALES (GUATEMALA)
+// ============================================
+
+const quetzalFormatter = new Intl.NumberFormat(CONFIG.REGION.locale, {
+    style: 'currency',
+    currency: CONFIG.REGION.moneda.code,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+});
+
+const numeroFormatter = new Intl.NumberFormat(CONFIG.REGION.locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+});
+
+function aNumero(valor) {
+    const numero = typeof valor === 'string' ? parseFloat(valor.replace(/[^\d.-]/g, '')) : Number(valor);
+    return Number.isFinite(numero) ? numero : 0;
+}
+
+/**
+ * Formatea un monto en quetzales: 1234.5 → "Q1,234.50"
+ */
+function formatQ(valor) {
+    return quetzalFormatter.format(aNumero(valor));
+}
+
+/**
+ * Formatea un número con 2 decimales y separador de miles: 1234.5 → "1,234.50"
+ */
+function formatNumero(valor) {
+    return numeroFormatter.format(aNumero(valor));
+}
+
+function aFecha(valor) {
+    if (valor instanceof Date) return valor;
+    // Fechas "YYYY-MM-DD" se interpretan como fecha local, no UTC
+    if (typeof valor === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(valor)) {
+        const [y, m, d] = valor.split('-').map(Number);
+        return new Date(y, m - 1, d);
+    }
+    return new Date(valor);
+}
+
+/**
+ * Fecha en formato guatemalteco: dd/mm/aaaa (o con opciones de Intl)
+ */
+function formatFecha(valor = new Date(), opciones = { day: '2-digit', month: '2-digit', year: 'numeric' }) {
+    const fecha = aFecha(valor);
+    if (isNaN(fecha)) return '';
+    return fecha.toLocaleDateString(CONFIG.REGION.locale, { timeZone: CONFIG.REGION.timeZone, ...opciones });
+}
+
+function formatFechaHora(valor = new Date()) {
+    const fecha = aFecha(valor);
+    if (isNaN(fecha)) return '';
+    return fecha.toLocaleString(CONFIG.REGION.locale, {
+        timeZone: CONFIG.REGION.timeZone,
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+    });
+}
+
+/**
+ * Desglosa un total con IVA incluido (precios en Guatemala se publican con IVA)
+ */
+function desglosarIVA(totalConIVA, porcentaje = CONFIG.REGION.iva) {
+    const total = aNumero(totalConIVA);
+    const base = Math.round((total / (1 + porcentaje / 100)) * 100) / 100;
+    return { base, iva: Math.round((total - base) * 100) / 100, total, porcentaje };
+}
+
+// Compatibilidad con código existente
+function formatWithConfig(value) {
+    return formatQ(value);
+}
+
+cargarDatosClinica();
 
 // ============================================
 // EXPORTAR CONFIGURACIÓN
@@ -359,5 +494,12 @@ window.getProductCategories = getProductCategories;
 window.getTransactionTypes = getTransactionTypes;
 window.getRolePermissions = getRolePermissions;
 window.formatWithConfig = formatWithConfig;
+window.formatQ = formatQ;
+window.formatNumero = formatNumero;
+window.formatFecha = formatFecha;
+window.formatFechaHora = formatFechaHora;
+window.desglosarIVA = desglosarIVA;
+window.cargarDatosClinica = cargarDatosClinica;
+window.guardarDatosClinica = guardarDatosClinica;
 
-console.log('✅ Configuración de Stock Flow cargada');
+console.log('✅ Configuración de Zentra MED cargada (Guatemala · GTQ)');

@@ -394,9 +394,9 @@ const SaldoPacienteModule = {
             <tr>
                 <td><strong>${pacient.nombre} ${apellidos}</strong></td>
                 <td>${pacient.dpi || pacient.cedula || 'N/A'}</td>
-                <td><span class="amount ${saldo.saldoPendiente > 0 ? 'negative' : 'positive'}">Q${saldo.saldoPendiente.toFixed(2)}</span></td>
-                <td>Q${saldo.totalAcumulado.toFixed(2)}</td>
-                <td>Q${abonosRealizados.toFixed(2)}</td>
+                <td><span class="amount ${saldo.saldoPendiente > 0 ? 'negative' : 'positive'}">${formatQ(saldo.saldoPendiente)}</span></td>
+                <td>${formatQ(saldo.totalAcumulado)}</td>
+                <td>${formatQ(abonosRealizados)}</td>
                 <td>${saldo.ultimaTransaccion}</td>
                 <td>${estadoBadge}</td>
                 <td class="actions">
@@ -454,22 +454,22 @@ const SaldoPacienteModule = {
                 <div class="saldo-summary">
                     <div class="summary-item">
                         <label>Total Acumulado</label>
-                        <p class="amount">Q${totalAcumulado.toFixed(2)}</p>
+                        <p class="amount">${formatQ(totalAcumulado)}</p>
                     </div>
                     <div class="summary-item">
                         <label>Total Abonos</label>
-                        <p class="amount positive">Q${totalAbonos.toFixed(2)}</p>
+                        <p class="amount positive">${formatQ(totalAbonos)}</p>
                     </div>
                     ${montosIVA.aplica ? `
                         <div class="summary-item">
                             <label>IVA (${this.IVA_PORCENTAJE}%)</label>
-                            <p class="amount">Q${montosIVA.iva.toFixed(2)}</p>
+                            <p class="amount">${formatQ(montosIVA.iva)}</p>
                         </div>
                     ` : ''}
                     <div class="summary-item">
                         <label>Saldo Pendiente${montosIVA.aplica ? ' (con IVA)' : ''}</label>
                         <p class="amount ${saldoPendiente > 0 ? 'negative' : 'positive'}" style="font-size: 18px; font-weight: bold;">
-                            Q${(saldoPendiente > 0 ? montosIVA.total : saldoPendiente).toFixed(2)}
+                            ${formatQ(saldoPendiente > 0 ? montosIVA.total : saldoPendiente)}
                         </p>
                     </div>
                     <div class="summary-item">
@@ -512,7 +512,7 @@ const SaldoPacienteModule = {
                                                     ` : '-'}
                                                 </td>
                                                 <td style="padding: 10px; text-align: right; font-weight: bold; color: ${m.tipo === 'Abono' ? '#27ae60' : '#e74c3c'};">
-                                                    ${m.tipo === 'Abono' ? '+' : '-'}Q${(Number(m.monto) || 0).toFixed(2)}
+                                                    ${m.tipo === 'Abono' ? '+' : '-'}${formatQ(Number(m.monto) || 0)}
                                                 </td>
                                                 <td style="padding: 10px; text-align: center;">
                                                     <span style="background: ${m.tipo === 'Abono' ? '#d4edda' : '#f8d7da'}; color: ${m.tipo === 'Abono' ? '#155724' : '#721c24'}; padding: 3px 8px; border-radius: 3px; font-size: 11px; font-weight: 600;">
@@ -535,7 +535,7 @@ const SaldoPacienteModule = {
                                     </div>
                                     <div class="mov-details">
                                         <span class="mov-desc">${m.descripcion}</span>
-                                        <span class="mov-amount positive">+Q${(Number(m.monto) || 0).toFixed(2)}</span>
+                                        <span class="mov-amount positive">+${formatQ(Number(m.monto) || 0)}</span>
                                     </div>
                                     ${m.factura ? `
                                         <div style="margin-top: 8px;">
@@ -691,11 +691,7 @@ const SaldoPacienteModule = {
     },
 
     formatCurrency(value) {
-        return new Intl.NumberFormat('es-GT', {
-            style: 'currency',
-            currency: 'GTQ',
-            minimumFractionDigits: 2
-        }).format(Number(value) || 0);
+        return formatQ(Number(value) || 0);
     },
 
     // Guardar pago/abono
@@ -1312,9 +1308,9 @@ const SaldoPacienteModule = {
                                 <tr>
                                     <td>
                                         ${medicina.descripcion}
-                                        <br><small>${Number(medicina.cantidad)} × Q${Number(medicina.precio_unitario).toFixed(2)}</small>
+                                        <br><small>${Number(medicina.cantidad)} × ${formatQ(medicina.precio_unitario)}</small>
                                     </td>
-                                    <td class="amount">Q ${Number(medicina.total).toFixed(2)}</td>
+                                    <td class="amount">${formatQ(medicina.total)}</td>
                                 </tr>
                             `).join('') : `
                                 <tr>
@@ -1324,7 +1320,7 @@ const SaldoPacienteModule = {
                             `}
                             <tr style="font-weight: bold; background: #f9f9f9;">
                                 <td style="text-align: right;">TOTAL MEDICAMENTOS</td>
-                                <td class="amount">Q ${totalMedicamentos.toFixed(2)}</td>
+                                <td class="amount">${formatQ(totalMedicamentos)}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1441,7 +1437,7 @@ const SaldoPacienteModule = {
                             ${abonos.length > 0 ? abonos.map(abono => `
                                 <tr>
                                     <td>${abono.descripcion || 'Abono al estado de cuenta'}</td>
-                                    <td class="amount">Q ${Number(abono.monto || 0).toFixed(2)}</td>
+                                    <td class="amount">${formatQ(abono.monto || 0)}</td>
                                 </tr>
                             `).join('') : `
                                 <tr>
@@ -1451,7 +1447,7 @@ const SaldoPacienteModule = {
                             `}
                             <tr style="font-weight: bold; background: #f9f9f9;">
                                 <td style="text-align: right;">TOTAL ABONOS</td>
-                                <td class="amount">Q ${totalAbonos.toFixed(2)}</td>
+                                <td class="amount">${formatQ(totalAbonos)}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1462,35 +1458,35 @@ const SaldoPacienteModule = {
                             <div class="summary-title">📌 Resumen Financiero</div>
                             <div class="summary-row">
                                 <span class="summary-label">Subtotal:</span>
-                                <span class="summary-value">Q${subtotalFacturado.toFixed(2)}</span>
+                                <span class="summary-value">${formatQ(subtotalFacturado)}</span>
                             </div>
                             <div class="summary-row">
                                 <span class="summary-label">Descuentos:</span>
-                                <span class="summary-value">Q${descuentos.toFixed(2)}</span>
+                                <span class="summary-value">${formatQ(descuentos)}</span>
                             </div>
                             <div class="summary-row">
                                 <span class="summary-label">Abonos:</span>
-                                <span class="summary-value" style="color: #27ae60;">(Q${totalAbonos.toFixed(2)})</span>
+                                <span class="summary-value" style="color: #27ae60;">(${formatQ(totalAbonos)})</span>
                             </div>
                             ${montosIVA.aplica ? `
                                 <div class="summary-row">
                                     <span class="summary-label">IVA (${this.IVA_PORCENTAJE}%):</span>
-                                    <span class="summary-value">Q${montosIVA.iva.toFixed(2)}</span>
+                                    <span class="summary-value">${formatQ(montosIVA.iva)}</span>
                                 </div>
                             ` : ''}
                             <div class="summary-row" style="color: #c0392b; font-weight: bold; border-top: 1px solid #ddd; padding-top: 8px; margin-top: 8px;">
                                 <span>Saldo a Favor del Paciente:</span>
-                                <span class="summary-value">Q${saldoMostradoPaciente.toFixed(2)}</span>
+                                <span class="summary-value">${formatQ(saldoMostradoPaciente)}</span>
                             </div>
                             <div class="summary-row" style="font-weight: bold; border-top: 1px solid #ddd; padding-top: 8px; margin-top: 8px;">
                                 <span class="summary-label">TOTAL A PAGAR${montosIVA.aplica ? ` (IVA ${this.IVA_PORCENTAJE}% incluido)` : ' (sin IVA)'}:</span>
-                                <span class="summary-value" style="color: #0066cc; font-size: 15px;">Q${totalAPagar.toFixed(2)}</span>
+                                <span class="summary-value" style="color: #0066cc; font-size: 15px;">${formatQ(totalAPagar)}</span>
                             </div>
                         </div>
 
                         <div class="total-box">
                             <div class="total-label">TOTAL A PAGAR</div>
-                            <div class="total-amount">Q${totalAPagar.toFixed(2)}</div>
+                            <div class="total-amount">${formatQ(totalAPagar)}</div>
                             <div class="total-note" style="font-size: 11px;">
                                 ${montosIVA.aplica ? `IVA ${this.IVA_PORCENTAJE}% incluido` : 'Total sin IVA'}
                             </div>
@@ -1499,7 +1495,7 @@ const SaldoPacienteModule = {
                             </div>
                             ${totalAPagar === 0 ? `
                                 <div class="status-badge status-pagado" style="margin-top: 12px;">
-                                    ${saldoAFavor > 0 ? `A FAVOR Q${saldoAFavor.toFixed(2)}` : '✓ PAGADO'}
+                                    ${saldoAFavor > 0 ? `A FAVOR ${formatQ(saldoAFavor)}` : '✓ PAGADO'}
                                 </div>
                             ` : ''}
                         </div>
@@ -1619,10 +1615,10 @@ const SaldoPacienteModule = {
                                     <tr style="border-bottom: 1px solid #eee;">
                                         <td style="padding: 10px;"><strong>${f.numero_factura || f.numero_venta || '-'}</strong></td>
                                         <td style="padding: 10px; text-align: center;">${f.fecha || '-'}</td>
-                                        <td style="padding: 10px; text-align: right;">Q${parseFloat(f.subtotal || 0).toFixed(2)}</td>
-                                        <td style="padding: 10px; text-align: right;">Q${parseFloat(f.total_descuentos || f.descuento || 0).toFixed(2)}</td>
-                                        <td style="padding: 10px; text-align: right;">Q${parseFloat(f.total_impuestos || f.impuesto || 0).toFixed(2)}</td>
-                                        <td style="padding: 10px; text-align: right; font-weight: bold;">Q${parseFloat(f.total || 0).toFixed(2)}</td>
+                                        <td style="padding: 10px; text-align: right;">${formatQ(f.subtotal || 0)}</td>
+                                        <td style="padding: 10px; text-align: right;">${formatQ(f.total_descuentos || f.descuento || 0)}</td>
+                                        <td style="padding: 10px; text-align: right;">${formatQ(f.total_impuestos || f.impuesto || 0)}</td>
+                                        <td style="padding: 10px; text-align: right; font-weight: bold;">${formatQ(f.total || 0)}</td>
                                         <td style="padding: 10px; text-align: center;">
                                             <span style="background: #d4edda; color: #155724; padding: 3px 8px; border-radius: 3px; font-size: 11px;">
                                                 ${f.estado || 'Activa'}
@@ -1635,7 +1631,7 @@ const SaldoPacienteModule = {
                                                 <strong>Ítems:</strong>
                                                 ${f.items.map(item => `
                                                     <div style="padding: 5px; margin-left: 20px; font-size: 11px;">
-                                                        • ${item.descripcion} x${item.cantidad} @ Q${parseFloat(item.precio_unitario || 0).toFixed(2)} = Q${parseFloat(item.subtotal || 0).toFixed(2)}
+                                                        • ${item.descripcion} x${item.cantidad} @ ${formatQ(item.precio_unitario || 0)} = ${formatQ(item.subtotal || 0)}
                                                     </div>
                                                 `).join('')}
                                             </td>
@@ -1662,21 +1658,21 @@ const SaldoPacienteModule = {
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 14px;">
                     <div>
                         <label style="color: #666;">Subtotal:</label>
-                        <p style="margin: 5px 0; font-weight: bold; font-size: 16px;">Q${parseFloat(totales.subtotal || 0).toFixed(2)}</p>
+                        <p style="margin: 5px 0; font-weight: bold; font-size: 16px;">${formatQ(totales.subtotal || 0)}</p>
                     </div>
                     <div>
                         <label style="color: #666;">Total Descuentos:</label>
-                        <p style="margin: 5px 0; font-weight: bold; font-size: 16px; color: #e74c3c;">-Q${parseFloat(totales.total_descuentos || totales.descuentos || 0).toFixed(2)}</p>
+                        <p style="margin: 5px 0; font-weight: bold; font-size: 16px; color: #e74c3c;">-${formatQ(totales.total_descuentos || totales.descuentos || 0)}</p>
                     </div>
                     ${montosIVA.aplica ? `
                         <div>
                             <label style="color: #666;">IVA (${this.IVA_PORCENTAJE}%):</label>
-                            <p style="margin: 5px 0; font-weight: bold; font-size: 16px;">Q${montosIVA.iva.toFixed(2)}</p>
+                            <p style="margin: 5px 0; font-weight: bold; font-size: 16px;">${formatQ(montosIVA.iva)}</p>
                         </div>
                     ` : ''}
                     <div>
                         <label style="color: #666;">TOTAL GENERAL${montosIVA.aplica ? ` (IVA ${this.IVA_PORCENTAJE}% incluido)` : ' (sin IVA)'}:</label>
-                        <p style="margin: 5px 0; font-weight: bold; font-size: 18px; background: #d4edda; padding: 8px; border-radius: 3px; color: #155724;">Q${montosIVA.total.toFixed(2)}</p>
+                        <p style="margin: 5px 0; font-weight: bold; font-size: 18px; background: #d4edda; padding: 8px; border-radius: 3px; color: #155724;">${formatQ(montosIVA.total)}</p>
                     </div>
                 </div>
             </div>
@@ -1829,7 +1825,7 @@ const SaldoPacienteModule = {
                         </td>
                         <td>${paciente.dpi || paciente.cedula || 'N/A'}</td>
                         <td class="text-right">
-                            Q${parseFloat(saldo.saldoPendiente || 0).toFixed(2)}
+                            ${formatQ(saldo.saldoPendiente || 0)}
                         </td>
                         <td class="text-center">${estadoBadge}</td>
                         <td class="text-center">
@@ -1901,7 +1897,7 @@ const SaldoPacienteModule = {
             if (totalPagadosEl) totalPagadosEl.textContent = pagados;
 
             const deudaTotalEl = document.getElementById('deudaTotal');
-            if (deudaTotalEl) deudaTotalEl.textContent = `Q${parseFloat(deudaTotal).toFixed(2)}`;
+            if (deudaTotalEl) deudaTotalEl.textContent = `${formatQ(deudaTotal)}`;
 
         } catch (error) {
             console.error('❌ Error actualizando estadísticas:', error);

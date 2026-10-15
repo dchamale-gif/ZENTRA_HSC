@@ -101,7 +101,7 @@ const VentasModule = {
                 <td><strong>${this.escapeHtml(venta.numero_venta)}</strong></td>
                 <td>${this.formatDate(venta.fecha)}</td>
                 <td>${this.escapeHtml(venta.receptor_nombre)}</td>
-                <td>Q${Number(venta.total || 0).toFixed(2)}</td>
+                <td>${formatQ(venta.total || 0)}</td>
                 <td><span class="badge badge-${this.escapeHtml(venta.estado)}">${this.capitalize(venta.estado)}</span></td>
                 <td class="actions">
                     <button class="btn-icon" type="button" title="Ver conceptos" onclick="VentasModule.viewSale('${venta.id}')">
@@ -317,7 +317,7 @@ const VentasModule = {
                     <div id="saleConceptResults-${index}" class="concept-search-results" hidden></div></div></td>
                 <td><input class="form-input" type="number" min="1" step="1" value="${item.cantidad}" onchange="VentasModule.updateItem(${index}, 'cantidad', this.value)"></td>
                 <td><input class="form-input" type="number" min="0" step="0.01" value="${item.precio_unitario}" onchange="VentasModule.updateItem(${index}, 'precio_unitario', this.value)"></td>
-                <td><strong>Q${subtotal.toFixed(2)}</strong></td>
+                <td><strong>${formatQ(subtotal)}</strong></td>
                 <td><button class="btn-icon btn-delete" type="button" title="Quitar concepto" onclick="VentasModule.removeItem(${index})" ${this.state.items.length === 1 ? 'disabled' : ''}><i class="fas fa-trash"></i></button></td>
             </tr>`;
         }).join('');
@@ -327,7 +327,7 @@ const VentasModule = {
     updateTotalsOnly() {
         const total = this.state.items.reduce((sum, item) =>
             sum + (Number(item.cantidad) || 0) * (Number(item.precio_unitario) || 0), 0);
-        document.getElementById('saleCalculatedTotal').textContent = `Q${total.toFixed(2)}`;
+        document.getElementById('saleCalculatedTotal').textContent = `${formatQ(total)}`;
     },
 
     async saveSale() {
@@ -370,9 +370,9 @@ const VentasModule = {
         const venta = this.state.ventas.find(entry => String(entry.id) === String(id));
         if (!venta) return;
         const details = venta.items.map(item =>
-            `${item.concepto_nombre}: ${item.cantidad} × Q${Number(item.precio_unitario).toFixed(2)}`
+            `${item.concepto_nombre}: ${item.cantidad} × ${formatQ(item.precio_unitario)}`
         ).join('\n');
-        alert(`${venta.numero_venta}\n${venta.receptor_nombre}\n\n${details}\n\nTotal: Q${Number(venta.total).toFixed(2)}`);
+        alert(`${venta.numero_venta}\n${venta.receptor_nombre}\n\n${details}\n\nTotal: ${formatQ(venta.total)}`);
     },
 
     editSale(id) {

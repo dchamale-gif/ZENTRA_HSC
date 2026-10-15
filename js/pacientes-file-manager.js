@@ -137,7 +137,7 @@ const PacientesFileManager = {
                         <strong>${file.fileName}</strong><br>
                         <small style="color: #999;">
                             ${FileUtils.formatFileSize(file.fileSize)} - 
-                            ${new Date(file.uploadDate).toLocaleDateString('es-ES')}
+                            ${new Date(file.uploadDate).toLocaleDateString('es-GT')}
                         </small>
                     </div>
                     <button class="btn btn-sm btn-danger" onclick="PacientesFileManager.deletePacientFile('${pacienteId}', '${file.id}')">
@@ -222,7 +222,7 @@ const PacientesFileManager = {
 
     // Construir contenido según el template seleccionado
     buildTemplateContent(paciente, templateId) {
-        const fecha = new Date().toLocaleDateString('es-ES', { 
+        const fecha = new Date().toLocaleDateString('es-GT', { 
             year: 'numeric', 
             month: 'long', 
             day: 'numeric'

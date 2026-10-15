@@ -350,18 +350,18 @@ const FacturacionTestingLocal = {
         console.log('\n📋 PACIENTES:', this.db.pacientes.length);
         this.db.pacientes.forEach((p, i) => {
             const saldo = this.db.saldosPacientes.find(s => s.paciente_id === p.id);
-            console.log(`  ${i + 1}. ${p.nombre} ${p.apellidoPaterno} - Saldo: Q${saldo?.saldo_pendiente || 0}`);
+            console.log(`  ${i + 1}. ${p.nombre} ${p.apellidoPaterno} - Saldo: ${formatQ(saldo?.saldo_pendiente)}`);
         });
 
         console.log('\n💰 FACTURAS CREADAS:', this.db.facturas.length);
         this.db.facturas.forEach((f, i) => {
-            console.log(`  ${i + 1}. ${f.numero_factura} - Q${f.totales.total_neto.toFixed(2)} (${f.metodo_pago})`);
+            console.log(`  ${i + 1}. ${f.numero_factura} - ${formatQ(f.totales.total_neto)} (${f.metodo_pago})`);
         });
 
         console.log('\n📊 MOVIMIENTOS REGISTRADOS:', this.db.movimientos.length);
         this.db.movimientos.slice(-5).forEach(m => {
             const tipo = m.tipo === 'factura' ? '📄' : '✓';
-            console.log(`  ${tipo} ${m.descripcion} - Q${m.monto.toFixed(2)} (Saldo: Q${m.saldo_nuevo.toFixed(2)})`);
+            console.log(`  ${tipo} ${m.descripcion} - ${formatQ(m.monto)} (Saldo: ${formatQ(m.saldo_nuevo)})`);
         });
 
         console.log('\n' + '='.repeat(60) + '\n');

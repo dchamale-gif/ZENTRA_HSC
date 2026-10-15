@@ -208,7 +208,7 @@ const AlertasModule = {
                         </div>
                         <p style="margin: 8px 0 0 0; color: #555;">${alerta.descripcion}</p>
                         <small style="color: #999; margin-top: 5px; display: block;">
-                            ${new Date(alerta.fechaCreacion).toLocaleString()}
+                            ${formatFechaHora(alerta.fechaCreacion)}
                         </small>
                     </div>
                     <div style="display: flex; gap: 5px; margin-left: 10px;">
