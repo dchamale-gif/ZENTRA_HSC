@@ -902,10 +902,14 @@ const SaldoPacienteModule = {
         return `${prefix}-${timestamp}`;
     },
 
-    // Imprimir saldo del paciente
-    async imprimirSaldo(pacienteId) {
-        const saldo = this.state.saldosPacientes.find(s => String(s.pacienteId ?? s.paciente_id) === String(pacienteId));
-        const pacient = this.state.pacientes.find(p => String(p.id) === String(pacienteId));
+    // Imprimir el estado de cuenta detallado del paciente.
+    // Es el formato oficial: otros módulos lo reutilizan pasando el paciente y
+    // el saldo que ya tienen cargados (contexto) por si aquí aún no están.
+    async imprimirSaldo(pacienteId, contexto = {}) {
+        const saldo = this.state.saldosPacientes.find(s => String(s.pacienteId ?? s.paciente_id) === String(pacienteId))
+            || contexto.saldo;
+        const pacient = this.state.pacientes.find(p => String(p.id) === String(pacienteId))
+            || contexto.paciente;
 
         if (!saldo || !pacient) {
             this.showNotification('Datos de paciente no encontrados', 'error');
