@@ -6231,3 +6231,24 @@ tr.medicina-inactiva td {
 #medicineDetailsContent .detail-section {
     padding: 16px 20px;
 }
+
+/* ---------- Historia clínica: acciones de editar / borrar ---------- */
+.hc-acciones {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+}
+
+.hc-btn-borrar:hover {
+    color: var(--danger-color);
+    border-color: #f3b4b4;
+    background: #fdecec;
+}
+
+.prescripcion-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}

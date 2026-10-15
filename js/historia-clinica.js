@@ -14,6 +14,7 @@ const HistoriaClinicaModule = {
         medicos: [],
         pacienteSeleccionado: null,
         editingNoteId: null,
+        editingPrescripcionId: null,
         searchTerm: '',
         filtroEstado: 'activos', // activos, todos
         agendaWeekStart: new Date(), // Se inicializa correctamente en init()
@@ -386,13 +387,22 @@ const HistoriaClinicaModule = {
                                 return `
                                     <div class="medicamento-item">
                                         <div class="med-header">
-                                            <strong>${med?.nombre}</strong>
-                                            <span class="badge badge-success">Activo</span>
+                                            <strong>${med?.nombre || m.medicineName || 'Medicamento'}</strong>
+                                            <div class="hc-acciones">
+                                                <span class="badge badge-success">Activo</span>
+                                                <button type="button" class="btn btn-sm btn-secondary" onclick="HistoriaClinicaModule.editarMedicamento('${m.id}')" title="Editar medicamento" aria-label="Editar medicamento">
+                                                    <i class="fas fa-pen"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-secondary hc-btn-borrar" onclick="HistoriaClinicaModule.quitarMedicamento('${m.id}')" title="Quitar del tratamiento" aria-label="Quitar del tratamiento">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
                                         </div>
                                         <div class="med-details">
-                                            <p><strong>Dosis:</strong> ${m.dosis}</p>
-                                            <p><strong>Frecuencia:</strong> ${m.frecuencia}</p>
-                                            <p><strong>Desde:</strong> ${m.fechaInicio}</p>
+                                            <p><strong>Dosis:</strong> ${m.dosis || 'N/A'}</p>
+                                            <p><strong>Frecuencia:</strong> ${m.frecuencia || 'N/A'}</p>
+                                            ${m.duracion ? `<p><strong>Duración:</strong> ${m.duracion}</p>` : ''}
+                                            <p><strong>Desde:</strong> ${m.fechaInicio || m.fechaAsignacion || 'N/A'}</p>
                                             ${m.notas ? `<p><strong>Notas:</strong> ${m.notas}</p>` : ''}
                                         </div>
                                     </div>
@@ -416,6 +426,9 @@ const HistoriaClinicaModule = {
                                             <button type="button" class="btn btn-sm btn-secondary" onclick="HistoriaClinicaModule.editNote('${historia.pacienteId ?? historia.pacientId}', '${nota.id}')" title="Editar nota" aria-label="Editar nota">
                                                 <i class="fas fa-pen"></i>
                                             </button>
+                                            <button type="button" class="btn btn-sm btn-secondary hc-btn-borrar" onclick="HistoriaClinicaModule.deleteNote('${historia.pacienteId ?? historia.pacientId}', '${nota.id}')" title="Borrar nota" aria-label="Borrar nota">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
                                         </div>
                                     </div>
                                     <p>${nota.contenido}</p>
@@ -437,6 +450,14 @@ const HistoriaClinicaModule = {
                                         <strong>${presc.id}</strong>
                                         <span class="nota-fecha">${presc.fecha}</span>
                                         <span class="badge badge-primary">${presc.estado}</span>
+                                        <div class="hc-acciones">
+                                            <button type="button" class="btn btn-sm btn-secondary" onclick="HistoriaClinicaModule.editPrescripcion('${presc.id}')" title="Editar prescripción" aria-label="Editar prescripción">
+                                                <i class="fas fa-pen"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-secondary hc-btn-borrar" onclick="HistoriaClinicaModule.deletePrescripcion('${presc.id}')" title="Borrar prescripción" aria-label="Borrar prescripción">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
                                     </div>
                                     <p><strong>Diagnóstico:</strong> ${presc.diagnostico}</p>
                                     <div class="medicinas-prescripcion">
@@ -494,6 +515,8 @@ const HistoriaClinicaModule = {
         document.getElementById('saveNoteBtn').innerHTML = '<i class="fas fa-save"></i> Guardar Nota';
 
         // Limpiar formulario de prescripción
+        this.state.editingPrescripcionId = null;
+        document.getElementById('savePrescBtn').innerHTML = '<i class="fas fa-save"></i> Guardar Prescripción';
         prescForm.reset();
         document.getElementById('prescFecha').valueAsDate = new Date();
         document.getElementById('prescMedicinesTable').innerHTML = '';
@@ -541,6 +564,7 @@ const HistoriaClinicaModule = {
             document.body.style.overflow = 'auto';
         }
         this.state.editingNoteId = null;
+        this.state.editingPrescripcionId = null;
     },
 
     // Guardar nota
@@ -785,7 +809,8 @@ const HistoriaClinicaModule = {
         const tbody = document.getElementById('prescMedicinesTable');
         if (!tbody) return;
         
-        const rowId = 'med-' + Date.now();
+        this._rowSeq = (this._rowSeq || 0) + 1;
+        const rowId = `med-${Date.now()}-${this._rowSeq}`;
         const row = document.createElement('tr');
         row.id = rowId;
         row.style.borderBottom = '1px solid #ddd';
@@ -831,6 +856,7 @@ const HistoriaClinicaModule = {
         `;
         
         tbody.appendChild(row);
+        return row;
     },
 
     // Mostrar todas las medicinas disponibles (al hacer clic en la lupa)
@@ -1036,8 +1062,11 @@ const HistoriaClinicaModule = {
                 return;
             }
 
-            if (!Number.isFinite(cantidad) || cantidad <= 0 || cantidad > medicinaCatalogo.stock) {
-                this.showNotification(`⚠️ Cantidad inválida para ${medicinaNombre}. Stock disponible: ${medicinaCatalogo.stock}`, 'warning');
+            // Al editar, lo ya prescrito de esa medicina sigue disponible para esta receta
+            const yaPrescrito = Number(row.dataset.cantidadOriginal) || 0;
+            const disponible = (Number(medicinaCatalogo.stock) || 0) + yaPrescrito;
+            if (!Number.isFinite(cantidad) || cantidad <= 0 || cantidad > disponible) {
+                this.showNotification(`⚠️ Cantidad inválida para ${medicinaNombre}. Disponible: ${disponible}`, 'warning');
                 return;
             }
 
@@ -1045,7 +1074,9 @@ const HistoriaClinicaModule = {
                 this.showNotification(`⚠️ ${medicinaNombre} no tiene precio de venta configurado`, 'warning');
                 return;
             }
-            
+
+            // Una medicina ya prescrita conserva el precio con el que se cobró
+            const precioUnitario = Number(row.dataset.precioOriginal) || medicinaCatalogo.precioUnitario;
             medicinas.push({
                 medicineId,
                 medicinaNombre,
@@ -1053,9 +1084,13 @@ const HistoriaClinicaModule = {
                 dosis,
                 frecuencia,
                 duracion,
-                precioUnitario: medicinaCatalogo.precioUnitario,
-                subtotal: cantidad * medicinaCatalogo.precioUnitario
+                precioUnitario,
+                subtotal: cantidad * precioUnitario
             });
+        }
+
+        if (this.state.editingPrescripcionId) {
+            return this.actualizarPrescripcion(this.state.editingPrescripcionId, { medicoId, diagnostico, fecha, medicinas });
         }
         
         const prescripcionId = this.generateId('PRESC');
@@ -1095,6 +1130,343 @@ const HistoriaClinicaModule = {
             this.showNotification(`❌ No se guardó la prescripción: ${error.message}`, 'error');
         } finally {
             if (saveButton) saveButton.disabled = false;
+        }
+    },
+
+    // ============================================
+    // EDITAR / BORRAR NOTAS, MEDICAMENTOS Y PRESCRIPCIONES
+    // ============================================
+
+    getHistoria(pacienteId) {
+        return this.state.historiasClinicas.find(h =>
+            String(h.pacienteId ?? h.pacientId) === String(pacienteId)
+        );
+    },
+
+    getHistoriaDePrescripcion(prescripcionId) {
+        return this.state.historiasClinicas.find(h =>
+            (h.prescripciones || []).some(p => String(p.id) === String(prescripcionId))
+        );
+    },
+
+    guardarMedicamentosAsignados() {
+        localStorage.setItem('medicamentosAsignados', JSON.stringify(this.state.medicamentosAsignados));
+        if (typeof MedicinasModule !== 'undefined' && MedicinasModule.state) {
+            MedicinasModule.state.medicamentosAsignados = JSON.parse(JSON.stringify(this.state.medicamentosAsignados));
+        }
+    },
+
+    refrescarVistas(pacienteId) {
+        this.saveToDB();
+        this.renderHistoriaClinica();
+        this.renderPacientes();
+        if (typeof PacientesModule !== 'undefined' && document.getElementById('evolucionList')) {
+            PacientesModule.loadEvolucion(pacienteId);
+        }
+    },
+
+    async apiFetch(path, options = {}) {
+        const token = authManager?.getToken?.();
+        if (!token) throw new Error('No hay token de autenticación');
+        const response = await fetch(`${authManager.apiBaseUrl}${path}`, {
+            ...options,
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(options.headers || {}) }
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || result.success === false) {
+            throw new Error(result.error || result.message || `Error ${response.status}`);
+        }
+        return result;
+    },
+
+    // ---------- Notas ----------
+    deleteNote(pacienteId, noteId) {
+        const historia = this.getHistoria(pacienteId);
+        const nota = historia?.notas?.find(item => String(item.id) === String(noteId));
+        if (!nota) {
+            this.showNotification('No se encontró la nota', 'error');
+            return;
+        }
+        if (!confirm(`¿Borrar la nota "${nota.tipo}" del ${nota.fecha}? Esta acción no se puede deshacer.`)) return;
+
+        historia.notas = historia.notas.filter(item => String(item.id) !== String(noteId));
+        this.refrescarVistas(pacienteId);
+        this.showNotification('Nota borrada', 'success');
+    },
+
+    // ---------- Medicamentos en tratamiento ----------
+    editarMedicamento(asignacionId) {
+        const asignacion = this.state.medicamentosAsignados.find(a => String(a.id) === String(asignacionId));
+        if (!asignacion) {
+            this.showNotification('No se encontró el medicamento', 'error');
+            return;
+        }
+        const nombre = this.state.medicinas.find(m => String(m.id) === String(asignacion.medicineId))?.nombre
+            || asignacion.medicineName || 'Medicamento';
+        const e = valor => String(valor ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+        document.getElementById('hcMedicamentoModal')?.remove();
+        const modal = document.createElement('div');
+        modal.id = 'hcMedicamentoModal';
+        modal.className = 'modal';
+        modal.style.display = 'flex';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 480px;">
+                <div class="modal-header">
+                    <h2><i class="fas fa-pills" aria-hidden="true"></i> Editar medicamento</h2>
+                    <button type="button" class="modal-close" aria-label="Cerrar" onclick="document.getElementById('hcMedicamentoModal').remove()">&times;</button>
+                </div>
+                <form class="modal-body" id="hcMedicamentoForm">
+                    <p style="margin-bottom: 12px;"><strong>${e(nombre)}</strong></p>
+                    <div class="form-group"><label for="hcMedDosis">Dosis</label>
+                        <input id="hcMedDosis" class="form-input" value="${e(asignacion.dosis)}" placeholder="Ej: 50 mg"></div>
+                    <div class="form-group"><label for="hcMedFrecuencia">Frecuencia</label>
+                        <input id="hcMedFrecuencia" class="form-input" value="${e(asignacion.frecuencia)}" placeholder="Ej: Cada 8 h"></div>
+                    <div class="form-group"><label for="hcMedDuracion">Duración</label>
+                        <input id="hcMedDuracion" class="form-input" value="${e(asignacion.duracion)}" placeholder="Ej: 30 días"></div>
+                    <div class="form-group"><label for="hcMedNotas">Notas</label>
+                        <textarea id="hcMedNotas" class="form-input" rows="3">${e(asignacion.notas)}</textarea></div>
+                </form>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('hcMedicamentoModal').remove()">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="hcMedGuardar"><i class="fas fa-save" aria-hidden="true"></i> Guardar cambios</button>
+                </div>
+            </div>`;
+        document.body.appendChild(modal);
+        modal.querySelector('#hcMedGuardar').addEventListener('click', () => {
+            Object.assign(asignacion, {
+                dosis: document.getElementById('hcMedDosis').value.trim(),
+                frecuencia: document.getElementById('hcMedFrecuencia').value.trim(),
+                duracion: document.getElementById('hcMedDuracion').value.trim(),
+                notas: document.getElementById('hcMedNotas').value.trim()
+            });
+            // Mantener la misma información en la prescripción de origen
+            const historia = this.getHistoriaDePrescripcion(asignacion.prescripcionId);
+            const medPresc = historia?.prescripciones
+                ?.find(p => String(p.id) === String(asignacion.prescripcionId))
+                ?.medicinas?.find(m => String(m.medicineId) === String(asignacion.medicineId));
+            if (medPresc) Object.assign(medPresc, { dosis: asignacion.dosis, frecuencia: asignacion.frecuencia, duracion: asignacion.duracion });
+
+            this.guardarMedicamentosAsignados();
+            modal.remove();
+            this.refrescarVistas(asignacion.pacienteId);
+            this.showNotification('Medicamento actualizado', 'success');
+        });
+        document.getElementById('hcMedDosis').focus();
+    },
+
+    // Quita el medicamento del tratamiento activo. No toca el cobro: la medicina ya se entregó.
+    quitarMedicamento(asignacionId) {
+        const asignacion = this.state.medicamentosAsignados.find(a => String(a.id) === String(asignacionId));
+        if (!asignacion) {
+            this.showNotification('No se encontró el medicamento', 'error');
+            return;
+        }
+        const nombre = this.state.medicinas.find(m => String(m.id) === String(asignacion.medicineId))?.nombre
+            || asignacion.medicineName || 'este medicamento';
+        if (!confirm(`¿Quitar ${nombre} del tratamiento del paciente?\n\nEl cobro en el estado de cuenta no cambia. Para anularlo, edita o borra la prescripción.`)) return;
+
+        this.state.medicamentosAsignados = this.state.medicamentosAsignados.filter(a => String(a.id) !== String(asignacionId));
+        this.guardarMedicamentosAsignados();
+        this.refrescarVistas(asignacion.pacienteId);
+        this.showNotification('Medicamento quitado del tratamiento', 'success');
+    },
+
+    // ---------- Prescripciones ----------
+    async getCargosPrescripcion(prescripcionId, pacienteId) {
+        const result = await this.apiFetch(
+            `/api/billing/prescripciones/${encodeURIComponent(prescripcionId)}/cargos?paciente_id=${encodeURIComponent(pacienteId)}`
+        );
+        return result.data || [];
+    },
+
+    // Busca el cargo de una medicina de la prescripción (por id de medicina o por descripción)
+    tomarCargo(cargos, medicina) {
+        const index = cargos.findIndex(c =>
+            (c.medicina_id && String(c.medicina_id) === String(medicina.medicineId)) ||
+            c.descripcion === `Medicamento: ${medicina.medicinaNombre}`
+        );
+        return index === -1 ? null : cargos.splice(index, 1)[0];
+    },
+
+    async anularCargo(cargo, pacienteId, motivo) {
+        await this.apiFetch(`/api/billing/cargos/${encodeURIComponent(cargo.id)}/anular`, {
+            method: 'POST',
+            body: JSON.stringify({ paciente_id: pacienteId, motivo })
+        });
+    },
+
+    async editPrescripcion(prescripcionId) {
+        const historia = this.getHistoriaDePrescripcion(prescripcionId);
+        const presc = historia?.prescripciones?.find(p => String(p.id) === String(prescripcionId));
+        const pacienteId = historia?.pacienteId ?? historia?.pacientId;
+        const paciente = this.state.pacientes.find(p => String(p.id) === String(pacienteId));
+        if (!presc || !paciente) {
+            this.showNotification('No se encontró la prescripción', 'error');
+            return;
+        }
+
+        this.state.pacienteSeleccionado = JSON.parse(JSON.stringify(paciente));
+        await this.openNoteModal();
+        this.switchTab('prescripcion');
+        this.state.editingPrescripcionId = presc.id;
+
+        document.getElementById('noteModalTitle').innerHTML = `<i class="fas fa-prescription-bottle"></i> Editar prescripción ${presc.id}`;
+        document.getElementById('savePrescBtn').innerHTML = '<i class="fas fa-save"></i> Actualizar prescripción';
+        const medicoSelect = document.getElementById('prescMedico');
+        if (presc.medicoId && ![...medicoSelect.options].some(o => String(o.value) === String(presc.medicoId))) {
+            medicoSelect.add(new Option(`Médico ${presc.medicoId} (registro histórico)`, presc.medicoId));
+        }
+        medicoSelect.value = presc.medicoId || '';
+        document.getElementById('prescDiagnostico').value = presc.diagnostico || '';
+        document.getElementById('prescFecha').value = presc.fecha || '';
+
+        const tbody = document.getElementById('prescMedicinesTable');
+        tbody.innerHTML = '';
+        (presc.medicinas || []).forEach(med => {
+            const row = this.addMedicineRow();
+            if (!row) return;
+            row.dataset.cantidadOriginal = med.cantidad;
+            row.dataset.precioOriginal = med.precioUnitario;
+            row.querySelector('.med-search').value = med.medicinaNombre;
+            row.querySelector('.med-id').value = med.medicineId;
+            row.querySelector('.med-cantidad').value = med.cantidad;
+            row.querySelector('.med-dosis').value = med.dosis || '';
+            row.querySelector('.med-frecuencia').value = med.frecuencia || '';
+            row.querySelector('.med-duracion').value = med.duracion || '';
+        });
+    },
+
+    // Aplica la edición: ajusta, anula o crea cargos según cambien las cantidades
+    async actualizarPrescripcion(prescripcionId, cambios) {
+        const historia = this.getHistoriaDePrescripcion(prescripcionId);
+        const presc = historia?.prescripciones?.find(p => String(p.id) === String(prescripcionId));
+        if (!presc) {
+            this.showNotification('La prescripción ya no existe', 'error');
+            return;
+        }
+        const pacienteId = historia.pacienteId ?? historia.pacientId;
+        const saveButton = document.getElementById('savePrescBtn');
+        if (saveButton) saveButton.disabled = true;
+
+        try {
+            const cargos = await this.getCargosPrescripcion(prescripcionId, pacienteId);
+            const pendientes = [...cambios.medicinas];
+            const nuevas = [];
+            let ajustes = 0, anulados = 0;
+
+            // Medicinas que ya estaban: ajustar cantidad o anular si se quitaron
+            for (const original of presc.medicinas || []) {
+                const idx = pendientes.findIndex(m => String(m.medicineId) === String(original.medicineId));
+                const actual = idx === -1 ? null : pendientes.splice(idx, 1)[0];
+                const cargo = this.tomarCargo(cargos, original);
+
+                if (!actual) {
+                    if (cargo) {
+                        await this.anularCargo(cargo, pacienteId, `Medicina retirada de la prescripción ${prescripcionId}`);
+                        anulados++;
+                    }
+                } else if (!cargo) {
+                    nuevas.push(actual); // su cargo ya no existe: se vuelve a cobrar
+                } else if (Number(cargo.cantidad) !== Number(actual.cantidad)) {
+                    await this.apiFetch(`/api/billing/cargos/${encodeURIComponent(cargo.id)}`, {
+                        method: 'PUT',
+                        body: JSON.stringify({ paciente_id: pacienteId, cantidad: actual.cantidad, precio_unitario: cargo.precio_unitario })
+                    });
+                    actual.precioUnitario = cargo.precio_unitario;
+                    actual.subtotal = actual.cantidad * cargo.precio_unitario;
+                    ajustes++;
+                }
+            }
+            nuevas.push(...pendientes);
+
+            // Medicinas agregadas: se cobran en una factura ligada a la misma prescripción
+            if (nuevas.length) {
+                await this.registrarCargoPrescripcion({ id: prescripcionId, pacienteId, diagnostico: cambios.diagnostico, medicinas: nuevas });
+            }
+
+            Object.assign(presc, {
+                medicoId: cambios.medicoId,
+                diagnostico: cambios.diagnostico,
+                fecha: cambios.fecha,
+                medicinas: cambios.medicinas
+            });
+            const enEstado = this.state.prescripciones.find(p => String(p.id) === String(prescripcionId));
+            if (enEstado) Object.assign(enEstado, presc);
+
+            // Sincronizar los medicamentos en tratamiento de esta prescripción
+            const idsActuales = new Set(cambios.medicinas.map(m => String(m.medicineId)));
+            this.state.medicamentosAsignados = this.state.medicamentosAsignados.filter(a =>
+                a.prescripcionId !== prescripcionId || idsActuales.has(String(a.medicineId))
+            );
+            cambios.medicinas.forEach(m => {
+                const asignacion = this.state.medicamentosAsignados.find(a =>
+                    a.prescripcionId === prescripcionId && String(a.medicineId) === String(m.medicineId)
+                );
+                if (asignacion) {
+                    Object.assign(asignacion, { cantidad: m.cantidad, dosis: m.dosis, frecuencia: m.frecuencia, duracion: m.duracion, precioUnitario: m.precioUnitario, subtotal: m.subtotal });
+                }
+            });
+            this.registrarMedicamentosAsignados({ ...presc, pacienteId }); // agrega las nuevas
+
+            this.closeNoteModal();
+            this.refrescarVistas(pacienteId);
+            const detalle = [ajustes && `${ajustes} cargo(s) ajustado(s)`, anulados && `${anulados} anulado(s)`, nuevas.length && `${nuevas.length} medicina(s) cobrada(s)`]
+                .filter(Boolean).join(', ');
+            this.showNotification(`✅ Prescripción actualizada${detalle ? `: ${detalle}` : ''}`, 'success');
+
+            if (typeof SaldoPacienteFacturacion !== 'undefined' && SaldoPacienteFacturacion.refrescarSaldoDelPaciente) {
+                await SaldoPacienteFacturacion.refrescarSaldoDelPaciente(pacienteId);
+            }
+        } catch (error) {
+            console.error('Error actualizando la prescripción:', error);
+            this.showNotification(`❌ No se pudo actualizar la prescripción: ${error.message}. Revisa el estado de cuenta del paciente.`, 'error');
+        } finally {
+            if (saveButton) saveButton.disabled = false;
+        }
+    },
+
+    // Borra la prescripción y anula sus cargos en el estado de cuenta
+    async deletePrescripcion(prescripcionId) {
+        const historia = this.getHistoriaDePrescripcion(prescripcionId);
+        const presc = historia?.prescripciones?.find(p => String(p.id) === String(prescripcionId));
+        if (!presc) {
+            this.showNotification('No se encontró la prescripción', 'error');
+            return;
+        }
+        const pacienteId = historia.pacienteId ?? historia.pacientId;
+
+        let cargos;
+        try {
+            cargos = await this.getCargosPrescripcion(prescripcionId, pacienteId);
+        } catch (error) {
+            this.showNotification(`❌ No se pudieron consultar los cargos: ${error.message}`, 'error');
+            return;
+        }
+        const total = cargos.reduce((suma, c) => suma + (Number(c.total) || 0), 0);
+        const aviso = cargos.length
+            ? `Se anularán ${cargos.length} cargo(s) por ${formatQ(total)} en el estado de cuenta.`
+            : 'No tiene cargos activos en el estado de cuenta.';
+        if (!confirm(`¿Borrar la prescripción ${prescripcionId} (${presc.diagnostico})?\n\n${aviso}\nEsta acción no se puede deshacer.`)) return;
+
+        try {
+            for (const cargo of cargos) {
+                await this.anularCargo(cargo, pacienteId, `Prescripción ${prescripcionId} eliminada de la historia clínica`);
+            }
+        } catch (error) {
+            this.showNotification(`❌ No se pudo anular un cargo: ${error.message}. La prescripción no se borró.`, 'error');
+            return;
+        }
+
+        historia.prescripciones = historia.prescripciones.filter(p => String(p.id) !== String(prescripcionId));
+        this.state.prescripciones = this.state.prescripciones.filter(p => String(p.id) !== String(prescripcionId));
+        this.state.medicamentosAsignados = this.state.medicamentosAsignados.filter(a => a.prescripcionId !== prescripcionId);
+        this.guardarMedicamentosAsignados();
+        this.refrescarVistas(pacienteId);
+        this.showNotification(`Prescripción borrada${cargos.length ? ` y ${formatQ(total)} anulados del estado de cuenta` : ''}`, 'success');
+
+        if (typeof SaldoPacienteFacturacion !== 'undefined' && SaldoPacienteFacturacion.refrescarSaldoDelPaciente) {
+            await SaldoPacienteFacturacion.refrescarSaldoDelPaciente(pacienteId);
         }
     },
 

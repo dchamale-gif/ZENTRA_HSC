@@ -51,6 +51,14 @@ router.get('/estado-cuenta-detallado/:paciente_id', (req, res) => {
 });
 
 /**
+ * GET /api/billing/prescripciones/:prescripcion_id/cargos?paciente_id=
+ * Cargos activos generados por una prescripción de la historia clínica
+ */
+router.get('/prescripciones/:prescripcion_id/cargos', (req, res) => {
+    billingMejoradoController.getCargosPrescripcion(req, res);
+});
+
+/**
  * POST /api/billing/cargos/:item_id/anular
  * Anular un concepto existente y ajustar el saldo de forma auditable
  */

@@ -646,6 +646,46 @@ class BillingMejoradoController {
     }
 
     /**
+     * Cargos activos (no anulados) generados por una prescripción de la historia clínica.
+     * Las facturas de prescripción se crean con observaciones "Prescripción <id>: ...".
+     */
+    async getCargosPrescripcion(req, res) {
+        try {
+            const prescripcionId = String(req.params.prescripcion_id || '').trim();
+            const pacienteId = String(req.query.paciente_id || '').trim();
+            if (!prescripcionId || !pacienteId) {
+                return res.status(400).json({ success: false, message: 'Prescripción y paciente son requeridos' });
+            }
+
+            const patron = `Prescripción ${prescripcionId.replace(/[\\%_]/g, '\\$&')}:%`;
+            const result = await db.query(`
+                SELECT vi.id, vi.venta_id, vi.descripcion, vi.cantidad, vi.precio_unitario,
+                       vi.total, vi.medicina_id, v.numero_factura
+                FROM venta_items vi
+                JOIN ventas v ON v.id = vi.venta_id
+                WHERE v.paciente_id = $1
+                  AND v.observaciones LIKE $2
+                  AND COALESCE(vi.anulado, FALSE) = FALSE
+                ORDER BY v.fecha, vi.id`,
+                [pacienteId, patron]
+            );
+
+            res.json({
+                success: true,
+                data: result.rows.map(row => ({
+                    ...row,
+                    cantidad: Number(row.cantidad) || 0,
+                    precio_unitario: Number(row.precio_unitario) || 0,
+                    total: Number(row.total) || 0
+                }))
+            });
+        } catch (error) {
+            console.error('Error al obtener cargos de prescripción:', error);
+            res.status(500).json({ success: false, message: 'Error al obtener los cargos de la prescripción', error: error.message });
+        }
+    }
+
+    /**
      * Anular un cargo existente sin eliminar su registro contable
      */
     async anularCargo(req, res) {
