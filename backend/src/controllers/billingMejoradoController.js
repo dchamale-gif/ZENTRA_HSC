@@ -769,10 +769,10 @@ class BillingMejoradoController {
             );
             await client.query(`
                 UPDATE ventas
-                SET subtotal = $1, descuento = $2, impuesto = $3, total = $4,
-                    subtotal_original = $1, total_descuentos = $2,
-                    base_impuesto = $5, total_impuestos = $3,
-                    estado = CASE WHEN $4 = 0 THEN 'anulada' ELSE estado END,
+                SET subtotal = $1::numeric, descuento = $2::numeric, impuesto = $3::numeric, total = $4::numeric,
+                    subtotal_original = $1::numeric, total_descuentos = $2::numeric,
+                    base_impuesto = $5::numeric, total_impuestos = $3::numeric,
+                    estado = CASE WHEN $4::numeric = 0 THEN 'anulada' ELSE estado END,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = $6`,
                 [nuevoSubtotal, nuevosDescuentos, nuevosImpuestos, nuevoTotal, nuevaBase, cargo.venta_id]
