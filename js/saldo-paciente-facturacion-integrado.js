@@ -439,12 +439,14 @@ const SaldoPacienteFacturacion = {
 
     // Calcula el IVA sobre el monto neto (descontando cualquier impuesto ya
     // registrado en la cuenta) para no cobrarlo dos veces.
-    calcularMontosIVA(cuentaKey, monto, impuestosYaRegistrados = 0) {
-        const base = Math.max(0, (Number(monto) || 0) - (Number(impuestosYaRegistrados) || 0));
+    // La opción de IVA es informativa: solo muestra el IVA contenido en el
+    // monto (monto × 12/112). Nunca se suma al total.
+    calcularMontosIVA(cuentaKey, monto) {
+        const total = Math.max(0, Number(monto) || 0);
         const aplica = this.incluyeIVA(cuentaKey);
         const porcentaje = Number(this.state.config.iva) || 0;
-        const iva = aplica ? base * (porcentaje / 100) : 0;
-        return { aplica, porcentaje, base, iva, total: base + iva };
+        const iva = aplica ? Math.round(total * porcentaje / (100 + porcentaje) * 100) / 100 : 0;
+        return { aplica, porcentaje, base: Math.round((total - iva) * 100) / 100, iva, total };
     },
 
     renderBotonIVA(cuentaKey) {
@@ -489,7 +491,7 @@ const SaldoPacienteFacturacion = {
                     <td class="text-right"><strong>${formatQ(s.total_deuda)}</strong></td>
                     <td class="text-right" style="color: ${s.saldo_pendiente > 0 ? '#e74c3c' : '#27ae60'};">
                         <strong>${formatQ(montosIVA.total)}</strong>
-                        ${montosIVA.aplica ? `<br><small style="color: #7f8c8d;">IVA ${montosIVA.porcentaje}%: ${formatQ(montosIVA.iva)}</small>` : ''}
+                        ${montosIVA.aplica ? `<br><small style="color: #7f8c8d;">Incluye IVA ${montosIVA.porcentaje}%: ${formatQ(montosIVA.iva)}</small>` : ''}
                     </td>
                     <td class="text-center"><span class="badge ${badgeClass}">${estado}</span></td>
                     <td><small>${fecha}</small></td>
