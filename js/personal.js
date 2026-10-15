@@ -18,7 +18,15 @@ const PersonalModule = {
         searchTerm: '',
         filtroEspecialidad: '',
         filtroEstado: 'activos',
-        personalSeleccionado: null
+        personalSeleccionado: null,
+        // Imágenes del formulario: { valor: dataURL|null, cambiado: bool }
+        imagenes: {}
+    },
+
+    IMAGENES: {
+        foto_perfil: { maxLado: 600, calidad: 0.82 },
+        dpi_frente: { maxLado: 1600, calidad: 0.85 },
+        dpi_reverso: { maxLado: 1600, calidad: 0.85 }
     },
 
     // Inicializar el módulo
@@ -30,6 +38,13 @@ const PersonalModule = {
 
     // Configurar event listeners
     setupEventListeners() {
+        this.setupImagenes();
+
+        const dpiInput = document.getElementById('personalDPI');
+        dpiInput?.addEventListener('input', () => {
+            dpiInput.value = this.formatearDPI(dpiInput.value);
+        });
+
         const searchInput = document.getElementById('searchPersonal');
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
@@ -87,8 +102,114 @@ const PersonalModule = {
             horarioFin: String(personal.horario_fin ?? personal.horarioFin ?? '16:00').slice(0, 5),
             diasDisponibles: personal.dias_disponibles ?? personal.diasDisponibles ?? [],
             estado: personal.estado || 'activo',
+            dpi: personal.dpi || '',
+            fotoPerfil: personal.foto_perfil ?? personal.fotoPerfil ?? null,
+            tieneDpiFrente: Boolean(personal.tiene_dpi_frente ?? personal.tieneDpiFrente),
+            tieneDpiReverso: Boolean(personal.tiene_dpi_reverso ?? personal.tieneDpiReverso),
             createdAt: personal.created_at ?? personal.createdAt ?? ''
         };
+    },
+
+    escapeHTML(valor) {
+        return String(valor ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    },
+
+    // ---------- DPI ----------
+    formatearDPI(valor) {
+        const d = String(valor || '').replace(/\D/g, '').slice(0, 13);
+        return [d.slice(0, 4), d.slice(4, 9), d.slice(9, 13)].filter(Boolean).join(' ');
+    },
+
+    // ---------- Imágenes ----------
+    setupImagenes() {
+        Object.keys(this.IMAGENES).forEach(campo => {
+            const tile = document.querySelector(`.foto-tile[data-imagen="${campo}"]`);
+            if (!tile) return;
+            const input = tile.querySelector('input[type="file"]');
+            input.addEventListener('change', async () => {
+                const file = input.files?.[0];
+                input.value = '';
+                if (!file) return;
+                if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+                    showNotification('Usa una imagen JPG, PNG o WEBP', 'error');
+                    return;
+                }
+                tile.classList.add('cargando');
+                try {
+                    const { maxLado, calidad } = this.IMAGENES[campo];
+                    const dataURL = await this.comprimirImagen(file, maxLado, calidad);
+                    this.setImagen(campo, dataURL, true);
+                } catch (error) {
+                    console.error('Error procesando imagen:', error);
+                    showNotification('No se pudo leer la imagen. Prueba con otra.', 'error');
+                } finally {
+                    tile.classList.remove('cargando');
+                }
+            });
+            tile.querySelector('.foto-tile-quitar').addEventListener('click', () => this.setImagen(campo, null, true));
+        });
+    },
+
+    // Reduce la imagen y la convierte a JPEG base64 (data URL)
+    comprimirImagen(file, maxLado, calidad) {
+        return new Promise((resolve, reject) => {
+            const url = URL.createObjectURL(file);
+            const img = new Image();
+            img.onload = () => {
+                const escala = Math.min(1, maxLado / Math.max(img.width, img.height));
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.round(img.width * escala);
+                canvas.height = Math.round(img.height * escala);
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#fff'; // fondo blanco para PNG con transparencia
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                URL.revokeObjectURL(url);
+                resolve(canvas.toDataURL('image/jpeg', calidad));
+            };
+            img.onerror = () => {
+                URL.revokeObjectURL(url);
+                reject(new Error('Imagen inválida'));
+            };
+            img.src = url;
+        });
+    },
+
+    setImagen(campo, valor, cambiado = false) {
+        this.state.imagenes[campo] = { valor, cambiado: cambiado || this.state.imagenes[campo]?.cambiado || false };
+        const tile = document.querySelector(`.foto-tile[data-imagen="${campo}"]`);
+        if (!tile) return;
+        const img = tile.querySelector('img');
+        img.hidden = !valor;
+        if (valor) img.src = valor; else img.removeAttribute('src');
+        tile.querySelector('.foto-tile-vacio').hidden = Boolean(valor);
+        tile.querySelector('.foto-tile-quitar').hidden = !valor;
+        tile.querySelector('.foto-tile-acciones label span').textContent = valor ? 'Cambiar' : 'Subir';
+        tile.classList.toggle('con-imagen', Boolean(valor));
+    },
+
+    resetImagenes() {
+        this.state.imagenes = {};
+        Object.keys(this.IMAGENES).forEach(campo => this.setImagen(campo, null));
+        this.state.imagenes = {};
+    },
+
+    async fetchDocumentos(personalId) {
+        const token = this.getAuthToken();
+        if (!token) throw new Error('No hay token de autenticación');
+        const response = await fetch(this.getApiUrl(`/${personalId}/documentos`), {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || `Error ${response.status}`);
+        return data.documentos || {};
+    },
+
+    avatarHTML(personal, tamano = 36) {
+        const iniciales = `${(personal.nombre || '?')[0]}${(personal.apellidoPaterno || '')[0] || ''}`.toUpperCase();
+        return personal.fotoPerfil
+            ? `<img class="personal-avatar" src="${personal.fotoPerfil}" alt="" style="width:${tamano}px;height:${tamano}px">`
+            : `<span class="personal-avatar personal-avatar-iniciales" style="width:${tamano}px;height:${tamano}px" aria-hidden="true">${this.escapeHTML(iniciales)}</span>`;
     },
 
     // Cargar datos desde API
@@ -191,7 +312,13 @@ const PersonalModule = {
 
     // Guardar datos a localStorage
     savePersonalToDB() {
-        localStorage.setItem('personalMedico', JSON.stringify(this.state.personal));
+        // Sin fotos: localStorage tiene ~5 MB y las imágenes viven en el servidor
+        const sinFotos = this.state.personal.map(({ fotoPerfil, ...resto }) => resto);
+        try {
+            localStorage.setItem('personalMedico', JSON.stringify(sinFotos));
+        } catch (error) {
+            console.warn('No se pudo guardar el respaldo local del personal:', error);
+        }
     },
 
     savDisponibilidadToDB() {
@@ -208,8 +335,10 @@ const PersonalModule = {
             // Filtro por búsqueda
             const searchLower = this.state.searchTerm.toLowerCase();
             const nombreCompleto = `${p.nombre || ''} ${p.apellidoPaterno || ''}`.toLowerCase();
+            const dpiBuscado = searchLower.replace(/\D/g, '');
             const busquedaMatch = nombreCompleto.includes(searchLower) ||
-                                p.email.toLowerCase().includes(searchLower) ||
+                                (p.email || '').toLowerCase().includes(searchLower) ||
+                                (dpiBuscado.length > 0 && (p.dpi || '').includes(dpiBuscado)) ||
                                 (p.numeroColegiado || '').toLowerCase().includes(searchLower);
 
             // Filtro por especialidad
@@ -271,7 +400,13 @@ const PersonalModule = {
                     onmouseover="this.style.background='#f5f5f5'"
                     onmouseout="this.style.background='white'">
                     <td style="padding: 12px 15px; font-weight: 600;">
-                        ${personal.nombre} ${personal.apellidoPaterno || ''} ${personal.apellidoMaterno || ''}
+                        <div class="personal-nombre-celda">
+                            ${this.avatarHTML(personal)}
+                            <div>
+                                <div>${this.escapeHTML(`${personal.nombre} ${personal.apellidoPaterno || ''} ${personal.apellidoMaterno || ''}`)}</div>
+                                ${personal.dpi ? `<small class="personal-dpi">DPI ${this.formatearDPI(personal.dpi)}</small>` : ''}
+                            </div>
+                        </div>
                     </td>
                     <td style="padding: 12px 15px;">
                         <span style="background: #f0f4f8; color: #667eea; padding: 4px 8px; border-radius: 3px; font-size: 12px;">
@@ -342,6 +477,8 @@ const PersonalModule = {
         document.getElementById('personalHorarioFin').value = '16:00';
         document.getElementById('personalEstado').value = 'activo';
         this.setDiasLaborales(['lunes', 'martes', 'miercoles', 'jueves', 'viernes']);
+        document.getElementById('personalDPI').value = '';
+        this.resetImagenes();
 
         // Cargar especialidades
         this.cargarEspecialidades();
@@ -392,6 +529,7 @@ const PersonalModule = {
         const horarioFin = document.getElementById('personalHorarioFin')?.value;
         const estado = document.getElementById('personalEstado')?.value;
         const diasLaborales = this.getDiasLaboralesSeleccionados();
+        const dpi = (document.getElementById('personalDPI')?.value || '').replace(/\D/g, '');
 
         // Validaciones
         if (!nombre) {
@@ -421,6 +559,11 @@ const PersonalModule = {
 
         if (!numeroColegiado) {
             showNotification('El número de colegiado es obligatorio', 'error');
+            return;
+        }
+
+        if (dpi && dpi.length !== 13) {
+            showNotification('El DPI debe tener 13 dígitos', 'error');
             return;
         }
 
@@ -470,13 +613,19 @@ const PersonalModule = {
                     horario_inicio: horarioInicio,
                     horario_fin: horarioFin,
                     dias_disponibles: diasLaborales,
-                    estado
+                    estado,
+                    dpi: dpi || null,
+                    // Solo se envían las imágenes que cambiaron (null = quitar)
+                    ...Object.fromEntries(Object.entries(this.state.imagenes)
+                        .filter(([, img]) => img.cambiado)
+                        .map(([campo, img]) => [campo, img.valor]))
                 })
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || `Error ${response.status}`);
 
             const personalGuardado = this.normalizePersonal(data.personal);
+            this.state.imagenes = {};
             if (personalId) {
                 this.state.personal = this.state.personal.map(personal =>
                     String(personal.id) === String(personalId) ? personalGuardado : personal
@@ -514,6 +663,18 @@ const PersonalModule = {
                 </div>
                 <div class="modal-body">
                     <div style="display: grid; gap: 15px;">
+                        <div class="personal-detalle-encabezado">
+                            ${this.avatarHTML(personal, 88)}
+                            <div>
+                                <h3>${this.escapeHTML(`${personal.nombre} ${personal.apellidoPaterno} ${personal.apellidoMaterno || ''}`)}</h3>
+                                <p>DPI: ${personal.dpi ? this.formatearDPI(personal.dpi) : 'No registrado'}</p>
+                            </div>
+                        </div>
+                        <div class="personal-detalle-dpi">
+                            ${personal.tieneDpiFrente || personal.tieneDpiReverso
+                                ? '<p class="form-hint">Cargando fotografías del DPI…</p>'
+                                : '<p class="form-hint">Sin fotografías del DPI.</p>'}
+                        </div>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                             <div style="background: #f5f5f5; padding: 12px; border-radius: 4px;">
                                 <strong style="color: #667eea;">Nombre Completo</strong><br>
@@ -572,6 +733,17 @@ const PersonalModule = {
         `;
 
         document.body.appendChild(modal);
+
+        if (personal.tieneDpiFrente || personal.tieneDpiReverso) {
+            const contenedor = modal.querySelector('.personal-detalle-dpi');
+            this.fetchDocumentos(personalId)
+                .then(docs => {
+                    const figura = (src, titulo) => src
+                        ? `<figure><img src="${src}" alt="${titulo}"><figcaption>${titulo}</figcaption></figure>` : '';
+                    contenedor.innerHTML = figura(docs.dpi_frente, 'DPI · frente') + figura(docs.dpi_reverso, 'DPI · reverso');
+                })
+                .catch(() => { contenedor.innerHTML = '<p class="form-hint">No se pudieron cargar las fotografías del DPI.</p>'; });
+        }
     },
 
     // Editar personal
@@ -595,6 +767,19 @@ const PersonalModule = {
         document.getElementById('personalHorarioFin').value = personal.horarioFin;
         document.getElementById('personalEstado').value = personal.estado;
         this.setDiasLaborales(personal.diasDisponibles);
+        document.getElementById('personalDPI').value = this.formatearDPI(personal.dpi);
+        this.resetImagenes();
+        this.setImagen('foto_perfil', personal.fotoPerfil);
+        if (personal.tieneDpiFrente || personal.tieneDpiReverso) {
+            this.fetchDocumentos(personalId)
+                .then(docs => {
+                    // No pisar una imagen que el usuario ya cambió mientras cargaba
+                    ['dpi_frente', 'dpi_reverso'].forEach(campo => {
+                        if (!this.state.imagenes[campo]?.cambiado) this.setImagen(campo, docs[campo] || null);
+                    });
+                })
+                .catch(error => showNotification(`No se pudieron cargar las fotos del DPI: ${error.message}`, 'error'));
+        }
 
         // Guardar ID para edición
         const modal = document.getElementById('personalModal');

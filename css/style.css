@@ -6007,3 +6007,186 @@ tbody tr:hover {
         padding: 4px;
     }
 }
+
+/* ---------- Personal médico: foto y DPI ---------- */
+.foto-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: 12px;
+    margin-top: 4px;
+}
+
+.foto-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+
+.foto-tile-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.foto-tile-drop {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 85.6 / 54; /* proporción de un DPI */
+    border: 1.5px dashed #c6d3d6;
+    border-radius: 10px;
+    background: var(--bg-light);
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.foto-tile-perfil .foto-tile-drop {
+    aspect-ratio: 1;
+}
+
+.foto-tile-drop:hover {
+    border-color: var(--primary-color);
+    background: var(--primary-soft);
+}
+
+.foto-tile.con-imagen .foto-tile-drop {
+    border-style: solid;
+    border-color: var(--border-color);
+    background: #fff;
+}
+
+.foto-tile-drop img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.foto-tile:not(.foto-tile-perfil) .foto-tile-drop img {
+    object-fit: contain;
+}
+
+.foto-tile-vacio {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 8px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-gray);
+}
+
+.foto-tile-vacio i {
+    font-size: 22px;
+    color: #9fb0b5;
+}
+
+.foto-tile.cargando .foto-tile-drop {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.foto-tile-acciones {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.foto-tile-acciones .btn {
+    cursor: pointer;
+}
+
+.personal-nombre-celda {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.personal-avatar {
+    flex-shrink: 0;
+    border-radius: 50%;
+    object-fit: cover;
+    background: var(--bg-light);
+}
+
+.personal-avatar-iniciales {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary-soft);
+    color: var(--primary-color);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.personal-dpi {
+    font-weight: 400;
+    color: var(--text-gray);
+    font-variant-numeric: tabular-nums;
+}
+
+.personal-detalle-encabezado {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.personal-detalle-encabezado .personal-avatar-iniciales {
+    font-size: 28px;
+}
+
+.personal-detalle-encabezado h3 {
+    margin: 0 0 4px;
+    font-size: 18px;
+}
+
+.personal-detalle-encabezado p {
+    margin: 0;
+    color: var(--text-gray);
+    font-variant-numeric: tabular-nums;
+}
+
+.personal-detalle-dpi {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+}
+
+.personal-detalle-dpi figure {
+    margin: 0;
+}
+
+.personal-detalle-dpi img {
+    width: 100%;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.personal-detalle-dpi figcaption {
+    font-size: 12px;
+    color: var(--text-gray);
+    margin-top: 4px;
+}
+
+@media (max-width: 640px) {
+    .foto-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .foto-tile-perfil {
+        grid-column: 1 / -1;
+        max-width: 200px;
+    }
+}
+
+.foto-tile [hidden] {
+    display: none !important;
+}
+
+.foto-tile-acciones .btn {
+    flex: 1 1 auto;
+    padding: 6px 10px;
+}

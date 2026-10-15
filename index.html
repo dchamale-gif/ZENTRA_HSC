@@ -4808,6 +4808,56 @@
                     </div>
                 </div>
 
+                <div class="form-section-title">Fotografía y DPI</div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="personalDPI">Número de DPI</label>
+                        <input type="text" id="personalDPI" class="form-input" inputmode="numeric" maxlength="15" placeholder="0000 00000 0000" autocomplete="off">
+                        <small class="form-hint">13 dígitos, como aparece en el documento.</small>
+                    </div>
+                </div>
+
+                <div class="foto-grid">
+                    <div class="foto-tile foto-tile-perfil" data-imagen="foto_perfil">
+                        <span class="foto-tile-label">Foto de la persona</span>
+                        <label class="foto-tile-drop" for="personalImg_foto_perfil">
+                            <img alt="" hidden>
+                            <span class="foto-tile-vacio"><i class="fas fa-user" aria-hidden="true"></i><span>Toca para subir o tomar foto</span></span>
+                        </label>
+                        <input type="file" id="personalImg_foto_perfil" accept="image/jpeg,image/png,image/webp" hidden>
+                        <div class="foto-tile-acciones">
+                            <label class="btn btn-secondary btn-small" for="personalImg_foto_perfil"><i class="fas fa-upload" aria-hidden="true"></i> <span>Subir</span></label>
+                            <button type="button" class="btn btn-secondary btn-small foto-tile-quitar" hidden><i class="fas fa-trash" aria-hidden="true"></i> Quitar</button>
+                        </div>
+                    </div>
+                    <div class="foto-tile" data-imagen="dpi_frente">
+                        <span class="foto-tile-label">DPI · frente</span>
+                        <label class="foto-tile-drop" for="personalImg_dpi_frente">
+                            <img alt="" hidden>
+                            <span class="foto-tile-vacio"><i class="fas fa-id-card" aria-hidden="true"></i><span>Fotografía del frente</span></span>
+                        </label>
+                        <input type="file" id="personalImg_dpi_frente" accept="image/jpeg,image/png,image/webp" hidden>
+                        <div class="foto-tile-acciones">
+                            <label class="btn btn-secondary btn-small" for="personalImg_dpi_frente"><i class="fas fa-upload" aria-hidden="true"></i> <span>Subir</span></label>
+                            <button type="button" class="btn btn-secondary btn-small foto-tile-quitar" hidden><i class="fas fa-trash" aria-hidden="true"></i> Quitar</button>
+                        </div>
+                    </div>
+                    <div class="foto-tile" data-imagen="dpi_reverso">
+                        <span class="foto-tile-label">DPI · reverso</span>
+                        <label class="foto-tile-drop" for="personalImg_dpi_reverso">
+                            <img alt="" hidden>
+                            <span class="foto-tile-vacio"><i class="fas fa-id-card" aria-hidden="true"></i><span>Fotografía del reverso</span></span>
+                        </label>
+                        <input type="file" id="personalImg_dpi_reverso" accept="image/jpeg,image/png,image/webp" hidden>
+                        <div class="foto-tile-acciones">
+                            <label class="btn btn-secondary btn-small" for="personalImg_dpi_reverso"><i class="fas fa-upload" aria-hidden="true"></i> <span>Subir</span></label>
+                            <button type="button" class="btn btn-secondary btn-small foto-tile-quitar" hidden><i class="fas fa-trash" aria-hidden="true"></i> Quitar</button>
+                        </div>
+                    </div>
+                </div>
+                <p class="form-hint">JPG, PNG o WEBP. Las imágenes se reducen automáticamente antes de guardarse.</p>
+
                 <div class="form-section-title">Información Profesional</div>
 
                 <div class="form-row">
