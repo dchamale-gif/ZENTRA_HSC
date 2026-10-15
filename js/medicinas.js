@@ -37,10 +37,8 @@ const MedicinasModule = {
             newMedicineBtn.addEventListener('click', () => this.openMedicineModal());
         }
 
-        const saveMedicineBtn = document.getElementById('saveMedicineBtn');
-        if (saveMedicineBtn) {
-            saveMedicineBtn.addEventListener('click', () => this.saveMedicine());
-        }
+        // El botón Guardar ya llama a saveMedicine() desde su onclick en el HTML;
+        // agregar otro listener guardaba la medicina dos veces.
 
         const searchInput = document.getElementById('searchMedicine');
         if (searchInput) {
@@ -174,7 +172,7 @@ const MedicinasModule = {
                 }
             };
             const [response, articulosResponse] = await Promise.all([
-                fetch(`${authManager.apiBaseUrl}/api/medicinas`, requestOptions),
+                fetch(`${authManager.apiBaseUrl}/api/medicinas?activo=todos`, requestOptions),
                 fetch(`${authManager.apiBaseUrl}/api/codigos-articulos`, requestOptions).catch(() => null)
             ]);
 
@@ -185,7 +183,8 @@ const MedicinasModule = {
             const data = await response.json();
             const articulosData = articulosResponse?.ok ? await articulosResponse.json() : { articulos: [] };
             const articulos = articulosData.articulos || [];
-            this.state.medicinas = this.mergeMedicineClassifications(data.medicinas || [], articulos);
+            this.state.medicinas = this.mergeMedicineClassifications(data.medicinas || [], articulos)
+                .map(medicina => this.normalizarMedicina(medicina));
             this.extractFamilias(articulos);
             this.renderMedicines();
             
@@ -196,6 +195,34 @@ const MedicinasModule = {
             this.state.medicinas = [];
             this.renderMedicines();
         }
+    },
+
+    // Agrega a cada medicina de la API los nombres de campo que usa este módulo
+    normalizarMedicina(m) {
+        const cantidad = Number(m.cantidad ?? m.stock) || 0;
+        const cantidadMinima = Number(m.cantidad_minima ?? m.stock_minimo) || 0;
+        const precio = Number(m.precio_venta ?? m.precio) || 0;
+        const vencimiento = m.fecha_vencimiento ? String(m.fecha_vencimiento).slice(0, 10) : '';
+        const activo = m.activo !== false;
+        return {
+            ...m,
+            codigoBarra: m.codigo_barra || m.codigo_externo || '',
+            principioActivo: m.principio_activo || '',
+            unidadDosis: m.unidad_dosis || '',
+            contraindicaciones: m.contraindicaciones || '',
+            efectosSecundarios: m.efectos_secundarios || '',
+            cantidad,
+            stock: cantidad,
+            cantidadMinima,
+            stock_minimo: cantidadMinima,
+            precio,
+            precioUnitario: precio,
+            fecha_vencimiento: vencimiento,
+            fechaVencimiento: vencimiento,
+            fechaRegistro: m.created_at ? formatFecha(m.created_at) : 'N/A',
+            activo,
+            activa: activo
+        };
     },
 
     mergeMedicineClassifications(medicinas, articulos) {
@@ -458,26 +485,39 @@ const MedicinasModule = {
 
         const id = document.getElementById('medicineId').value.trim();
         const codigoBarra = document.getElementById('medicineCodigoBarra').value.trim();
+        if (this.guardandoMedicina) return;
+        this.guardandoMedicina = true;
+        const saveBtn = document.getElementById('saveMedicineBtn');
+        if (saveBtn) saveBtn.disabled = true;
         
         try {
             console.log('📝 Guardando medicina...');
             
             // Construir objeto con datos del formulario
+            const valor = id => document.getElementById(id)?.value?.trim() || null;
+            const dosis = valor('medicineDosis');
+            const unidadDosis = valor('medicineUnidadDosis');
+            // Todos los campos del formulario, con el nombre de su columna en la BD
             const medicineData = {
-                nombre: document.getElementById('medicineName').value.trim(),
+                codigo_barra: codigoBarra,
                 codigo_externo: codigoBarra,
-                presentacion: document.getElementById('medicinePresentacion').value,
-                concentracion: document.getElementById('medicinePrincipioActivo').value.trim(),
-                precio: parseFloat(document.getElementById('medicinePrecioUnitario').value) || 0,
-                stock: parseInt(document.getElementById('medicineCantidad').value) || 0,
-                stock_minimo: parseInt(document.getElementById('medicineCantidadMinima').value) || 0,
-                vencimiento: document.getElementById('medicineFechaVencimiento').value || null,
-                seccion: document.getElementById('medicineSection').value || null,
-                familia: document.getElementById('medicineFamily').value.trim() || null,
-                subfamilia: document.getElementById('medicineSubfamily').value.trim() || null,
-                lote: document.getElementById('medicineLote').value.trim() || null,
-                proveedor: document.getElementById('medicineProveedor').value.trim() || null,
-                descripcion: document.getElementById('medicineContraindicaciones').value.trim() || null,
+                nombre: valor('medicineName'),
+                seccion: valor('medicineSection'),
+                familia: valor('medicineFamily'),
+                subfamilia: valor('medicineSubfamily'),
+                presentacion: valor('medicinePresentacion'),
+                principio_activo: valor('medicinePrincipioActivo'),
+                dosis,
+                unidad_dosis: unidadDosis,
+                concentracion: [dosis, unidadDosis].filter(Boolean).join(' ') || null,
+                lote: valor('medicineLote'),
+                fecha_vencimiento: valor('medicineFechaVencimiento'),
+                cantidad: parseInt(document.getElementById('medicineCantidad').value, 10) || 0,
+                cantidad_minima: parseInt(document.getElementById('medicineCantidadMinima').value, 10) || 0,
+                precio_venta: parseFloat(document.getElementById('medicinePrecioUnitario').value) || 0,
+                contraindicaciones: valor('medicineContraindicaciones'),
+                efectos_secundarios: valor('medicineEfectosSecundarios'),
+                proveedor: valor('medicineProveedor'),
                 activo: document.getElementById('medicineActiva').checked
             };
 
@@ -527,6 +567,9 @@ const MedicinasModule = {
         } catch (error) {
             console.error('Error guardando medicina:', error);
             this.showNotification(`❌ Error: ${error.message}`, 'error');
+        } finally {
+            this.guardandoMedicina = false;
+            if (saveBtn) saveBtn.disabled = false;
         }
     },
 
@@ -558,7 +601,7 @@ const MedicinasModule = {
         try {
             this.populateFamilySelectors();
             document.getElementById('medicineId').value = medicine.id;
-            fillField('medicineCodigoBarra', medicine.codigo_externo || medicine.codigoBarra);
+            fillField('medicineCodigoBarra', medicine.codigo_barra || medicine.codigo_externo);
             fillField('medicineName', medicine.nombre);
             fillField('medicineSection', medicine.seccion || medicine.categoria || 'SEC-001');
             this.updateMedicineFamilySelector();
@@ -566,16 +609,16 @@ const MedicinasModule = {
             this.updateMedicineSubfamilySelector();
             fillField('medicineSubfamily', medicine.subfamilia);
             fillField('medicinePresentacion', medicine.presentacion || medicine.forma_farmaceutica);
-            fillField('medicinePrincipioActivo', medicine.principio_activo || medicine.concentracion || medicine.principioActivo);
+            fillField('medicinePrincipioActivo', medicine.principio_activo || medicine.concentracion);
             fillField('medicineDosis', medicine.dosis);
-            fillField('medicineUnidadDosis', medicine.unidadDosis);
+            fillField('medicineUnidadDosis', medicine.unidad_dosis);
             fillField('medicineLote', medicine.lote);
-            fillField('medicineFechaVencimiento', medicine.vencimiento || medicine.fecha_vencimiento || medicine.fechaVencimiento);
+            fillField('medicineFechaVencimiento', medicine.fechaVencimiento);
             fillField('medicineProveedor', medicine.proveedor);
-            fillField('medicineCantidad', medicine.stock || medicine.cantidad);
-            fillField('medicineCantidadMinima', medicine.stock_minimo || medicine.cantidadMinima);
-            fillField('medicinePrecioUnitario', medicine.precio || medicine.precio_venta || medicine.precioUnitario);
-            fillField('medicineContraindicaciones', medicine.descripcion || medicine.contraindicaciones);
+            fillField('medicineCantidad', String(medicine.cantidad));
+            fillField('medicineCantidadMinima', String(medicine.cantidadMinima));
+            fillField('medicinePrecioUnitario', medicine.precioUnitario ? medicine.precioUnitario.toFixed(2) : '');
+            fillField('medicineContraindicaciones', medicine.contraindicaciones);
             fillField('medicineEfectosSecundarios', medicine.efectosSecundarios);
             
             const activaCheckbox = document.getElementById('medicineActiva');
@@ -727,7 +770,7 @@ const MedicinasModule = {
                             <th>Familia</th>
                             <th>Subfamilia</th>
                             <th>Presentación</th>
-                            <th>Concentración</th>
+                            <th>Principio activo / dosis</th>
                             <th>Stock</th>
                             <th>Vencimiento</th>
                             <th>Estado</th>
@@ -757,13 +800,13 @@ const MedicinasModule = {
 
         return `
             <tr data-medicine-id="${medicine.id}">
-                <td><strong>${medicine.codigo_externo || medicine.codigoBarra || 'N/A'}</strong></td>
+                <td><strong>${medicine.codigoBarra || 'N/A'}</strong></td>
                 <td>${medicine.nombre || 'N/A'}</td>
                 <td>${this.getClassificationName('seccion', medicine.seccion || medicine.categoria || 'SEC-001')}</td>
                 <td>${this.getClassificationName('familia', medicine.familia)}</td>
                 <td>${this.getClassificationName('subfamilia', medicine.subfamilia)}</td>
                 <td>${medicine.presentacion || medicine.forma_farmaceutica || 'N/A'}</td>
-                <td>${medicine.concentracion || 'N/A'}</td>
+                <td>${medicine.principioActivo || 'N/A'}${medicine.dosis ? `<br><small>${medicine.dosis} ${medicine.unidadDosis}</small>` : ''}</td>
                 <td>${stockBadge}</td>
                 <td>${vencimientoBadge}</td>
                 <td>${activaBadge}</td>
@@ -813,7 +856,7 @@ const MedicinasModule = {
 
     // Ver detalles de medicina
     viewMedicineDetails(id) {
-        const medicine = this.state.medicinas.find(m => m.id === id);
+        const medicine = this.state.medicinas.find(m => String(m.id) === String(id));
         if (!medicine) return;
 
         const detailsModal = document.getElementById('medicineDetailsModal');
@@ -835,15 +878,15 @@ const MedicinasModule = {
                 <div class="details-grid">
                     <div class="detail-group">
                         <label>Código de Barra</label>
-                        <p>${medicine.codigoBarra}</p>
+                        <p>${medicine.codigoBarra || 'N/A'}</p>
                     </div>
                     <div class="detail-group">
                         <label>Familia</label>
-                        <p>${medicine.familia}</p>
+                        <p>${this.getClassificationName('familia', medicine.familia)}</p>
                     </div>
                     <div class="detail-group">
                         <label>Subfamilia</label>
-                        <p>${medicine.subfamilia || 'N/A'}</p>
+                        <p>${medicine.subfamilia ? this.getClassificationName('subfamilia', medicine.subfamilia) : 'N/A'}</p>
                     </div>
                     <div class="detail-group">
                         <label>Presentación</label>
@@ -856,19 +899,19 @@ const MedicinasModule = {
                     <div class="details-grid">
                         <div class="detail-group">
                             <label>Principio Activo</label>
-                            <p>${medicine.principioActivo}</p>
+                            <p>${medicine.principioActivo || 'N/A'}</p>
                         </div>
                         <div class="detail-group">
                             <label>Dosis Recomendada</label>
-                            <p>${medicine.dosis} ${medicine.unidadDosis}</p>
+                            <p>${medicine.dosis ? `${medicine.dosis} ${medicine.unidadDosis}` : 'N/A'}</p>
                         </div>
                         <div class="detail-group">
                             <label>Lote</label>
-                            <p>${medicine.lote}</p>
+                            <p>${medicine.lote || 'N/A'}</p>
                         </div>
                         <div class="detail-group">
                             <label>Fecha Vencimiento</label>
-                            <p>${this.isExpired(medicine.fechaVencimiento) ? '🔴 VENCIDA: ' : '✅ '}${medicine.fechaVencimiento}</p>
+                            <p>${medicine.fechaVencimiento ? `${this.isExpired(medicine.fechaVencimiento) ? 'VENCIDA: ' : ''}${formatFecha(medicine.fechaVencimiento)}` : 'N/A'}</p>
                         </div>
                     </div>
                 </div>
@@ -911,7 +954,7 @@ const MedicinasModule = {
                 </div>
 
                 <div class="details-footer">
-                    <p class="text-muted">Proveedor: ${medicine.proveedor} | Registrado: ${medicine.fechaRegistro}</p>
+                    <p class="text-muted">Proveedor: ${medicine.proveedor || 'N/A'} | Registrado: ${medicine.fechaRegistro}</p>
                 </div>
             </div>
         `;

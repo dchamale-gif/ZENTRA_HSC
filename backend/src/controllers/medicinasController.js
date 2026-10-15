@@ -16,8 +16,8 @@ const getMedicinas = async (req, res) => {
     const params = [];
     let paramIndex = 1;
 
-    // Filtrar por estado
-    if (activo !== undefined) {
+    // Filtrar por estado (por defecto solo activas; ?activo=todos devuelve todas)
+    if (activo !== undefined && activo !== 'todos') {
       query += ` AND activo = $${paramIndex}`;
       params.push(activo === 'true' || activo === true);
       paramIndex++;
@@ -83,44 +83,85 @@ const getMedicinaById = async (req, res) => {
   }
 };
 
+// Campos de la medicina: columna -> nombres aceptados en el body y tipo.
+// Crear y actualizar usan esta misma lista, así ningún campo queda fuera.
+const CAMPOS_MEDICINA = [
+  ['nombre', ['nombre'], 'texto'],
+  ['descripcion', ['descripcion'], 'texto'],
+  ['seccion', ['seccion', 'categoria'], 'texto'],
+  ['familia', ['familia'], 'texto'],
+  ['subfamilia', ['subfamilia'], 'texto'],
+  ['principio_activo', ['principio_activo'], 'texto'],
+  ['concentracion', ['concentracion'], 'texto'],
+  ['dosis', ['dosis'], 'texto'],
+  ['unidad_dosis', ['unidad_dosis'], 'texto'],
+  ['forma_farmaceutica', ['forma_farmaceutica'], 'texto'],
+  ['presentacion', ['presentacion'], 'texto'],
+  ['cantidad', ['cantidad', 'stock'], 'entero'],
+  ['cantidad_minima', ['cantidad_minima', 'stock_minimo'], 'entero'],
+  ['precio_costo', ['precio_costo'], 'decimal'],
+  ['precio_venta', ['precio_venta', 'precio'], 'decimal'],
+  ['lote', ['lote'], 'texto'],
+  ['fecha_vencimiento', ['fecha_vencimiento', 'vencimiento'], 'fecha'],
+  ['proveedor_id', ['proveedor_id'], 'texto'],
+  ['proveedor', ['proveedor'], 'texto'],
+  ['contraindicaciones', ['contraindicaciones'], 'texto'],
+  ['efectos_secundarios', ['efectos_secundarios'], 'texto'],
+  ['codigo_externo', ['codigo_externo'], 'texto'],
+  ['codigo_barra', ['codigo_barra'], 'texto'],
+  ['activo', ['activo'], 'booleano']
+];
+
+const convertirCampo = (valor, tipo) => {
+  if (valor === null) return null;
+  switch (tipo) {
+    case 'entero': {
+      const numero = parseInt(valor, 10);
+      return Number.isFinite(numero) ? Math.max(0, numero) : 0;
+    }
+    case 'decimal': {
+      const numero = parseFloat(valor);
+      return Number.isFinite(numero) ? Math.max(0, numero) : 0;
+    }
+    case 'booleano':
+      return valor === true || valor === 'true' || valor === 1 || valor === '1';
+    case 'fecha':
+    case 'texto': {
+      const texto = String(valor).trim();
+      return texto === '' ? null : texto;
+    }
+    default:
+      return valor;
+  }
+};
+
+// Devuelve [[columna, valor], ...] solo con los campos presentes en el body
+const leerCamposMedicina = (body) => CAMPOS_MEDICINA
+  .map(([columna, claves, tipo]) => {
+    const clave = claves.find(k => body[k] !== undefined);
+    return clave === undefined ? null : [columna, convertirCampo(body[clave], tipo)];
+  })
+  .filter(Boolean);
+
 /**
  * POST /api/medicinas
  * Crear nueva medicina
  */
 const createMedicina = async (req, res) => {
   try {
-    const {
-      nombre,
-      descripcion,
-      seccion = 'SEC-001',
-      familia,
-      subfamilia,
-      codigo_externo,
-      codigo_barra,
-      principio_activo,
-      presentacion,
-      concentracion,
-      precio,
-      precio_venta,
-      precio_costo,
-      stock,
-      cantidad,
-      stock_minimo,
-      cantidad_minima,
-      proveedor_id,
-      vencimiento,
-      fecha_vencimiento,
-      forma_farmaceutica,
-      lote,
-      activo = true
-    } = req.body;
+    const campos = new Map(leerCamposMedicina(req.body));
 
-    // Validar campos requeridos
-    if (!nombre) {
-      return res.status(400).json({ 
-        error: 'Nombre es requerido'
-      });
+    if (!campos.get('nombre')) {
+      return res.status(400).json({ error: 'Nombre es requerido' });
     }
+
+    // Valores por defecto de una medicina nueva
+    if (!campos.get('seccion')) campos.set('seccion', 'SEC-001');
+    if (!campos.has('cantidad')) campos.set('cantidad', 0);
+    if (!campos.has('cantidad_minima')) campos.set('cantidad_minima', 0);
+    if (!campos.has('precio_costo')) campos.set('precio_costo', 0);
+    if (!campos.has('precio_venta')) campos.set('precio_venta', 0);
+    if (!campos.has('activo')) campos.set('activo', true);
 
     const idMetadata = await pool.query(
       `SELECT data_type, column_default, is_identity
@@ -133,26 +174,17 @@ const createMedicina = async (req, res) => {
     const requiresManualId = idColumn &&
       ['character varying', 'character', 'text'].includes(idColumn.data_type) &&
       !idColumn.column_default && idColumn.is_identity !== 'YES';
-    const generatedId = `MED-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
-    const values = [
-      nombre, descripcion || null, seccion || 'SEC-001', familia || null, subfamilia || null,
-      principio_activo || null, concentracion || null, forma_farmaceutica || null,
-      presentacion || null, cantidad ?? stock ?? 0, cantidad_minima ?? stock_minimo ?? 0,
-      precio_costo ?? 0, precio_venta ?? precio ?? 0, lote || null,
-      fecha_vencimiento || vencimiento || null, proveedor_id || null,
-      codigo_externo || null, codigo_barra || null, activo
-    ];
+    if (requiresManualId) {
+      campos.set('id', `MED-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`);
+    }
 
+    const columnas = [...campos.keys()];
+    const values = [...campos.values()];
     const result = await pool.query(
-      `INSERT INTO medicinas 
-       (${requiresManualId ? 'id, ' : ''}nombre, descripcion, seccion, familia, subfamilia,
-        principio_activo, concentracion, forma_farmaceutica, presentacion,
-        cantidad, cantidad_minima, precio_costo, precio_venta, lote,
-        fecha_vencimiento, proveedor_id, codigo_externo, codigo_barra, activo,
-        created_at, updated_at)
-       VALUES (${requiresManualId ? '$1, ' : ''}${values.map((_, index) => `$${index + (requiresManualId ? 2 : 1)}`).join(', ')}, NOW(), NOW())
+      `INSERT INTO medicinas (${columnas.join(', ')}, created_at, updated_at)
+       VALUES (${values.map((_, i) => `$${i + 1}`).join(', ')}, NOW(), NOW())
        RETURNING *`,
-      requiresManualId ? [generatedId, ...values] : values
+      values
     );
 
     res.status(201).json({
@@ -162,181 +194,50 @@ const createMedicina = async (req, res) => {
     });
   } catch (error) {
     console.error('Error en createMedicina:', error);
-    res.status(500).json({ error: 'Error creando medicina' });
+    res.status(500).json({ error: `Error creando medicina: ${error.message}` });
   }
 };
 
 /**
  * PUT /api/medicinas/:id
- * Actualizar medicina
+ * Actualizar medicina (solo los campos enviados)
  */
 const updateMedicina = async (req, res) => {
   try {
     const { id } = req.params;
-    const {
-      nombre,
-      descripcion,
-      seccion,
-      familia,
-      subfamilia,
-      codigo_externo,
-      codigo_barra,
-      principio_activo,
-      presentacion,
-      concentracion,
-      precio,
-      precio_venta,
-      precio_costo,
-      stock,
-      cantidad,
-      stock_minimo,
-      cantidad_minima,
-      proveedor_id,
-      vencimiento,
-      fecha_vencimiento,
-      forma_farmaceutica,
-      lote,
-      activo
-    } = req.body;
 
-    // Verificar que existe
-    const existing = await pool.query(
-      'SELECT id FROM medicinas WHERE id = $1',
-      [id]
-    );
-
+    const existing = await pool.query('SELECT id FROM medicinas WHERE id = $1', [id]);
     if (existing.rows.length === 0) {
       return res.status(404).json({ error: 'Medicina no encontrada' });
     }
 
-    // Construir query dinámicamente
-    let query = 'UPDATE medicinas SET ';
-    const updates = [];
-    const values = [];
-    let paramIndex = 1;
-
-    if (nombre !== undefined) {
-      updates.push(`nombre = $${paramIndex}`);
-      values.push(nombre);
-      paramIndex++;
+    const campos = leerCamposMedicina(req.body);
+    if (campos.some(([columna, valor]) => columna === 'nombre' && !valor)) {
+      return res.status(400).json({ error: 'Nombre es requerido' });
     }
-    if (descripcion !== undefined) {
-      updates.push(`descripcion = $${paramIndex}`);
-      values.push(descripcion);
-      paramIndex++;
-    }
-    if (seccion !== undefined) {
-      updates.push(`seccion = $${paramIndex}`);
-      values.push(seccion || null);
-      paramIndex++;
-    }
-    if (familia !== undefined) {
-      updates.push(`familia = $${paramIndex}`);
-      values.push(familia || null);
-      paramIndex++;
-    }
-    if (subfamilia !== undefined) {
-      updates.push(`subfamilia = $${paramIndex}`);
-      values.push(subfamilia || null);
-      paramIndex++;
-    }
-    if (codigo_externo !== undefined) {
-      updates.push(`codigo_externo = $${paramIndex}`);
-      values.push(codigo_externo);
-      paramIndex++;
-    }
-    if (codigo_barra !== undefined) {
-      updates.push(`codigo_barra = $${paramIndex}`);
-      values.push(codigo_barra || null);
-      paramIndex++;
-    }
-    if (principio_activo !== undefined) {
-      updates.push(`principio_activo = $${paramIndex}`);
-      values.push(principio_activo || null);
-      paramIndex++;
-    }
-    if (presentacion !== undefined) {
-      updates.push(`presentacion = $${paramIndex}`);
-      values.push(presentacion);
-      paramIndex++;
-    }
-    if (concentracion !== undefined) {
-      updates.push(`concentracion = $${paramIndex}`);
-      values.push(concentracion);
-      paramIndex++;
-    }
-    if (precio !== undefined || precio_venta !== undefined) {
-      updates.push(`precio_venta = $${paramIndex}`);
-      values.push(precio_venta ?? precio);
-      paramIndex++;
-    }
-    if (precio_costo !== undefined) {
-      updates.push(`precio_costo = $${paramIndex}`);
-      values.push(precio_costo);
-      paramIndex++;
-    }
-    if (stock !== undefined || cantidad !== undefined) {
-      updates.push(`cantidad = $${paramIndex}`);
-      values.push(cantidad ?? stock);
-      paramIndex++;
-    }
-    if (stock_minimo !== undefined || cantidad_minima !== undefined) {
-      updates.push(`cantidad_minima = $${paramIndex}`);
-      values.push(cantidad_minima ?? stock_minimo);
-      paramIndex++;
-    }
-    if (proveedor_id !== undefined) {
-      updates.push(`proveedor_id = $${paramIndex}`);
-      values.push(proveedor_id);
-      paramIndex++;
-    }
-    if (vencimiento !== undefined || fecha_vencimiento !== undefined) {
-      updates.push(`fecha_vencimiento = $${paramIndex}`);
-      values.push(fecha_vencimiento || vencimiento || null);
-      paramIndex++;
-    }
-    if (forma_farmaceutica !== undefined) {
-      updates.push(`forma_farmaceutica = $${paramIndex}`);
-      values.push(forma_farmaceutica || null);
-      paramIndex++;
-    }
-    if (lote !== undefined) {
-      updates.push(`lote = $${paramIndex}`);
-      values.push(lote || null);
-      paramIndex++;
-    }
-    if (activo !== undefined) {
-      updates.push(`activo = $${paramIndex}`);
-      values.push(activo);
-      paramIndex++;
-    }
-
-    // Siempre actualizar updated_at
-    updates.push(`updated_at = NOW()`);
-
-    if (updates.length === 1) { // Solo updated_at
+    if (campos.length === 0) {
       return res.status(400).json({ error: 'No hay campos para actualizar' });
     }
 
-    query += updates.join(', ');
-    query += ` WHERE id = $${paramIndex}`;
+    const values = campos.map(([, valor]) => valor);
+    const sets = campos.map(([columna], i) => `${columna} = $${i + 1}`);
     values.push(id);
 
-    const result = await pool.query(query, values);
-
-    const updated = await pool.query(
-      'SELECT * FROM medicinas WHERE id = $1',
-      [id]
+    const result = await pool.query(
+      `UPDATE medicinas SET ${sets.join(', ')}, updated_at = NOW()
+       WHERE id = $${values.length}
+       RETURNING *`,
+      values
     );
 
     res.status(200).json({
       success: true,
       message: 'Medicina actualizada exitosamente',
-      medicina: updated.rows[0]
+      medicina: result.rows[0]
     });
   } catch (error) {
     console.error('Error en updateMedicina:', error);
-    res.status(500).json({ error: 'Error actualizando medicina' });
+    res.status(500).json({ error: `Error actualizando medicina: ${error.message}` });
   }
 };
 
