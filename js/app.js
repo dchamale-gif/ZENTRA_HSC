@@ -256,6 +256,7 @@ function navigateToPage(pageId) {
         'inventory': 'Gestión de Inventario',
         'compras': 'Gestión de Compras',
         'ventas': 'Gestión de Ventas',
+        'cotizaciones': 'Cotizaciones',
         'caja': 'Gestión de Caja',
         'cuentas-por-cobrar': 'Cuentas por Cobrar',
         'dashboard-financiero': 'Dashboard Ejecutivo',
@@ -314,6 +315,9 @@ function navigateToPage(pageId) {
     }
     if (pageId === 'saldo-paciente') {
         SaldoPacienteModule.renderSaldosPacientes();
+    }
+    if (pageId === 'cotizaciones' && typeof CotizacionesModule !== 'undefined') {
+        CotizacionesModule.cargar();
     }
     if (pageId === 'hospitalizaciones') {
         HospitalizacionesModule.loadData();

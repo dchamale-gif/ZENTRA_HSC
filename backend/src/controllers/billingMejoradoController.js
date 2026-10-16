@@ -25,89 +25,13 @@ class BillingMejoradoController {
                 return res.status(400).json({ success: false, message: 'Usuario o totales no válidos' });
             }
 
-            const normalizedItems = items.map((item, index) => {
-                const cantidad = Number(item.cantidad);
-                const precioUnitario = Number(item.precio_unitario);
-                const subtotal = Number(item.subtotal ?? cantidad * precioUnitario);
-                const descuento = Number(item.descuento_total || 0);
-                const itemTotal = Number(item.total_item ?? subtotal - descuento);
-                if (!String(item.descripcion || '').trim() || cantidad <= 0 ||
-                    ![precioUnitario, subtotal, descuento, itemTotal].every(Number.isFinite)) {
-                    const error = new Error(`Concepto ${index + 1} no válido`);
-                    error.status = 400;
-                    throw error;
-                }
-                return {
-                    descripcion: String(item.descripcion).trim(),
-                    cantidad,
-                    precioUnitario,
-                    subtotal,
-                    descuento,
-                    itemTotal,
-                    tipoItem: String(item.tipo_item || 'general'),
-                    medicinaId: item.medicina_id || null
-                };
-            });
+            const normalizedItems = this.normalizarItemsFactura(items);
 
             client = await db.connect();
             await client.query('BEGIN');
-            await client.query("SELECT pg_advisory_xact_lock(hashtext('facturas_numero_correlativo'))");
-            const paciente = await client.query('SELECT id FROM pacientes WHERE id = $1', [pacienteId]);
-            if (paciente.rows.length === 0) {
-                const error = new Error('Paciente no encontrado');
-                error.status = 404;
-                throw error;
-            }
-
-            const numeroFactura = await this.generarNumeroFactura(client);
-            const facturaId = generateId('FAC');
-            const subtotal = Number(totales.subtotal || 0);
-            const descuento = Number(totales.total_descuentos || 0);
-            const impuesto = Number(totales.total_impuestos || 0);
-            await client.query(`
-                INSERT INTO ventas (
-                    id, numero_venta, numero_factura, paciente_id, user_id, fecha, hora,
-                    subtotal, descuento, impuesto, total, metodo_pago, estado, observaciones,
-                    subtotal_original, total_descuentos, total_impuestos, base_impuesto, tipo_factura
-                ) VALUES ($1, $2, $2, $3, $4, CURRENT_DATE, CURRENT_TIME,
-                    $5, $6, $7, $8, $9, 'completada', $10, $5, $6, $7, $11, 'paciente')`,
-                [facturaId, numeroFactura, pacienteId, userId, subtotal, descuento, impuesto,
-                    total, metodo_pago, observaciones || null, Number(totales.base_impuesto || 0)]
-            );
-
-            for (const item of normalizedItems) {
-                await client.query(`
-                    INSERT INTO venta_items (
-                        id, venta_id, descripcion, cantidad, precio_unitario, subtotal,
-                        descuento, total, tipo_item, medicina_id
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-                    [generateId('ITEM'), facturaId, item.descripcion, item.cantidad,
-                        item.precioUnitario, item.subtotal, item.descuento, item.itemTotal,
-                        item.tipoItem, item.medicinaId]
-                );
-            }
-
-            const saldoResult = await client.query(`
-                INSERT INTO pacientes_saldo (paciente_id, saldo_pendiente, total_deuda, usuario_actualizo)
-                VALUES ($1, $2, $2, $3)
-                ON CONFLICT (paciente_id) DO UPDATE SET
-                    saldo_pendiente = pacientes_saldo.saldo_pendiente + EXCLUDED.saldo_pendiente,
-                    total_deuda = pacientes_saldo.total_deuda + EXCLUDED.total_deuda,
-                    ultima_transaccion = CURRENT_TIMESTAMP,
-                    usuario_actualizo = EXCLUDED.usuario_actualizo,
-                    updated_at = CURRENT_TIMESTAMP
-                RETURNING saldo_pendiente`,
-                [pacienteId, total, String(userId)]
-            );
-            const saldoNuevo = Number(saldoResult.rows[0].saldo_pendiente);
-            await client.query(`
-                INSERT INTO movimientos_paciente (
-                    paciente_id, tipo, descripcion, monto, saldo_anterior,
-                    saldo_nuevo, referencia_id, usuario_id
-                ) VALUES ($1, 'factura', $2, $3, $4, $5, $6, $7)`,
-                [pacienteId, `Factura ${numeroFactura}`, total, saldoNuevo - total,
-                    saldoNuevo, facturaId, userId]
-            );
+            const { facturaId, numeroFactura } = await this.registrarFacturaPaciente(client, {
+                pacienteId, userId, items: normalizedItems, totales, metodoPago: metodo_pago, observaciones
+            });
             await client.query('COMMIT');
 
             res.status(201).json({
@@ -127,6 +51,103 @@ class BillingMejoradoController {
         } finally {
             if (client) client.release();
         }
+    }
+
+    /**
+     * Valida y normaliza los conceptos de una factura (lanza error 400 si alguno no es válido)
+     */
+    normalizarItemsFactura(items) {
+        return items.map((item, index) => {
+            const cantidad = Number(item.cantidad);
+            const precioUnitario = Number(item.precio_unitario);
+            const subtotal = Number(item.subtotal ?? cantidad * precioUnitario);
+            const descuento = Number(item.descuento_total || 0);
+            const itemTotal = Number(item.total_item ?? subtotal - descuento);
+            if (!String(item.descripcion || '').trim() || cantidad <= 0 ||
+                ![precioUnitario, subtotal, descuento, itemTotal].every(Number.isFinite)) {
+                const error = new Error(`Concepto ${index + 1} no válido`);
+                error.status = 400;
+                throw error;
+            }
+            return {
+                descripcion: String(item.descripcion).trim(),
+                cantidad,
+                precioUnitario,
+                subtotal,
+                descuento,
+                itemTotal,
+                tipoItem: String(item.tipo_item || 'general'),
+                medicinaId: item.medicina_id || null
+            };
+        });
+    }
+
+    /**
+     * Registra una factura de paciente dentro de una transacción ya abierta:
+     * venta, conceptos, saldo del paciente y movimiento del estado de cuenta.
+     * Se reutiliza desde otros módulos (p. ej. al ingresar una cotización).
+     */
+    async registrarFacturaPaciente(client, { pacienteId, userId, items, totales = {}, metodoPago = 'credito', observaciones = '' }) {
+        const total = Number(totales.total_neto);
+        await client.query("SELECT pg_advisory_xact_lock(hashtext('facturas_numero_correlativo'))");
+        const paciente = await client.query('SELECT id FROM pacientes WHERE id = $1', [pacienteId]);
+        if (paciente.rows.length === 0) {
+            const error = new Error('Paciente no encontrado');
+            error.status = 404;
+            throw error;
+        }
+
+        const numeroFactura = await this.generarNumeroFactura(client);
+        const facturaId = generateId('FAC');
+        const subtotal = Number(totales.subtotal || 0);
+        const descuento = Number(totales.total_descuentos || 0);
+        const impuesto = Number(totales.total_impuestos || 0);
+        await client.query(`
+            INSERT INTO ventas (
+                id, numero_venta, numero_factura, paciente_id, user_id, fecha, hora,
+                subtotal, descuento, impuesto, total, metodo_pago, estado, observaciones,
+                subtotal_original, total_descuentos, total_impuestos, base_impuesto, tipo_factura
+            ) VALUES ($1, $2, $2, $3, $4, CURRENT_DATE, CURRENT_TIME,
+                $5, $6, $7, $8, $9, 'completada', $10, $5, $6, $7, $11, 'paciente')`,
+            [facturaId, numeroFactura, pacienteId, userId, subtotal, descuento, impuesto,
+                total, metodoPago, observaciones || null, Number(totales.base_impuesto || 0)]
+        );
+
+        for (const item of items) {
+            await client.query(`
+                INSERT INTO venta_items (
+                    id, venta_id, descripcion, cantidad, precio_unitario, subtotal,
+                    descuento, total, tipo_item, medicina_id
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+                [generateId('ITEM'), facturaId, item.descripcion, item.cantidad,
+                    item.precioUnitario, item.subtotal, item.descuento, item.itemTotal,
+                    item.tipoItem, item.medicinaId]
+            );
+        }
+
+        const saldoResult = await client.query(`
+            INSERT INTO pacientes_saldo (paciente_id, saldo_pendiente, total_deuda, usuario_actualizo)
+            VALUES ($1, $2, $2, $3)
+            ON CONFLICT (paciente_id) DO UPDATE SET
+                saldo_pendiente = pacientes_saldo.saldo_pendiente + EXCLUDED.saldo_pendiente,
+                total_deuda = pacientes_saldo.total_deuda + EXCLUDED.total_deuda,
+                ultima_transaccion = CURRENT_TIMESTAMP,
+                usuario_actualizo = EXCLUDED.usuario_actualizo,
+                updated_at = CURRENT_TIMESTAMP
+            RETURNING saldo_pendiente`,
+            [pacienteId, total, String(userId)]
+        );
+        const saldoNuevo = Number(saldoResult.rows[0].saldo_pendiente);
+        await client.query(`
+            INSERT INTO movimientos_paciente (
+                paciente_id, tipo, descripcion, monto, saldo_anterior,
+                saldo_nuevo, referencia_id, usuario_id
+            ) VALUES ($1, 'factura', $2, $3, $4, $5, $6, $7)`,
+            [pacienteId, `Factura ${numeroFactura}`, total, saldoNuevo - total,
+                saldoNuevo, facturaId, userId]
+        );
+
+        return { facturaId, numeroFactura, total };
     }
 
     /**
