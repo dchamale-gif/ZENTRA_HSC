@@ -30,7 +30,7 @@ const pool = new Pool({
   ssl: process.env.DB_SSL === 'require' ? { rejectUnauthorized: false } : false
 });
 
-const migration = `
+const buildMigration = (pacienteIdType) => `
 BEGIN;
 
 CREATE SEQUENCE IF NOT EXISTS cotizaciones_numero_seq START 1;
@@ -38,7 +38,7 @@ CREATE SEQUENCE IF NOT EXISTS cotizaciones_numero_seq START 1;
 CREATE TABLE IF NOT EXISTS cotizaciones (
     id VARCHAR(50) PRIMARY KEY,
     numero VARCHAR(30) NOT NULL UNIQUE,
-    paciente_id VARCHAR(50) REFERENCES pacientes(id) ON DELETE SET NULL,
+    paciente_id ${pacienteIdType} REFERENCES pacientes(id) ON DELETE SET NULL,
     cliente_nombre VARCHAR(150) NOT NULL,
     cliente_telefono VARCHAR(30),
     cliente_dpi VARCHAR(20),
@@ -94,7 +94,17 @@ COMMIT;
 
 const run = async () => {
   try {
-    await pool.query(migration);
+    // paciente_id debe tener exactamente el mismo tipo que pacientes.id (INTEGER o VARCHAR según la instalación)
+    const tipo = await pool.query(`
+      SELECT format_type(a.atttypid, a.atttypmod) AS tipo
+      FROM pg_attribute a
+      WHERE a.attrelid = 'pacientes'::regclass AND a.attname = 'id'
+    `);
+    if (!tipo.rows.length) throw new Error('No se encontró la columna pacientes.id');
+    const pacienteIdType = tipo.rows[0].tipo;
+    console.log(`Tipo de pacientes.id: ${pacienteIdType}`);
+
+    await pool.query(buildMigration(pacienteIdType));
     const { rows } = await pool.query(`
       SELECT table_name FROM information_schema.tables
       WHERE table_schema = current_schema()
