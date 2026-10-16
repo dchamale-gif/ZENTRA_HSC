@@ -253,10 +253,10 @@ const HistoriaClinicaModule = {
         }
     },
 
-    // Renderizar historia clínica completa
-    renderHistoriaClinica() {
-        const container = document.getElementById('historiaClinicaContent');
-        const buttonBar = document.getElementById('historiaButtonBar');
+    // Renderizar historia clínica completa (en la página o en otro contenedor, p. ej. un popup)
+    renderHistoriaClinica(container = document.getElementById('historiaClinicaContent')) {
+        const enPagina = container?.id === 'historiaClinicaContent';
+        const buttonBar = enPagina ? document.getElementById('historiaButtonBar') : null;
         if (!container || !this.state.pacienteSeleccionado) return;
 
         const pacient = this.state.pacienteSeleccionado;
@@ -652,6 +652,14 @@ const HistoriaClinicaModule = {
     // Guardar en DB (localStorage)
     saveToDB() {
         localStorage.setItem('historiasClinicas', JSON.stringify(this.state.historiasClinicas));
+        this.avisarCambios();
+    },
+
+    // Avisa a otras vistas (p. ej. popups de Gestión de Pacientes) que la historia cambió
+    avisarCambios() {
+        document.dispatchEvent(new CustomEvent('zentra:historia-actualizada', {
+            detail: { pacienteId: this.state.pacienteSeleccionado?.id ?? null }
+        }));
     },
 
     // Cambiar entre pestañas (Notas / Prescripciones / Agenda)
@@ -1156,6 +1164,7 @@ const HistoriaClinicaModule = {
         if (typeof MedicinasModule !== 'undefined' && MedicinasModule.state) {
             MedicinasModule.state.medicamentosAsignados = JSON.parse(JSON.stringify(this.state.medicamentosAsignados));
         }
+        this.avisarCambios();
     },
 
     refrescarVistas(pacienteId) {

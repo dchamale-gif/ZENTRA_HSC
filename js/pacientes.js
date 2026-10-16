@@ -1706,7 +1706,7 @@ const PacientesModule = {
         const tipoServicioBadge = this.getTipoServicioBadge(pacient.tipoServicio, pacient.clasificacion, pacient.segmentoCOEX);
 
         return `
-            <tr data-pacient-id="${pacient.id}">
+            <tr data-pacient-id="${pacient.id}" class="pac-fila" tabindex="0" title="Clic para ver opciones del paciente" aria-haspopup="menu">
                 <td><strong>${pacient.dpi || pacient.pasaporte || 'N/A'}</strong></td>
                 <td>${fullName}</td>
                 <td>${pacient.telefono || 'N/A'}</td>

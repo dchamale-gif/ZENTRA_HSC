@@ -160,9 +160,13 @@ const cotizacionesController = {
     // GET /api/cotizaciones?estado=&q=
     async listar(req, res) {
         try {
-            const { estado, q } = req.query;
+            const { estado, q, paciente_id: pacienteId } = req.query;
             const values = [];
             const condiciones = [];
+            if (pacienteId) {
+                values.push(String(pacienteId));
+                condiciones.push(`c.paciente_id::text = $${values.length}`);
+            }
             if (estado) {
                 values.push(estado);
                 condiciones.push(`c.estado = $${values.length}`);
