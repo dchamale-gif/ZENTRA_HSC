@@ -74,8 +74,12 @@ CREATE TABLE IF NOT EXISTS cotizacion_items (
     precio_unitario NUMERIC(12, 2) NOT NULL CHECK (precio_unitario >= 0),
     descuento NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (descuento >= 0),
     total NUMERIC(12, 2) NOT NULL,
+    articulo_id VARCHAR(50),
     medicina_id VARCHAR(50)
 );
+
+-- Instalaciones que ya corrieron la migración antes de existir articulo_id
+ALTER TABLE cotizacion_items ADD COLUMN IF NOT EXISTS articulo_id VARCHAR(50);
 
 CREATE INDEX IF NOT EXISTS idx_cotizacion_items_cotizacion ON cotizacion_items (cotizacion_id, orden);
 

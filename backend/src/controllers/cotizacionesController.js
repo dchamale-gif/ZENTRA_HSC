@@ -25,31 +25,62 @@ const textoOpcional = valor => {
     return texto === '' ? null : texto;
 };
 
-// Valida los conceptos y calcula el total de cada uno
+// Valida los conceptos y calcula el total de cada uno.
+// Cada concepto debe venir del listado de artículos o del de medicinas.
 const normalizarItems = (items) => {
     if (!Array.isArray(items) || items.length === 0) {
         throw errorConEstado('Agrega al menos un concepto a la cotización');
     }
     return items.map((item, index) => {
         const descripcion = String(item.descripcion || '').trim();
+        const articuloId = textoOpcional(item.articulo_id);
+        const medicinaId = textoOpcional(item.medicina_id);
         const cantidad = Number(item.cantidad);
         const precioUnitario = Number(item.precio_unitario);
         const descuento = Number(item.descuento || 0);
-        if (!descripcion) throw errorConEstado(`El concepto ${index + 1} no tiene descripción`);
-        if (!Number.isInteger(cantidad) || cantidad <= 0) throw errorConEstado(`Cantidad no válida en "${descripcion}" (debe ser un número entero mayor a 0)`);
-        if (!Number.isFinite(precioUnitario) || precioUnitario < 0) throw errorConEstado(`Precio no válido en "${descripcion}"`);
+        const nombre = descripcion || `El concepto ${index + 1}`;
+        if (Boolean(articuloId) === Boolean(medicinaId)) {
+            throw errorConEstado(`${nombre} debe elegirse del listado de artículos o de medicinas`);
+        }
+        if (!Number.isInteger(cantidad) || cantidad <= 0) throw errorConEstado(`Cantidad no válida en "${nombre}" (debe ser un número entero mayor a 0)`);
+        if (!Number.isFinite(precioUnitario) || precioUnitario < 0) throw errorConEstado(`Precio no válido en "${nombre}"`);
         const subtotal = redondear(cantidad * precioUnitario);
-        if (!Number.isFinite(descuento) || descuento < 0 || descuento > subtotal) throw errorConEstado(`Descuento no válido en "${descripcion}"`);
+        if (!Number.isFinite(descuento) || descuento < 0 || descuento > subtotal) throw errorConEstado(`Descuento no válido en "${nombre}"`);
         return {
             orden: index,
             descripcion,
-            tipo_item: String(item.tipo_item || 'general').trim() || 'general',
+            tipo_item: medicinaId ? 'medicina' : (String(item.tipo_item || 'general').trim() || 'general'),
             cantidad,
             precio_unitario: redondear(precioUnitario),
             descuento: redondear(descuento),
             total: redondear(subtotal - descuento),
-            medicina_id: textoOpcional(item.medicina_id)
+            articulo_id: articuloId,
+            medicina_id: medicinaId
         };
+    });
+};
+
+// Comprueba que los artículos y medicinas existan y toma el nombre del catálogo
+const validarCatalogo = async (client, items) => {
+    const articuloIds = [...new Set(items.map(i => i.articulo_id).filter(Boolean))];
+    const medicinaIds = [...new Set(items.map(i => i.medicina_id).filter(Boolean))];
+    const [articulos, medicinas] = await Promise.all([
+        articuloIds.length
+            ? client.query('SELECT id::text AS id, nombre_articulo AS nombre FROM codigos_articulos WHERE id::text = ANY($1::text[])', [articuloIds])
+            : { rows: [] },
+        medicinaIds.length
+            ? client.query('SELECT id::text AS id, nombre FROM medicinas WHERE id::text = ANY($1::text[])', [medicinaIds])
+            : { rows: [] }
+    ]);
+    const nombresArticulos = new Map(articulos.rows.map(r => [r.id, r.nombre]));
+    const nombresMedicinas = new Map(medicinas.rows.map(r => [r.id, r.nombre]));
+    return items.map(item => {
+        const nombre = item.articulo_id ? nombresArticulos.get(item.articulo_id) : nombresMedicinas.get(item.medicina_id);
+        if (!nombre) {
+            const listado = item.articulo_id ? 'artículos' : 'medicinas';
+            throw errorConEstado(`"${item.descripcion || 'Un concepto'}" ya no existe en el listado de ${listado}`);
+        }
+        return { ...item, descripcion: String(nombre).trim() };
     });
 };
 
@@ -89,10 +120,10 @@ const guardarItems = async (client, cotizacionId, items) => {
     for (const item of items) {
         await client.query(`
             INSERT INTO cotizacion_items
-                (cotizacion_id, orden, descripcion, tipo_item, cantidad, precio_unitario, descuento, total, medicina_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                (cotizacion_id, orden, descripcion, tipo_item, cantidad, precio_unitario, descuento, total, articulo_id, medicina_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
             [cotizacionId, item.orden, item.descripcion, item.tipo_item, item.cantidad,
-                item.precio_unitario, item.descuento, item.total, item.medicina_id]
+                item.precio_unitario, item.descuento, item.total, item.articulo_id, item.medicina_id]
         );
     }
 };
@@ -169,12 +200,12 @@ const cotizacionesController = {
     async crear(req, res) {
         let client;
         try {
-            const items = normalizarItems(req.body.items);
-            const totales = calcularTotales(items);
             const estado = req.body.estado === 'generada' ? 'generada' : 'borrador';
             const vigencia = Number(req.body.vigencia_dias) || 15;
 
             client = await db.connect();
+            const items = await validarCatalogo(client, normalizarItems(req.body.items));
+            const totales = calcularTotales(items);
             await client.query('BEGIN');
             const cliente = await resolverCliente(client, req.body);
             const { rows } = await client.query(
@@ -207,9 +238,9 @@ const cotizacionesController = {
     async actualizar(req, res) {
         let client;
         try {
-            const items = normalizarItems(req.body.items);
-            const totales = calcularTotales(items);
             client = await db.connect();
+            const items = await validarCatalogo(client, normalizarItems(req.body.items));
+            const totales = calcularTotales(items);
             await client.query('BEGIN');
 
             const actual = await client.query('SELECT estado FROM cotizaciones WHERE id = $1 FOR UPDATE', [req.params.id]);
@@ -347,7 +378,7 @@ const cotizacionesController = {
         try {
             const nombre = textoOpcional(req.body.nombre);
             if (!nombre) throw errorConEstado('La plantilla necesita un nombre');
-            const items = normalizarItems(req.body.items).map(({ orden, total, ...item }) => item);
+            const items = (await validarCatalogo(db, normalizarItems(req.body.items))).map(({ orden, total, ...item }) => item);
             const id = req.params.id;
             const { rows } = id
                 ? await db.query(`

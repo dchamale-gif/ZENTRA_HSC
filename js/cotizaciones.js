@@ -11,6 +11,7 @@ const CotizacionesModule = {
         plantillas: [],
         actual: null,          // cotización abierta en el editor
         items: [],             // conceptos del editor
+        catalogo: [],          // artículos y medicinas que se pueden cotizar
         filtroEstado: '',
         busqueda: '',
         guardando: false
@@ -70,6 +71,14 @@ const CotizacionesModule = {
         const tabla = document.getElementById('cotItemsBody');
         tabla?.addEventListener('input', e => this.onCambioItem(e));
         tabla?.addEventListener('change', e => this.onCambioItem(e));
+        tabla?.addEventListener('keydown', e => this.onTeclaBuscador(e));
+        tabla?.addEventListener('focusin', e => {
+            if (e.target.dataset.campo === 'buscar' && e.target.value.trim()) this.sugerirCatalogo(e.target);
+        });
+        tabla?.addEventListener('focusout', e => {
+            if (e.target.dataset.campo === 'buscar') setTimeout(() => this.ocultarCatalogo(), 150);
+        });
+        document.querySelector('.pages-container')?.addEventListener('scroll', () => this.ocultarCatalogo(), { passive: true });
         tabla?.addEventListener('click', e => {
             const quitar = e.target.closest('[data-quitar]');
             if (quitar) this.quitarItem(Number(quitar.dataset.quitar));
@@ -125,6 +134,148 @@ const CotizacionesModule = {
     estadoVisible(c) {
         const vencida = ['borrador', 'generada'].includes(c.estado) && c.valida_hasta && String(c.valida_hasta).slice(0, 10) < this.hoyKey();
         return { clave: vencida ? 'vencida' : c.estado, texto: vencida ? 'Vencida' : this.ESTADOS[c.estado] || c.estado };
+    },
+
+    // ---------- Catálogo (artículos + medicinas) ----------
+    async cargarCatalogo() {
+        if (this._catalogoPromesa) return this._catalogoPromesa;
+        const pedir = async path => {
+            const response = await fetch(`${authManager.apiBaseUrl}${path}`, { headers: { Authorization: `Bearer ${authManager.getToken()}` } });
+            if (!response.ok) throw new Error(`Error ${response.status}`);
+            return response.json();
+        };
+        const tipos = new Set(this.TIPOS.map(([valor]) => valor));
+        this._catalogoPromesa = Promise.allSettled([
+            pedir('/api/codigos-articulos?activo=true'),
+            pedir('/api/medicinas?activo=true')
+        ]).then(([articulos, medicinas]) => {
+            const lista = [];
+            if (articulos.status === 'fulfilled') {
+                (articulos.value.articulos || []).forEach(a => {
+                    const tipo = String(a.tipo || a.categoria || '').trim().toLowerCase();
+                    lista.push({
+                        origen: 'articulo',
+                        id: String(a.id),
+                        nombre: a.nombre_articulo || 'Sin nombre',
+                        codigo: a.codigo || a.codigo_barras || a.codigo_alternativo || '',
+                        precio: Number(a.precio_unitario ?? 0),
+                        tipo_item: tipos.has(tipo) && tipo !== 'medicina' ? tipo : 'general'
+                    });
+                });
+            }
+            if (medicinas.status === 'fulfilled') {
+                (medicinas.value.medicinas || []).forEach(m => lista.push({
+                    origen: 'medicina',
+                    id: String(m.id),
+                    nombre: m.nombre || 'Sin nombre',
+                    codigo: m.codigo_interno || m.codigo_externo || m.codigo_barra || '',
+                    precio: Number(m.precio_venta ?? 0),
+                    tipo_item: 'medicina'
+                }));
+            }
+            if (articulos.status === 'rejected' || medicinas.status === 'rejected') {
+                this._catalogoPromesa = null; // reintentar la próxima vez
+                this.notificar('No se pudo cargar por completo el listado de artículos y medicinas', 'warning');
+            }
+            this.state.catalogo = lista.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+            return this.state.catalogo;
+        });
+        return this._catalogoPromesa;
+    },
+
+    sugerirCatalogo(input) {
+        const normalizar = v => String(v ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const terminos = normalizar(input.value).split(/\s+/).filter(Boolean);
+        if (terminos.length === 0) {
+            this.ocultarCatalogo();
+            return;
+        }
+        const resultados = this.state.catalogo.filter(p => {
+            const texto = normalizar(`${p.nombre} ${p.codigo}`);
+            return terminos.every(t => texto.includes(t));
+        }).slice(0, 12);
+
+        let caja = document.getElementById('cotCatalogoSugerencias');
+        if (!caja) {
+            caja = document.createElement('div');
+            caja.id = 'cotCatalogoSugerencias';
+            caja.className = 'patient-suggestions cot-catalogo';
+            caja.setAttribute('role', 'listbox');
+            caja.addEventListener('mousedown', e => e.preventDefault());
+            caja.addEventListener('click', e => {
+                const opcion = e.target.closest('[data-opcion]');
+                if (opcion) this.elegirDelCatalogo(Number(opcion.dataset.opcion));
+            });
+            document.body.appendChild(caja);
+        }
+        this._catalogoResultados = resultados;
+        this._catalogoFila = Number(input.closest('tr[data-index]').dataset.index);
+        this._catalogoActivo = resultados.length ? 0 : -1;
+        caja.innerHTML = resultados.length
+            ? resultados.map((p, i) => `<button type="button" class="patient-suggestion" role="option" data-opcion="${i}">
+                    <strong>${this.e(p.nombre)}</strong>
+                    <span>${p.origen === 'medicina' ? 'Medicina' : 'Artículo'}${p.codigo ? ` · ${this.e(p.codigo)}` : ''} · ${formatQ(p.precio)}</span></button>`).join('')
+            : `<div class="patient-suggestion-empty">${this.state.catalogo.length ? 'Ningún artículo o medicina coincide.' : 'Cargando listado de artículos y medicinas…'}</div>`;
+        const r = input.getBoundingClientRect();
+        caja.style.top = `${r.bottom + 4}px`;
+        caja.style.left = `${r.left}px`;
+        caja.style.width = `${Math.max(r.width, 320)}px`;
+        caja.style.display = 'block';
+        this.marcarOpcionActiva();
+    },
+
+    marcarOpcionActiva() {
+        document.querySelectorAll('#cotCatalogoSugerencias [data-opcion]').forEach((el, i) => {
+            el.classList.toggle('activa', i === this._catalogoActivo);
+            if (i === this._catalogoActivo) el.scrollIntoView({ block: 'nearest' });
+        });
+    },
+
+    ocultarCatalogo() {
+        const caja = document.getElementById('cotCatalogoSugerencias');
+        if (caja) caja.style.display = 'none';
+        this._catalogoResultados = [];
+    },
+
+    onTeclaBuscador(event) {
+        if (event.target.dataset.campo !== 'buscar' || !this._catalogoResultados?.length) return;
+        const total = this._catalogoResultados.length;
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            this._catalogoActivo = (this._catalogoActivo + (event.key === 'ArrowDown' ? 1 : -1) + total) % total;
+            this.marcarOpcionActiva();
+        } else if (event.key === 'Enter') {
+            event.preventDefault();
+            this.elegirDelCatalogo(this._catalogoActivo);
+        } else if (event.key === 'Escape') {
+            this.ocultarCatalogo();
+        }
+    },
+
+    elegirDelCatalogo(indice) {
+        const producto = this._catalogoResultados?.[indice];
+        const item = this.state.items[this._catalogoFila];
+        if (!producto || !item) return;
+        Object.assign(item, {
+            descripcion: producto.nombre,
+            tipo_item: producto.tipo_item,
+            precio_unitario: producto.precio,
+            articulo_id: producto.origen === 'articulo' ? producto.id : null,
+            medicina_id: producto.origen === 'medicina' ? producto.id : null,
+            codigo: producto.codigo
+        });
+        const fila = this._catalogoFila;
+        this.ocultarCatalogo();
+        this.renderItems();
+        document.querySelector(`#cotItemsBody tr[data-index="${fila}"] [data-campo="cantidad"]`)?.focus();
+    },
+
+    // Datos de catálogo (código) para mostrar en filas ya guardadas
+    enlazarCatalogo(item) {
+        const producto = this.state.catalogo.find(p =>
+            (item.articulo_id && p.origen === 'articulo' && p.id === String(item.articulo_id)) ||
+            (item.medicina_id && p.origen === 'medicina' && p.id === String(item.medicina_id)));
+        return producto ? { ...item, codigo: producto.codigo } : item;
     },
 
     // ---------- Listado ----------
@@ -205,13 +356,15 @@ const CotizacionesModule = {
             }
         }
         this.state.actual = cotizacion;
-        this.state.items = (cotizacion?.items || []).map(i => ({
+        await this.cargarCatalogo();
+        this.state.items = (cotizacion?.items || []).map(i => this.enlazarCatalogo({
             descripcion: i.descripcion,
             tipo_item: i.tipo_item,
             cantidad: Number(i.cantidad),
             precio_unitario: Number(i.precio_unitario),
             descuento: Number(i.descuento),
-            medicina_id: i.medicina_id
+            articulo_id: i.articulo_id || null,
+            medicina_id: i.medicina_id || null
         }));
         if (!cotizacion) this.agregarItem(false);
 
@@ -237,6 +390,7 @@ const CotizacionesModule = {
     },
 
     cerrarEditor() {
+        this.ocultarCatalogo();
         document.getElementById('cotEditor').hidden = true;
         document.getElementById('cotListado').hidden = false;
         this.state.actual = null;
@@ -278,17 +432,21 @@ const CotizacionesModule = {
     },
 
     agregarItem(render = true) {
-        this.state.items.push({ descripcion: '', tipo_item: 'servicio', cantidad: 1, precio_unitario: 0, descuento: 0 });
+        this.state.items.push({ descripcion: '', tipo_item: 'general', cantidad: 1, precio_unitario: 0, descuento: 0, articulo_id: null, medicina_id: null });
         if (render) {
             this.renderItems();
             const filas = document.querySelectorAll('#cotItemsBody tr');
-            filas[filas.length - 1]?.querySelector('[data-campo="descripcion"]')?.focus();
+            filas[filas.length - 1]?.querySelector('[data-campo="buscar"]')?.focus();
         }
     },
 
     quitarItem(index) {
         this.state.items.splice(index, 1);
         this.renderItems();
+    },
+
+    esDelCatalogo(item) {
+        return Boolean(item.articulo_id || item.medicina_id);
     },
 
     totalItem(item) {
@@ -302,18 +460,31 @@ const CotizacionesModule = {
         if (this.state.items.length === 0) {
             tbody.innerHTML = `<tr><td colspan="7" class="text-center cot-sub" style="padding: 18px;">Sin conceptos. Agrega uno o carga una plantilla.</td></tr>`;
         } else {
-            tbody.innerHTML = this.state.items.map((item, i) => `
+            tbody.innerHTML = this.state.items.map((item, i) => {
+                const delCatalogo = this.esDelCatalogo(item);
+                const origen = item.medicina_id ? 'Medicina' : 'Artículo';
+                const detalle = delCatalogo
+                    ? `<small class="cot-sub cot-origen">${origen}${item.codigo ? ` · ${this.e(item.codigo)}` : ''}</small>`
+                    : (String(item.descripcion || '').trim()
+                        ? '<small class="cot-origen cot-origen-error">Elige el concepto del listado de artículos o medicinas</small>'
+                        : '');
+                const tipos = item.medicina_id
+                    ? this.TIPOS.filter(([valor]) => valor === 'medicina')
+                    : this.TIPOS.filter(([valor]) => valor !== 'medicina');
+                return `
                 <tr data-index="${i}">
-                    <td><input type="text" class="form-input" data-campo="descripcion" value="${this.e(item.descripcion)}" placeholder="Ej: Habitación privada (por día)" aria-label="Descripción" ${editable ? '' : 'disabled'}></td>
-                    <td><select class="form-input" data-campo="tipo_item" aria-label="Tipo" ${editable ? '' : 'disabled'}>
-                        ${this.TIPOS.map(([valor, texto]) => `<option value="${valor}" ${valor === item.tipo_item ? 'selected' : ''}>${texto}</option>`).join('')}
+                    <td><input type="search" class="form-input${delCatalogo || !String(item.descripcion || '').trim() ? '' : ' cot-input-error'}" data-campo="buscar" value="${this.e(item.descripcion)}" placeholder="Buscar artículo o medicina" aria-label="Concepto (artículo o medicina)" autocomplete="off" ${editable ? '' : 'disabled'}>
+                        ${detalle}</td>
+                    <td><select class="form-input" data-campo="tipo_item" aria-label="Tipo" ${editable && !item.medicina_id ? '' : 'disabled'}>
+                        ${tipos.map(([valor, texto]) => `<option value="${valor}" ${valor === item.tipo_item ? 'selected' : ''}>${texto}</option>`).join('')}
                     </select></td>
                     <td><input type="number" class="form-input cot-num" data-campo="cantidad" value="${item.cantidad}" min="1" step="1" aria-label="Cantidad" ${editable ? '' : 'disabled'}></td>
                     <td><input type="number" class="form-input cot-num" data-campo="precio_unitario" value="${item.precio_unitario}" min="0" step="0.01" aria-label="Precio unitario" ${editable ? '' : 'disabled'}></td>
                     <td><input type="number" class="form-input cot-num" data-campo="descuento" value="${item.descuento}" min="0" step="0.01" aria-label="Descuento" ${editable ? '' : 'disabled'}></td>
                     <td class="text-right"><strong data-total-item>${formatQ(this.totalItem(item))}</strong></td>
                     <td>${editable ? `<button type="button" class="btn-accion btn-accion-icono" data-quitar="${i}" title="Quitar concepto" aria-label="Quitar concepto"><i class="fas fa-trash" aria-hidden="true"></i></button>` : ''}</td>
-                </tr>`).join('');
+                </tr>`;
+            }).join('');
         }
         this.renderTotales();
     },
@@ -323,6 +494,20 @@ const CotizacionesModule = {
         const fila = event.target.closest('tr[data-index]');
         if (!campo || !fila) return;
         const item = this.state.items[Number(fila.dataset.index)];
+        if (campo === 'buscar') {
+            // Escribir en el buscador suelta el concepto elegido hasta escoger otro del listado
+            if (event.type !== 'input') return;
+            if (this.esDelCatalogo(item)) {
+                Object.assign(item, { articulo_id: null, medicina_id: null, codigo: '' });
+                const detalle = fila.querySelector('.cot-origen');
+                if (detalle) detalle.remove();
+            }
+            item.descripcion = event.target.value;
+            this.cargarCatalogo().then(() => {
+                if (document.activeElement === event.target) this.sugerirCatalogo(event.target);
+            });
+            return;
+        }
         item[campo] = ['cantidad', 'precio_unitario', 'descuento'].includes(campo)
             ? Number(event.target.value) || 0
             : event.target.value;
@@ -440,22 +625,25 @@ const CotizacionesModule = {
             notas: valor('cotNotas'),
             vigencia_dias: Number(valor('cotVigencia')) || 15,
             estado,
-            items: this.state.items.map(i => ({
-                descripcion: String(i.descripcion || '').trim(),
-                tipo_item: i.tipo_item,
-                cantidad: Number(i.cantidad),
-                precio_unitario: Number(i.precio_unitario),
-                descuento: Number(i.descuento) || 0,
-                medicina_id: i.medicina_id || null
-            }))
+            items: this.state.items
+                .filter(i => this.esDelCatalogo(i) || String(i.descripcion || '').trim())
+                .map(i => ({
+                    descripcion: String(i.descripcion || '').trim(),
+                    tipo_item: i.tipo_item,
+                    cantidad: Number(i.cantidad),
+                    precio_unitario: Number(i.precio_unitario),
+                    descuento: Number(i.descuento) || 0,
+                    articulo_id: i.articulo_id || null,
+                    medicina_id: i.medicina_id || null
+                }))
         };
     },
 
     validar(datos) {
         if (!datos.cliente_nombre) return 'Escribe el nombre del cliente o selecciona un paciente';
-        const items = datos.items.filter(i => i.descripcion);
-        if (items.length === 0) return 'Agrega al menos un concepto con descripción';
-        if (datos.items.some(i => !i.descripcion)) return 'Hay conceptos sin descripción. Escríbela o quita la fila.';
+        if (datos.items.length === 0) return 'Agrega al menos un concepto del listado de artículos o medicinas';
+        const fuera = datos.items.find(i => !this.esDelCatalogo(i));
+        if (fuera) return `"${fuera.descripcion}" no es del listado. Búscalo y elígelo entre los artículos o medicinas, o quita la fila.`;
         if (datos.items.some(i => !Number.isInteger(i.cantidad) || i.cantidad < 1)) return 'Las cantidades deben ser números enteros mayores a 0';
         if (datos.items.some(i => i.precio_unitario < 0 || i.descuento < 0)) return 'Los precios y descuentos no pueden ser negativos';
         if (datos.items.some(i => i.descuento > i.cantidad * i.precio_unitario)) return 'Un descuento es mayor que el subtotal de su concepto';
@@ -631,15 +819,16 @@ const CotizacionesModule = {
             return;
         }
         // Quitar filas vacías antes de agregar los conceptos de la plantilla
-        this.state.items = this.state.items.filter(i => String(i.descripcion || '').trim());
-        (plantilla.items || []).forEach(i => this.state.items.push({
+        this.state.items = this.state.items.filter(i => this.esDelCatalogo(i) || String(i.descripcion || '').trim());
+        (plantilla.items || []).forEach(i => this.state.items.push(this.enlazarCatalogo({
             descripcion: i.descripcion,
             tipo_item: i.tipo_item || 'general',
             cantidad: Number(i.cantidad) || 1,
             precio_unitario: Number(i.precio_unitario) || 0,
             descuento: Number(i.descuento) || 0,
+            articulo_id: i.articulo_id || null,
             medicina_id: i.medicina_id || null
-        }));
+        })));
         const motivo = document.getElementById('cotMotivo');
         if (motivo && !motivo.value.trim()) motivo.value = plantilla.nombre;
         this.renderItems();
@@ -648,9 +837,14 @@ const CotizacionesModule = {
 
     async guardarComoPlantilla() {
         const datos = this.datosFormulario('borrador');
-        const items = datos.items.filter(i => i.descripcion);
+        const items = datos.items;
         if (items.length === 0) {
             this.notificar('Agrega conceptos antes de guardar la plantilla', 'warning');
+            return;
+        }
+        const fuera = items.find(i => !this.esDelCatalogo(i));
+        if (fuera) {
+            this.notificar(`"${fuera.descripcion}" no es del listado de artículos o medicinas. Elígelo del listado o quita la fila.`, 'warning');
             return;
         }
         const nombre = prompt('Nombre de la plantilla (ej. "Internamiento 7 días"):', datos.motivo || '');
