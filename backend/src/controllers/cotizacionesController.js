@@ -223,11 +223,11 @@ const cotizacionesController = {
                     motivo, notas, estado, vigencia_dias, subtotal, descuento, total, fecha_generada, usuario_id,
                     cliente_responsable
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-                    CASE WHEN $10::text = 'generada' THEN CURRENT_TIMESTAMP END, $15, $16)`,
+                    CASE WHEN $17::boolean THEN CURRENT_TIMESTAMP END, $15, $16)`,
                 [id, rows[0].numero, cliente.pacienteId, cliente.nombre, cliente.telefono, cliente.dpi, cliente.email,
                     textoOpcional(req.body.motivo), textoOpcional(req.body.notas), estado, vigencia,
                     totales.subtotal, totales.descuento, totales.total, Number(req.user?.id) || null,
-                    cliente.responsable]
+                    cliente.responsable, estado === 'generada']
             );
             await guardarItems(client, id, items);
             const cotizacion = await obtenerCotizacion(client, id);
@@ -263,14 +263,14 @@ const cotizacionesController = {
                     paciente_id = $1, cliente_nombre = $2, cliente_telefono = $3, cliente_dpi = $4, cliente_email = $5,
                     motivo = $6, notas = $7, estado = $8, vigencia_dias = $9,
                     subtotal = $10, descuento = $11, total = $12,
-                    fecha_generada = CASE WHEN $8::text = 'generada' THEN CURRENT_TIMESTAMP ELSE fecha_generada END,
+                    fecha_generada = CASE WHEN $15::boolean THEN CURRENT_TIMESTAMP ELSE fecha_generada END,
                     cliente_responsable = $14,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = $13`,
                 [cliente.pacienteId, cliente.nombre, cliente.telefono, cliente.dpi, cliente.email,
                     textoOpcional(req.body.motivo), textoOpcional(req.body.notas), estado,
                     Number(req.body.vigencia_dias) || 15, totales.subtotal, totales.descuento, totales.total, req.params.id,
-                    cliente.responsable]
+                    cliente.responsable, estado === 'generada']
             );
             await guardarItems(client, req.params.id, items);
             const cotizacion = await obtenerCotizacion(client, req.params.id);
