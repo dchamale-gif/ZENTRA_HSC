@@ -112,7 +112,9 @@ const CotizacionesModule = {
         });
         const result = await response.json().catch(() => ({}));
         if (!response.ok || result.success === false) {
-            throw new Error(result.message || result.error || `Error ${response.status}`);
+            // En errores del servidor, el detalle técnico viene en result.error
+            const detalle = result.error && result.error !== result.message ? ` (${result.error})` : '';
+            throw new Error(`${result.message || result.error || `Error ${response.status}`}${detalle}`);
         }
         return result;
     },
