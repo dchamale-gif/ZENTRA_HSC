@@ -49,6 +49,7 @@ const normalizarItems = (items) => {
         return {
             orden: index,
             descripcion,
+            contenido: textoOpcional(String(item.contenido ?? '').replace(/\r\n/g, '\n')),
             tipo_item: medicinaId ? 'medicina' : (String(item.tipo_item || 'general').trim() || 'general'),
             cantidad,
             precio_unitario: redondear(precioUnitario),
@@ -97,6 +98,7 @@ const resolverCliente = async (client, body) => {
     let telefono = textoOpcional(body.cliente_telefono);
     let dpi = textoOpcional(body.cliente_dpi);
     let email = textoOpcional(body.cliente_email);
+    const responsable = textoOpcional(body.cliente_responsable);
 
     if (pacienteId) {
         const { rows } = await client.query(
@@ -112,7 +114,7 @@ const resolverCliente = async (client, body) => {
     }
 
     if (!nombre) throw errorConEstado('El nombre del cliente es obligatorio');
-    return { pacienteId, nombre, telefono, dpi, email };
+    return { pacienteId, nombre, telefono, dpi, email, responsable };
 };
 
 const guardarItems = async (client, cotizacionId, items) => {
@@ -120,9 +122,9 @@ const guardarItems = async (client, cotizacionId, items) => {
     for (const item of items) {
         await client.query(`
             INSERT INTO cotizacion_items
-                (cotizacion_id, orden, descripcion, tipo_item, cantidad, precio_unitario, descuento, total, articulo_id, medicina_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-            [cotizacionId, item.orden, item.descripcion, item.tipo_item, item.cantidad,
+                (cotizacion_id, orden, descripcion, contenido, tipo_item, cantidad, precio_unitario, descuento, total, articulo_id, medicina_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+            [cotizacionId, item.orden, item.descripcion, item.contenido, item.tipo_item, item.cantidad,
                 item.precio_unitario, item.descuento, item.total, item.articulo_id, item.medicina_id]
         );
     }
@@ -132,9 +134,11 @@ const obtenerCotizacion = async (client, id) => {
     const { rows } = await client.query(`
         SELECT c.*,
                (c.created_at + make_interval(days => c.vigencia_dias))::date AS valida_hasta,
-               NULLIF(TRIM(CONCAT_WS(' ', p.nombre, p.apellido_paterno, p.apellido_materno)), '') AS paciente_nombre
+               NULLIF(TRIM(CONCAT_WS(' ', p.nombre, p.apellido_paterno, p.apellido_materno)), '') AS paciente_nombre,
+               NULLIF(TRIM(CONCAT_WS(' ', u.nombre, u.apellido)), '') AS cotizador_nombre
         FROM cotizaciones c
         LEFT JOIN pacientes p ON p.id = c.paciente_id
+        LEFT JOIN users u ON u.id = c.usuario_id
         WHERE c.id = $1`, [id]);
     if (rows.length === 0) return null;
     const items = await client.query(
@@ -209,18 +213,21 @@ const cotizacionesController = {
             await client.query('BEGIN');
             const cliente = await resolverCliente(client, req.body);
             const { rows } = await client.query(
-                "SELECT 'COT-' || LPAD(nextval('cotizaciones_numero_seq')::text, 6, '0') AS numero"
+                `SELECT 'COT-' || LPAD(n::text, GREATEST(3, LENGTH(n::text)), '0') AS numero
+                 FROM (SELECT nextval('cotizaciones_numero_seq') AS n) s`
             );
             const id = generateId('COT');
             await client.query(`
                 INSERT INTO cotizaciones (
                     id, numero, paciente_id, cliente_nombre, cliente_telefono, cliente_dpi, cliente_email,
-                    motivo, notas, estado, vigencia_dias, subtotal, descuento, total, fecha_generada, usuario_id
+                    motivo, notas, estado, vigencia_dias, subtotal, descuento, total, fecha_generada, usuario_id,
+                    cliente_responsable
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-                    CASE WHEN $10::text = 'generada' THEN CURRENT_TIMESTAMP END, $15)`,
+                    CASE WHEN $10::text = 'generada' THEN CURRENT_TIMESTAMP END, $15, $16)`,
                 [id, rows[0].numero, cliente.pacienteId, cliente.nombre, cliente.telefono, cliente.dpi, cliente.email,
                     textoOpcional(req.body.motivo), textoOpcional(req.body.notas), estado, vigencia,
-                    totales.subtotal, totales.descuento, totales.total, Number(req.user?.id) || null]
+                    totales.subtotal, totales.descuento, totales.total, Number(req.user?.id) || null,
+                    cliente.responsable]
             );
             await guardarItems(client, id, items);
             const cotizacion = await obtenerCotizacion(client, id);
@@ -257,11 +264,13 @@ const cotizacionesController = {
                     motivo = $6, notas = $7, estado = $8, vigencia_dias = $9,
                     subtotal = $10, descuento = $11, total = $12,
                     fecha_generada = CASE WHEN $8::text = 'generada' THEN CURRENT_TIMESTAMP ELSE fecha_generada END,
+                    cliente_responsable = $14,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = $13`,
                 [cliente.pacienteId, cliente.nombre, cliente.telefono, cliente.dpi, cliente.email,
                     textoOpcional(req.body.motivo), textoOpcional(req.body.notas), estado,
-                    Number(req.body.vigencia_dias) || 15, totales.subtotal, totales.descuento, totales.total, req.params.id]
+                    Number(req.body.vigencia_dias) || 15, totales.subtotal, totales.descuento, totales.total, req.params.id,
+                    cliente.responsable]
             );
             await guardarItems(client, req.params.id, items);
             const cotizacion = await obtenerCotizacion(client, req.params.id);

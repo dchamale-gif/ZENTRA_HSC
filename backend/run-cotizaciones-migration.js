@@ -8,6 +8,9 @@
  *   - cotizacion_items        Conceptos cotizados
  *   - cotizacion_plantillas   Paquetes reutilizables para precargar cotizaciones
  *
+ * Numeración: COT-001, COT-002, … (crece a COT-1000 sin truncar).
+ * Cada concepto guarda "qué contiene" (contenido), también dentro de las plantillas.
+ *
  * Estados de una cotización:
  *   borrador  -> guardada sin generar
  *   generada  -> generada/impresa, sigue editable
@@ -43,6 +46,7 @@ CREATE TABLE IF NOT EXISTS cotizaciones (
     cliente_telefono VARCHAR(30),
     cliente_dpi VARCHAR(20),
     cliente_email VARCHAR(150),
+    cliente_responsable VARCHAR(150),
     motivo TEXT,
     notas TEXT,
     estado VARCHAR(20) NOT NULL DEFAULT 'borrador'
@@ -69,6 +73,7 @@ CREATE TABLE IF NOT EXISTS cotizacion_items (
     cotizacion_id VARCHAR(50) NOT NULL REFERENCES cotizaciones(id) ON DELETE CASCADE,
     orden INTEGER NOT NULL DEFAULT 0,
     descripcion TEXT NOT NULL,
+    contenido TEXT,
     tipo_item VARCHAR(50) NOT NULL DEFAULT 'general',
     cantidad NUMERIC(10, 2) NOT NULL CHECK (cantidad > 0),
     precio_unitario NUMERIC(12, 2) NOT NULL CHECK (precio_unitario >= 0),
@@ -78,8 +83,10 @@ CREATE TABLE IF NOT EXISTS cotizacion_items (
     medicina_id VARCHAR(50)
 );
 
--- Instalaciones que ya corrieron la migración antes de existir articulo_id
+-- Columnas agregadas después de la primera versión (instalaciones que ya corrieron la migración)
 ALTER TABLE cotizacion_items ADD COLUMN IF NOT EXISTS articulo_id VARCHAR(50);
+ALTER TABLE cotizacion_items ADD COLUMN IF NOT EXISTS contenido TEXT;
+ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS cliente_responsable VARCHAR(150);
 
 CREATE INDEX IF NOT EXISTS idx_cotizacion_items_cotizacion ON cotizacion_items (cotizacion_id, orden);
 

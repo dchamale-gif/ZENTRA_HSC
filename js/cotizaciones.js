@@ -359,6 +359,7 @@ const CotizacionesModule = {
         await this.cargarCatalogo();
         this.state.items = (cotizacion?.items || []).map(i => this.enlazarCatalogo({
             descripcion: i.descripcion,
+            contenido: i.contenido || '',
             tipo_item: i.tipo_item,
             cantidad: Number(i.cantidad),
             precio_unitario: Number(i.precio_unitario),
@@ -373,6 +374,7 @@ const CotizacionesModule = {
         valor('cotClienteTelefono', cotizacion?.cliente_telefono);
         valor('cotClienteDpi', cotizacion?.cliente_dpi);
         valor('cotClienteEmail', cotizacion?.cliente_email);
+        valor('cotClienteResponsable', cotizacion?.cliente_responsable);
         valor('cotMotivo', cotizacion?.motivo);
         valor('cotVigencia', cotizacion?.vigencia_dias || 15);
         valor('cotNotas', cotizacion ? cotizacion.notas : this.NOTAS_PREDETERMINADAS);
@@ -432,7 +434,7 @@ const CotizacionesModule = {
     },
 
     agregarItem(render = true) {
-        this.state.items.push({ descripcion: '', tipo_item: 'general', cantidad: 1, precio_unitario: 0, descuento: 0, articulo_id: null, medicina_id: null });
+        this.state.items.push({ descripcion: '', contenido: '', tipo_item: 'general', cantidad: 1, precio_unitario: 0, descuento: 0, articulo_id: null, medicina_id: null });
         if (render) {
             this.renderItems();
             const filas = document.querySelectorAll('#cotItemsBody tr');
@@ -474,7 +476,8 @@ const CotizacionesModule = {
                 return `
                 <tr data-index="${i}">
                     <td><input type="search" class="form-input${delCatalogo || !String(item.descripcion || '').trim() ? '' : ' cot-input-error'}" data-campo="buscar" value="${this.e(item.descripcion)}" placeholder="Buscar artículo o medicina" aria-label="Concepto (artículo o medicina)" autocomplete="off" ${editable ? '' : 'disabled'}>
-                        ${detalle}</td>
+                        ${detalle}
+                        <textarea class="form-input cot-contenido" data-campo="contenido" rows="${Math.min(6, Math.max(2, String(item.contenido || '').split('\n').length))}" placeholder="Qué contiene (un punto por línea, opcional)" aria-label="Qué contiene" ${editable ? '' : 'disabled'}>${this.e(item.contenido)}</textarea></td>
                     <td><select class="form-input" data-campo="tipo_item" aria-label="Tipo" ${editable && !item.medicina_id ? '' : 'disabled'}>
                         ${tipos.map(([valor, texto]) => `<option value="${valor}" ${valor === item.tipo_item ? 'selected' : ''}>${texto}</option>`).join('')}
                     </select></td>
@@ -621,6 +624,7 @@ const CotizacionesModule = {
             cliente_telefono: valor('cotClienteTelefono'),
             cliente_dpi: valor('cotClienteDpi'),
             cliente_email: valor('cotClienteEmail'),
+            cliente_responsable: valor('cotClienteResponsable'),
             motivo: valor('cotMotivo'),
             notas: valor('cotNotas'),
             vigencia_dias: Number(valor('cotVigencia')) || 15,
@@ -629,6 +633,7 @@ const CotizacionesModule = {
                 .filter(i => this.esDelCatalogo(i) || String(i.descripcion || '').trim())
                 .map(i => ({
                     descripcion: String(i.descripcion || '').trim(),
+                    contenido: String(i.contenido || '').trim(),
                     tipo_item: i.tipo_item,
                     cantidad: Number(i.cantidad),
                     precio_unitario: Number(i.precio_unitario),
@@ -822,6 +827,7 @@ const CotizacionesModule = {
         this.state.items = this.state.items.filter(i => this.esDelCatalogo(i) || String(i.descripcion || '').trim());
         (plantilla.items || []).forEach(i => this.state.items.push(this.enlazarCatalogo({
             descripcion: i.descripcion,
+            contenido: i.contenido || '',
             tipo_item: i.tipo_item || 'general',
             cantidad: Number(i.cantidad) || 1,
             precio_unitario: Number(i.precio_unitario) || 0,
@@ -936,68 +942,114 @@ const CotizacionesModule = {
         }
     },
 
+    // Conceptos agrupados por tipo, en el orden en que aparece cada tipo
+    agruparPorTipo(items) {
+        const grupos = new Map();
+        (items || []).forEach(item => {
+            const tipo = item.tipo_item || 'general';
+            if (!grupos.has(tipo)) grupos.set(tipo, []);
+            grupos.get(tipo).push(item);
+        });
+        return [...grupos.entries()];
+    },
+
     imprimir(c) {
         const e = v => this.e(v);
         const clinica = (typeof CONFIG !== 'undefined' && CONFIG.CLINICA) || { nombre: 'Zentra MED' };
         const tipos = Object.fromEntries(this.TIPOS);
-        const iva = typeof desglosarIVA === 'function' ? desglosarIVA(c.total).iva : 0;
+        // Precios con IVA incluido: el subtotal impreso es la base sin IVA
+        const total = this.redondear(c.total);
+        const iva = typeof desglosarIVA === 'function' ? desglosarIVA(total).iva : this.redondear(total - total / 1.12);
+        const base = this.redondear(total - iva);
+        const descuento = Number(c.descuento) || 0;
+        const fecha = formatFecha(c.fecha_generada || c.created_at);
+        // Logo propio en img/logo-clinica.png; si no existe se usa el de Zentra
+        const logo = new URL('img/logo-clinica.png', location.href).href;
+        const logoRespaldo = new URL('img/zentra-logo.png', location.href).href;
+
+        const filas = this.agruparPorTipo(c.items).map(([tipo, items]) => items.map((i, n) => {
+            const lineas = String(i.contenido || '').split('\n').map(l => l.trim()).filter(Boolean);
+            const desc = Number(i.descuento) || 0;
+            return `<tr>
+                ${n === 0 ? `<td class="servicio" rowspan="${items.length}">${e(tipos[tipo] || tipo)}</td>` : ''}
+                <td class="obs"><div class="concepto">${e(i.descripcion)}</div>
+                    ${lineas.length ? `<ul>${lineas.map(l => `<li>${e(l.replace(/^[-•*]\s*/, ''))}</li>`).join('')}</ul>` : ''}</td>
+                <td class="cant">${Number(i.cantidad)}</td>
+                <td class="num"><span>Q</span>${formatNumero(i.precio_unitario)}</td>
+                <td class="num"><span>Q</span>${formatNumero(i.total)}
+                    ${desc ? `<small>Desc. ${formatQ(desc)}</small>` : ''}</td>
+            </tr>`;
+        }).join('')).join('');
+
         const html = `<!DOCTYPE html>
 <html lang="es"><head><meta charset="utf-8"><title>Cotización ${e(c.numero)}</title>
 <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; color: #1f2933; font-size: 12px; line-height: 1.45; padding: 28px; }
+    body { font-family: Calibri, 'Segoe UI', Arial, sans-serif; color: #111; font-size: 13px; line-height: 1.35; padding: 24px; }
     .doc { max-width: 860px; margin: 0 auto; }
-    header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #0f766e; padding-bottom: 12px; margin-bottom: 16px; }
-    .clinica { font-size: 16px; font-weight: 700; color: #0f766e; }
-    .clinica small { display: block; font-size: 11px; font-weight: 400; color: #52606d; }
-    h1 { font-size: 20px; text-align: right; letter-spacing: .04em; }
-    .meta { text-align: right; font-size: 11px; color: #52606d; }
-    .meta strong { color: #1f2933; }
-    .cliente { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 16px; padding: 10px 12px; border: 1px solid #d9e2e6; border-radius: 6px; margin-bottom: 14px; }
-    .cliente span { display: block; font-size: 10px; text-transform: uppercase; color: #7b8794; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-    th, td { border: 1px solid #d9e2e6; padding: 6px 8px; text-align: left; }
-    th { background: #f1f5f7; font-size: 10.5px; text-transform: uppercase; }
-    .num { text-align: right; white-space: nowrap; }
-    .totales { margin-left: auto; width: 300px; }
-    .totales div { display: flex; justify-content: space-between; padding: 4px 0; }
-    .totales .total { border-top: 2px solid #0f766e; margin-top: 4px; padding-top: 8px; font-size: 15px; font-weight: 700; color: #0f766e; }
-    .totales .nota { font-size: 10.5px; color: #52606d; }
-    .notas { margin-top: 16px; padding: 10px 12px; background: #f6f8f9; border-radius: 6px; font-size: 11px; }
-    .firmas { display: flex; gap: 40px; margin-top: 50px; }
-    .firmas div { flex: 1; border-top: 1px solid #1f2933; padding-top: 4px; text-align: center; font-size: 11px; }
-    footer { margin-top: 20px; font-size: 10px; color: #7b8794; text-align: center; }
-    @media print { body { padding: 0; } @page { size: letter; margin: 14mm; } }
+    .cabecera { display: flex; align-items: flex-start; gap: 16px; }
+    .cabecera-izq { flex: 1; }
+    .barra { background: #2f8fce; color: #fff; text-align: center; font-size: 19px; padding: 10px 12px; }
+    .logo { width: 150px; height: 120px; object-fit: contain; flex-shrink: 0; }
+    .numero { display: grid; grid-template-columns: 1fr 1fr; margin: 26px 0 30px; }
+    .datos div { margin-bottom: 6px; }
+    .datos span { display: inline-block; min-width: 170px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 22px; }
+    th { background: #2f8fce; color: #fff; font-weight: 400; padding: 4px 6px; border: 2px solid #111; }
+    td { border: 2px solid #111; padding: 4px 8px; vertical-align: middle; }
+    td.servicio { width: 19%; font-size: 14px; }
+    td.obs { width: 37%; }
+    td.obs .concepto { font-weight: 600; }
+    td.obs ul { list-style: none; padding-left: 8px; }
+    td.obs li::before { content: '- '; }
+    td.cant { width: 13%; text-align: center; }
+    td.num { width: 15.5%; text-align: right; white-space: nowrap; }
+    td.num span { float: left; }
+    td.num small { display: block; font-size: 10.5px; color: #555; }
+    .totales td { border: 2px solid #111; text-align: center; }
+    .totales td.vacio { border: 0; }
+    .totales td.valor { text-align: right; white-space: nowrap; }
+    .totales td.valor span { float: left; }
+    .totales tr.total td:not(.vacio) { font-weight: 700; }
+    .notas { margin-top: 18px; font-size: 12px; }
+    .vigencia { margin-top: 6px; font-size: 12px; color: #444; }
+    @media print {
+        body { padding: 0; }
+        @page { size: letter; margin: 12mm; }
+        .barra, th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        tr { page-break-inside: avoid; }
+    }
 </style></head>
 <body><div class="doc">
-<header>
-    <div class="clinica">${e(clinica.nombre || 'Zentra MED')}
-        <small>${e([clinica.nit && `NIT ${clinica.nit}`, clinica.direccion, clinica.municipio, clinica.telefono].filter(x => x && String(x).trim() && String(x).trim() !== '+502').join(' · '))}</small>
+<div class="cabecera">
+    <div class="cabecera-izq">
+        <div class="barra">Cotización de servicios hospitalarios</div>
+        <div class="numero"><span>Número de cotización</span><span>${e(c.numero)}</span></div>
+        <div class="datos">
+            <div><span>Nombre del cotizador:</span>${e(c.cotizador_nombre || '')}</div>
+            <div><span>Fecha:</span>${e(fecha)}</div>
+            <div><span>Nombre del paciente:</span>${e(c.cliente_nombre)}</div>
+            <div><span>Familiar / Responsable:</span>${e(c.cliente_responsable || '')}</div>
+            <div><span>Teléfono de contacto:</span>${e(c.cliente_telefono || '')}</div>
+            ${c.motivo ? `<div><span>Motivo:</span>${e(c.motivo)}</div>` : ''}
+        </div>
     </div>
-    <div><h1>COTIZACIÓN</h1>
-        <div class="meta"><strong>${e(c.numero)}</strong><br>Fecha: ${formatFecha(c.created_at)}<br>Válida hasta: ${c.valida_hasta ? formatFecha(c.valida_hasta) : '—'}</div></div>
-</header>
-<div class="cliente">
-    <div><span>Cliente</span>${e(c.cliente_nombre)}</div>
-    <div><span>Teléfono</span>${e(c.cliente_telefono || '—')}</div>
-    <div><span>DPI</span>${e(c.cliente_dpi || '—')}</div>
-    ${c.motivo ? `<div style="grid-column: 1 / -1;"><span>Motivo</span>${e(c.motivo)}</div>` : ''}
+    <img class="logo" src="${e(logo)}" alt="${e(clinica.nombre || '')}" onerror="if (this.src !== '${e(logoRespaldo)}') this.src = '${e(logoRespaldo)}'; else this.remove();">
 </div>
 <table>
-    <thead><tr><th>Descripción</th><th>Tipo</th><th class="num">Cant.</th><th class="num">Precio unit.</th><th class="num">Descuento</th><th class="num">Total</th></tr></thead>
-    <tbody>${(c.items || []).map(i => `<tr><td>${e(i.descripcion)}</td><td>${e(tipos[i.tipo_item] || i.tipo_item)}</td>
-        <td class="num">${Number(i.cantidad)}</td><td class="num">${formatQ(i.precio_unitario)}</td>
-        <td class="num">${Number(i.descuento) ? formatQ(i.descuento) : '—'}</td><td class="num">${formatQ(i.total)}</td></tr>`).join('')}</tbody>
+    <thead><tr><th>Servicio</th><th>Observaciones</th><th>Cant</th><th>Costo Unitario</th><th>Total</th></tr></thead>
+    <tbody>${filas}</tbody>
+    <tbody class="totales">
+        ${descuento ? `
+        <tr><td class="vacio"></td><td colspan="3">Suma de conceptos</td><td class="valor"><span>Q</span>${formatNumero(c.subtotal)}</td></tr>
+        <tr><td class="vacio"></td><td colspan="3">Descuentos</td><td class="valor"><span>Q</span>-${formatNumero(descuento)}</td></tr>` : ''}
+        <tr><td class="vacio"></td><td colspan="3">Subtotal</td><td class="valor"><span>Q</span>${formatNumero(base)}</td></tr>
+        <tr><td class="vacio"></td><td colspan="3">IVA</td><td class="valor"><span>Q</span>${formatNumero(iva)}</td></tr>
+        <tr class="total"><td class="vacio"></td><td colspan="3">TOTAL</td><td class="valor"><span>Q</span>${formatNumero(total)}</td></tr>
+    </tbody>
 </table>
-<div class="totales">
-    <div><span>Subtotal</span><span>${formatQ(c.subtotal)}</span></div>
-    ${Number(c.descuento) ? `<div><span>Descuentos</span><span>-${formatQ(c.descuento)}</span></div>` : ''}
-    <div class="total"><span>TOTAL</span><span>${formatQ(c.total)}</span></div>
-    <div class="nota"><span>IVA (12%) incluido</span><span>${formatQ(iva)}</span></div>
-</div>
-${c.notas ? `<div class="notas"><strong>Condiciones:</strong> ${e(c.notas)}</div>` : ''}
-<div class="firmas"><div>Elaborado por</div><div>Recibido por</div></div>
-<footer>${e(clinica.nombre || 'Zentra MED')} · Cotización ${e(c.numero)} · Impresa el ${e(formatFechaHora())}</footer>
+${c.notas ? `<p class="notas"><strong>Condiciones:</strong> ${e(c.notas)}</p>` : ''}
+<p class="vigencia">Cotización válida hasta el ${c.valida_hasta ? e(formatFecha(c.valida_hasta)) : '—'}.</p>
 </div></body></html>`;
 
         const ventana = window.open('', '_blank', 'width=900,height=900');

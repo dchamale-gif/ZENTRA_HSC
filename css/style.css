@@ -6796,6 +6796,13 @@ tr.medicina-inactiva td {
     color: #b91c1c;
 }
 
+.cot-items .cot-contenido {
+    margin-top: 6px;
+    font-size: 12.5px;
+    line-height: 1.4;
+    resize: vertical;
+}
+
 .cot-items .cot-input-error {
     border-color: #dc2626;
 }
