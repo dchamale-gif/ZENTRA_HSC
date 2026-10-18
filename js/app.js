@@ -96,6 +96,7 @@ async function initializeApp() {
     setupResponsive();
     setupMobileListTables();
     setupClinicaSettings();
+    setupEmpresasFacturacionSettings();
     updateCurrentDate();
     
     // PASO 1: Inicializar PacientesModule primero (es crítico)
@@ -1910,6 +1911,29 @@ function setupClinicaSettings() {
         datos.nit = (datos.nit || '').trim().toUpperCase() || 'CF';
         guardarDatosClinica(datos);
         showNotification('Datos de la clínica guardados', 'success');
+    });
+}
+
+function setupEmpresasFacturacionSettings() {
+    document.querySelectorAll('.empresa-form[data-empresa]').forEach(form => {
+        const empresa = getEmpresaFacturacion(form.dataset.empresa);
+        Object.entries(empresa).forEach(([campo, valor]) => {
+            if (form.elements[campo]) form.elements[campo].value = valor;
+        });
+
+        form.addEventListener('submit', event => {
+            event.preventDefault();
+            const datos = Object.fromEntries(new FormData(form).entries());
+            datos.nombre = (datos.nombre || '').trim();
+            if (!datos.nombre) {
+                showNotification('Escriba el nombre comercial de la empresa', 'warning');
+                form.elements.nombre.focus();
+                return;
+            }
+            datos.nit = (datos.nit || '').trim().toUpperCase() || 'CF';
+            guardarEmpresaFacturacion(form.dataset.empresa, datos);
+            showNotification(`Datos de Empresa ${form.dataset.empresa} guardados`, 'success');
+        });
     });
 }
 

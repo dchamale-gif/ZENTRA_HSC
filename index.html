@@ -1734,6 +1734,69 @@
                             </form>
                         </div>
 
+                        <div class="settings-section usuarios-section">
+                            <h3><i class="fas fa-building" aria-hidden="true"></i> Empresas que facturan</h3>
+                            <p class="form-hint">En Saldo Paciente se elige con cuál de estas empresas se factura cada estado de cuenta. Sus datos salen en el encabezado del estado de cuenta impreso.</p>
+                            <div class="empresas-grid">
+                                <form class="settings-form empresa-form" data-empresa="A">
+                                    <h4 class="empresa-form-titulo">Empresa A</h4>
+                                    <div class="form-group">
+                                        <label for="empresaANombre">Nombre comercial</label>
+                                        <input type="text" id="empresaANombre" name="nombre" class="form-input" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="empresaAEslogan">Subtítulo</label>
+                                        <input type="text" id="empresaAEslogan" name="eslogan" class="form-input" placeholder="Opcional">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="empresaARazonSocial">Razón social</label>
+                                        <input type="text" id="empresaARazonSocial" name="razonSocial" class="form-input">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="empresaANit">NIT</label>
+                                        <input type="text" id="empresaANit" name="nit" class="form-input" placeholder="Ej. 1234567-8 o CF">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="empresaADireccion">Dirección</label>
+                                        <input type="text" id="empresaADireccion" name="direccion" class="form-input">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="empresaATelefono">Teléfono</label>
+                                        <input type="tel" id="empresaATelefono" name="telefono" class="form-input" placeholder="+502 2222 3333">
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Guardar Empresa A</button>
+                                </form>
+                                <form class="settings-form empresa-form" data-empresa="B">
+                                    <h4 class="empresa-form-titulo">Empresa B</h4>
+                                    <div class="form-group">
+                                        <label for="empresaBNombre">Nombre comercial</label>
+                                        <input type="text" id="empresaBNombre" name="nombre" class="form-input" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="empresaBEslogan">Subtítulo</label>
+                                        <input type="text" id="empresaBEslogan" name="eslogan" class="form-input" placeholder="Opcional">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="empresaBRazonSocial">Razón social</label>
+                                        <input type="text" id="empresaBRazonSocial" name="razonSocial" class="form-input">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="empresaBNit">NIT</label>
+                                        <input type="text" id="empresaBNit" name="nit" class="form-input" placeholder="Ej. 1234567-8 o CF">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="empresaBDireccion">Dirección</label>
+                                        <input type="text" id="empresaBDireccion" name="direccion" class="form-input">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="empresaBTelefono">Teléfono</label>
+                                        <input type="tel" id="empresaBTelefono" name="telefono" class="form-input" placeholder="+502 2222 3333">
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Guardar Empresa B</button>
+                                </form>
+                            </div>
+                        </div>
+
                         <div class="settings-section">
                             <h3><i class="fas fa-earth-americas" aria-hidden="true"></i> Región y moneda</h3>
                             <dl class="settings-region">
@@ -5207,7 +5270,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="js/config.js?v=20261015-21"></script>
+    <script src="js/config.js?v=20261018-1"></script>
     <script src="js/data-normalizer.js?v=20261015-21"></script>
     <script src="js/file-utils.js?v=20261015-21"></script>
     <script src="data/demo-data.js?v=20261015-21"></script>
@@ -5222,8 +5285,8 @@
     <script src="js/pacientes-file-manager.js?v=20261015-21"></script>
     <script src="js/medicinas.js?v=20261015-21"></script>
     <script src="js/historia-clinica.js?v=20261016-1"></script>
-    <script src="js/saldo-paciente.js?v=20261015-21"></script>
-    <script src="js/saldo-paciente-facturacion-integrado.js?v=20261015-21"></script>
+    <script src="js/saldo-paciente.js?v=20261018-1"></script>
+    <script src="js/saldo-paciente-facturacion-integrado.js?v=20261018-1"></script>
     <script src="js/hospitalizaciones.js?v=20261015-21"></script>
     <script src="js/ordenes-medicas.js?v=20261015-21"></script>
     <script src="js/personal.js?v=20261015-21"></script>
@@ -5247,7 +5310,7 @@
     <script src="js/gastos-servicios.js?v=20261015-21"></script>
     
     <!-- App Principal -->
-    <script src="js/app.js?v=20261015-21"></script>
+    <script src="js/app.js?v=20261018-1"></script>
     <script src="js/permisos.js?v=20261018-3"></script>
     <script src="js/inicio.js?v=20261015-21"></script>
 </body>

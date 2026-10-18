@@ -43,6 +43,9 @@ const SaldoPacienteFacturacion = {
     },
 
     setupEventListeners() {
+        // Nombres de empresa editados en Configuración
+        document.addEventListener('zentra:empresas-actualizadas', () => this.renderSaldos());
+
         // Tab búsqueda de saldos
         const searchSaldo = document.getElementById('searchSaldo');
         if (searchSaldo) {
@@ -357,21 +360,8 @@ const SaldoPacienteFacturacion = {
     },
 
     // ============================================
-    // CONFIGURACIÓN DE IVA POR ESTADO DE CUENTA
+    // EMPRESA E IVA POR ESTADO DE CUENTA
     // ============================================
-    // Se comparte con SaldoPacienteModule a través de la misma clave de
-    // localStorage, leyéndola siempre fresca para que ambas vistas coincidan.
-
-    IVA_STORAGE_KEY: 'saldoPacienteIVA',
-
-    getIvaConfig() {
-        try {
-            return JSON.parse(localStorage.getItem(this.IVA_STORAGE_KEY)) || {};
-        } catch (error) {
-            console.error('❌ Error leyendo configuración de IVA:', error);
-            return {};
-        }
-    },
 
     // Clave única del estado de cuenta. Se prefiere el identificador propio de
     // la cuenta para que varios estados de cuenta del mismo paciente puedan
@@ -400,67 +390,18 @@ const SaldoPacienteFacturacion = {
         return saldo ? this.cuentaIvaKey(saldo) : `paciente:${pacienteId}`;
     },
 
+    // La empresa y el IVA de cada estado de cuenta los administra SaldoPacienteModule
+    // (misma clave de localStorage), para que ambas vistas coincidan.
     incluyeIVA(cuentaKey) {
-        const config = this.getIvaConfig();
-        const clave = String(cuentaKey);
-        if (config[clave] === true) return true;
-
-        // Compatibilidad con configuraciones antiguas guardadas por id de paciente.
-        if (clave.startsWith('paciente:')) {
-            return config[clave.slice('paciente:'.length)] === true;
-        }
-        return false;
+        return SaldoPacienteModule.incluyeIVA(cuentaKey);
     },
 
-    toggleIVA(cuentaKey) {
-        const clave = String(cuentaKey);
-        const config = this.getIvaConfig();
-        const nuevoValor = !this.incluyeIVA(clave);
-        config[clave] = nuevoValor;
-
-        // Limpiar la entrada heredada para que no vuelva a aplicarse al apagar.
-        if (clave.startsWith('paciente:')) {
-            delete config[clave.slice('paciente:'.length)];
-        }
-
-        try {
-            localStorage.setItem(this.IVA_STORAGE_KEY, JSON.stringify(config));
-        } catch (error) {
-            console.error('❌ Error guardando configuración de IVA:', error);
-        }
-
-        if (typeof SaldoPacienteModule !== 'undefined' && SaldoPacienteModule.state) {
-            SaldoPacienteModule.state.ivaPorCuenta = config;
-        }
-
-        this.renderSaldos();
-        console.log(`💰 IVA ${nuevoValor ? 'activado' : 'desactivado'} para el estado de cuenta ${clave}`);
-    },
-
-    // Calcula el IVA sobre el monto neto (descontando cualquier impuesto ya
-    // registrado en la cuenta) para no cobrarlo dos veces.
-    // Con el IVA activado se calcula el porcentaje sobre el saldo y se suma al total.
     calcularMontosIVA(cuentaKey, monto) {
-        const base = Math.round(Math.max(0, Number(monto) || 0) * 100) / 100;
-        const aplica = this.incluyeIVA(cuentaKey);
-        const porcentaje = Number(this.state.config.iva) || 0;
-        const iva = aplica ? Math.round(base * porcentaje / 100 * 100) / 100 : 0;
-        return { aplica, porcentaje, base, iva, total: Math.round((base + iva) * 100) / 100 };
+        return SaldoPacienteModule.calcularMontosIVA(cuentaKey, monto);
     },
 
-    renderBotonIVA(cuentaKey) {
-        const activo = this.incluyeIVA(cuentaKey);
-        const porcentaje = this.state.config.iva;
-        const titulo = activo
-            ? `El estado de cuenta incluye IVA (${porcentaje}%). Clic para quitarlo.`
-            : `El estado de cuenta NO incluye IVA. Clic para aplicarlo (${porcentaje}%).`;
-
-        return `
-            <button type="button" class="btn-iva${activo ? ' activo' : ''}" title="${titulo}" aria-pressed="${activo}"
-                    onclick="event.stopPropagation(); SaldoPacienteFacturacion.toggleIVA('${cuentaKey}')">
-                <i class="fas ${activo ? 'fa-check' : 'fa-plus'}" aria-hidden="true"></i> IVA ${porcentaje}%
-            </button>
-        `;
+    renderSelectoresCuenta(cuentaKey) {
+        return SaldoPacienteModule.renderSelectoresCuenta(cuentaKey);
     },
 
     renderTabla(saldos) {
@@ -496,7 +437,7 @@ const SaldoPacienteFacturacion = {
                     <td><small>${fecha}</small></td>
                     <td class="text-center">
                         <div class="acciones-saldo">
-                            ${this.renderBotonIVA(this.cuentaIvaKey(s))}
+                            ${this.renderSelectoresCuenta(this.cuentaIvaKey(s))}
                             <button type="button" class="btn-accion btn-accion-icono" onclick="SaldoPacienteFacturacion.abrirEditorCuenta('${s.paciente_id}')" title="Editar cuenta (agregar o modificar cargos)" aria-label="Editar cuenta"><i class="fas fa-pen" aria-hidden="true"></i></button>
                             <button type="button" class="btn-accion btn-accion-icono" onclick="SaldoPacienteFacturacion.imprimirSaldo('${s.paciente_id}')" title="Imprimir estado de cuenta" aria-label="Imprimir estado de cuenta"><i class="fas fa-print" aria-hidden="true"></i></button>
                             <button type="button" class="btn-accion btn-accion-primaria" onclick="SaldoPacienteFacturacion.abrirPagoDirecto('${s.paciente_id}')" title="Registrar pago"><i class="fas fa-money-bill-wave" aria-hidden="true"></i> Pago</button>

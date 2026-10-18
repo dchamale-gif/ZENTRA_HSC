@@ -6258,45 +6258,35 @@ tr.medicina-inactiva td {
     flex-wrap: wrap;
 }
 
-/* ---------- Saldo paciente: botón de IVA y acciones ---------- */
-.btn-iva {
+/* ---------- Saldo paciente: empresa, IVA y acciones ---------- */
+.cuenta-facturacion {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
     gap: 6px;
-    width: 92px;
-    height: 30px;
-    padding: 0 10px;
     flex-shrink: 0;
+}
+
+.cuenta-select {
+    height: 30px;
+    max-width: 140px;
+    padding: 0 26px 0 10px;
     border: 1px solid #cfd8db;
-    border-radius: 999px;
-    background: var(--bg-white);
-    color: var(--text-gray);
+    border-radius: 6px;
+    background-color: var(--bg-white);
+    color: var(--text-dark);
     font: inherit;
     font-size: 12px;
     font-weight: 600;
-    white-space: nowrap;
+    text-overflow: ellipsis;
     cursor: pointer;
-    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+    transition: border-color 150ms ease;
 }
 
-.btn-iva i {
-    width: 12px;
-    font-size: 11px;
-}
-
-.btn-iva:hover {
+.cuenta-select:hover {
     border-color: var(--primary-color);
-    color: var(--primary-color);
 }
 
-.btn-iva.activo {
-    background: var(--primary-soft);
-    border-color: var(--primary-color);
-    color: var(--primary-hover);
-}
-
-.btn-iva:focus-visible,
+.cuenta-select:focus-visible,
 .btn-accion:focus-visible {
     outline: 2px solid #14b8a6;
     outline-offset: 2px;
@@ -6307,8 +6297,14 @@ tr.medicina-inactiva td {
     align-items: center;
     justify-content: center;
     gap: 6px;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     white-space: nowrap;
+}
+
+/* Empresa e IVA en su propia línea, sobre los botones */
+.acciones-saldo .cuenta-facturacion {
+    flex-basis: 100%;
+    justify-content: center;
 }
 
 .btn-accion {
@@ -7203,4 +7199,18 @@ tr.medicina-inactiva td {
     text-transform: none;
     color: var(--text-gray);
     font-size: 12px;
+}
+
+/* ---------- Configuración: empresas que facturan ---------- */
+.empresas-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+    margin-top: 16px;
+}
+
+.empresa-form-titulo {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-dark);
 }

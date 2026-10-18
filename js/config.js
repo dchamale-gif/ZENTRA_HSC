@@ -51,6 +51,18 @@ const CONFIG = {
     },
 
     // ============================================
+    // EMPRESAS QUE FACTURAN (editables en Configuración)
+    // Cada estado de cuenta elige con cuál se factura.
+    // ============================================
+    EMPRESAS_FACTURACION: [
+        { id: 'A', nombre: 'Psiquiatría Santa Clara', eslogan: 'Bienestar Integral', razonSocial: '', nit: 'CF', direccion: '', telefono: '' },
+        { id: 'B', nombre: 'Empresa B', eslogan: '', razonSocial: '', nit: 'CF', direccion: '', telefono: '' }
+    ],
+
+    // Opciones de IVA para los estados de cuenta (porcentaje; 0 = sin IVA)
+    IVA_OPCIONES: [12, 5, 0],
+
+    // ============================================
     // CONFIGURACIÓN DEL SERVIDOR/API (FUTURO)
     // ============================================
     API: {
@@ -401,6 +413,39 @@ function guardarDatosClinica(datos) {
     return CONFIG.CLINICA;
 }
 
+const EMPRESAS_STORAGE_KEY = 'ZentraMED_empresasFacturacion';
+
+function cargarEmpresasFacturacion() {
+    try {
+        const guardado = JSON.parse(localStorage.getItem(EMPRESAS_STORAGE_KEY) || 'null');
+        if (Array.isArray(guardado)) {
+            CONFIG.EMPRESAS_FACTURACION.forEach(empresa => {
+                Object.assign(empresa, guardado.find(g => g.id === empresa.id) || {});
+            });
+        }
+    } catch (error) {
+        console.warn('No se pudieron leer las empresas de facturación guardadas', error);
+    }
+    return CONFIG.EMPRESAS_FACTURACION;
+}
+
+function guardarEmpresaFacturacion(id, datos) {
+    const empresa = CONFIG.EMPRESAS_FACTURACION.find(e => e.id === id);
+    if (!empresa) return null;
+    Object.assign(empresa, datos, { id });
+    try {
+        localStorage.setItem(EMPRESAS_STORAGE_KEY, JSON.stringify(CONFIG.EMPRESAS_FACTURACION));
+    } catch (error) {
+        console.warn('No se pudieron guardar las empresas de facturación', error);
+    }
+    document.dispatchEvent(new CustomEvent('zentra:empresas-actualizadas', { detail: CONFIG.EMPRESAS_FACTURACION }));
+    return empresa;
+}
+
+function getEmpresaFacturacion(id) {
+    return CONFIG.EMPRESAS_FACTURACION.find(e => e.id === id) || CONFIG.EMPRESAS_FACTURACION[0];
+}
+
 // ============================================
 // FORMATEADORES REGIONALES (GUATEMALA)
 // ============================================
@@ -480,6 +525,7 @@ function formatWithConfig(value) {
 }
 
 cargarDatosClinica();
+cargarEmpresasFacturacion();
 
 // ============================================
 // EXPORTAR CONFIGURACIÓN
