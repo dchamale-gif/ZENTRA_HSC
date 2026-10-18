@@ -2329,84 +2329,67 @@ function confirmarBajaProveedor() {
  */
 function initializeUserProfile() {
     const user = authManager.getUser();
-    
+
     if (!user) return;
 
-    // Buscar elemento para mostrar el nombre del usuario
-    const userNameElement = document.getElementById('userName');
-    const userEmailElement = document.getElementById('userEmail');
-    const userRoleElement = document.getElementById('userRole');
+    const nombre = [user.nombre, user.apellido].filter(Boolean).join(' ') || 'Usuario';
+    const iniciales = nombre.split(/\s+/).slice(0, 2).map(p => p[0]).join('').toUpperCase();
+    const roles = user.roles || [];
+    const rol = typeof Permisos !== 'undefined'
+        ? roles.map(r => Permisos.nombreRol(r)).join(', ')
+        : roles.join(', ');
 
-    if (userNameElement) {
-        userNameElement.textContent = user.nombre || 'Usuario';
-    }
-
-    if (userEmailElement) {
-        userEmailElement.textContent = user.email || '';
-    }
-
-    if (userRoleElement && user.roles && user.roles.length > 0) {
-        userRoleElement.textContent = user.roles[0] || '';
-    }
-
-    console.log('✓ Perfil de usuario cargado:', user.nombre);
+    const valores = { nombre, iniciales, email: user.email || '', rol };
+    document.querySelectorAll('[data-user]').forEach(el => {
+        el.textContent = valores[el.dataset.user] ?? '';
+    });
 }
 
 /**
- * Configurar funcionalidad de logout
+ * Menú de usuario del encabezado y botones de cerrar sesión
  */
 function setupLogout() {
-    const logoutBtn = document.getElementById('logoutBtn');
-    const logoutLink = document.querySelector('[data-action="logout"]');
-    const userMenu = document.getElementById('userMenu');
-
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', performLogout);
-    }
-
-    if (logoutLink) {
-        logoutLink.addEventListener('click', function(e) {
+    document.querySelectorAll('[data-action="logout"]').forEach(boton => {
+        boton.addEventListener('click', e => {
             e.preventDefault();
             performLogout();
         });
-    }
+    });
 
-    // Toggle user menu
-    if (userMenu) {
-        userMenu.addEventListener('click', function(e) {
-            e.stopPropagation();
-            const menu = document.getElementById('userDropdown');
-            if (menu) {
-                menu.classList.toggle('active');
-            }
-        });
-    }
+    const boton = document.getElementById('userMenuBtn');
+    const panel = document.getElementById('userMenuPanel');
+    if (!boton || !panel) return;
 
-    // Cerrar menú al hacer click fuera
-    document.addEventListener('click', function() {
-        const dropdown = document.getElementById('userDropdown');
-        if (dropdown) {
-            dropdown.classList.remove('active');
+    const abrir = (abierto) => {
+        panel.hidden = !abierto;
+        boton.setAttribute('aria-expanded', String(abierto));
+        if (abierto) panel.querySelector('[role="menuitem"]')?.focus();
+    };
+
+    boton.addEventListener('click', e => {
+        e.stopPropagation();
+        abrir(panel.hidden);
+    });
+
+    document.addEventListener('click', e => {
+        if (!panel.hidden && !panel.contains(e.target)) abrir(false);
+    });
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && !panel.hidden) {
+            abrir(false);
+            boton.focus();
         }
     });
 }
 
 /**
- * Ejecutar logout
+ * Cerrar sesión y volver al login
  */
 async function performLogout() {
-    if (!confirm('¿Estás seguro que deseas cerrar sesión?')) {
-        return;
-    }
-
-    const result = await authManager.logout();
-
-    if (result.success) {
-        showNotification('Sesión cerrada correctamente', 'success');
-        setTimeout(() => {
-            window.location.href = '/login.html';
-        }, 1500);
-    }
+    document.querySelectorAll('[data-action="logout"]').forEach(b => { b.disabled = true; });
+    await authManager.logout();
+    window.location.replace('/login.html');
 }
 
 /**

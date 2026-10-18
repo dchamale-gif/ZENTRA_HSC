@@ -55,7 +55,7 @@ const CONFIG = {
     // Cada estado de cuenta elige con cuál se factura.
     // ============================================
     EMPRESAS_FACTURACION: [
-        { id: 'A', nombre: 'Psiquiatría Santa Clara', eslogan: 'Bienestar Integral', razonSocial: '', nit: 'CF', direccion: '', telefono: '' },
+        { id: 'A', nombre: 'Empresa A', eslogan: '', razonSocial: '', nit: 'CF', direccion: '', telefono: '' },
         { id: 'B', nombre: 'Empresa B', eslogan: '', razonSocial: '', nit: 'CF', direccion: '', telefono: '' }
     ],
 

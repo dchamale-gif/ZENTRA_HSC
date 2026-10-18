@@ -153,9 +153,9 @@ const Permisos = {
             el.hidden = !this.puedeVerPagina(el.dataset.goto);
         });
 
-        const rol = document.getElementById('userRole');
         const roles = this.usuario().roles || [];
-        if (rol && roles.length) rol.textContent = roles.map(r => this.nombreRol(r)).join(', ');
+        const etiqueta = roles.map(r => this.nombreRol(r)).join(', ');
+        document.querySelectorAll('[data-user="rol"]').forEach(el => { el.textContent = etiqueta; });
     },
 
     // Envuelve navigateToPage para bloquear páginas sin permiso

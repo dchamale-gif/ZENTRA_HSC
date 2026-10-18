@@ -78,7 +78,7 @@ async function handleLogin(event) {
                 redirectToDashboard();
             }, 2000);
         } else {
-            showAlert('❌ ' + result.error, 'error');
+            showAlert(result.error, 'error');
             setButtonLoading(submitBtn, false);
 
             // Limpiar contraseña
@@ -93,23 +93,11 @@ async function handleLogin(event) {
 }
 
 /**
- * Mostrar formulario de registro
- */
-function showRegister() {
-    // Para ahora, mostrar alert
-    showAlert('La funcionalidad de registro aún se está desarrollando', 'info');
-    
-    // En el futuro, esto podría abrir un modal con formulario de registro
-}
-
-/**
  * Mostrar formulario de olvido de contraseña
  */
 function showForgotPassword(event) {
     event.preventDefault();
-    showAlert('La funcionalidad de recuperación de contraseña aún se está desarrollando', 'info');
-    
-    // En el futuro, esto podría abrir un modal para recuperar contraseña
+    showAlert('Pídele al administrador que restablezca tu contraseña desde Configuración → Usuarios.', 'info', 8000);
 }
 
 /**
