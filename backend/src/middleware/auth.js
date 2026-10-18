@@ -3,6 +3,9 @@ const pool = require('../db/connection');
 
 // Middleware: Verificar JWT Token
 const authMiddleware = async (req, res, next) => {
+  // Ya autenticado en un middleware anterior (p. ej. al montar la ruta)
+  if (req.user) return next();
+
   try {
     const token = req.headers.authorization?.split(' ')[1]; // "Bearer TOKEN"
 
@@ -102,7 +105,92 @@ const rolePermissionMiddleware = (requiredPermissions = []) => {
   };
 };
 
+// Roles y permisos del usuario (se cargan una vez por request)
+const cargarPermisos = async (req) => {
+  if (req.userPermissions && req.userRoles) return;
+
+  const [rolesResult, permissionsResult] = await Promise.all([
+    pool.query(
+      `SELECT r.nombre FROM roles r
+       JOIN user_roles ur ON r.id = ur.role_id
+       WHERE ur.user_id = $1`,
+      [req.user.id]
+    ),
+    pool.query(
+      `SELECT DISTINCT p.nombre FROM permissions p
+       JOIN role_permissions rp ON p.id = rp.permission_id
+       JOIN user_roles ur ON rp.role_id = ur.role_id
+       WHERE ur.user_id = $1`,
+      [req.user.id]
+    )
+  ]);
+
+  req.userRoles = rolesResult.rows.map(r => r.nombre);
+  req.userPermissions = permissionsResult.rows.map(p => p.nombre);
+};
+
+const esAdmin = (req) => req.userRoles?.includes('admin');
+
+const METODOS_LECTURA = ['GET', 'HEAD', 'OPTIONS'];
+
+// Middleware: exige permiso sobre un módulo según el método HTTP.
+// GET -> <modulo>_view ; POST/PUT/PATCH/DELETE -> <modulo>_edit
+// `regla` puede ser:
+//   - 'modulo'                         -> ver y editar con ese módulo
+//   - { ver: [...], editar: [...] }    -> basta con tener permiso en uno de la lista
+//   - (req) => regla                   -> para rutas que mezclan módulos
+const normalizarRegla = (regla) => {
+  if (typeof regla === 'string') return { ver: [regla], editar: [regla] };
+  return { ver: regla.ver || [], editar: regla.editar || [] };
+};
+
+const requireModule = (regla) => {
+  return async (req, res, next) => {
+    try {
+      await cargarPermisos(req);
+      if (esAdmin(req)) return next();
+
+      const { ver, editar } = normalizarRegla(typeof regla === 'function' ? regla(req) : regla);
+      const accion = METODOS_LECTURA.includes(req.method) ? 'view' : 'edit';
+      const permitidos = (accion === 'view' ? ver : editar).map(m => `${m}_${accion}`);
+
+      if (!permitidos.some(p => req.userPermissions.includes(p))) {
+        return res.status(403).json({
+          success: false,
+          error: 'Permiso denegado',
+          message: accion === 'view'
+            ? 'No tiene permiso para ver este módulo'
+            : 'No tiene permiso para modificar este módulo',
+          required: permitidos
+        });
+      }
+
+      next();
+    } catch (error) {
+      console.error('Error en requireModule:', error);
+      res.status(500).json({ success: false, error: 'Error verificando permisos' });
+    }
+  };
+};
+
+// Middleware: exige uno de los roles indicados (admin siempre pasa)
+const requireRole = (...roles) => {
+  return async (req, res, next) => {
+    try {
+      await cargarPermisos(req);
+      if (esAdmin(req) || roles.some(r => req.userRoles.includes(r))) return next();
+      return res.status(403).json({ success: false, error: 'Permiso denegado', message: 'Acceso restringido' });
+    } catch (error) {
+      console.error('Error en requireRole:', error);
+      res.status(500).json({ success: false, error: 'Error verificando permisos' });
+    }
+  };
+};
+
 module.exports = {
   authMiddleware,
-  rolePermissionMiddleware
+  rolePermissionMiddleware,
+  requireModule,
+  requireRole,
+  cargarPermisos
 };

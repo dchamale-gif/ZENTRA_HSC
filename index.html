@@ -1658,6 +1658,23 @@
                     </div>
 
                     <div class="settings-container">
+                        <div class="settings-section usuarios-section">
+                            <div class="usuarios-header">
+                                <h3><i class="fas fa-user-shield" aria-hidden="true"></i> Usuarios y roles</h3>
+                                <button type="button" class="btn btn-primary" id="usuarioNuevoBtn"><i class="fas fa-user-plus" aria-hidden="true"></i> Nuevo usuario</button>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr><th>Nombre</th><th>Email</th><th>Roles</th><th>Estado</th><th>Acciones</th></tr>
+                                    </thead>
+                                    <tbody id="usuariosTbody">
+                                        <tr><td colspan="5">Cargando usuarios…</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
                         <div class="settings-section">
                             <h3><i class="fas fa-hospital" aria-hidden="true"></i> Datos de la clínica</h3>
                             <form class="settings-form" id="clinicaForm">
@@ -4324,6 +4341,54 @@
         </div>
     </div>
 
+    <div id="usuarioModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="usuarioModalTitulo">
+        <div class="modal-content">
+            <form id="usuarioForm" novalidate>
+                <div class="modal-header">
+                    <h2 id="usuarioModalTitulo">Nuevo usuario</h2>
+                    <button type="button" class="modal-close" data-cerrar-usuario aria-label="Cerrar">&times;</button>
+                </div>
+                <div class="modal-body usuario-form">
+                    <div class="form-group">
+                        <label for="usuarioNombre">Nombre</label>
+                        <input type="text" id="usuarioNombre" name="nombre" class="form-input" required autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="usuarioApellido">Apellido</label>
+                        <input type="text" id="usuarioApellido" name="apellido" class="form-input" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="usuarioEmail">Email</label>
+                        <input type="email" id="usuarioEmail" name="email" class="form-input" required autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="usuarioTelefono">Teléfono</label>
+                        <input type="tel" id="usuarioTelefono" name="telefono" class="form-input" placeholder="+502 5555 5555">
+                    </div>
+                    <div class="form-group usuario-form-full">
+                        <label for="usuarioPassword">Contraseña</label>
+                        <input type="password" id="usuarioPassword" name="password" class="form-input" minlength="8" autocomplete="new-password">
+                        <p class="form-hint" id="usuarioPasswordHint">Mínimo 8 caracteres.</p>
+                    </div>
+                    <fieldset class="usuario-form-full usuario-roles">
+                        <legend>Roles</legend>
+                        <div id="usuarioRoles"></div>
+                    </fieldset>
+                    <div class="checkbox-group usuario-form-full" id="usuarioActivoGrupo" hidden>
+                        <label>
+                            <input type="checkbox" name="activo">
+                            <span>Usuario activo (puede iniciar sesión)</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-cerrar-usuario>Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="usuarioGuardarBtn">Crear usuario</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="productModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -5119,7 +5184,7 @@
     <script src="js/alertas.js?v=20261015-21"></script>
     <script src="js/ventas.js?v=20261015-21"></script>
     <script src="js/cotizaciones.js?v=20261015-24"></script>
-    <script src="js/paciente-acciones.js?v=20261016-1"></script>
+    <script src="js/paciente-acciones.js?v=20261018-1"></script>
     <script src="js/caja.js?v=20261015-21"></script>
     <script src="js/cuentas-por-cobrar.js?v=20261015-21"></script>
     <script src="js/dashboard-financiero.js?v=20261015-21"></script>
@@ -5135,6 +5200,7 @@
     
     <!-- App Principal -->
     <script src="js/app.js?v=20261015-21"></script>
+    <script src="js/permisos.js?v=20261018-2"></script>
     <script src="js/inicio.js?v=20261015-21"></script>
 </body>
 </html>

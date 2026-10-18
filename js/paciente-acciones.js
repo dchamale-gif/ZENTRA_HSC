@@ -103,7 +103,7 @@ const PacienteAccionesModule = {
     // ---------- Menú ----------
     abrirMenu(pacienteId, x, y, fila) {
         const p = this.paciente(pacienteId);
-        if (!p) return;
+        if (!p || !this.OPCIONES.length) return;
         this.cerrarMenu();
         this._filaOrigen = fila;
         fila?.classList.add('pac-fila-activa');

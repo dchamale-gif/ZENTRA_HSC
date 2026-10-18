@@ -1,0 +1,66 @@
+// ============================================
+// PERMISOS POR RUTA DE API
+// `ver`: módulos que permiten leer (GET). `editar`: módulos que permiten modificar.
+// Basta con tener el permiso de uno de los módulos de la lista.
+// Muchas pantallas leen datos de apoyo de otros módulos (p. ej. la historia
+// clínica necesita la lista de pacientes y de medicinas), por eso `ver` es más amplio.
+// ============================================
+
+const DATOS_PACIENTE = {
+  ver: ['caratula', 'historia_clinica', 'contrato_ingreso'],
+  editar: ['caratula', 'contrato_ingreso']
+};
+
+// En /api/billing conviven la facturación y los cargos al estado de cuenta
+// que se registran desde la historia clínica al recetar.
+const RUTAS_CARGOS = /^\/(cargos|prescripciones|facturas-mejorada|estado-cuenta)/;
+
+const PERMISOS_API = {
+  pacientes: {
+    ver: [
+      'caratula', 'historia_clinica', 'ordenes_medicas', 'evolucion', 'control_medicamentos',
+      'extras', 'control_signos', 'notas_enfermeria', 'laboratorios', 'recepcion_articulos',
+      'cotizacion_paciente', 'contrato_ingreso', 'hospitalizaciones', 'saldo_paciente',
+      'cotizaciones', 'ventas', 'agenda', 'cxc'
+    ],
+    editar: ['caratula']
+  },
+  datosPaciente: DATOS_PACIENTE,
+  medicinas: {
+    ver: [
+      'medicinas', 'historia_clinica', 'control_medicamentos', 'compras', 'ventas', 'cotizaciones',
+      'codigos_articulos', 'inventario', 'hospitalizaciones', 'recepcion_articulos', 'extras'
+    ],
+    editar: ['medicinas']
+  },
+  codigosArticulos: {
+    ver: ['codigos_articulos', 'compras', 'ventas', 'cotizaciones', 'medicinas', 'inventario'],
+    editar: ['codigos_articulos']
+  },
+  proveedores: { ver: ['compras', 'gastos'], editar: ['compras'] },
+  compras: 'compras',
+  ventas: 'ventas',
+  cotizaciones: { ver: ['cotizaciones', 'cotizacion_paciente'], editar: ['cotizaciones'] },
+  billing: (req) => (RUTAS_CARGOS.test(req.path)
+    ? {
+        ver: ['saldo_paciente', 'historia_clinica', 'control_medicamentos', 'hospitalizaciones', 'extras'],
+        editar: ['saldo_paciente', 'historia_clinica', 'control_medicamentos', 'extras']
+      }
+    : { ver: ['saldo_paciente', 'ventas', 'cxc', 'caja'], editar: ['saldo_paciente', 'ventas'] }),
+  personal: {
+    ver: ['personal', 'caratula', 'historia_clinica', 'ordenes_medicas', 'evolucion', 'agenda', 'hospitalizaciones'],
+    editar: ['personal']
+  },
+  agenda: 'agenda',
+  gastos: 'gastos',
+  cxc: 'cxc',
+  caja: 'caja',
+  hospitalizaciones: { ver: ['hospitalizaciones', 'saldo_paciente'], editar: ['hospitalizaciones'] },
+  laboratorios: 'laboratorios',
+  ordenes: 'ordenes_medicas',
+  alertas: 'alertas',
+  reportes: { ver: ['reportes', 'dashboard_ejecutivo', 'transacciones'], editar: ['reportes'] },
+  usuarios: 'usuarios'
+};
+
+module.exports = PERMISOS_API;

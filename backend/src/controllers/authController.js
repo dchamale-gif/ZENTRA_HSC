@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const pool = require('../db/connection');
+const { cargarPermisos } = require('../middleware/auth');
 
 // REGISTRO: Crear nuevo usuario
 const register = async (req, res) => {
@@ -206,8 +207,14 @@ const getProfile = async (req, res) => {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
+    await cargarPermisos(req);
+
     res.status(200).json({
-      user: result.rows[0]
+      user: {
+        ...result.rows[0],
+        roles: req.userRoles,
+        permissions: req.userPermissions
+      }
     });
   } catch (error) {
     console.error('Error en getProfile:', error);

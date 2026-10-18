@@ -30,9 +30,12 @@ const comprasRoutes = require('./src/routes/compras');
 const ventasRoutes = require('./src/routes/ventas');
 const cajaRoutes = require('./src/routes/caja');
 const hospitalizacionesRoutes = require('./src/routes/hospitalizaciones');
+const usuariosRoutes = require('./src/routes/usuarios');
 
 // Importar middleware
 const { auditMiddleware } = require('./src/middleware/audit');
+const { authMiddleware, requireModule } = require('./src/middleware/auth');
+const PERMISOS = require('./src/config/permisosApi');
 const { runMigrations } = require('./src/db/migration');
 
 const app = express();
@@ -80,80 +83,83 @@ app.get('/health', (req, res) => {
 // Autenticación
 app.use('/api/auth', authRoutes);
 
+// Usuarios y roles (solo admin)
+app.use('/api/usuarios', authMiddleware, requireModule(PERMISOS.usuarios), usuariosRoutes);
+
 // Pacientes
-app.use('/api/pacientes', pacientesRoutes);
+app.use('/api/pacientes', authMiddleware, requireModule(PERMISOS.pacientes), pacientesRoutes);
 
 // Medicinas
-app.use('/api/medicinas', medicinasRoutes);
+app.use('/api/medicinas', authMiddleware, requireModule(PERMISOS.medicinas), medicinasRoutes);
 
 // Códigos/Artículos
-app.use('/api/codigos-articulos', codigosArticulosRoutes);
+app.use('/api/codigos-articulos', authMiddleware, requireModule(PERMISOS.codigosArticulos), codigosArticulosRoutes);
 
 // Proveedores
-app.use('/api/proveedores', proveedoresRoutes);
+app.use('/api/proveedores', authMiddleware, requireModule(PERMISOS.proveedores), proveedoresRoutes);
 
 // Compras y conceptos
-app.use('/api/compras', comprasRoutes);
+app.use('/api/compras', authMiddleware, requireModule(PERMISOS.compras), comprasRoutes);
 
 // Ventas e inventario
-app.use('/api/ventas', ventasRoutes);
+app.use('/api/ventas', authMiddleware, requireModule(PERMISOS.ventas), ventasRoutes);
 
 // Facturación
-app.use('/api/billing', billingRoutes);
+app.use('/api/billing', authMiddleware, requireModule(PERMISOS.billing), billingRoutes);
 
 // Facturación Mejorada
-app.use('/api/billing', billingMejoradaRoutes);
+app.use('/api/billing', authMiddleware, requireModule(PERMISOS.billing), billingMejoradaRoutes);
 
 // Cotizaciones
-app.use('/api/cotizaciones', cotizacionesRoutes);
+app.use('/api/cotizaciones', authMiddleware, requireModule(PERMISOS.cotizaciones), cotizacionesRoutes);
 
 // Doctores y especialidades
-app.use('/api/doctors', doctorsRoutes);
+app.use('/api/doctors', authMiddleware, requireModule(PERMISOS.personal), doctorsRoutes);
 
 // Gestión de personal médico
-app.use('/api/personal-medico', personalMedicoRoutes);
+app.use('/api/personal-medico', authMiddleware, requireModule(PERMISOS.personal), personalMedicoRoutes);
 
 // Citas y agenda
-app.use('/api/appointments', appointmentsRoutes);
+app.use('/api/appointments', authMiddleware, requireModule(PERMISOS.agenda), appointmentsRoutes);
 
 // Gastos y servicios
-app.use('/api/expenses', expensesRoutes);
+app.use('/api/expenses', authMiddleware, requireModule(PERMISOS.gastos), expensesRoutes);
 
 // Cuentas por cobrar
-app.use('/api/receivables', receivablesRoutes);
+app.use('/api/receivables', authMiddleware, requireModule(PERMISOS.cxc), receivablesRoutes);
 
 // Movimientos de caja
-app.use('/api/caja', cajaRoutes);
+app.use('/api/caja', authMiddleware, requireModule(PERMISOS.caja), cajaRoutes);
 
 // Hospitalizaciones, habitaciones y camas
-app.use('/api/hospitalizaciones', hospitalizacionesRoutes);
+app.use('/api/hospitalizaciones', authMiddleware, requireModule(PERMISOS.hospitalizaciones), hospitalizacionesRoutes);
 
 // Lugar de Trabajo
-app.use('/api/empresas', empresasRoutes);
+app.use('/api/empresas', authMiddleware, requireModule(PERMISOS.datosPaciente), empresasRoutes);
 
 // Contactos de Emergencia
-app.use('/api/contactos-emergencia', contactosEmergenciaRoutes);
+app.use('/api/contactos-emergencia', authMiddleware, requireModule(PERMISOS.datosPaciente), contactosEmergenciaRoutes);
 
 // Historial Médico - Laboratorios
-app.use('/api/laboratorios', laboratoriosRoutes);
+app.use('/api/laboratorios', authMiddleware, requireModule(PERMISOS.laboratorios), laboratoriosRoutes);
 
 // Historial Médico - Órdenes
-app.use('/api/ordenes', ordenesRoutes);
+app.use('/api/ordenes', authMiddleware, requireModule(PERMISOS.ordenes), ordenesRoutes);
 
 // Historial Médico - Alertas
-app.use('/api/alertas', alertasRoutes);
+app.use('/api/alertas', authMiddleware, requireModule(PERMISOS.alertas), alertasRoutes);
 
 // Datos Familiares
-app.use('/api/datos-familia', datosFamiliaRoutes);
+app.use('/api/datos-familia', authMiddleware, requireModule(PERMISOS.datosPaciente), datosFamiliaRoutes);
 
 // Responsables del Paciente
-app.use('/api/responsables', responsablesRoutes);
+app.use('/api/responsables', authMiddleware, requireModule(PERMISOS.datosPaciente), responsablesRoutes);
 
 // Documentos y Fotografías del Paciente
-app.use('/api/documentos-paciente', documentosPacienteRoutes);
+app.use('/api/documentos-paciente', authMiddleware, requireModule(PERMISOS.datosPaciente), documentosPacienteRoutes);
 
 // Reportes y Dashboards
-app.use('/api/reports', reportsRoutes);
+app.use('/api/reports', authMiddleware, requireModule(PERMISOS.reportes), reportsRoutes);
 
 // ====================================
 // MANEJO DE ERRORES
