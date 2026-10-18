@@ -40,12 +40,13 @@ const quedaAlgunAdmin = async (client, excluirUserId) => {
   return result.rowCount > 0;
 };
 
-// GET /api/usuarios/roles - Roles disponibles con sus permisos
+// GET /api/usuarios/roles - Roles disponibles con sus permisos y cantidad de usuarios
 const getRoles = async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT r.id, r.nombre, r.descripcion,
-              COALESCE(json_agg(p.nombre ORDER BY p.nombre) FILTER (WHERE p.id IS NOT NULL), '[]'::json) AS permisos
+              COALESCE(json_agg(DISTINCT p.nombre) FILTER (WHERE p.id IS NOT NULL), '[]'::json) AS permisos,
+              (SELECT COUNT(*)::int FROM user_roles ur WHERE ur.role_id = r.id) AS usuarios
        FROM roles r
        LEFT JOIN role_permissions rp ON rp.role_id = r.id
        LEFT JOIN permissions p ON p.id = rp.permission_id
@@ -56,6 +57,141 @@ const getRoles = async (req, res) => {
   } catch (error) {
     console.error('Error en getRoles:', error);
     res.status(500).json({ success: false, message: 'Error obteniendo roles' });
+  }
+};
+
+// Reemplaza los permisos de un rol. Solo se aceptan permisos <modulo>_view / <modulo>_edit
+// existentes; editar implica ver.
+const asignarPermisos = async (client, roleId, permisos) => {
+  const nombres = new Set(permisos.filter(p => typeof p === 'string'));
+  for (const p of [...nombres]) {
+    if (p.endsWith('_edit')) nombres.add(p.replace(/_edit$/, '_view'));
+  }
+  nombres.delete('usuarios_view');
+  nombres.delete('usuarios_edit');
+
+  await client.query('DELETE FROM role_permissions WHERE role_id = $1', [roleId]);
+  if (nombres.size === 0) return;
+
+  const result = await client.query(
+    `INSERT INTO role_permissions (role_id, permission_id)
+     SELECT $1, id FROM permissions WHERE nombre = ANY($2::text[]) AND accion IN ('view', 'edit')
+     RETURNING permission_id`,
+    [roleId, [...nombres]]
+  );
+  if (result.rowCount !== nombres.size) {
+    const error = new Error('Uno o más permisos no existen');
+    error.status = 400;
+    throw error;
+  }
+};
+
+// Clave interna del rol a partir del nombre visible: "Caja Nocturna" -> "caja_nocturna"
+const claveRol = (texto) => texto
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+  .slice(0, 50);
+
+// POST /api/usuarios/roles - Crear rol con sus permisos
+const createRol = async (req, res) => {
+  const etiqueta = (req.body.descripcion || '').trim();
+  const permisos = Array.isArray(req.body.permisos) ? req.body.permisos : [];
+  const nombre = claveRol(etiqueta);
+
+  if (!nombre) {
+    return res.status(400).json({ success: false, message: 'Escriba un nombre para el rol' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const existe = await client.query('SELECT 1 FROM roles WHERE nombre = $1', [nombre]);
+    if (existe.rowCount > 0) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ success: false, message: 'Ya existe un rol con ese nombre' });
+    }
+
+    const result = await client.query(
+      `INSERT INTO roles (nombre, descripcion, created_at, updated_at)
+       VALUES ($1, $2, NOW(), NOW()) RETURNING id`,
+      [nombre, etiqueta]
+    );
+    await asignarPermisos(client, result.rows[0].id, permisos);
+
+    await client.query('COMMIT');
+    res.status(201).json({ success: true, data: { id: result.rows[0].id, nombre }, message: 'Rol creado' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error en createRol:', error);
+    res.status(error.status || 500).json({ success: false, message: error.status ? error.message : 'Error creando rol' });
+  } finally {
+    client.release();
+  }
+};
+
+// PUT /api/usuarios/roles/:id - Cambiar nombre visible y permisos de un rol
+const updateRol = async (req, res) => {
+  const roleId = Number(req.params.id);
+  const { descripcion, permisos } = req.body;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const rol = await client.query('SELECT nombre FROM roles WHERE id = $1', [roleId]);
+    if (rol.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, message: 'Rol no encontrado' });
+    }
+    if (rol.rows[0].nombre === 'admin') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ success: false, message: 'El rol Administrador siempre tiene acceso total y no se puede modificar' });
+    }
+
+    if (typeof descripcion === 'string' && descripcion.trim()) {
+      await client.query('UPDATE roles SET descripcion = $2, updated_at = NOW() WHERE id = $1', [roleId, descripcion.trim()]);
+    }
+    if (Array.isArray(permisos)) {
+      await asignarPermisos(client, roleId, permisos);
+    }
+
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Rol actualizado' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error en updateRol:', error);
+    res.status(error.status || 500).json({ success: false, message: error.status ? error.message : 'Error actualizando rol' });
+  } finally {
+    client.release();
+  }
+};
+
+// DELETE /api/usuarios/roles/:id - Solo roles sin usuarios asignados
+const deleteRol = async (req, res) => {
+  const roleId = Number(req.params.id);
+  try {
+    const rol = await pool.query(
+      `SELECT r.nombre, (SELECT COUNT(*)::int FROM user_roles ur WHERE ur.role_id = r.id) AS usuarios
+       FROM roles r WHERE r.id = $1`,
+      [roleId]
+    );
+    if (rol.rowCount === 0) {
+      return res.status(404).json({ success: false, message: 'Rol no encontrado' });
+    }
+    if (rol.rows[0].nombre === 'admin') {
+      return res.status(400).json({ success: false, message: 'El rol Administrador no se puede eliminar' });
+    }
+    if (rol.rows[0].usuarios > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Este rol tiene ${rol.rows[0].usuarios} usuario(s). Asígneles otro rol antes de eliminarlo.`
+      });
+    }
+
+    await pool.query('DELETE FROM roles WHERE id = $1', [roleId]);
+    res.json({ success: true, message: 'Rol eliminado' });
+  } catch (error) {
+    console.error('Error en deleteRol:', error);
+    res.status(500).json({ success: false, message: 'Error eliminando rol' });
   }
 };
 
@@ -186,6 +322,9 @@ const updateUsuario = async (req, res) => {
 
 module.exports = {
   getRoles,
+  createRol,
+  updateRol,
+  deleteRol,
   getUsuarios,
   createUsuario,
   updateUsuario

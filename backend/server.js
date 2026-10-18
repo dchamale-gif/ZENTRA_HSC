@@ -34,7 +34,7 @@ const usuariosRoutes = require('./src/routes/usuarios');
 
 // Importar middleware
 const { auditMiddleware } = require('./src/middleware/audit');
-const { authMiddleware, requireModule } = require('./src/middleware/auth');
+const { authMiddleware, requireModule, requireRole } = require('./src/middleware/auth');
 const PERMISOS = require('./src/config/permisosApi');
 const { runMigrations } = require('./src/db/migration');
 
@@ -84,7 +84,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 
 // Usuarios y roles (solo admin)
-app.use('/api/usuarios', authMiddleware, requireModule(PERMISOS.usuarios), usuariosRoutes);
+app.use('/api/usuarios', authMiddleware, requireRole('admin'), usuariosRoutes);
 
 // Pacientes
 app.use('/api/pacientes', authMiddleware, requireModule(PERMISOS.pacientes), pacientesRoutes);

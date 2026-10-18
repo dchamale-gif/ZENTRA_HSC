@@ -7138,3 +7138,69 @@ tr.medicina-inactiva td {
         grid-template-columns: 1fr;
     }
 }
+
+.rol-permisos {
+    max-height: min(42vh, 420px);
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    margin-top: 8px;
+}
+
+.rol-permisos-tabla {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.rol-permisos-tabla thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--bg-white);
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color);
+    text-align: center;
+}
+
+.rol-permisos-tabla thead th:first-child,
+.rol-permisos-tabla tbody th {
+    text-align: left;
+}
+
+.rol-permisos-tabla tbody th,
+.rol-permisos-tabla tbody td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: normal;
+    color: var(--text-dark);
+}
+
+.rol-permisos-tabla tbody td {
+    width: 72px;
+    text-align: center;
+}
+
+.rol-permisos-tabla input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.rol-permisos-tabla tbody .rol-permisos-seccion th {
+    background: var(--bg-light);
+    font-weight: 600 !important;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-gray);
+}
+
+.rol-permisos-pendiente {
+    display: block;
+    text-transform: none;
+    color: var(--text-gray);
+    font-size: 12px;
+}

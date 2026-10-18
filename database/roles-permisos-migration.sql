@@ -12,7 +12,7 @@ BEGIN;
 
 -- 1. Roles
 INSERT INTO roles (nombre, descripcion) VALUES
-('admin',           'Administrador - acceso total al sistema'),
+('admin',           'Administrador'),
 ('recepcionista',   'Recepción'),
 ('doctor',          'Médico'),
 ('enfermera',       'Enfermería'),

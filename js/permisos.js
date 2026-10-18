@@ -1,5 +1,5 @@
 // ============================================
-// PERMISOS - Menú, navegación y administración de usuarios
+// PERMISOS - Menú, navegación y administración de usuarios y roles
 // Los permisos vienen del backend como "<modulo>_view" / "<modulo>_edit".
 // ============================================
 
@@ -43,6 +43,52 @@ const Permisos = {
         'settings': 'usuarios'
     },
 
+    // Módulos que el admin puede asignar a un rol, agrupados como el menú.
+    // `pendiente`: la pantalla aún no existe; el permiso queda listo para cuando se construya.
+    CATALOGO: [
+        { seccion: 'Módulo médico', modulos: [
+            { clave: 'caratula', texto: 'Carátula (gestión de pacientes)' },
+            { clave: 'historia_clinica', texto: 'Historia clínica' },
+            { clave: 'ordenes_medicas', texto: 'Órdenes médicas' },
+            { clave: 'evolucion', texto: 'Evolución' },
+            { clave: 'control_medicamentos', texto: 'Control de medicamentos' },
+            { clave: 'extras', texto: 'Extras (dentro del hospital)', pendiente: true },
+            { clave: 'control_signos', texto: 'Control de signos', pendiente: true },
+            { clave: 'notas_enfermeria', texto: 'Notas de enfermería', pendiente: true },
+            { clave: 'laboratorios', texto: 'Laboratorios' },
+            { clave: 'recepcion_articulos', texto: 'Recepción de artículos', pendiente: true },
+            { clave: 'cotizacion_paciente', texto: 'Cotización del paciente' },
+            { clave: 'contrato_ingreso', texto: 'Contrato de ingreso', pendiente: true },
+            { clave: 'hospitalizaciones', texto: 'Hospitalizaciones' },
+            { clave: 'saldo_paciente', texto: 'Saldo paciente' },
+            { clave: 'medicinas', texto: 'Medicinas (catálogo)' },
+            { clave: 'personal', texto: 'Personal médico' }
+        ] },
+        { seccion: 'Módulo contable', modulos: [
+            { clave: 'codigos_articulos', texto: 'Códigos de artículos' },
+            { clave: 'compras', texto: 'Compras y proveedores' },
+            { clave: 'ventas', texto: 'Ventas' },
+            { clave: 'cotizaciones', texto: 'Cotizaciones' },
+            { clave: 'caja', texto: 'Caja' },
+            { clave: 'cxc', texto: 'Cuentas por cobrar' },
+            { clave: 'gastos', texto: 'Gastos y servicios' },
+            { clave: 'dashboard_ejecutivo', texto: 'Dashboard ejecutivo' }
+        ] },
+        { seccion: 'Módulo administrativo', modulos: [
+            { clave: 'inventario', texto: 'Inventario' }
+        ] },
+        { seccion: 'Finanzas', modulos: [
+            { clave: 'transacciones', texto: 'Transacciones' },
+            { clave: 'reportes', texto: 'Reportes' }
+        ] },
+        { seccion: 'Agenda médica', modulos: [
+            { clave: 'agenda', texto: 'Agenda, reservaciones web, confirmaciones y Google Calendar' }
+        ] },
+        { seccion: 'Sistema', modulos: [
+            { clave: 'alertas', texto: 'Alertas' }
+        ] }
+    ],
+
     ROLES: {
         admin: 'Administrador',
         recepcionista: 'Recepción',
@@ -80,7 +126,8 @@ const Permisos = {
     },
 
     nombreRol(rol) {
-        return this.ROLES[rol] || rol;
+        const guardado = UsuariosAdmin.roles.find(r => r.nombre === rol)?.descripcion;
+        return guardado || this.ROLES[rol] || rol.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase());
     },
 
     // Oculta las opciones del menú sin permiso y los títulos de sección que quedan vacíos
@@ -176,15 +223,18 @@ const UsuariosAdmin = {
     },
 
     async cargar() {
-        if (!Permisos.puede('usuarios')) return;
+        if (!Permisos.esAdmin()) return;
         const tbody = document.getElementById('usuariosTbody');
         if (!tbody) return;
 
         try {
             [this.usuarios, this.roles] = await Promise.all([this.api(''), this.api('/roles')]);
             this.render();
+            RolesAdmin.render();
         } catch (error) {
-            tbody.innerHTML = `<tr><td colspan="5">No se pudieron cargar los usuarios. ${escapeHtml(error.message)}</td></tr>`;
+            const mensaje = `<tr><td colspan="5">No se pudo cargar la información. ${escapeHtml(error.message)}</td></tr>`;
+            tbody.innerHTML = mensaje;
+            document.getElementById('rolesTbody').innerHTML = mensaje;
         }
     },
 
@@ -202,7 +252,7 @@ const UsuariosAdmin = {
                 <td data-label="Roles">${(u.roles || []).map(r => `<span class="badge badge-info">${escapeHtml(Permisos.nombreRol(r))}</span>`).join(' ') || '—'}</td>
                 <td data-label="Estado"><span class="badge ${u.activo ? 'badge-active' : 'badge-inactive'}">${u.activo ? 'Activo' : 'Inactivo'}</span></td>
                 <td data-label="Acciones" class="actions">
-                    <button type="button" class="btn btn-secondary btn-sm" data-editar-usuario="${u.id}">Editar</button>
+                    <button type="button" class="btn btn-secondary btn-small" data-editar-usuario="${u.id}">Editar</button>
                 </td>
             </tr>
         `).join('');
@@ -226,7 +276,7 @@ const UsuariosAdmin = {
             .map(r => `
                 <label class="usuario-rol">
                     <input type="checkbox" name="roles" value="${escapeHtml(r.nombre)}" ${usuario?.roles?.includes(r.nombre) ? 'checked' : ''}>
-                    <span><strong>${escapeHtml(Permisos.nombreRol(r.nombre))}</strong><small>${escapeHtml(r.descripcion || '')}</small></span>
+                    <span><strong>${escapeHtml(Permisos.nombreRol(r.nombre))}</strong><small>${r.nombre === 'admin' ? 'Acceso total al sistema' : `${RolesAdmin.contarModulos(r)} módulo(s)`}</small></span>
                 </label>
             `).join('');
 
@@ -297,6 +347,149 @@ const UsuariosAdmin = {
     }
 };
 
+// ============================================
+// ADMINISTRACIÓN DE ROLES (Configuración, solo admin)
+// ============================================
+
+const RolesAdmin = {
+    contarModulos(rol) {
+        return (rol.permisos || []).filter(p => p.endsWith('_view') && p !== 'usuarios_view').length;
+    },
+
+    render() {
+        const tbody = document.getElementById('rolesTbody');
+        if (!tbody) return;
+
+        tbody.innerHTML = UsuariosAdmin.roles.map(r => {
+            const esAdmin = r.nombre === 'admin';
+            return `
+                <tr>
+                    <td data-label="Rol"><strong>${escapeHtml(Permisos.nombreRol(r.nombre))}</strong></td>
+                    <td data-label="Usuarios">${r.usuarios}</td>
+                    <td data-label="Acceso">${esAdmin ? 'Acceso total' : `${this.contarModulos(r)} módulo(s)`}</td>
+                    <td data-label="Acciones" class="actions">
+                        ${esAdmin
+                            ? '<span class="form-hint">No editable</span>'
+                            : `<button type="button" class="btn btn-secondary btn-small" data-editar-rol="${r.id}">Editar permisos</button>
+                               <button type="button" class="btn btn-danger btn-small" data-eliminar-rol="${r.id}">Eliminar</button>`}
+                    </td>
+                </tr>`;
+        }).join('');
+    },
+
+    abrirFormulario(rol = null) {
+        const form = document.getElementById('rolForm');
+        form.reset();
+        form.dataset.id = rol?.id || '';
+        form.descripcion.value = rol ? Permisos.nombreRol(rol.nombre) : '';
+
+        document.getElementById('rolModalTitulo').textContent = rol ? `Permisos de ${Permisos.nombreRol(rol.nombre)}` : 'Nuevo rol';
+        document.getElementById('rolGuardarBtn').textContent = rol ? 'Guardar permisos' : 'Crear rol';
+
+        const permisos = new Set(rol?.permisos || []);
+        const marcado = (clave, accion) => permisos.has(`${clave}_${accion}`) ? 'checked' : '';
+
+        document.getElementById('rolPermisosTbody').innerHTML = Permisos.CATALOGO.map(grupo => `
+            <tr class="rol-permisos-seccion">
+                <th scope="rowgroup" colspan="3">${escapeHtml(grupo.seccion)}</th>
+            </tr>
+            ${grupo.modulos.map(m => `
+                <tr>
+                    <th scope="row">
+                        ${escapeHtml(m.texto)}
+                        ${m.pendiente ? '<small class="rol-permisos-pendiente">Pantalla en desarrollo</small>' : ''}
+                    </th>
+                    <td><input type="checkbox" data-modulo="${m.clave}" data-accion="view" aria-label="Ver ${escapeHtml(m.texto)}" ${marcado(m.clave, 'view')}></td>
+                    <td><input type="checkbox" data-modulo="${m.clave}" data-accion="edit" aria-label="Editar ${escapeHtml(m.texto)}" ${marcado(m.clave, 'edit')}></td>
+                </tr>`).join('')}
+        `).join('');
+
+        document.getElementById('rolModal').classList.add('active');
+        form.descripcion.focus();
+    },
+
+    cerrarFormulario() {
+        document.getElementById('rolModal').classList.remove('active');
+    },
+
+    // Editar implica ver; quitar ver quita editar
+    sincronizarCasillas(casilla) {
+        const fila = casilla.closest('tr');
+        const ver = fila.querySelector('[data-accion="view"]');
+        const editar = fila.querySelector('[data-accion="edit"]');
+        if (casilla === editar && editar.checked) ver.checked = true;
+        if (casilla === ver && !ver.checked) editar.checked = false;
+    },
+
+    async guardar(event) {
+        event.preventDefault();
+        const form = event.target;
+        const id = form.dataset.id;
+        const descripcion = form.descripcion.value.trim();
+
+        if (!descripcion) {
+            showNotification('Escriba un nombre para el rol', 'warning');
+            form.descripcion.focus();
+            return;
+        }
+
+        const permisos = [...form.querySelectorAll('input[data-modulo]:checked')]
+            .map(c => `${c.dataset.modulo}_${c.dataset.accion}`);
+
+        const boton = document.getElementById('rolGuardarBtn');
+        boton.disabled = true;
+        try {
+            const body = JSON.stringify({ descripcion, permisos });
+            if (id) {
+                await UsuariosAdmin.api(`/roles/${id}`, { method: 'PUT', body });
+                showNotification('Permisos del rol actualizados. Los usuarios los verán al recargar la página.', 'success');
+            } else {
+                await UsuariosAdmin.api('/roles', { method: 'POST', body });
+                showNotification('Rol creado', 'success');
+            }
+            this.cerrarFormulario();
+            await UsuariosAdmin.cargar();
+        } catch (error) {
+            showNotification(error.message, 'error');
+        } finally {
+            boton.disabled = false;
+        }
+    },
+
+    async eliminar(rol) {
+        const nombre = Permisos.nombreRol(rol.nombre);
+        if (rol.usuarios > 0) {
+            showNotification(`El rol "${nombre}" tiene ${rol.usuarios} usuario(s). Asígneles otro rol antes de eliminarlo.`, 'warning');
+            return;
+        }
+        if (!confirm(`¿Eliminar el rol "${nombre}"? Esta acción no se puede deshacer.`)) return;
+
+        try {
+            await UsuariosAdmin.api(`/roles/${rol.id}`, { method: 'DELETE' });
+            showNotification(`Rol "${nombre}" eliminado`, 'success');
+            await UsuariosAdmin.cargar();
+        } catch (error) {
+            showNotification(error.message, 'error');
+        }
+    },
+
+    init() {
+        document.getElementById('rolNuevoBtn')?.addEventListener('click', () => this.abrirFormulario());
+        document.getElementById('rolForm')?.addEventListener('submit', e => this.guardar(e));
+        document.getElementById('rolPermisosTbody')?.addEventListener('change', e => {
+            if (e.target.matches('input[data-modulo]')) this.sincronizarCasillas(e.target);
+        });
+        document.querySelectorAll('[data-cerrar-rol]').forEach(b => b.addEventListener('click', () => this.cerrarFormulario()));
+        document.getElementById('rolesTbody')?.addEventListener('click', e => {
+            const editar = e.target.closest('[data-editar-rol]')?.dataset.editarRol;
+            const eliminar = e.target.closest('[data-eliminar-rol]')?.dataset.eliminarRol;
+            const buscar = id => UsuariosAdmin.roles.find(r => String(r.id) === id);
+            if (editar) this.abrirFormulario(buscar(editar));
+            if (eliminar) this.eliminar(buscar(eliminar));
+        });
+    }
+};
+
 function escapeHtml(valor) {
     return String(valor ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 }
@@ -304,5 +497,6 @@ function escapeHtml(valor) {
 document.addEventListener('DOMContentLoaded', () => {
     if (typeof authManager === 'undefined' || !authManager.isAuthenticated()) return;
     UsuariosAdmin.init();
+    RolesAdmin.init();
     Permisos.init();
 });

@@ -1660,7 +1660,7 @@
                     <div class="settings-container">
                         <div class="settings-section usuarios-section">
                             <div class="usuarios-header">
-                                <h3><i class="fas fa-user-shield" aria-hidden="true"></i> Usuarios y roles</h3>
+                                <h3><i class="fas fa-user-shield" aria-hidden="true"></i> Usuarios</h3>
                                 <button type="button" class="btn btn-primary" id="usuarioNuevoBtn"><i class="fas fa-user-plus" aria-hidden="true"></i> Nuevo usuario</button>
                             </div>
                             <div class="table-responsive">
@@ -1670,6 +1670,24 @@
                                     </thead>
                                     <tbody id="usuariosTbody">
                                         <tr><td colspan="5">Cargando usuarios…</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="settings-section usuarios-section">
+                            <div class="usuarios-header">
+                                <h3><i class="fas fa-key" aria-hidden="true"></i> Roles y permisos</h3>
+                                <button type="button" class="btn btn-primary" id="rolNuevoBtn"><i class="fas fa-plus" aria-hidden="true"></i> Nuevo rol</button>
+                            </div>
+                            <p class="form-hint">Cada rol define qué módulos y fichas puede ver o editar. Un usuario con varios roles suma los permisos de todos.</p>
+                            <div class="table-responsive">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr><th>Rol</th><th>Usuarios</th><th>Acceso</th><th>Acciones</th></tr>
+                                    </thead>
+                                    <tbody id="rolesTbody">
+                                        <tr><td colspan="4">Cargando roles…</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -4389,6 +4407,36 @@
         </div>
     </div>
 
+    <div id="rolModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="rolModalTitulo">
+        <div class="modal-content modal-content-lg">
+            <form id="rolForm" novalidate>
+                <div class="modal-header">
+                    <h2 id="rolModalTitulo">Nuevo rol</h2>
+                    <button type="button" class="modal-close" data-cerrar-rol aria-label="Cerrar">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="rolDescripcion">Nombre del rol</label>
+                        <input type="text" id="rolDescripcion" name="descripcion" class="form-input" maxlength="100" required autocomplete="off" placeholder="Ej. Farmacia">
+                    </div>
+                    <p class="form-hint">Marque qué puede hacer este rol en cada módulo. Editar incluye ver.</p>
+                    <div class="rol-permisos">
+                        <table class="rol-permisos-tabla">
+                            <thead>
+                                <tr><th scope="col">Módulo / ficha</th><th scope="col">Ver</th><th scope="col">Editar</th></tr>
+                            </thead>
+                            <tbody id="rolPermisosTbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-cerrar-rol>Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="rolGuardarBtn">Crear rol</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="productModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -5200,7 +5248,7 @@
     
     <!-- App Principal -->
     <script src="js/app.js?v=20261015-21"></script>
-    <script src="js/permisos.js?v=20261018-2"></script>
+    <script src="js/permisos.js?v=20261018-3"></script>
     <script src="js/inicio.js?v=20261015-21"></script>
 </body>
 </html>
