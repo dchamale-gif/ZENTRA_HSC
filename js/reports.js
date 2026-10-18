@@ -794,7 +794,4 @@ const ReportsModule = {
     }
 };
 
-// Inicializar módulo cuando el documento esté listo
-document.addEventListener('DOMContentLoaded', function() {
-    ReportsModule.init();
-});
+// Se inicializa desde initializeApp() (app.js) solo si el usuario puede ver Reportes

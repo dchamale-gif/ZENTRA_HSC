@@ -906,7 +906,7 @@ const OrdenesmedicasModule = {
 // Inicializar cuando el DOM esté listo
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-        if (typeof OrdenesmedicasModule !== 'undefined') {
+        if (typeof OrdenesmedicasModule !== 'undefined' && (typeof Permisos === 'undefined' || Permisos.puedeVerPagina('ordenes-medicas'))) {
             OrdenesmedicasModule.init();
         }
     });

@@ -834,6 +834,7 @@ class GastosServiciosModule {
 // Inicializar módulo globalmente
 let gastosModule;
 document.addEventListener('DOMContentLoaded', function() {
+    if (typeof Permisos !== 'undefined' && !Permisos.puedeVerPagina('gastos-servicios')) return;
     gastosModule = new GastosServiciosModule();
     gastosModule.render();
 });

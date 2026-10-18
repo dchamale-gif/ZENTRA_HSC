@@ -906,7 +906,7 @@ const PersonalModule = {
 // Inicializar cuando el DOM esté listo
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-        if (typeof PersonalModule !== 'undefined') {
+        if (typeof PersonalModule !== 'undefined' && (typeof Permisos === 'undefined' || Permisos.puedeVerPagina('personal'))) {
             PersonalModule.init();
         }
     });

@@ -85,6 +85,12 @@ document.addEventListener('DOMContentLoaded', function() {
     setupLogout();
 });
 
+// Solo se inicializan (y piden datos al servidor) los módulos que el usuario puede ver;
+// así un rol sin acceso no recibe errores de permisos de pantallas que no usa.
+function moduloVisible(...paginas) {
+    return typeof Permisos === 'undefined' || paginas.some(pagina => Permisos.puedeVerPagina(pagina));
+}
+
 async function initializeApp() {
     // Initialize event listeners
     setupNavigation();
@@ -102,7 +108,8 @@ async function initializeApp() {
     // PASO 1: Inicializar PacientesModule primero (es crítico)
     console.log('🔄 Inicializando PacientesModule...');
     try { 
-        if (typeof PacientesModule !== 'undefined') {
+        if (typeof PacientesModule !== 'undefined' &&
+            moduloVisible('pacientes', 'historia-clinica', 'saldo-paciente', 'hospitalizaciones', 'ordenes-medicas')) {
             PacientesModule.init();
             // Esperar a que cargue datos (máx 5 segundos)
             await waitForPacientesData(5000);
@@ -114,44 +121,44 @@ async function initializeApp() {
     
     // PASO 2: Inicializar MedicinasModule
     console.log('🔄 Inicializando MedicinasModule...');
-    try { if (typeof MedicinasModule !== 'undefined') MedicinasModule.init(); } catch(e) { console.warn('MedicinasModule error:', e); }
+    try { if (typeof MedicinasModule !== 'undefined' && moduloVisible('medicinas')) MedicinasModule.init(); } catch(e) { console.warn('MedicinasModule error:', e); }
     
     // PASO 3: Inicializar módulos que dependen de PacientesModule
     console.log('🔄 Inicializando módulos dependientes...');
-    try { if (typeof HistoriaClinicaModule !== 'undefined') HistoriaClinicaModule.init(); } catch(e) { console.warn('HistoriaClinicaModule error:', e); }
-    try { if (typeof SaldoPacienteModule !== 'undefined') SaldoPacienteModule.init(); } catch(e) { console.warn('SaldoPacienteModule error:', e); }
-    try { if (typeof SaldoPacienteFacturacion !== 'undefined') SaldoPacienteFacturacion.init(); } catch(e) { console.warn('SaldoPacienteFacturacion error:', e); }
-    try { if (typeof HospitalizacionesModule !== 'undefined') HospitalizacionesModule.init(); } catch(e) { console.warn('HospitalizacionesModule error:', e); }
+    try { if (typeof HistoriaClinicaModule !== 'undefined' && moduloVisible('historia-clinica', 'pacientes')) HistoriaClinicaModule.init(); } catch(e) { console.warn('HistoriaClinicaModule error:', e); }
+    try { if (typeof SaldoPacienteModule !== 'undefined' && moduloVisible('saldo-paciente')) SaldoPacienteModule.init(); } catch(e) { console.warn('SaldoPacienteModule error:', e); }
+    try { if (typeof SaldoPacienteFacturacion !== 'undefined' && moduloVisible('saldo-paciente')) SaldoPacienteFacturacion.init(); } catch(e) { console.warn('SaldoPacienteFacturacion error:', e); }
+    try { if (typeof HospitalizacionesModule !== 'undefined' && moduloVisible('hospitalizaciones')) HospitalizacionesModule.init(); } catch(e) { console.warn('HospitalizacionesModule error:', e); }
     
     // PASO 4: Inicializar otros módulos
     console.log('🔄 Inicializando módulos adicionales...');
-    try { if (typeof CodigosArticulosModule !== 'undefined') CodigosArticulosModule.init(); } catch(e) { console.warn('CodigosArticulosModule error:', e); }
-    try { if (typeof ComprasModule !== 'undefined') ComprasModule.init(); } catch(e) { console.warn('ComprasModule error:', e); }
+    try { if (typeof CodigosArticulosModule !== 'undefined' && moduloVisible('codigos-articulos')) CodigosArticulosModule.init(); } catch(e) { console.warn('CodigosArticulosModule error:', e); }
+    try { if (typeof ComprasModule !== 'undefined' && moduloVisible('compras')) ComprasModule.init(); } catch(e) { console.warn('ComprasModule error:', e); }
     try { if (typeof AlertasModule !== 'undefined') AlertasModule.init(); } catch(e) { console.warn('AlertasModule error:', e); }
-    try { if (typeof VentasModule !== 'undefined') VentasModule.init(); } catch(e) { console.warn('VentasModule error:', e); }
-    try { if (typeof CajaModule !== 'undefined') CajaModule.init(); } catch(e) { console.warn('CajaModule error:', e); }
-    try { if (typeof CuentasPorCobrarModule !== 'undefined') CuentasPorCobrarModule.init(); } catch(e) { console.warn('CuentasPorCobrarModule error:', e); }
-    if (typeof DashboardFinancieroModule !== 'undefined' && DashboardFinancieroModule.init) {
+    try { if (typeof VentasModule !== 'undefined' && moduloVisible('ventas')) VentasModule.init(); } catch(e) { console.warn('VentasModule error:', e); }
+    try { if (typeof CajaModule !== 'undefined' && moduloVisible('caja')) CajaModule.init(); } catch(e) { console.warn('CajaModule error:', e); }
+    try { if (typeof CuentasPorCobrarModule !== 'undefined' && moduloVisible('cuentas-por-cobrar')) CuentasPorCobrarModule.init(); } catch(e) { console.warn('CuentasPorCobrarModule error:', e); }
+    if (typeof DashboardFinancieroModule !== 'undefined' && DashboardFinancieroModule.init && moduloVisible('dashboard-financiero')) {
         try { DashboardFinancieroModule.init(); } catch(e) { console.warn('DashboardFinancieroModule init error:', e); }
     }
-    if (typeof ReportsModule !== 'undefined' && ReportsModule.init) {
+    if (typeof ReportsModule !== 'undefined' && ReportsModule.init && moduloVisible('reports', 'transactions')) {
         try { ReportsModule.init(); } catch(e) { console.warn('ReportsModule init error:', e); }
     }
     
     // Initialize Agenda Modules (with checks)
-    if (typeof AgendaAvanzadaModule !== 'undefined' && AgendaAvanzadaModule.init) {
+    if (typeof AgendaAvanzadaModule !== 'undefined' && AgendaAvanzadaModule.init && moduloVisible('agenda')) {
         try { AgendaAvanzadaModule.init(); } catch(e) { console.warn('AgendaAvanzadaModule init error:', e); }
     }
-    if (typeof ReservasWebModule !== 'undefined' && ReservasWebModule.init) {
+    if (typeof ReservasWebModule !== 'undefined' && ReservasWebModule.init && moduloVisible('agenda')) {
         try { ReservasWebModule.init(); } catch(e) { console.warn('ReservasWebModule init error:', e); }
     }
-    if (typeof ConfirmacionesModule !== 'undefined' && ConfirmacionesModule.init) {
+    if (typeof ConfirmacionesModule !== 'undefined' && ConfirmacionesModule.init && moduloVisible('agenda')) {
         try { ConfirmacionesModule.init(); } catch(e) { console.warn('ConfirmacionesModule init error:', e); }
     }
-    if (typeof GoogleCalendarModule !== 'undefined' && GoogleCalendarModule.init) {
+    if (typeof GoogleCalendarModule !== 'undefined' && GoogleCalendarModule.init && moduloVisible('agenda')) {
         try { GoogleCalendarModule.init(); } catch(e) { console.warn('GoogleCalendarModule init error:', e); }
     }
-    if (typeof AgendaAPIModule !== 'undefined' && AgendaAPIModule.init) {
+    if (typeof AgendaAPIModule !== 'undefined' && AgendaAPIModule.init && moduloVisible('agenda')) {
         try { AgendaAPIModule.init(); } catch(e) { console.warn('AgendaAPIModule init error:', e); }
     }
     

@@ -39,13 +39,21 @@ const InicioModule = {
         const contenedor = document.getElementById('page-dashboard');
         contenedor?.setAttribute('aria-busy', 'true');
 
+        // Los montos del mes solo para quien tiene acceso a reportes financieros
+        const verFinanzas = typeof Permisos === 'undefined' ||
+            Permisos.puede('reportes') || Permisos.puede('dashboard_ejecutivo');
+        const seccionFinanzas = document.querySelector('[aria-labelledby="inicioFinanzasTitulo"]');
+        if (seccionFinanzas) seccionFinanzas.hidden = !verFinanzas;
+
         const { inicio, fin } = this.rangoMes();
         const [finanzas, operacion] = await Promise.allSettled([
-            this.fetchJSON(`/reports/financial-summary?startDate=${inicio}&endDate=${fin}`),
+            verFinanzas
+                ? this.fetchJSON(`/reports/financial-summary?startDate=${inicio}&endDate=${fin}`)
+                : Promise.resolve(null),
             this.fetchJSON('/reports/executive-summary')
         ]);
 
-        this.renderFinanzas(finanzas.status === 'fulfilled' ? finanzas.value : null);
+        if (verFinanzas) this.renderFinanzas(finanzas.status === 'fulfilled' ? finanzas.value : null);
         this.renderOperacion(operacion.status === 'fulfilled' ? operacion.value : null);
 
         const actualizado = document.getElementById('inicioActualizado');

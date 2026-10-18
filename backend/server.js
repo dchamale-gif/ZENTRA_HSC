@@ -31,6 +31,7 @@ const ventasRoutes = require('./src/routes/ventas');
 const cajaRoutes = require('./src/routes/caja');
 const hospitalizacionesRoutes = require('./src/routes/hospitalizaciones');
 const usuariosRoutes = require('./src/routes/usuarios');
+const comunicacionRoutes = require('./src/routes/comunicacion');
 
 // Importar middleware
 const { auditMiddleware } = require('./src/middleware/audit');
@@ -85,6 +86,9 @@ app.use('/api/auth', authRoutes);
 
 // Usuarios y roles (solo admin)
 app.use('/api/usuarios', authMiddleware, requireRole('admin'), usuariosRoutes);
+
+// Notificaciones y chat interno (cualquier usuario autenticado)
+app.use('/api/comunicacion', authMiddleware, comunicacionRoutes);
 
 // Pacientes
 app.use('/api/pacientes', authMiddleware, requireModule(PERMISOS.pacientes), pacientesRoutes);

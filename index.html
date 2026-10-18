@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-    <link rel="stylesheet" href="css/style.css?v=20261018-4">
+    <link rel="stylesheet" href="css/style.css?v=20261018-5">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/tema-botengine.css?v=20261018-2">
 </head>
@@ -168,12 +168,22 @@
                     <h2 class="page-title" id="pageTitle">Inicio</h2>
                 </div>
                 <div class="header-right">
-                    <button class="btn-icon" title="Notificaciones">
-                        <i class="fas fa-bell"></i>
-                        <span class="badge">3</span>
-                    </button>
-                    <button class="btn-icon" title="Mensajes">
-                        <i class="fas fa-envelope"></i>
+                    <div class="com-menu">
+                        <button type="button" class="btn-icon com-btn" id="notifBtn" aria-label="Notificaciones" title="Notificaciones" aria-haspopup="dialog" aria-expanded="false" aria-controls="notifPanel">
+                            <i class="fas fa-bell" aria-hidden="true"></i>
+                            <span class="com-badge" id="notifBadge" hidden></span>
+                        </button>
+                        <div class="com-panel" id="notifPanel" role="dialog" aria-label="Notificaciones" hidden>
+                            <div class="com-panel-header">
+                                <h2>Notificaciones</h2>
+                                <button type="button" class="com-link" id="notifMarcarTodas">Marcar todas como leídas</button>
+                            </div>
+                            <div class="com-lista" id="notifLista"></div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-icon com-btn" id="chatBtn" aria-label="Mensajes" title="Mensajes" aria-haspopup="dialog" aria-expanded="false" aria-controls="chatPanel">
+                        <i class="fas fa-envelope" aria-hidden="true"></i>
+                        <span class="com-badge" id="chatBadge" hidden></span>
                     </button>
                     <div class="user-menu">
                         <button type="button" class="user-menu-btn" id="userMenuBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="userMenuPanel">
@@ -4421,6 +4431,56 @@
         </div>
     </div>
 
+    <div class="chat-backdrop" id="chatBackdrop" hidden></div>
+    <aside class="chat-panel" id="chatPanel" role="dialog" aria-modal="true" aria-labelledby="chatTitulo" hidden>
+        <header class="chat-header">
+            <button type="button" class="chat-icon-btn" id="chatVolver" aria-label="Volver a las conversaciones" hidden>
+                <i class="fas fa-arrow-left" aria-hidden="true"></i>
+            </button>
+            <div class="chat-header-texto">
+                <h2 id="chatTitulo">Mensajes</h2>
+                <span id="chatSubtitulo"></span>
+            </div>
+            <button type="button" class="chat-icon-btn" id="chatCerrar" aria-label="Cerrar mensajes">
+                <i class="fas fa-xmark" aria-hidden="true"></i>
+            </button>
+        </header>
+
+        <!-- Vista: lista de conversaciones -->
+        <div class="chat-vista" id="chatVistaLista">
+            <div class="chat-barra">
+                <button type="button" class="btn btn-primary chat-nuevo" id="chatNuevoBtn">
+                    <i class="fas fa-pen-to-square" aria-hidden="true"></i> Nuevo mensaje
+                </button>
+            </div>
+            <div class="chat-scroll" id="chatConversaciones"></div>
+        </div>
+
+        <!-- Vista: elegir destinatario -->
+        <div class="chat-vista" id="chatVistaNuevo" hidden>
+            <div class="chat-barra">
+                <div class="saldo-busqueda">
+                    <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                    <label for="chatBuscarUsuario" class="sr-only">Buscar usuario</label>
+                    <input type="search" id="chatBuscarUsuario" placeholder="Buscar por nombre o rol" autocomplete="off">
+                </div>
+            </div>
+            <div class="chat-scroll" id="chatUsuarios"></div>
+        </div>
+
+        <!-- Vista: conversación -->
+        <div class="chat-vista" id="chatVistaConversacion" hidden>
+            <div class="chat-scroll chat-mensajes" id="chatMensajes" aria-live="polite"></div>
+            <form class="chat-composer" id="chatForm">
+                <label for="chatTexto" class="sr-only">Escribe un mensaje</label>
+                <textarea id="chatTexto" rows="1" maxlength="2000" placeholder="Escribe un mensaje"></textarea>
+                <button type="submit" class="chat-enviar" id="chatEnviar" aria-label="Enviar mensaje" title="Enviar (Enter)">
+                    <i class="fas fa-paper-plane" aria-hidden="true"></i>
+                </button>
+            </form>
+        </div>
+    </aside>
+
     <div id="usuarioModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="usuarioModalTitulo">
         <div class="modal-content">
             <form id="usuarioForm" novalidate>
@@ -5287,8 +5347,8 @@
     <script src="js/saldo-paciente.js?v=20261018-2"></script>
     <script src="js/saldo-paciente-facturacion-integrado.js?v=20261018-3"></script>
     <script src="js/hospitalizaciones.js?v=20261015-21"></script>
-    <script src="js/ordenes-medicas.js?v=20261015-21"></script>
-    <script src="js/personal.js?v=20261015-21"></script>
+    <script src="js/ordenes-medicas.js?v=20261018-3"></script>
+    <script src="js/personal.js?v=20261018-3"></script>
     <script src="js/codigos-articulos.js?v=20261015-21"></script>
     <script src="js/compras.js?v=20261015-21"></script>
     <script src="js/alertas.js?v=20261015-21"></script>
@@ -5298,7 +5358,7 @@
     <script src="js/caja.js?v=20261015-21"></script>
     <script src="js/cuentas-por-cobrar.js?v=20261015-21"></script>
     <script src="js/dashboard-financiero.js?v=20261015-21"></script>
-    <script src="js/reports.js?v=20261015-21"></script>
+    <script src="js/reports.js?v=20261018-1"></script>
     
     <!-- Módulos Agenda -->
     <script src="js/agenda-avanzada.js?v=20261015-21"></script>
@@ -5306,11 +5366,12 @@
     <script src="js/confirmaciones.js?v=20261015-21"></script>
     <script src="js/google-calendar.js?v=20261015-21"></script>
     <script src="js/agenda-api.js?v=20261015-21"></script>
-    <script src="js/gastos-servicios.js?v=20261015-21"></script>
+    <script src="js/gastos-servicios.js?v=20261018-3"></script>
     
     <!-- App Principal -->
-    <script src="js/app.js?v=20261018-2"></script>
+    <script src="js/app.js?v=20261018-3"></script>
     <script src="js/permisos.js?v=20261018-4"></script>
-    <script src="js/inicio.js?v=20261015-21"></script>
+    <script src="js/comunicacion.js?v=20261018-2"></script>
+    <script src="js/inicio.js?v=20261018-1"></script>
 </body>
 </html>

@@ -15,6 +15,14 @@ const DATOS_PACIENTE = {
 // que se registran desde la historia clínica al recetar.
 const RUTAS_CARGOS = /^\/(cargos|prescripciones|facturas-mejorada|estado-cuenta)/;
 
+const TODOS_LOS_MODULOS = [
+  'caratula', 'historia_clinica', 'ordenes_medicas', 'evolucion', 'control_medicamentos', 'extras',
+  'control_signos', 'notas_enfermeria', 'laboratorios', 'recepcion_articulos', 'cotizacion_paciente',
+  'contrato_ingreso', 'hospitalizaciones', 'saldo_paciente', 'medicinas', 'personal', 'codigos_articulos',
+  'compras', 'ventas', 'cotizaciones', 'caja', 'cxc', 'gastos', 'dashboard_ejecutivo', 'inventario',
+  'transacciones', 'reportes', 'agenda', 'alertas'
+];
+
 const PERMISOS_API = {
   pacientes: {
     ver: [
@@ -59,7 +67,11 @@ const PERMISOS_API = {
   laboratorios: 'laboratorios',
   ordenes: 'ordenes_medicas',
   alertas: 'alertas',
-  reportes: { ver: ['reportes', 'dashboard_ejecutivo', 'transacciones'], editar: ['reportes'] },
+  // El resumen operativo de Inicio (conteos de pacientes, citas, órdenes, camas; sin montos)
+  // lo ve cualquier usuario; el resto de reportes es financiero.
+  reportes: (req) => (req.method === 'GET' && req.path === '/executive-summary'
+    ? { ver: TODOS_LOS_MODULOS, editar: [] }
+    : { ver: ['reportes', 'dashboard_ejecutivo', 'transacciones'], editar: ['reportes'] }),
   usuarios: 'usuarios'
 };
 

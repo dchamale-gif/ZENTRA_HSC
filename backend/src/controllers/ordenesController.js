@@ -1,4 +1,5 @@
 const pool = require('../db/connection');
+const { notificarPorPermiso } = require('../services/notificaciones');
 
 const ESTADOS_VALIDOS = ['pendiente', 'completada', 'cancelada'];
 
@@ -67,7 +68,7 @@ const ordenesController = {
 
     try {
       const pacienteCheck = await pool.query(
-        'SELECT id FROM pacientes WHERE id = $1',
+        'SELECT id, nombre, apellido_paterno FROM pacientes WHERE id = $1',
         [paciente_id]
       );
       
@@ -83,7 +84,17 @@ const ordenesController = {
         [paciente_id, 'medica', doctorNormalizado, descripcionNormalizada, notas, JSON.stringify(servicios), estado, fecha_orden || null]
       );
       console.log(`✅ Orden creada para paciente ${paciente_id}`);
-      return res.status(201).json({ orden: result.rows[0] });
+      res.status(201).json({ orden: result.rows[0] });
+
+      // Avisar a quienes atienden órdenes médicas (sin bloquear la respuesta)
+      const paciente = pacienteCheck.rows[0];
+      notificarPorPermiso('ordenes_medicas_view', {
+        tipo: 'orden_medica',
+        titulo: `Nueva orden médica · ${[paciente.nombre, paciente.apellido_paterno].filter(Boolean).join(' ')}`,
+        mensaje: `${doctorNormalizado}: ${descripcionNormalizada.slice(0, 160)}`,
+        enlace: 'ordenes-medicas'
+      }, { excluirUserId: req.user?.id });
+      return;
     } catch (error) {
       console.error('❌ Error create:', error.message);
       res.status(500).json({ error: error.message });
