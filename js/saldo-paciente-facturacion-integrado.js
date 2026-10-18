@@ -46,16 +46,15 @@ const SaldoPacienteFacturacion = {
         // Nombres de empresa editados en Configuración
         document.addEventListener('zentra:empresas-actualizadas', () => this.renderSaldos());
 
-        // Tab búsqueda de saldos
+        // Tab estados de cuenta: búsqueda y filtros rápidos por estado
         const searchSaldo = document.getElementById('searchSaldo');
         if (searchSaldo) {
             searchSaldo.addEventListener('input', (e) => this.filtrarSaldos(e.target.value));
         }
 
-        const filterEstado = document.getElementById('filterEstado');
-        if (filterEstado) {
-            filterEstado.addEventListener('change', () => this.actualizarTabla());
-        }
+        document.querySelectorAll('[data-filtro-estado]').forEach(boton => {
+            boton.addEventListener('click', () => this.setFiltroEstado(boton.dataset.filtroEstado));
+        });
 
         // Tab facturación - búsqueda de paciente
         const searchFactura = document.getElementById('busquedaPacienteFactura');
@@ -326,36 +325,47 @@ const SaldoPacienteFacturacion = {
     // TAB 1: SALDOS
     // ============================================
 
-    filtrarSaldos(termino) {
-        const tabla = document.getElementById('tablaSaldos');
-        termino = termino.toLowerCase();
+    // Búsqueda por texto y filtro por estado se combinan
+    filtros: { texto: '', estado: '' },
 
+    filtrarSaldos(termino) {
+        this.filtros.texto = String(termino || '').trim().toLowerCase();
+        this.aplicarFiltros();
+    },
+
+    setFiltroEstado(estado) {
+        this.filtros.estado = estado || '';
+        document.querySelectorAll('[data-filtro-estado]').forEach(boton => {
+            const activo = boton.dataset.filtroEstado === this.filtros.estado;
+            boton.classList.toggle('activo', activo);
+            boton.setAttribute('aria-pressed', String(activo));
+        });
+        this.aplicarFiltros();
+    },
+
+    aplicarFiltros() {
+        const { texto, estado } = this.filtros;
         const filtrados = this.state.saldos.filter(s => {
+            const pendiente = Number(s.saldo_pendiente) || 0;
+            if (estado === 'deudores' && pendiente <= 0) return false;
+            if (estado === 'pagados' && pendiente > 0) return false;
+            if (!texto) return true;
+
             const p = this.state.pacientes.find(pac => String(pac.id) === String(s.paciente_id));
             if (!p) return false;
-            return p.nombre.toLowerCase().includes(termino) ||
-                   p.apellidoPaterno.toLowerCase().includes(termino) ||
-                   p.dpi.includes(termino);
+            return [p.nombre, p.apellidoPaterno || p.apellido_paterno, p.apellidoMaterno || p.apellido_materno, p.dpi]
+                .some(valor => String(valor || '').toLowerCase().includes(texto));
         });
 
         this.renderTabla(filtrados);
     },
 
     actualizarTabla() {
-        const filtro = document.getElementById('filterEstado').value;
-        let filtrados = [...this.state.saldos];
-
-        if (filtro === 'deudores') {
-            filtrados = filtrados.filter(s => s.saldo_pendiente > 0);
-        } else if (filtro === 'pagados') {
-            filtrados = filtrados.filter(s => s.saldo_pendiente === 0);
-        }
-
-        this.renderTabla(filtrados);
+        this.aplicarFiltros();
     },
 
     renderSaldos() {
-        this.renderTabla(this.state.saldos);
+        this.aplicarFiltros();
         this.actualizarResumen();
     },
 
@@ -408,44 +418,56 @@ const SaldoPacienteFacturacion = {
         const tabla = document.getElementById('tablaSaldos');
         if (!tabla) return;
 
-        if (saldos.length === 0) {
-            tabla.innerHTML = '<tr><td colspan="6" class="text-center">No hay datos</td></tr>';
-            return;
-        }
-
-        tabla.innerHTML = saldos.map(s => {
+        const e = SaldoPacienteModule.escapeHtml;
+        const filas = saldos.map(s => {
             const p = this.state.pacientes.find(pac => String(pac.id) === String(s.paciente_id));
             if (!p) return '';
 
-            const estado = s.saldo_pendiente === 0 ? 'Pagado' : 'Deudor';
-            const badgeClass = s.saldo_pendiente === 0 ? 'badge-success' : 'badge-danger';
-            const fecha = new Date(s.ultima_transaccion).toLocaleDateString('es-GT');
-            const montosIVA = this.calcularMontosIVA(this.cuentaIvaKey(s), s.saldo_pendiente);
+            const pendiente = Number(s.saldo_pendiente) || 0;
+            const nombre = [p.nombre, p.apellidoPaterno || p.apellido_paterno].filter(Boolean).join(' ');
+            const fecha = s.ultima_transaccion ? new Date(s.ultima_transaccion).toLocaleDateString('es-GT') : '—';
+            const cuentaKey = this.cuentaIvaKey(s);
+            const montosIVA = this.calcularMontosIVA(cuentaKey, pendiente);
+            const pacienteId = e(s.paciente_id);
 
             return `
                 <tr>
-                    <td>
-                        <strong>${p.nombre} ${p.apellidoPaterno}</strong>
-                        <small class="saldo-iva-nota">DPI ${p.dpi || '—'}</small>
+                    <td data-label="Paciente">
+                        <strong class="saldo-paciente-nombre">${e(nombre)}</strong>
+                        <small class="saldo-iva-nota">DPI ${e(p.dpi || '—')}</small>
                     </td>
-                    <td class="text-right"><strong>${formatQ(s.total_deuda)}</strong></td>
-                    <td class="text-right" style="color: ${s.saldo_pendiente > 0 ? '#e74c3c' : '#27ae60'};">
-                        <strong>${formatQ(montosIVA.total)}</strong>
-                        <small class="saldo-iva-nota">${montosIVA.aplica ? `+ IVA ${montosIVA.porcentaje}%: ${formatQ(montosIVA.iva)}` : 'Sin IVA'}</small>
+                    <td data-label="Facturación">${this.renderSelectoresCuenta(cuentaKey)}</td>
+                    <td data-label="Total cargado" class="text-right">${formatQ(s.total_deuda)}</td>
+                    <td data-label="Saldo pendiente" class="text-right">
+                        <strong class="saldo-monto ${pendiente > 0 ? 'saldo-monto-deuda' : 'saldo-monto-ok'}">${formatQ(montosIVA.total)}</strong>
+                        <small class="saldo-iva-nota">${montosIVA.aplica ? `Incluye IVA ${montosIVA.porcentaje}%: ${formatQ(montosIVA.iva)}` : 'Sin IVA'}</small>
                     </td>
-                    <td class="text-center"><span class="badge ${badgeClass}">${estado}</span></td>
-                    <td><small>${fecha}</small></td>
-                    <td class="text-center">
+                    <td data-label="Estado">
+                        <span class="badge ${pendiente > 0 ? 'badge-warning' : 'badge-success'}">${pendiente > 0 ? 'Pendiente' : 'Al día'}</span>
+                        <small class="saldo-iva-nota">Últ. mov. ${fecha}</small>
+                    </td>
+                    <td data-label="Acciones" class="text-right">
                         <div class="acciones-saldo">
-                            ${this.renderSelectoresCuenta(this.cuentaIvaKey(s))}
-                            <button type="button" class="btn-accion btn-accion-icono" onclick="SaldoPacienteFacturacion.abrirEditorCuenta('${s.paciente_id}')" title="Editar cuenta (agregar o modificar cargos)" aria-label="Editar cuenta"><i class="fas fa-pen" aria-hidden="true"></i></button>
-                            <button type="button" class="btn-accion btn-accion-icono" onclick="SaldoPacienteFacturacion.imprimirSaldo('${s.paciente_id}')" title="Imprimir estado de cuenta" aria-label="Imprimir estado de cuenta"><i class="fas fa-print" aria-hidden="true"></i></button>
-                            <button type="button" class="btn-accion btn-accion-primaria" onclick="SaldoPacienteFacturacion.abrirPagoDirecto('${s.paciente_id}')" title="Registrar pago"><i class="fas fa-money-bill-wave" aria-hidden="true"></i> Pago</button>
+                            <button type="button" class="btn-accion btn-accion-icono" onclick="SaldoPacienteFacturacion.abrirEditorCuenta('${pacienteId}')" title="Editar cuenta (agregar o modificar cargos)" aria-label="Editar cuenta de ${e(nombre)}"><i class="fas fa-pen" aria-hidden="true"></i></button>
+                            <button type="button" class="btn-accion btn-accion-icono" onclick="SaldoPacienteFacturacion.imprimirSaldo('${pacienteId}')" title="Imprimir estado de cuenta" aria-label="Imprimir estado de cuenta de ${e(nombre)}"><i class="fas fa-print" aria-hidden="true"></i></button>
+                            <button type="button" class="btn-accion btn-accion-primaria" onclick="SaldoPacienteFacturacion.abrirPagoDirecto('${pacienteId}')" ${pendiente > 0 ? '' : 'disabled'} title="${pendiente > 0 ? 'Registrar pago' : 'No hay saldo pendiente'}"><i class="fas fa-money-bill-wave" aria-hidden="true"></i> Pago</button>
                         </div>
                     </td>
                 </tr>
             `;
         }).join('');
+
+        if (filas.trim()) {
+            tabla.innerHTML = filas;
+            return;
+        }
+
+        const hayFiltros = this.filtros.texto || this.filtros.estado;
+        tabla.innerHTML = `
+            <tr><td colspan="6" class="saldo-vacio">
+                <strong>${hayFiltros ? 'Ningún estado de cuenta coincide con la búsqueda' : 'Aún no hay estados de cuenta'}</strong>
+                <span>${hayFiltros ? 'Prueba con otro nombre o DPI, o cambia el filtro de estado.' : 'Se crean al cargar artículos o servicios a un paciente en "Editar cuenta".'}</span>
+            </td></tr>`;
     },
 
     actualizarResumen() {
@@ -1469,7 +1491,7 @@ const SaldoPacienteFacturacion = {
 
     cargarSelectPacientes() {
         const select = document.getElementById('filtrarPacientePagos');
-        select.innerHTML = '<option value="">-- Todos --</option>' +
+        select.innerHTML = '<option value="">Todos los pacientes</option>' +
             this.state.pacientes.map(p => 
                 `<option value="${p.id}">${p.nombre} ${p.apellidoPaterno}</option>`
             ).join('');

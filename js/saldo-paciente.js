@@ -1894,11 +1894,8 @@ const SaldoPacienteModule = {
 
     // Filtro rápido para deudores
     filtroDeudoresRapido() {
-        const filtroSelect = document.getElementById('filterEstado');
-        if (filtroSelect) {
-            filtroSelect.value = 'deudores';
-            this.renderSaldosPacientes();
-            this.showNotification('📊 Mostrando solo deudores', 'info');
+        if (typeof SaldoPacienteFacturacion !== 'undefined') {
+            SaldoPacienteFacturacion.setFiltroEstado('deudores');
         }
     },
 
