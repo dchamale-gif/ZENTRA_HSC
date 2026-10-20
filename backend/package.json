@@ -11,6 +11,7 @@
     "migrate:roles": "node run-roles-permisos-migration.js",
     "migrate:comunicacion": "node run-comunicacion-migration.js",
     "migrate:ordenes-enfermeria": "node run-ordenes-enfermeria-migration.js",
+    "migrate:laboratorios-archivos": "node run-laboratorios-archivos-migration.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": ["hospital", "medical", "api"],

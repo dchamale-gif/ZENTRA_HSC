@@ -309,6 +309,10 @@ const PacienteAccionesModule = {
                     <label for="${prefijo}Resultado">Resultado</label>
                     <textarea id="${prefijo}Resultado" data-lab="resultado" class="form-input" rows="2" placeholder="Resultado o interpretación"></textarea>
                 </div>
+                <div class="form-group pac-lab-resultado">
+                    <label for="${prefijo}Pdf">PDF del resultado <small>(opcional, hasta 10 MB)</small></label>
+                    <input type="file" id="${prefijo}Pdf" data-lab="pdf" class="form-input" accept="application/pdf,.pdf" multiple>
+                </div>
                 <div class="pac-lab-guardar">
                     <button type="button" class="btn btn-primary" data-lab="agregar"><i class="fas fa-plus" aria-hidden="true"></i> Agregar laboratorio</button>
                 </div>
@@ -323,11 +327,12 @@ const PacienteAccionesModule = {
                 const filas = Array.isArray(labs) ? labs : (labs.data || []);
                 lista.innerHTML = filas.length
                     ? `<div class="table-responsive"><table class="data-table">
-                        <thead><tr><th>Examen</th><th>Fecha</th><th>Resultado</th>${editable ? '<th></th>' : ''}</tr></thead>
+                        <thead><tr><th>Examen</th><th>Fecha</th><th>Resultado</th><th>PDF</th>${editable ? '<th></th>' : ''}</tr></thead>
                         <tbody>${filas.map(l => `<tr>
                             <td><strong>${this.e(l.tipo)}</strong></td>
                             <td>${this.e(l.fecha ? formatFecha(String(l.fecha).slice(0, 10)) : '')}</td>
                             <td class="pac-lab-texto">${this.e(l.resultado || '—')}</td>
+                            <td>${this.renderArchivosLab(l, editable)}</td>
                             ${editable ? `<td><button type="button" class="btn-accion btn-accion-icono btn-accion-peligro" data-borrar-lab="${this.e(l.id)}" data-nombre="${this.e(l.tipo)}" title="Eliminar laboratorio" aria-label="Eliminar laboratorio ${this.e(l.tipo)}"><i class="fas fa-trash" aria-hidden="true"></i></button></td>` : ''}
                         </tr>`).join('')}</tbody></table></div>`
                     : '<div class="cot-vacio"><p>Sin laboratorios registrados.</p></div>';
@@ -345,17 +350,22 @@ const PacienteAccionesModule = {
                 (tipo.value.trim() ? fecha : tipo).focus();
                 return;
             }
+            const pdf = campo('pdf');
+            const archivos = [...pdf.files];
+            if (!this.validarPdfs(archivos)) return;
             const boton = campo('agregar');
             boton.disabled = true;
             try {
-                await this.api('/api/laboratorios', {
+                const lab = await this.api('/api/laboratorios', {
                     method: 'POST',
                     body: JSON.stringify({ paciente_id: pacienteId, tipo: tipo.value.trim(), fecha: fecha.value, resultado: resultado.value.trim() })
                 });
                 tipo.value = '';
                 resultado.value = '';
+                pdf.value = '';
                 tipo.focus();
-                this.notificar('Laboratorio agregado', 'success');
+                const fallidos = await this.subirPdfsLab(lab.id, archivos);
+                this.notificar(fallidos ? 'Laboratorio agregado, pero no se pudo subir algún PDF' : 'Laboratorio agregado', fallidos ? 'warning' : 'success');
                 await cargar();
             } catch (error) {
                 this.notificar(`No se pudo guardar el laboratorio: ${error.message}`, 'error');
@@ -376,6 +386,22 @@ const PacienteAccionesModule = {
         }
 
         lista.addEventListener('click', async e => {
+            const abrir = e.target.closest('[data-abrir-pdf]');
+            if (abrir) return this.abrirPdfLab(abrir.dataset.abrirPdf, abrir.dataset.nombre);
+            const adjuntar = e.target.closest('[data-adjuntar-lab]');
+            if (adjuntar) return adjuntar.nextElementSibling.click();
+            const quitar = e.target.closest('[data-quitar-pdf]');
+            if (quitar) {
+                if (!confirm(`¿Quitar el PDF "${quitar.dataset.nombre}"?`)) return;
+                try {
+                    await this.api(`/api/laboratorios/archivos/${encodeURIComponent(quitar.dataset.quitarPdf)}`, { method: 'DELETE' });
+                    this.notificar('PDF eliminado', 'success');
+                    await cargar();
+                } catch (error) {
+                    this.notificar(`No se pudo eliminar el PDF: ${error.message}`, 'error');
+                }
+                return;
+            }
             const borrar = e.target.closest('[data-borrar-lab]');
             if (!borrar || !confirm(`¿Eliminar el laboratorio "${borrar.dataset.nombre}"?`)) return;
             try {
@@ -387,8 +413,108 @@ const PacienteAccionesModule = {
             }
         });
 
+        lista.addEventListener('change', async e => {
+            const input = e.target.closest('[data-subir-lab]');
+            if (!input) return;
+            const archivos = [...input.files];
+            input.value = '';
+            if (!archivos.length || !this.validarPdfs(archivos)) return;
+            const fallidos = await this.subirPdfsLab(input.dataset.subirLab, archivos);
+            if (fallidos < archivos.length) this.notificar(archivos.length - fallidos === 1 ? 'PDF adjuntado' : 'PDF adjuntados', 'success');
+            await cargar();
+        });
+
         cargar();
         if (enfocar && editable) setTimeout(() => campo('tipo')?.focus(), 50);
+    },
+
+    // ---------- PDF de laboratorio ----------
+    MAX_PDF_BYTES: 10 * 1024 * 1024,
+
+    tamanoLegible(bytes) {
+        return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+    },
+
+    validarPdfs(archivos) {
+        const noPdf = archivos.find(f => f.type !== 'application/pdf' && !/\.pdf$/i.test(f.name));
+        if (noPdf) {
+            this.notificar(`"${noPdf.name}" no es un PDF`, 'warning');
+            return false;
+        }
+        const grande = archivos.find(f => f.size > this.MAX_PDF_BYTES);
+        if (grande) {
+            this.notificar(`"${grande.name}" pesa ${this.tamanoLegible(grande.size)}; el máximo es 10 MB`, 'warning');
+            return false;
+        }
+        return true;
+    },
+
+    // Sube los PDF uno por uno; devuelve cuántos fallaron
+    async subirPdfsLab(laboratorioId, archivos) {
+        let fallidos = 0;
+        for (const archivo of archivos) {
+            try {
+                const response = await fetch(`${authManager.apiBaseUrl}/api/laboratorios/${encodeURIComponent(laboratorioId)}/archivos?nombre=${encodeURIComponent(archivo.name)}`, {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${authManager.getToken()}`, 'Content-Type': 'application/pdf' },
+                    body: archivo
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(data.error || data.message || `Error ${response.status}`);
+            } catch (error) {
+                fallidos++;
+                this.notificar(`No se pudo subir "${archivo.name}": ${error.message}`, 'error');
+            }
+        }
+        return fallidos;
+    },
+
+    renderArchivosLab(lab, editable) {
+        // null: el servidor aún no tiene la migración de PDF
+        if (lab.archivos === null) return '<small class="cot-sub">—</small>';
+        const archivos = lab.archivos || [];
+        return `<div class="pac-lab-pdfs">
+            ${archivos.map(a => `
+                <span class="pac-lab-pdf">
+                    <button type="button" class="pac-lab-pdf-abrir" data-abrir-pdf="${this.e(a.id)}" data-nombre="${this.e(a.nombre)}" title="Abrir ${this.e(a.nombre)} (${this.tamanoLegible(a.tamano)})">
+                        <i class="fas fa-file-pdf" aria-hidden="true"></i><span>${this.e(a.nombre)}</span><small>${this.tamanoLegible(a.tamano)}</small>
+                    </button>
+                    ${editable ? `<button type="button" class="pac-lab-pdf-quitar" data-quitar-pdf="${this.e(a.id)}" data-nombre="${this.e(a.nombre)}" aria-label="Quitar ${this.e(a.nombre)}" title="Quitar PDF"><i class="fas fa-xmark" aria-hidden="true"></i></button>` : ''}
+                </span>`).join('')}
+            ${editable ? `
+                <button type="button" class="pac-lab-adjuntar" data-adjuntar-lab="${this.e(lab.id)}"><i class="fas fa-paperclip" aria-hidden="true"></i> Adjuntar PDF</button>
+                <input type="file" data-subir-lab="${this.e(lab.id)}" accept="application/pdf,.pdf" multiple hidden>` : ''}
+            ${!archivos.length && !editable ? '<small class="cot-sub">—</small>' : ''}
+        </div>`;
+    },
+
+    // Abre el PDF en una pestaña nueva (se pide con el token, por eso no es un enlace directo)
+    async abrirPdfLab(archivoId, nombre) {
+        // Abrir la pestaña ya, dentro del clic, para que el navegador no la bloquee
+        const ventana = window.open('', '_blank');
+        try {
+            const response = await fetch(`${authManager.apiBaseUrl}/api/laboratorios/archivos/${encodeURIComponent(archivoId)}`, {
+                headers: { Authorization: `Bearer ${authManager.getToken()}` }
+            });
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                throw new Error(data.error || `Error ${response.status}`);
+            }
+            const url = URL.createObjectURL(await response.blob());
+            if (ventana) {
+                ventana.location.href = url;
+            } else {
+                // Si el navegador bloqueó la pestaña, se descarga
+                const enlace = document.createElement('a');
+                enlace.href = url;
+                enlace.download = nombre || 'resultado.pdf';
+                enlace.click();
+            }
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+        } catch (error) {
+            ventana?.close();
+            this.notificar(`No se pudo abrir el PDF: ${error.message}`, 'error');
+        }
     },
 
     // ---------- Cotizaciones ----------
