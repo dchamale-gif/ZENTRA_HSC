@@ -5018,7 +5018,20 @@ textarea.form-input {
 }
 
 @media (hover: none), (pointer: coarse) {
-    *:hover {
+    /* Sin efectos de "levantar" al tocar. Solo en los elementos que los tienen:
+       con *:hover, el menú lateral quedaba "en hover" tras tocarlo y no se cerraba. */
+    .nav-item:hover,
+    .btn:hover,
+    .kpi-card:hover,
+    .report-card:hover,
+    .summary-card:hover,
+    .habitacion-card:hover,
+    .appointment-card:hover,
+    .pacient-card:hover,
+    .btn-generate-report:hover,
+    .modal-close:hover,
+    .modal-overlay .close-btn:hover,
+    .notification-close:hover {
         transform: none !important;
     }
 

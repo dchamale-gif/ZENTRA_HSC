@@ -1791,7 +1791,24 @@ function setupResponsive() {
         }
     });
 
-    window.addEventListener('resize', () => setSidebarOpen(false));
+    // En el celular, deslizar el menú hacia la izquierda lo cierra
+    let toqueInicio = null;
+    sidebar?.addEventListener('touchstart', event => {
+        const t = event.touches[0];
+        toqueInicio = { x: t.clientX, y: t.clientY };
+    }, { passive: true });
+    sidebar?.addEventListener('touchend', event => {
+        if (!toqueInicio || !sidebar.classList.contains('active')) return;
+        const t = event.changedTouches[0];
+        const dx = t.clientX - toqueInicio.x;
+        const dy = t.clientY - toqueInicio.y;
+        toqueInicio = null;
+        if (dx < -60 && Math.abs(dx) > Math.abs(dy) * 1.5) setSidebarOpen(false);
+    }, { passive: true });
+
+    // Solo al cruzar a escritorio: en el celular, abrir el teclado o la barra del navegador
+    // también dispara "resize" y no debe cerrar el menú
+    DESKTOP_SIDEBAR_QUERY.addEventListener('change', () => setSidebarOpen(false));
     setSidebarOpen(false);
 }
 
