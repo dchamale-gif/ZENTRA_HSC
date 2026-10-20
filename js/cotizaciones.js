@@ -91,6 +91,7 @@ const CotizacionesModule = {
             if (boton.dataset.accion === 'abrir') this.abrirEditor(id);
             if (boton.dataset.accion === 'imprimir') this.imprimirPorId(id);
             if (boton.dataset.accion === 'ingresar') this.abrirEditor(id).then(() => this.abrirIngreso());
+            if (boton.dataset.accion === 'eliminar') this.eliminar(id);
         });
     },
 
@@ -337,6 +338,7 @@ const CotizacionesModule = {
                                     <button type="button" class="btn-accion btn-accion-icono" data-accion="abrir" data-id="${this.e(c.id)}" title="${editable ? 'Abrir / editar' : 'Ver'}" aria-label="Abrir cotización"><i class="fas ${editable ? 'fa-pen' : 'fa-eye'}" aria-hidden="true"></i></button>
                                     <button type="button" class="btn-accion btn-accion-icono" data-accion="imprimir" data-id="${this.e(c.id)}" title="Imprimir" aria-label="Imprimir cotización"><i class="fas fa-print" aria-hidden="true"></i></button>
                                     ${editable ? `<button type="button" class="btn-accion btn-accion-primaria" data-accion="ingresar" data-id="${this.e(c.id)}" title="El paciente ingresa: pasar a su estado de cuenta"><i class="fas fa-right-to-bracket" aria-hidden="true"></i> Ingresar</button>` : ''}
+                                    ${Permisos.esAdmin() ? `<button type="button" class="btn-accion btn-accion-icono btn-accion-peligro" data-accion="eliminar" data-id="${this.e(c.id)}" title="Eliminar" aria-label="Eliminar cotización ${this.e(c.numero)}"><i class="fas fa-trash" aria-hidden="true"></i></button>` : ''}
                                 </div></td>
                             </tr>`;
                         }).join('')}
@@ -802,6 +804,24 @@ const CotizacionesModule = {
             await this.abrirEditor(c.id);
         } catch (error) {
             this.notificar(`No se pudo anular: ${error.message}`, 'error');
+        }
+    },
+
+    // Solo administrador
+    async eliminar(id) {
+        if (!Permisos.esAdmin()) return;
+        const c = this.state.cotizaciones.find(item => item.id === id);
+        if (!c) return;
+        const aviso = c.estado === 'ingresada'
+            ? '\n\nYa fue ingresada: los cargos que pasó al estado de cuenta del paciente se conservan.'
+            : '';
+        if (!confirm(`¿Eliminar la cotización ${c.numero}? No se puede deshacer.${aviso}`)) return;
+        try {
+            await this.api(`/${encodeURIComponent(id)}`, { method: 'DELETE' });
+            this.notificar(`Cotización ${c.numero} eliminada`, 'success');
+            await this.cargar();
+        } catch (error) {
+            this.notificar(`No se pudo eliminar: ${error.message}`, 'error');
         }
     },
 

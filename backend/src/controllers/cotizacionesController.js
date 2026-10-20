@@ -408,6 +408,17 @@ const cotizacionesController = {
         }
     },
 
+    // Solo administrador. Los cargos que ya pasaron al estado de cuenta no se tocan.
+    async eliminar(req, res) {
+        try {
+            const { rowCount } = await db.query('DELETE FROM cotizaciones WHERE id = $1', [req.params.id]);
+            if (rowCount === 0) throw errorConEstado('Cotización no encontrada', 404);
+            res.json({ success: true, message: 'Cotización eliminada' });
+        } catch (error) {
+            responderError(res, error, 'eliminar la cotización');
+        }
+    },
+
     async eliminarPlantilla(req, res) {
         try {
             const { rowCount } = await db.query('DELETE FROM cotizacion_plantillas WHERE id = $1', [req.params.id]);

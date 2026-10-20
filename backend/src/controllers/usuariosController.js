@@ -320,6 +320,51 @@ const updateUsuario = async (req, res) => {
   }
 };
 
+// DELETE /api/usuarios/:id - Si el usuario ya tiene actividad registrada (audit_log, cargos, citas...), la base lo impide
+const deleteUsuario = async (req, res) => {
+  const userId = Number(req.params.id);
+  if (userId === Number(req.user.id)) {
+    return res.status(400).json({ success: false, message: 'No puede eliminar su propio usuario' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    if (!(await quedaAlgunAdmin(client, userId))) {
+      const esAdmin = await client.query(
+        `SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+         WHERE ur.user_id = $1 AND r.nombre = 'admin'`,
+        [userId]
+      );
+      if (esAdmin.rowCount > 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ success: false, message: 'Debe existir al menos un administrador activo' });
+      }
+    }
+
+    await client.query('DELETE FROM user_roles WHERE user_id = $1', [userId]);
+    const result = await client.query('DELETE FROM users WHERE id = $1', [userId]);
+    if (result.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    }
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Usuario eliminado' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    if (error.code === '23503') {
+      return res.status(409).json({
+        success: false,
+        message: 'Este usuario ya tiene actividad registrada (historial de cambios, cargos, citas u otros) y eliminarlo borraría ese rastro. Desactívelo para quitarle el acceso.'
+      });
+    }
+    console.error('Error en deleteUsuario:', error);
+    res.status(500).json({ success: false, message: 'Error eliminando usuario' });
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   getRoles,
   createRol,
@@ -327,5 +372,6 @@ module.exports = {
   deleteRol,
   getUsuarios,
   createUsuario,
-  updateUsuario
+  updateUsuario,
+  deleteUsuario
 };

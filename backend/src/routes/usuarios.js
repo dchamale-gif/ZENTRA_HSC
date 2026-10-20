@@ -11,5 +11,6 @@ router.delete('/roles/:id', usuariosController.deleteRol);
 router.get('/', usuariosController.getUsuarios);
 router.post('/', usuariosController.createUsuario);
 router.put('/:id', usuariosController.updateUsuario);
+router.delete('/:id', usuariosController.deleteUsuario);
 
 module.exports = router;

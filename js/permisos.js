@@ -253,6 +253,7 @@ const UsuariosAdmin = {
                 <td data-label="Estado"><span class="badge ${u.activo ? 'badge-active' : 'badge-inactive'}">${u.activo ? 'Activo' : 'Inactivo'}</span></td>
                 <td data-label="Acciones" class="actions">
                     <button type="button" class="btn btn-secondary btn-small" data-editar-usuario="${u.id}">Editar</button>
+                    ${String(u.id) === String(Permisos.usuario().id) ? '' : `<button type="button" class="btn btn-danger btn-small" data-eliminar-usuario="${u.id}">Eliminar</button>`}
                 </td>
             </tr>
         `).join('');
@@ -336,6 +337,19 @@ const UsuariosAdmin = {
         }
     },
 
+    async eliminar(usuario) {
+        if (!usuario) return;
+        const nombre = `${usuario.nombre} ${usuario.apellido || ''}`.trim();
+        if (!confirm(`¿Eliminar al usuario ${nombre} (${usuario.email})? No se puede deshacer.`)) return;
+        try {
+            await this.api(`/${usuario.id}`, { method: 'DELETE' });
+            showNotification('Usuario eliminado', 'success');
+            await this.cargar();
+        } catch (error) {
+            showNotification(error.message, 'error');
+        }
+    },
+
     init() {
         document.getElementById('usuarioNuevoBtn')?.addEventListener('click', () => this.abrirFormulario());
         document.getElementById('usuarioForm')?.addEventListener('submit', e => this.guardar(e));
@@ -343,6 +357,8 @@ const UsuariosAdmin = {
         document.getElementById('usuariosTbody')?.addEventListener('click', e => {
             const id = e.target.closest('[data-editar-usuario]')?.dataset.editarUsuario;
             if (id) this.abrirFormulario(this.usuarios.find(u => String(u.id) === id));
+            const eliminarId = e.target.closest('[data-eliminar-usuario]')?.dataset.eliminarUsuario;
+            if (eliminarId) this.eliminar(this.usuarios.find(u => String(u.id) === eliminarId));
         });
     }
 };

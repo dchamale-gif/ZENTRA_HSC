@@ -211,6 +211,31 @@ class HospitalizacionesController {
             client.release();
         }
     }
+
+    // Solo administrador: borra el ingreso (y sus traslados) y libera la cama si seguía ocupada
+    async eliminarIngreso(req, res) {
+        const client = await db.connect();
+        try {
+            await client.query('BEGIN');
+            const result = await client.query('DELETE FROM hospitalizaciones WHERE id = $1 RETURNING cama_id, estado', [req.params.id]);
+            if (result.rows.length === 0) {
+                await client.query('ROLLBACK');
+                return res.status(404).json({ success: false, message: 'Hospitalización no encontrada' });
+            }
+            const { cama_id: camaId, estado } = result.rows[0];
+            if (estado === 'activa' && camaId) {
+                await client.query("UPDATE camas SET estado = 'libre', updated_at = CURRENT_TIMESTAMP WHERE id = $1", [camaId]);
+            }
+            await client.query('COMMIT');
+            res.json({ success: true, message: 'Hospitalización eliminada' });
+        } catch (error) {
+            await client.query('ROLLBACK');
+            console.error('Error eliminando hospitalización:', error);
+            res.status(500).json({ success: false, message: 'Error al eliminar la hospitalización', error: error.message });
+        } finally {
+            client.release();
+        }
+    }
 }
 
 module.exports = new HospitalizacionesController();

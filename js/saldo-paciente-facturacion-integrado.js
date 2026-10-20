@@ -1620,6 +1620,8 @@ const SaldoPacienteFacturacion = {
             document.getElementById('editarBancoCheque').value = pago.banco || '';
         }
 
+        const botonEliminar = document.getElementById('btnEliminarPago');
+        if (botonEliminar) botonEliminar.hidden = !Permisos.esAdmin();
         document.getElementById('modalEditarPago').classList.add('active');
     },
 
@@ -1684,32 +1686,29 @@ const SaldoPacienteFacturacion = {
         }
     },
 
+    // Solo administrador. Elimina el pago en el servidor y devuelve su monto al saldo del paciente.
     async eliminarPago() {
+        if (!Permisos.esAdmin()) return;
         const pagoId = document.getElementById('editarPagoId').value;
+        if (!confirm('¿Eliminar este pago? El monto vuelve a sumarse al saldo pendiente del paciente.')) return;
 
         try {
-            const response = await fetch(`${authManager.apiBaseUrl}/api/billing/pagos/${pagoId}`, {
+            const response = await fetch(`${authManager.apiBaseUrl}/api/billing/pagos/${encodeURIComponent(pagoId)}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${authManager.getToken()}`
                 }
-            }).catch(() => null);
+            });
+            const resultado = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(resultado.message || `Error ${response.status}`);
 
-            if (response?.ok) {
-                alert('✅ Pago eliminado');
-                document.getElementById('modalEditarPago').classList.remove('active');
-                this.cargarPagosRealizados();
-            } else {
-                // Eliminar localmente
-                this.state.pagos_realizados = this.state.pagos_realizados.filter(p => p.id !== pagoId);
-                localStorage.setItem('pagosRealizados', JSON.stringify(this.state.pagos_realizados));
-                alert('✅ Pago eliminado localmente');
-                document.getElementById('modalEditarPago').classList.remove('active');
-                this.mostrarPagosRealizados(this.state.pagos_realizados);
-            }
+            document.getElementById('modalEditarPago').classList.remove('active');
+            alert('✅ Pago eliminado y saldo actualizado');
+            this.cargarPagosRealizados();
+            this.cargarDelServidor();
         } catch (error) {
-            console.error('Error:', error);
-            alert('Error al eliminar pago');
+            console.error('Error al eliminar pago:', error);
+            alert(`No se pudo eliminar el pago: ${error.message}`);
         }
     },
 

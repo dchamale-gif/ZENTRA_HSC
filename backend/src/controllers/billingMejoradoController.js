@@ -504,6 +504,54 @@ class BillingMejoradoController {
         }
     }
 
+    /**
+     * Eliminar un pago (solo administrador): devuelve al saldo lo que el pago había descontado
+     */
+    async eliminarPago(req, res) {
+        let client;
+        try {
+            const pagoId = Number(req.params.id);
+            if (!Number.isInteger(pagoId)) {
+                return res.status(400).json({ success: false, message: 'Pago no válido' });
+            }
+
+            client = await db.connect();
+            await client.query('BEGIN');
+            const pagoResult = await client.query(
+                "DELETE FROM movimientos_paciente WHERE id = $1 AND tipo = 'pago' RETURNING paciente_id, saldo_anterior, saldo_nuevo",
+                [pagoId]
+            );
+            if (pagoResult.rows.length === 0) {
+                const error = new Error('El pago no existe o ya fue eliminado');
+                error.status = 404;
+                throw error;
+            }
+
+            const pago = pagoResult.rows[0];
+            // Un pago mayor al saldo solo descontó hasta dejarlo en 0; se devuelve exactamente eso
+            const aplicado = Math.max(0, Number(pago.saldo_anterior) - Number(pago.saldo_nuevo));
+            await client.query(`
+                UPDATE pacientes_saldo
+                SET saldo_pendiente = saldo_pendiente + $1, ultima_transaccion = CURRENT_TIMESTAMP,
+                    usuario_actualizo = $2, updated_at = CURRENT_TIMESTAMP
+                WHERE paciente_id = $3`,
+                [aplicado, String(req.user.id), pago.paciente_id]
+            );
+            await client.query('COMMIT');
+            res.json({ success: true, message: 'Pago eliminado y saldo restituido', data: { monto_restituido: aplicado } });
+        } catch (error) {
+            if (client) await client.query('ROLLBACK');
+            console.error('Error al eliminar pago:', error);
+            res.status(error.status || 500).json({
+                success: false,
+                message: error.status ? error.message : 'Error al eliminar el pago',
+                error: error.message
+            });
+        } finally {
+            if (client) client.release();
+        }
+    }
+
     extractPaymentMethod(description = '') {
         const match = String(description).match(/^Pago\s+([^:]+)/i);
         return match ? match[1].trim().toLowerCase() : 'efectivo';

@@ -5,7 +5,7 @@
 const express = require('express');
 const router = express.Router();
 const cotizacionesController = require('../controllers/cotizacionesController');
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, requireRole } = require('../middleware/auth');
 
 router.use(authMiddleware);
 
@@ -22,5 +22,6 @@ router.get('/:id', cotizacionesController.obtener);
 router.put('/:id', cotizacionesController.actualizar);
 router.post('/:id/ingresar', cotizacionesController.ingresar);
 router.post('/:id/anular', cotizacionesController.anular);
+router.delete('/:id', requireRole('admin'), cotizacionesController.eliminar);
 
 module.exports = router;

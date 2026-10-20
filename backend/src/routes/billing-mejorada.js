@@ -5,7 +5,7 @@
 const express = require('express');
 const router = express.Router();
 const billingMejoradoController = require('../controllers/billingMejoradoController');
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, requireRole } = require('../middleware/auth');
 
 // Proteger todas las rutas
 router.use(authMiddleware);
@@ -96,6 +96,14 @@ router.get('/pagos', (req, res) => {
  */
 router.post('/pagos', (req, res) => {
     billingMejoradoController.registrarPago(req, res);
+});
+
+/**
+ * DELETE /api/billing/pagos/:id
+ * Eliminar un pago y devolver su monto al saldo (solo administrador)
+ */
+router.delete('/pagos/:id', requireRole('admin'), (req, res) => {
+    billingMejoradoController.eliminarPago(req, res);
 });
 
 module.exports = router;

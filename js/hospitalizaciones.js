@@ -514,9 +514,14 @@ const HospitalizacionesModule = {
                                 <button class="btn-icon btn-view" onclick="HospitalizacionesModule.verDetalles('${hosp.id}')" title="Ver detalles">
                                     <i class="fas fa-eye"></i>
                                 </button>
+                                ${hosp.estado === 'activa' ? `
                                 <button class="btn-icon btn-delete" onclick="HospitalizacionesModule.darDeAlta('${hosp.id}')" title="Dar de alta">
                                     <i class="fas fa-sign-out-alt"></i>
-                                </button>
+                                </button>` : ''}
+                                ${Permisos.esAdmin() ? `
+                                <button class="btn-icon btn-delete" onclick="HospitalizacionesModule.eliminarHospitalizacion('${hosp.id}')" title="Eliminar registro" aria-label="Eliminar hospitalización">
+                                    <i class="fas fa-trash"></i>
+                                </button>` : ''}
                             </td>
                         </tr>
                     `;
@@ -1134,6 +1139,36 @@ const HospitalizacionesModule = {
         }
     },
 
+    // Solo administrador: borra el registro (no es un alta) y libera la cama
+    async eliminarHospitalizacion(hospitalizacionId) {
+        if (!Permisos.esAdmin()) return;
+        const hosp = this.state.hospitalizaciones.find(h => h.id === hospitalizacionId);
+        if (!hosp) return;
+        const paciente = this.state.pacientes.find(p => p.id === hosp.pacienteId);
+        const nombre = paciente ? `${paciente.nombre} ${paciente.apellido || ''}`.trim() : 'este paciente';
+        if (!confirm(`¿Eliminar el registro de hospitalización de ${nombre}? Se borra junto con sus traslados y no se puede deshacer.`)) return;
+
+        const apiHost = authManager?.apiBaseUrl || 'http://178.128.72.110:3011';
+        const apiBase = apiHost.endsWith('/api') ? apiHost : `${apiHost}/api`;
+        try {
+            const response = await fetch(`${apiBase}/hospitalizaciones/ingresos/${encodeURIComponent(hospitalizacionId)}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${authManager.getToken()}` }
+            });
+            const result = await response.json().catch(() => ({}));
+            // 404: solo existía en este navegador; igual se quita de la lista
+            if (!response.ok && response.status !== 404) throw new Error(result.message || `Error ${response.status}`);
+
+            this.state.hospitalizaciones = this.state.hospitalizaciones.filter(h => h.id !== hospitalizacionId);
+            this.saveToDB();
+            document.querySelector('.modal-overlay')?.remove();
+            this.render();
+            this.showNotification('Hospitalización eliminada', 'success');
+        } catch (error) {
+            this.showNotification(`No se pudo eliminar: ${error.message}`, 'error');
+        }
+    },
+
     // Actualizar hospitalización en API
     updateHospitalizacionInAPI(hospitalizacion) {
         const token = authManager?.getToken?.();
@@ -1220,6 +1255,11 @@ const HospitalizacionesModule = {
                             ${hosp.estado === 'activa' ? `
                             <button type="button" class="btn btn-danger" onclick="HospitalizacionesModule.darDeAlta('${hosp.id}')">
                                 <i class="fas fa-sign-out-alt"></i> Dar de Alta
+                            </button>
+                            ` : ''}
+                            ${Permisos.esAdmin() ? `
+                            <button type="button" class="btn btn-outline" style="margin-left: auto;" onclick="HospitalizacionesModule.eliminarHospitalizacion('${hosp.id}')">
+                                <i class="fas fa-trash"></i> Eliminar registro
                             </button>
                             ` : ''}
                         </div>

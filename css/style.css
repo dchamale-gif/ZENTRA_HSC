@@ -6573,6 +6573,12 @@ tr.medicina-inactiva td {
     color: var(--text-gray);
 }
 
+.btn-accion-peligro:hover {
+    color: var(--danger-color);
+    border-color: var(--danger-color);
+    background: var(--danger-soft, #fdecea);
+}
+
 .btn-accion-primaria {
     background: var(--primary-color);
     border-color: var(--primary-color);
@@ -7609,8 +7615,7 @@ tr.medicina-inactiva td {
 }
 
 .rol-permisos {
-    max-height: min(42vh, 420px);
-    overflow-y: auto;
+    /* Sin scroll propio: se desplaza el cuerpo del modal y la cabecera queda fija */
     border: 1px solid var(--border-color);
     border-radius: 8px;
     margin-top: 8px;
@@ -8174,4 +8179,34 @@ tr.medicina-inactiva td {
 
 body.chat-abierto {
     overflow: hidden;
+}
+
+/* Modales cuyo contenido va dentro de un <form> (usuarios, roles): el formulario
+   ocupa la caja en columna para que solo el cuerpo se desplace y el pie con
+   los botones quede siempre visible. */
+.modal-content > form {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.modal-content > form > .modal-body {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.modal-content > form > .modal-header,
+.modal-content > form > .modal-footer {
+    flex-shrink: 0;
+}
+
+/* Sin franja superior para que la cabecera fija de permisos quede al ras del borde */
+#rolModal .modal-body {
+    padding-top: 0;
+}
+
+#rolModal .modal-body > :first-child {
+    margin-top: 20px;
 }
