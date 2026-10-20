@@ -3,7 +3,9 @@ const { notificarPorPermiso } = require('../services/notificaciones');
 
 const ESTADOS_VALIDOS = ['pendiente', 'completada', 'cancelada'];
 
-const serviciosValidos = (servicios) => Array.isArray(servicios) && servicios.length > 0 &&
+// La orden médica es texto libre; los servicios solo quedan en órdenes antiguas
+// (los conceptos y medicinas los agrega enfermería en su orden).
+const serviciosValidos = (servicios) => Array.isArray(servicios) &&
   servicios.every(servicio =>
     servicio && String(servicio.nombre || '').trim() &&
     Number.isFinite(Number(servicio.costo)) && Number(servicio.costo) >= 0
@@ -60,7 +62,7 @@ const ordenesController = {
     const descripcionNormalizada = String(descripcion || '').trim();
 
     if (!paciente_id || !doctorNormalizado || !descripcionNormalizada || !serviciosValidos(servicios)) {
-      return res.status(400).json({ error: 'paciente_id, doctor, descripcion y servicios son requeridos' });
+      return res.status(400).json({ error: 'Paciente, médico y orden médica son requeridos' });
     }
     if (!ESTADOS_VALIDOS.includes(estado)) {
       return res.status(400).json({ error: 'Estado de orden no válido' });
@@ -117,7 +119,7 @@ const ordenesController = {
     const descripcionNormalizada = String(descripcion || '').trim();
 
     if (!paciente_id || !doctorNormalizado || !descripcionNormalizada || !serviciosValidos(servicios)) {
-      return res.status(400).json({ error: 'paciente_id, doctor, descripcion y servicios son requeridos' });
+      return res.status(400).json({ error: 'Paciente, médico y orden médica son requeridos' });
     }
     if (!ESTADOS_VALIDOS.includes(estado)) {
       return res.status(400).json({ error: 'Estado de orden no válido' });

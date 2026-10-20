@@ -37,12 +37,13 @@ const PERMISOS_API = {
   medicinas: {
     ver: [
       'medicinas', 'historia_clinica', 'control_medicamentos', 'compras', 'ventas', 'cotizaciones',
-      'codigos_articulos', 'inventario', 'hospitalizaciones', 'recepcion_articulos', 'extras'
+      'codigos_articulos', 'inventario', 'hospitalizaciones', 'recepcion_articulos', 'extras',
+      'ordenes_enfermeria'
     ],
     editar: ['medicinas']
   },
   codigosArticulos: {
-    ver: ['codigos_articulos', 'compras', 'ventas', 'cotizaciones', 'medicinas', 'inventario'],
+    ver: ['codigos_articulos', 'compras', 'ventas', 'cotizaciones', 'medicinas', 'inventario', 'ordenes_enfermeria'],
     editar: ['codigos_articulos']
   },
   proveedores: { ver: ['compras', 'gastos'], editar: ['compras'] },

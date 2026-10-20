@@ -1,13 +1,14 @@
 // ============================================
 // MÓDULO DE ÓRDENES DE ENFERMERÍA
 // ============================================
-// Vista dividida: a la izquierda la orden del médico (solo lectura), a la derecha
-// la traducción de enfermería en indicaciones concretas. Ambas quedan a la vista
-// a la vez para copiar lo indicado sin cambiar de pantalla.
+// Vista dividida: a la izquierda la orden del médico (texto libre, solo lectura), a la
+// derecha la traducción de enfermería en indicaciones concretas, con las medicinas y
+// conceptos del catálogo. Ambas quedan a la vista a la vez.
 
 const OrdenesEnfermeriaModule = {
     TIPOS: [
         { valor: 'medicamento', texto: 'Medicamento' },
+        { valor: 'concepto', texto: 'Concepto / insumo' },
         { valor: 'procedimiento', texto: 'Procedimiento' },
         { valor: 'cuidado', texto: 'Cuidado' },
         { valor: 'control_signos', texto: 'Signos vitales' },
@@ -29,7 +30,8 @@ const OrdenesEnfermeriaModule = {
         filtro: 'por_traducir',
         cargando: false,
         sinGuardar: false,
-        iniciado: false
+        iniciado: false,
+        catalogo: null
     },
 
     init() {
@@ -58,9 +60,34 @@ const OrdenesEnfermeriaModule = {
         });
 
         const panel = document.getElementById('oeEnfermeria');
-        panel?.addEventListener('input', () => { this.state.sinGuardar = true; });
-        panel?.addEventListener('change', () => { this.state.sinGuardar = true; });
+        panel?.addEventListener('input', e => {
+            if (e.target.id === 'oeCatalogoBuscar') return this.buscarEnCatalogo(e.target.value);
+            this.state.sinGuardar = true;
+        });
+        panel?.addEventListener('change', e => {
+            if (e.target.id !== 'oeCatalogoBuscar') this.state.sinGuardar = true;
+        });
+        panel?.addEventListener('focusin', e => {
+            if (e.target.id === 'oeCatalogoBuscar') this.cargarCatalogo();
+        });
+        panel?.addEventListener('keydown', e => {
+            if (e.target.id !== 'oeCatalogoBuscar') return;
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.querySelector('#oeCatalogoResultados [data-oe-catalogo]')?.click();
+            }
+            if (e.key === 'Escape') {
+                e.target.value = '';
+                this.buscarEnCatalogo('');
+            }
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                document.querySelector('#oeCatalogoResultados [data-oe-catalogo]')?.focus();
+            }
+        });
         panel?.addEventListener('click', e => {
+            const item = e.target.closest('[data-oe-catalogo]');
+            if (item) return this.agregarDelCatalogo(Number(item.dataset.oeCatalogo));
             const accion = e.target.closest('[data-oe-accion]');
             if (!accion) return;
             const { oeAccion, indice } = accion.dataset;
@@ -121,6 +148,105 @@ const OrdenesEnfermeriaModule = {
 
     confirmarDescartar() {
         return !this.state.sinGuardar || confirm('Hay cambios sin guardar en la orden de enfermería. ¿Descartarlos?');
+    },
+
+    // ---------- Catálogo de medicinas y conceptos ----------
+    normalizar(texto) {
+        return String(texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    },
+
+    async cargarCatalogo() {
+        if (this.state.catalogo) return this.state.catalogo;
+        if (this._catalogoPromesa) return this._catalogoPromesa;
+        const pedir = async path => {
+            const response = await fetch(`${authManager.apiBaseUrl}${path}`, { headers: { Authorization: `Bearer ${authManager.getToken()}` } });
+            if (!response.ok) throw new Error(`Error ${response.status}`);
+            return response.json();
+        };
+        this._catalogoPromesa = Promise.allSettled([
+            pedir('/api/medicinas?activo=true'),
+            pedir('/api/codigos-articulos?activo=true')
+        ]).then(([medicinas, articulos]) => {
+            const lista = [];
+            if (medicinas.status === 'fulfilled') {
+                (medicinas.value.medicinas || []).forEach(m => lista.push({
+                    origen: 'medicina',
+                    id: String(m.id),
+                    nombre: m.nombre || 'Sin nombre',
+                    codigo: m.codigo_interno || m.codigo_externo || m.codigo_barra || '',
+                    detalle: [m.presentacion, m.concentracion].filter(Boolean).join(' ')
+                }));
+            }
+            if (articulos.status === 'fulfilled') {
+                (articulos.value.articulos || []).forEach(a => lista.push({
+                    origen: 'articulo',
+                    id: String(a.id),
+                    nombre: a.nombre_articulo || 'Sin nombre',
+                    codigo: a.codigo || a.codigo_barras || a.codigo_alternativo || '',
+                    detalle: a.categoria || a.tipo || ''
+                }));
+            }
+            lista.forEach(item => { item.busqueda = this.normalizar(`${item.nombre} ${item.codigo} ${item.detalle}`); });
+            this._catalogoPromesa = null;
+            if (medicinas.status === 'rejected' && articulos.status === 'rejected') {
+                showNotification('No se pudo cargar el catálogo de medicinas y conceptos', 'warning');
+                return [];
+            }
+            this.state.catalogo = lista.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+            const buscador = document.getElementById('oeCatalogoBuscar');
+            if (buscador?.value) this.buscarEnCatalogo(buscador.value);
+            return this.state.catalogo;
+        });
+        return this._catalogoPromesa;
+    },
+
+    buscarEnCatalogo(texto) {
+        const resultados = document.getElementById('oeCatalogoResultados');
+        const buscador = document.getElementById('oeCatalogoBuscar');
+        if (!resultados) return;
+        const termino = this.normalizar(texto).trim();
+        if (!termino) {
+            resultados.hidden = true;
+            buscador?.setAttribute('aria-expanded', 'false');
+            return;
+        }
+        if (!this.state.catalogo) {
+            resultados.innerHTML = '<li class="oe-catalogo-vacio">Cargando catálogo…</li>';
+        } else {
+            const palabras = termino.split(/\s+/);
+            this._coincidencias = this.state.catalogo.filter(item => palabras.every(p => item.busqueda.includes(p))).slice(0, 8);
+            resultados.innerHTML = this._coincidencias.length
+                ? this._coincidencias.map((item, i) => `
+                    <li role="option">
+                        <button type="button" class="oe-catalogo-item" data-oe-catalogo="${i}">
+                            <span>${escapeHtml(item.nombre)}${item.detalle ? ` <small>${escapeHtml(item.detalle)}</small>` : ''}</span>
+                            <small>${item.origen === 'medicina' ? 'Medicina' : 'Concepto'}${item.codigo ? ` · ${escapeHtml(item.codigo)}` : ''}</small>
+                        </button>
+                    </li>`).join('')
+                : '<li class="oe-catalogo-vacio">Sin resultados. Puede escribir la indicación a mano con "Agregar indicación".</li>';
+        }
+        resultados.hidden = false;
+        buscador?.setAttribute('aria-expanded', 'true');
+    },
+
+    agregarDelCatalogo(indice) {
+        const item = this._coincidencias?.[indice];
+        if (!item) return;
+        const filas = this.leerFilas().filter(f => f.descripcion || f.dosis || f.via || f.frecuencia || f.horario);
+        filas.push(this.filaVacia({
+            tipo: item.origen === 'medicina' ? 'medicamento' : 'concepto',
+            descripcion: item.nombre,
+            catalogo: { origen: item.origen, id: item.id, codigo: item.codigo, nombre: item.nombre }
+        }));
+        this.redibujarFilas(filas);
+        this.state.sinGuardar = true;
+        const buscador = document.getElementById('oeCatalogoBuscar');
+        if (buscador) {
+            buscador.value = '';
+            this.buscarEnCatalogo('');
+        }
+        // Siguiente paso natural: la dosis de lo que se acaba de agregar
+        document.querySelector('#oeFilas .oe-fila:last-child [data-campo="dosis"]')?.focus();
     },
 
     // ---------- Carga ----------
@@ -243,7 +369,7 @@ const OrdenesEnfermeriaModule = {
         if (enfermeria) enfermeria.innerHTML = `
             <div class="oe-panel-vacio">
                 <i class="fas fa-user-nurse" aria-hidden="true"></i>
-                <p>Aquí escribirá las indicaciones de enfermería, con la orden del médico a la vista.</p>
+                <p>Aquí escribirá las indicaciones de enfermería y agregará las medicinas y conceptos del catálogo, con la orden del médico a la vista.</p>
             </div>`;
     },
 
@@ -265,7 +391,7 @@ const OrdenesEnfermeriaModule = {
                 <div><dt>Fecha</dt><dd>${this.fecha(o.fecha_orden)}</dd></div>
             </dl>
             <section class="oe-bloque">
-                <h3>Indicaciones del médico</h3>
+                <h3>Orden del médico</h3>
                 <p class="oe-texto">${escapeHtml(o.descripcion || '—')}</p>
             </section>
             ${servicios.length ? `
@@ -317,6 +443,15 @@ const OrdenesEnfermeriaModule = {
                 </div>` : ''}
 
                 ${editable ? `
+                <div class="oe-catalogo">
+                    <label for="oeCatalogoBuscar">Agregar medicina o concepto del catálogo</label>
+                    <div class="saldo-busqueda">
+                        <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                        <input type="search" id="oeCatalogoBuscar" placeholder="Buscar por nombre o código" autocomplete="off"
+                            role="combobox" aria-expanded="false" aria-controls="oeCatalogoResultados" aria-autocomplete="list">
+                    </div>
+                    <ul class="oe-catalogo-resultados" id="oeCatalogoResultados" role="listbox" aria-label="Resultados del catálogo" hidden></ul>
+                </div>
                 <div class="oe-filas" id="oeFilas">
                     ${indicaciones.map((item, i) => this.renderFila(item, i)).join('')}
                 </div>
@@ -342,7 +477,7 @@ const OrdenesEnfermeriaModule = {
             <ol class="oe-lectura">
                 ${indicaciones.map(item => `
                     <li>
-                        <span class="oe-lectura-tipo">${escapeHtml(this.TIPOS.find(t => t.valor === item.tipo)?.texto || 'Otro')}</span>
+                        <span class="oe-lectura-tipo">${escapeHtml(this.TIPOS.find(t => t.valor === item.tipo)?.texto || 'Otro')}${item.catalogo ? ` · Del catálogo${item.catalogo.codigo ? ` (${escapeHtml(item.catalogo.codigo)})` : ''}` : ''}</span>
                         <strong>${escapeHtml(item.descripcion)}</strong>
                         <small>${['dosis', 'via', 'frecuencia', 'horario'].map(c => item[c]).filter(Boolean).map(escapeHtml).join(' · ')}</small>
                         <span class="oe-situacion oe-estado-${escapeHtml(item.estado)}">${escapeHtml(this.ESTADOS.find(e => e.valor === item.estado)?.texto || '')}</span>
@@ -359,7 +494,7 @@ const OrdenesEnfermeriaModule = {
         const id = `oeFila${i}`;
         const opciones = (lista, valor) => lista.map(op => `<option value="${op.valor}"${op.valor === valor ? ' selected' : ''}>${op.texto}</option>`).join('');
         return `
-            <fieldset class="oe-fila" data-indice="${i}">
+            <fieldset class="oe-fila" data-indice="${i}"${item.catalogo ? ` data-catalogo="${escapeHtml(JSON.stringify(item.catalogo))}"` : ''}>
                 <legend class="sr-only">Indicación ${i + 1}</legend>
                 <div class="oe-fila-cabecera">
                     <span class="oe-fila-numero">${i + 1}</span>
@@ -369,6 +504,7 @@ const OrdenesEnfermeriaModule = {
                     <select id="${id}Estado" data-campo="estado" class="form-input oe-fila-estado">${opciones(this.ESTADOS, item.estado)}</select>
                     <button type="button" class="btn-accion btn-accion-icono btn-accion-peligro" data-oe-accion="quitar" data-indice="${i}" title="Quitar indicación" aria-label="Quitar indicación ${i + 1}"><i class="fas fa-xmark" aria-hidden="true"></i></button>
                 </div>
+                ${item.catalogo ? `<span class="oe-catalogo-chip"><i class="fas fa-${item.catalogo.origen === 'medicina' ? 'pills' : 'tag'}" aria-hidden="true"></i> Del catálogo${item.catalogo.codigo ? ` · ${escapeHtml(item.catalogo.codigo)}` : ''}</span>` : ''}
                 <label class="sr-only" for="${id}Desc">Indicación</label>
                 <textarea id="${id}Desc" data-campo="descripcion" rows="2" maxlength="500" class="form-input" placeholder="Ej.: Ceftriaxona 1 g, curación de herida, dieta blanda…">${escapeHtml(item.descripcion)}</textarea>
                 <div class="oe-fila-detalle">
@@ -387,6 +523,7 @@ const OrdenesEnfermeriaModule = {
         return [...document.querySelectorAll('#oeFilas .oe-fila')].map(fila => {
             const item = {};
             fila.querySelectorAll('[data-campo]').forEach(campo => { item[campo.dataset.campo] = campo.value.trim(); });
+            if (fila.dataset.catalogo) item.catalogo = JSON.parse(fila.dataset.catalogo);
             return item;
         });
     },

@@ -8675,6 +8675,91 @@ body.chat-abierto {
     color: var(--text-gray);
 }
 
+/* Buscador del catálogo (medicinas y conceptos) */
+.oe-catalogo {
+    position: relative;
+    display: grid;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+
+.oe-catalogo > label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.oe-catalogo-resultados {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    max-height: 300px;
+    margin: 4px 0 0;
+    padding: 4px;
+    overflow-y: auto;
+    list-style: none;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm, 8px);
+    background: var(--bg-white);
+    box-shadow: var(--shadow-lg, 0 12px 32px rgba(15, 23, 42, 0.12));
+}
+
+.oe-catalogo-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: var(--text-body);
+    font: inherit;
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.oe-catalogo-item:hover,
+.oe-catalogo-item:focus-visible {
+    background: var(--primary-soft, #eaf1fe);
+    outline: none;
+}
+
+.oe-catalogo-item small {
+    color: var(--text-gray);
+    font-size: 12.5px;
+}
+
+.oe-catalogo-vacio {
+    padding: 10px;
+    color: var(--text-gray);
+    font-size: 13.5px;
+}
+
+.oe-catalogo-chip {
+    justify-self: start;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--primary-soft, #eaf1fe);
+    color: var(--primary-color);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Orden médica: texto libre con espacio para escribir */
+.orden-medica-texto {
+    min-height: 200px;
+    font: inherit;
+    line-height: 1.55;
+    resize: vertical;
+}
+
 /* Pantallas medianas: la lista arriba y las dos órdenes lado a lado */
 @media (max-width: 1360px) {
     .oe-layout {

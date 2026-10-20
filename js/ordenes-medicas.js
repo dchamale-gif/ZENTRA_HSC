@@ -1,25 +1,13 @@
 // ============================================
 // MÓDULO DE ÓRDENES MÉDICAS
 // ============================================
-// Gestión de órdenes médicas, servicios solicitados, vinculación con historia clínica
+// Gestión de órdenes médicas (texto libre del médico; enfermería las traduce en su módulo)
 
 const OrdenesmedicasModule = {
     state: {
         ordenes: [],
         pacientes: [],
         medicos: [],
-        servicios: [
-            { id: 1, nombre: 'Radiografía', categoria: 'Imágenes', costo: 150 },
-            { id: 2, nombre: 'Tomografía', categoria: 'Imágenes', costo: 500 },
-            { id: 3, nombre: 'Resonancia Magnética', categoria: 'Imágenes', costo: 800 },
-            { id: 4, nombre: 'Análisis de Sangre', categoria: 'Laboratorio', costo: 50 },
-            { id: 5, nombre: 'Análisis de Orina', categoria: 'Laboratorio', costo: 30 },
-            { id: 6, nombre: 'Electrocardiograma', categoria: 'Cardiología', costo: 100 },
-            { id: 7, nombre: 'Ecografía', categoria: 'Imágenes', costo: 200 },
-            { id: 8, nombre: 'Endoscopia', categoria: 'Gastroenterología', costo: 350 },
-            { id: 9, nombre: 'Colonoscopia', categoria: 'Gastroenterología', costo: 400 },
-            { id: 10, nombre: 'Psicometría', categoria: 'Psicología', costo: 200 }
-        ],
         searchTerm: '',
         pacienteSearch: '',
         filtroEstado: 'todos',
@@ -241,7 +229,7 @@ const OrdenesmedicasModule = {
                         <th style="padding: 15px; text-align: left; font-weight: 600;">Paciente</th>
                         <th style="padding: 15px; text-align: left; font-weight: 600;">Fecha</th>
                         <th style="padding: 15px; text-align: left; font-weight: 600;">Doctor</th>
-                        <th style="padding: 15px; text-align: left; font-weight: 600;">Servicios</th>
+                        <th style="padding: 15px; text-align: left; font-weight: 600;">Orden</th>
                         <th style="padding: 15px; text-align: center; font-weight: 600;">Estado</th>
                         <th style="padding: 15px; text-align: center; font-weight: 600;">Acciones</th>
                     </tr>
@@ -255,7 +243,7 @@ const OrdenesmedicasModule = {
         ordenesFiltered.forEach(orden => {
             const paciente = this.state.pacientes.find(p => String(p.id) === String(orden.pacienteId));
             const nombrePaciente = paciente ? `${paciente.nombre || ''} ${paciente.apellidoPaterno || paciente.apellido_paterno || ''}`.trim() : 'Sin paciente';
-            const numServicios = (orden.servicios || []).length;
+            const resumen = escapeHtml(orden.descripcion.length > 90 ? `${orden.descripcion.slice(0, 90)}…` : orden.descripcion);
             
             // Color del estado
             let estadoBgColor = '#e0e0e0';
@@ -280,11 +268,7 @@ const OrdenesmedicasModule = {
                     <td style="padding: 12px 15px;">${nombrePaciente}</td>
                     <td style="padding: 12px 15px;">${orden.fechaOrden}</td>
                     <td style="padding: 12px 15px;">${orden.doctor || 'Sin asignar'}</td>
-                    <td style="padding: 12px 15px;">
-                        <span style="background: #e3f2fd; color: #1976d2; padding: 4px 8px; border-radius: 3px; font-size: 12px;">
-                            ${numServicios} servicio${numServicios !== 1 ? 's' : ''}
-                        </span>
-                    </td>
+                    <td style="padding: 12px 15px; max-width: 320px; color: #555;">${resumen}</td>
                     <td style="padding: 12px 15px; text-align: center;">
                         <span style="background: ${estadoBgColor}; color: ${estadoTextColor}; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: 600;">
                             ${orden.estado.charAt(0).toUpperCase() + orden.estado.slice(1)}
@@ -340,8 +324,6 @@ const OrdenesmedicasModule = {
         document.getElementById('ordenNotas').value = '';
         document.getElementById('buscarPacienteOrden').value = '';
         this.state.pacienteSearch = '';
-        document.getElementById('serviciosSeleccionados').innerHTML = '<p style="text-align: center; color: #999;">No hay servicios seleccionados</p>';
-        document.getElementById('serviciosSeleccionados').dataset.servicios = '';
 
         // Guardar que es creación nueva (no edición)
         modal.dataset.ordenId = '';
@@ -359,9 +341,6 @@ const OrdenesmedicasModule = {
             this.cargarPacientesDesdeAPI(),
             this.cargarMedicosDesdeAPI()
         ]);
-
-        // Cargar servicios disponibles
-        this.cargarServicios();
     },
 
     async cargarPacientesDesdeAPI() {
@@ -409,17 +388,6 @@ const OrdenesmedicasModule = {
         select.value = valorActual;
     },
 
-    // Cargar servicios disponibles en select
-    cargarServicios() {
-        const select = document.getElementById('serviciosDisponibles');
-        if (!select) return;
-
-        select.innerHTML = '<option value="">-- Selecciona servicio --</option>' +
-            this.state.servicios.map(s => {
-                return `<option value="${s.id}">${s.nombre} (${s.categoria}) - ${this.formatCurrency(s.costo)}</option>`;
-            }).join('');
-    },
-
     // Cargar pacientes en select
     cargarPacientes() {
         const select = document.getElementById('ordenPacienteId');
@@ -451,95 +419,6 @@ const OrdenesmedicasModule = {
         }
     },
 
-    // Agregar servicio a la orden
-    agregarServicio() {
-        const selectServicios = document.getElementById('serviciosDisponibles');
-        if (!selectServicios || !selectServicios.value) {
-            this.showNotification('Selecciona un servicio', 'error');
-            return;
-        }
-
-        const servicioId = parseInt(selectServicios.value);
-        const servicio = this.state.servicios.find(s => s.id === servicioId);
-
-        if (!servicio) {
-            this.showNotification('Servicio no encontrado', 'error');
-            return;
-        }
-
-        // Obtener servicios seleccionados
-        let serviciosSeleccionados = [];
-        const container = document.getElementById('serviciosSeleccionados');
-        if (container.dataset.servicios) {
-            serviciosSeleccionados = JSON.parse(container.dataset.servicios);
-        }
-
-        // Validar que no esté duplicado
-        if (serviciosSeleccionados.some(s => s.id === servicioId)) {
-            this.showNotification('Este servicio ya está seleccionado', 'warning');
-            return;
-        }
-
-        // Agregar servicio
-        serviciosSeleccionados.push(servicio);
-        container.dataset.servicios = JSON.stringify(serviciosSeleccionados);
-
-        // Renderizar servicios seleccionados
-        this.renderServiciosSeleccionados();
-    },
-
-    // Renderizar servicios seleccionados
-    renderServiciosSeleccionados() {
-        const container = document.getElementById('serviciosSeleccionados');
-        if (!container) return;
-
-        const servicios = container.dataset.servicios ? JSON.parse(container.dataset.servicios) : [];
-        
-        if (servicios.length === 0) {
-            container.innerHTML = '<p style="color: #999; text-align: center;">No hay servicios seleccionados</p>';
-            return;
-        }
-
-        let totalCosto = 0;
-        let html = '<div style="display: grid; gap: 10px;">';
-
-        servicios.forEach((servicio, idx) => {
-            totalCosto += Number(servicio.costo) || 0;
-            html += `
-                <div style="background: #f5f5f5; padding: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <strong>${servicio.nombre}</strong>
-                        <br>
-                        <small style="color: #666;">${servicio.categoria} - ${this.formatCurrency(servicio.costo)}</small>
-                    </div>
-                    <button type="button" class="btn btn-sm btn-danger" 
-                            onclick="OrdenesmedicasModule.removerServicio(${idx})">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-            `;
-        });
-
-        html += '</div>';
-        html += `
-            <div style="margin-top: 15px; padding: 10px; background: #e8f5e9; border-radius: 4px; text-align: right;">
-                <strong>Total: ${this.formatCurrency(totalCosto)}</strong>
-            </div>
-        `;
-
-        container.innerHTML = html;
-    },
-
-    // Remover servicio
-    removerServicio(index) {
-        const container = document.getElementById('serviciosSeleccionados');
-        const servicios = container.dataset.servicios ? JSON.parse(container.dataset.servicios) : [];
-        
-        servicios.splice(index, 1);
-        container.dataset.servicios = JSON.stringify(servicios);
-        this.renderServiciosSeleccionados();
-    },
-
     // Guardar orden médica
     async guardarOrden() {
         const pacienteId = document.getElementById('ordenPacienteId')?.value?.trim();
@@ -547,8 +426,6 @@ const OrdenesmedicasModule = {
         const estado = document.getElementById('ordenEstado')?.value || 'pendiente';
         const descripcion = document.getElementById('ordenMedicaDescripcion')?.value?.trim();
         const notas = document.getElementById('ordenNotas')?.value?.trim();
-        const container = document.getElementById('serviciosSeleccionados');
-        const servicios = container.dataset.servicios ? JSON.parse(container.dataset.servicios) : [];
 
         // Validaciones
         if (!pacienteId) {
@@ -562,12 +439,7 @@ const OrdenesmedicasModule = {
         }
 
         if (!descripcion) {
-            this.showNotification('Descripción de la orden es obligatoria', 'error');
-            return;
-        }
-
-        if (servicios.length === 0) {
-            this.showNotification('Debes agregar al menos un servicio', 'error');
+            this.showNotification('Escribe las indicaciones de la orden', 'error');
             return;
         }
 
@@ -595,7 +467,8 @@ const OrdenesmedicasModule = {
                     doctor,
                     descripcion,
                     notas,
-                    servicios,
+                    // La orden es texto libre; se conservan los servicios de órdenes antiguas
+                    servicios: ordenActual?.servicios || [],
                     estado,
                     fecha_orden: ordenActual?.fechaOrden || new Date().toISOString().split('T')[0]
                 })
@@ -666,12 +539,13 @@ const OrdenesmedicasModule = {
                         </div>
 
                         <div style="background: #f5f5f5; padding: 12px; border-radius: 4px;">
-                            <strong style="color: #667eea;">Descripción</strong><br>
+                            <strong style="color: #667eea;">Orden médica</strong><br>
                             <p style="margin: 5px 0; white-space: pre-wrap;">${orden.descripcion}</p>
                         </div>
 
+                        ${(orden.servicios || []).length ? `
                         <div style="background: #f5f5f5; padding: 12px; border-radius: 4px;">
-                            <strong style="color: #667eea;">Servicios Solicitados (${orden.servicios?.length || 0})</strong><br>
+                            <strong style="color: #667eea;">Servicios Solicitados (${orden.servicios.length})</strong><br>
                             ${(orden.servicios || []).map(s => `
                                 <div style="padding: 8px; background: white; margin: 8px 0; border-radius: 3px;">
                                     <strong>${s.nombre}</strong> - ${s.categoria}
@@ -681,7 +555,7 @@ const OrdenesmedicasModule = {
                             <div style="margin-top: 10px; padding-top: 10px; border-top: 2px solid #ddd; text-align: right;">
                                 <strong>Total: ${this.formatCurrency((orden.servicios || []).reduce((sum, s) => sum + (Number(s.costo) || 0), 0))}</strong>
                             </div>
-                        </div>
+                        </div>` : ''}
 
                         ${orden.notas ? `
                             <div style="background: #fff3cd; padding: 12px; border-radius: 4px;">
@@ -723,11 +597,6 @@ const OrdenesmedicasModule = {
         document.getElementById('ordenEstado').value = orden.estado;
         document.getElementById('ordenMedicaDescripcion').value = orden.descripcion;
         document.getElementById('ordenNotas').value = orden.notas || '';
-
-        // Establecer servicios seleccionados
-        const container = document.getElementById('serviciosSeleccionados');
-        container.dataset.servicios = JSON.stringify(orden.servicios || []);
-        this.renderServiciosSeleccionados();
 
         // Guardar ID de orden para edición
         const modal = document.getElementById('ordenMedicaModal');
@@ -847,11 +716,12 @@ const OrdenesmedicasModule = {
                         </div>
                     </div>
                     <div class="field-item">
-                        <div class="label">Descripción</div>
+                        <div class="label">Indicaciones</div>
                         <div class="value" style="white-space: pre-wrap;">${orden.descripcion}</div>
                     </div>
                 </div>
 
+                ${(orden.servicios || []).length ? `
                 <div class="section">
                     <div class="section-title">Servicios Solicitados</div>
                     <table>
@@ -876,7 +746,7 @@ const OrdenesmedicasModule = {
                             </tr>
                         </tbody>
                     </table>
-                </div>
+                </div>` : ''}
 
                 ${orden.notas ? `
                     <div class="section">

@@ -1,7 +1,9 @@
 const pool = require('../db/connection');
 
-// Una orden de enfermería traduce una orden médica en indicaciones concretas
-const TIPOS = ['medicamento', 'procedimiento', 'cuidado', 'control_signos', 'dieta', 'laboratorio', 'otro'];
+// Una orden de enfermería traduce la orden médica (texto libre) en indicaciones concretas,
+// con las medicinas y conceptos del catálogo que correspondan
+const TIPOS = ['medicamento', 'concepto', 'procedimiento', 'cuidado', 'control_signos', 'dieta', 'laboratorio', 'otro'];
+const ORIGENES_CATALOGO = ['medicina', 'articulo'];
 const ESTADOS = ['pendiente', 'cumplida', 'suspendida'];
 const MAX_INDICACIONES = 50;
 const CAMPOS_CORTOS = ['dosis', 'via', 'frecuencia', 'horario'];
@@ -39,6 +41,15 @@ const validarIndicaciones = (indicaciones) => {
     const limpia = { tipo, descripcion, estado };
     for (const campo of CAMPOS_CORTOS) {
       limpia[campo] = String(item[campo] || '').trim().slice(0, 100);
+    }
+    // Medicina o concepto elegido del catálogo (opcional)
+    if (item.catalogo && ORIGENES_CATALOGO.includes(item.catalogo.origen) && String(item.catalogo.id || '').trim()) {
+      limpia.catalogo = {
+        origen: item.catalogo.origen,
+        id: String(item.catalogo.id).trim().slice(0, 50),
+        codigo: String(item.catalogo.codigo || '').trim().slice(0, 60),
+        nombre: String(item.catalogo.nombre || '').trim().slice(0, 200)
+      };
     }
     limpias.push(limpia);
   }

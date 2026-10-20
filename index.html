@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-    <link rel="stylesheet" href="css/style.css?v=20261019-10">
+    <link rel="stylesheet" href="css/style.css?v=20261019-11">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/tema-botengine.css?v=20261018-2">
 </head>
@@ -5162,33 +5162,15 @@
                     </div>
                 </div>
 
-                <div class="form-section-title">Descripción de la Orden</div>
+                <div class="form-section-title">Orden médica</div>
 
                 <div class="form-row">
                     <div class="form-group" style="grid-column: 1 / -1;">
-                        <label>Descripción <span class="required">*</span></label>
-                        <textarea id="ordenMedicaDescripcion" class="form-input" placeholder="Motivo de la orden médica..." rows="3" required></textarea>
+                        <label for="ordenMedicaDescripcion">Indicaciones <span class="required">*</span></label>
+                        <textarea id="ordenMedicaDescripcion" class="form-input orden-medica-texto" rows="10" required
+                            placeholder="Escriba la orden tal como la indicaría en papel. Ej.:&#10;1. Ceftriaxona 1 g IV cada 12 horas por 7 días&#10;2. Control de temperatura cada 4 horas&#10;3. Dieta blanda"></textarea>
+                        <small style="color: var(--text-gray);">Enfermería traduce esta orden y agrega las medicinas y conceptos del catálogo.</small>
                     </div>
-                </div>
-
-                <div class="form-section-title">Servicios Solicitados</div>
-
-                <div class="form-row">
-                    <div class="form-group" style="grid-column: 1 / -1;">
-                        <label>Agregar Servicio</label>
-                        <div style="display: flex; gap: 10px;">
-                            <select id="serviciosDisponibles" class="form-input" style="flex: 1;">
-                                <option value="">-- Selecciona servicio --</option>
-                            </select>
-                            <button type="button" class="btn btn-primary" onclick="OrdenesmedicasModule.agregarServicio()">
-                                <i class="fas fa-plus"></i> Agregar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="form-row" id="serviciosSeleccionados" style="grid-column: 1 / -1; margin-top: 15px; padding: 15px; background: #f9f9f9; border-radius: 4px;">
-                    <p style="text-align: center; color: #999;">No hay servicios seleccionados</p>
                 </div>
 
                 <div class="form-section-title">Notas Adicionales</div>
@@ -5384,8 +5366,8 @@
     <script src="js/saldo-paciente.js?v=20261018-2"></script>
     <script src="js/saldo-paciente-facturacion-integrado.js?v=20261019-2"></script>
     <script src="js/hospitalizaciones.js?v=20261019-1"></script>
-    <script src="js/ordenes-medicas.js?v=20261019-1"></script>
-    <script src="js/ordenes-enfermeria.js?v=20261019-2"></script>
+    <script src="js/ordenes-medicas.js?v=20261019-2"></script>
+    <script src="js/ordenes-enfermeria.js?v=20261019-4"></script>
     <script src="js/personal.js?v=20261018-3"></script>
     <script src="js/codigos-articulos.js?v=20261015-21"></script>
     <script src="js/compras.js?v=20261015-21"></script>
