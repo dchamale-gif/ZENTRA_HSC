@@ -7552,6 +7552,110 @@ tr.medicina-inactiva td {
     justify-content: flex-end;
 }
 
+.pac-lab-texto {
+    white-space: pre-line;
+}
+
+/* Ficha del paciente → Órdenes médicas: orden del médico junto a su traducción */
+.ficha-ordenes-resumen {
+    margin: 0 0 12px;
+    color: var(--text-gray);
+    font-size: 14px;
+}
+
+.ficha-orden {
+    margin-bottom: 14px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius, 12px);
+    background: var(--bg-white);
+    overflow: hidden;
+}
+
+.ficha-orden-cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-light);
+}
+
+.ficha-orden-cabecera strong {
+    margin-right: 8px;
+}
+
+.ficha-orden-meta {
+    color: var(--text-gray);
+    font-size: 13px;
+}
+
+.ficha-orden-estados {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.ficha-orden-cuerpo {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ficha-orden-cuerpo > section {
+    min-width: 0;
+    padding: 14px 16px;
+}
+
+.ficha-orden-cuerpo > section + section {
+    border-left: 1px solid var(--border-color);
+}
+
+.ficha-orden-cuerpo h4 {
+    margin: 0 0 8px;
+    color: var(--text-gray);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.ficha-orden-cuerpo .ficha-orden-meta {
+    margin: 8px 0 0;
+}
+
+.ficha-orden-cuerpo .oe-bloque {
+    margin-top: 12px;
+}
+
+.ficha-orden-notas {
+    margin: 8px 0 0;
+    font-size: 14px;
+    white-space: pre-wrap;
+}
+
+.ficha-orden-pendiente {
+    margin: 0;
+    color: var(--warning-color, #a15c07);
+    font-size: 14px;
+}
+
+.ficha-orden-pie {
+    display: flex;
+    justify-content: flex-end;
+    padding: 10px 16px;
+    border-top: 1px solid var(--border-color);
+}
+
+@media (max-width: 700px) {
+    .ficha-orden-cuerpo {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .ficha-orden-cuerpo > section + section {
+        border-left: 0;
+        border-top: 1px solid var(--border-color);
+    }
+}
+
 @media (max-width: 600px) {
     .pac-lab-form {
         grid-template-columns: 1fr;

@@ -67,7 +67,8 @@ const PERMISOS_API = {
   hospitalizaciones: { ver: ['hospitalizaciones', 'saldo_paciente'], editar: ['hospitalizaciones'] },
   laboratorios: 'laboratorios',
   ordenes: 'ordenes_medicas',
-  ordenesEnfermeria: 'ordenes_enfermeria',
+  // Quien ve las órdenes médicas también ve su traducción (pestaña Órdenes médicas de la ficha)
+  ordenesEnfermeria: { ver: ['ordenes_enfermeria', 'ordenes_medicas'], editar: ['ordenes_enfermeria'] },
   alertas: 'alertas',
   // El resumen operativo de Inicio (conteos de pacientes, citas, órdenes, camas; sin montos)
   // lo ve cualquier usuario; el resto de reportes es financiero.

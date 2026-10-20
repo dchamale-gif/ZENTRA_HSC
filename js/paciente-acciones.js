@@ -282,43 +282,53 @@ const PacienteAccionesModule = {
     // ---------- Laboratorios ----------
     abrirLaboratorios(p) {
         const { cuerpo } = this.abrirPopup({ titulo: 'Laboratorios', icono: 'fa-flask', paciente: p });
+        this.montarLaboratorios(cuerpo, p.id, { prefijo: 'pacLab', enfocar: true });
+    },
+
+    // Panel de laboratorios del paciente (lista + alta). Se usa en este menú y en la
+    // pestaña Laboratorios de la ficha del paciente; ambos leen /api/laboratorios.
+    // Sin <form>: la ficha ya es un formulario y no se pueden anidar.
+    montarLaboratorios(contenedor, pacienteId, { prefijo = 'lab', enfocar = false } = {}) {
+        const editable = typeof Permisos === 'undefined' || Permisos.puede('laboratorios', 'edit');
         const hoy = (() => {
             const d = new Date();
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         })();
-        cuerpo.innerHTML = `
-            <form class="pac-lab-form" novalidate>
+        contenedor.innerHTML = `
+            ${editable ? `
+            <div class="pac-lab-form" role="group" aria-label="Agregar laboratorio">
                 <div class="form-group">
-                    <label for="pacLabTipo">Examen <span class="required">*</span></label>
-                    <input type="text" id="pacLabTipo" class="form-input" placeholder="Ej: Hematología completa" required>
+                    <label for="${prefijo}Tipo">Examen <span class="required">*</span></label>
+                    <input type="text" id="${prefijo}Tipo" data-lab="tipo" class="form-input" placeholder="Ej: Hematología completa">
                 </div>
                 <div class="form-group">
-                    <label for="pacLabFecha">Fecha <span class="required">*</span></label>
-                    <input type="date" id="pacLabFecha" class="form-input" value="${hoy}" required>
+                    <label for="${prefijo}Fecha">Fecha <span class="required">*</span></label>
+                    <input type="date" id="${prefijo}Fecha" data-lab="fecha" class="form-input" value="${hoy}">
                 </div>
                 <div class="form-group pac-lab-resultado">
-                    <label for="pacLabResultado">Resultado</label>
-                    <textarea id="pacLabResultado" class="form-input" rows="2" placeholder="Resultado o interpretación"></textarea>
+                    <label for="${prefijo}Resultado">Resultado</label>
+                    <textarea id="${prefijo}Resultado" data-lab="resultado" class="form-input" rows="2" placeholder="Resultado o interpretación"></textarea>
                 </div>
                 <div class="pac-lab-guardar">
-                    <button type="submit" class="btn btn-primary"><i class="fas fa-plus" aria-hidden="true"></i> Agregar laboratorio</button>
+                    <button type="button" class="btn btn-primary" data-lab="agregar"><i class="fas fa-plus" aria-hidden="true"></i> Agregar laboratorio</button>
                 </div>
-            </form>
-            <div id="pacLabLista"><p class="cot-sub">Cargando laboratorios…</p></div>`;
+            </div>` : ''}
+            <div data-lab="lista"><p class="cot-sub">Cargando laboratorios…</p></div>`;
 
-        const lista = cuerpo.querySelector('#pacLabLista');
+        const campo = nombre => contenedor.querySelector(`[data-lab="${nombre}"]`);
+        const lista = campo('lista');
         const cargar = async () => {
             try {
-                const labs = await this.api(`/api/laboratorios/${encodeURIComponent(p.id)}`);
+                const labs = await this.api(`/api/laboratorios/${encodeURIComponent(pacienteId)}`);
                 const filas = Array.isArray(labs) ? labs : (labs.data || []);
                 lista.innerHTML = filas.length
                     ? `<div class="table-responsive"><table class="data-table">
-                        <thead><tr><th>Examen</th><th>Fecha</th><th>Resultado</th><th></th></tr></thead>
+                        <thead><tr><th>Examen</th><th>Fecha</th><th>Resultado</th>${editable ? '<th></th>' : ''}</tr></thead>
                         <tbody>${filas.map(l => `<tr>
                             <td><strong>${this.e(l.tipo)}</strong></td>
                             <td>${this.e(l.fecha ? formatFecha(String(l.fecha).slice(0, 10)) : '')}</td>
-                            <td>${this.e(l.resultado || '—')}</td>
-                            <td><button type="button" class="btn-accion btn-accion-icono" data-borrar-lab="${this.e(l.id)}" data-nombre="${this.e(l.tipo)}" title="Eliminar laboratorio" aria-label="Eliminar laboratorio"><i class="fas fa-trash" aria-hidden="true"></i></button></td>
+                            <td class="pac-lab-texto">${this.e(l.resultado || '—')}</td>
+                            ${editable ? `<td><button type="button" class="btn-accion btn-accion-icono btn-accion-peligro" data-borrar-lab="${this.e(l.id)}" data-nombre="${this.e(l.tipo)}" title="Eliminar laboratorio" aria-label="Eliminar laboratorio ${this.e(l.tipo)}"><i class="fas fa-trash" aria-hidden="true"></i></button></td>` : ''}
                         </tr>`).join('')}</tbody></table></div>`
                     : '<div class="cot-vacio"><p>Sin laboratorios registrados.</p></div>';
             } catch (error) {
@@ -326,22 +336,21 @@ const PacienteAccionesModule = {
             }
         };
 
-        cuerpo.querySelector('form').addEventListener('submit', async e => {
-            e.preventDefault();
-            const tipo = cuerpo.querySelector('#pacLabTipo');
-            const fecha = cuerpo.querySelector('#pacLabFecha');
-            const resultado = cuerpo.querySelector('#pacLabResultado');
+        const agregar = async () => {
+            const tipo = campo('tipo');
+            const fecha = campo('fecha');
+            const resultado = campo('resultado');
             if (!tipo.value.trim() || !fecha.value) {
                 this.notificar('Escribe el examen y la fecha', 'warning');
                 (tipo.value.trim() ? fecha : tipo).focus();
                 return;
             }
-            const boton = e.submitter;
-            if (boton) boton.disabled = true;
+            const boton = campo('agregar');
+            boton.disabled = true;
             try {
                 await this.api('/api/laboratorios', {
                     method: 'POST',
-                    body: JSON.stringify({ paciente_id: p.id, tipo: tipo.value.trim(), fecha: fecha.value, resultado: resultado.value.trim() })
+                    body: JSON.stringify({ paciente_id: pacienteId, tipo: tipo.value.trim(), fecha: fecha.value, resultado: resultado.value.trim() })
                 });
                 tipo.value = '';
                 resultado.value = '';
@@ -351,9 +360,20 @@ const PacienteAccionesModule = {
             } catch (error) {
                 this.notificar(`No se pudo guardar el laboratorio: ${error.message}`, 'error');
             } finally {
-                if (boton) boton.disabled = false;
+                boton.disabled = false;
             }
-        });
+        };
+
+        if (editable) {
+            campo('agregar').addEventListener('click', agregar);
+            // Enter en examen o fecha agrega (sin enviar el formulario de la ficha)
+            [campo('tipo'), campo('fecha')].forEach(input => input.addEventListener('keydown', e => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    agregar();
+                }
+            }));
+        }
 
         lista.addEventListener('click', async e => {
             const borrar = e.target.closest('[data-borrar-lab]');
@@ -368,7 +388,7 @@ const PacienteAccionesModule = {
         });
 
         cargar();
-        setTimeout(() => cuerpo.querySelector('#pacLabTipo')?.focus(), 50);
+        if (enfocar && editable) setTimeout(() => campo('tipo')?.focus(), 50);
     },
 
     // ---------- Cotizaciones ----------

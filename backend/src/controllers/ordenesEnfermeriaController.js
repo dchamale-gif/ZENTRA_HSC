@@ -56,8 +56,9 @@ const validarIndicaciones = (indicaciones) => {
   return { indicaciones: limpias };
 };
 
-// GET /api/ordenes-enfermeria - Órdenes médicas con su traducción de enfermería (si existe)
+// GET /api/ordenes-enfermeria[?paciente_id=] - Órdenes médicas con su traducción de enfermería (si existe)
 const listar = async (req, res) => {
+  const pacienteId = String(req.query.paciente_id || '').trim();
   try {
     const result = await pool.query(
       `SELECT o.id, o.paciente_id, o.doctor, o.descripcion, o.notas, o.servicios, o.estado,
@@ -70,8 +71,9 @@ const listar = async (req, res) => {
        FROM ordenes o
        JOIN pacientes p ON p.id = o.paciente_id
        LEFT JOIN ordenes_enfermeria oe ON oe.orden_medica_id = o.id
-       WHERE o.tipo = 'medica'
-       ORDER BY o.fecha_orden DESC, o.created_at DESC`
+       WHERE o.tipo = 'medica' AND ($1 = '' OR o.paciente_id::text = $1)
+       ORDER BY o.fecha_orden DESC, o.created_at DESC`,
+      [pacienteId]
     );
     res.json({ success: true, data: result.rows });
   } catch (error) {

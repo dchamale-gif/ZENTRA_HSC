@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-    <link rel="stylesheet" href="css/style.css?v=20261019-12">
+    <link rel="stylesheet" href="css/style.css?v=20261019-15">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/tema-botengine.css?v=20261018-2">
 </head>
@@ -2657,6 +2657,8 @@
                         <button type="button" class="tab-button" onclick="switchPacientTab('lugarTrabajo')">💼 Lugar de Trabajo</button>
                         <button type="button" class="tab-button" onclick="switchPacientTab('emergencia')">🆘 Emergencia</button>
                         <button type="button" class="tab-button" onclick="switchPacientTab('historialMedico')">🏥 Historial Médico</button>
+                        <button type="button" class="tab-button" id="pacientTabOrdenes" onclick="switchPacientTab('ordenesMedicas')">📋 Órdenes médicas</button>
+                        <button type="button" class="tab-button" id="pacientTabLaboratorios" onclick="switchPacientTab('laboratorios')">🧪 Laboratorios</button>
                         <button type="button" class="tab-button" onclick="switchPacientTab('datosFamiliares')">👨‍👩‍👧 Familiares</button>
                         <button type="button" class="tab-button" onclick="switchPacientTab('responsable')">👤 Responsable</button>
                         <button type="button" class="tab-button" onclick="switchPacientTab('fotografias')">📷 Fotografías</button>
@@ -3346,13 +3348,7 @@
                         <!-- SUB-TABS de Historial Médico -->
                         <div class="subtabs-container" style="margin-top: 30px; border-top: 2px solid #ddd; padding-top: 20px;">
                             <div class="subtabs-header" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #eee;">
-                                <button type="button" class="subtab-btn active" data-subtab="laboratorios" style="padding: 10px 15px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent;">
-                                    🔬 Laboratorios
-                                </button>
-                                <button type="button" class="subtab-btn" data-subtab="ordenes" style="padding: 10px 15px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent;">
-                                    📋 Órdenes
-                                </button>
-                                <button type="button" class="subtab-btn" data-subtab="evolucion" style="padding: 10px 15px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent;">
+                                <button type="button" class="subtab-btn active" data-subtab="evolucion" style="padding: 10px 15px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent;">
                                     📝 Evolución
                                 </button>
                                 <button type="button" class="subtab-btn" data-subtab="alertas" style="padding: 10px 15px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent;">
@@ -3360,74 +3356,7 @@
                                 </button>
                             </div>
 
-                            <!-- LABORATORIOS Y RESULTADOS -->
-                            <div data-subtab="laboratorios" style="display: block;">
-                                <div class="form-section-title">Laboratorios y Resultados</div>
-                                <div class="form-group full-width">
-                                    <label>Agregar Resultado de Laboratorio</label>
-                                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                                        <input type="text" id="laboratorioTipo" class="form-input" placeholder="Tipo (ej: Hemograma, Glucosa)" style="flex: 1;">
-                                        <input type="date" id="laboratorioFecha" class="form-input" style="flex: 1;">
-                                        <button type="button" onclick="PacientesModule.addLaboratorio()" class="btn-primary" style="padding: 8px 15px;">+ Agregar</button>
-                                    </div>
-                                </div>
-                                <div class="form-group full-width">
-                                    <label>Resultado/Valor</label>
-                                    <textarea id="laboratorioResultado" class="form-input" rows="3" placeholder="Detalles del resultado..."></textarea>
-                                </div>
-                                <div id="laboratoriosList" style="margin-top: 15px;">
-                                    <table style="width: 100%; border-collapse: collapse;">
-                                        <thead>
-                                            <tr style="background: #f5f5f5; border-bottom: 2px solid #ddd;">
-                                                <th style="padding: 10px; text-align: left;">Tipo</th>
-                                                <th style="padding: 10px; text-align: left;">Fecha</th>
-                                                <th style="padding: 10px; text-align: left;">Resultado</th>
-                                                <th style="padding: 10px; text-align: center;">Acciones</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="laboratoriosTableBody">
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-
-                            <!-- ÓRDENES Y ACTIVIDADES -->
-                            <div data-subtab="ordenes" style="display: none;">
-                                <div class="form-section-title">Órdenes y Actividades del Paciente</div>
-                                <div class="form-group full-width">
-                                    <label>Nueva Orden/Actividad</label>
-                                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                                        <select id="ordenTipo" class="form-input" style="flex: 1;">
-                                            <option value="">-- Seleccionar tipo --</option>
-                                            <option value="ejercicio">🏃 Ejercicio</option>
-                                            <option value="alimentacion">🍎 Alimentación</option>
-                                            <option value="medicamento">💊 Medicamento</option>
-                                            <option value="descanso">😴 Descanso</option>
-                                            <option value="higiene">🧼 Higiene</option>
-                                            <option value="otro">📝 Otro</option>
-                                        </select>
-                                        <input type="text" id="ordenDescripcion" class="form-input" placeholder="Descripción (ej: Salir a caminar 30 min, Tomar más agua)" style="flex: 2;">
-                                        <button type="button" onclick="PacientesModule.addOrden()" class="btn-primary" style="padding: 8px 15px;">+ Agregar</button>
-                                    </div>
-                                </div>
-                                <div id="ordenesList" style="margin-top: 15px;">
-                                    <table style="width: 100%; border-collapse: collapse;">
-                                        <thead>
-                                            <tr style="background: #f5f5f5; border-bottom: 2px solid #ddd;">
-                                                <th style="padding: 10px; text-align: left;">Tipo</th>
-                                                <th style="padding: 10px; text-align: left;">Descripción</th>
-                                                <th style="padding: 10px; text-align: left;">Estado</th>
-                                                <th style="padding: 10px; text-align: center;">Acciones</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="ordenesTableBody">
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-
-                            <!-- EVOLUCIÓN (NOTAS) -->
-                            <div data-subtab="evolucion" style="display: none;">
+                            <div data-subtab="evolucion" style="display: block;">
                                 <div class="form-section-title">Evolución del Paciente</div>
                                 <div id="evolucionList" style="margin-top: 15px; max-height: 400px; overflow-y: auto;">
                                     <!-- Las notas se cargan desde historia clínica -->
@@ -3459,6 +3388,18 @@
                     </div>
 
                     <!-- TAB 5: DATOS FAMILIARES -->
+                    <!-- TAB: ÓRDENES MÉDICAS (orden del médico + traducción de enfermería, solo lectura) -->
+                    <div id="tab-ordenesMedicas" class="tab-content">
+                        <div class="form-section-title">Órdenes médicas</div>
+                        <div id="pacientOrdenes"></div>
+                    </div>
+
+                    <!-- TAB: LABORATORIOS (mismos datos que Acciones → Laboratorios) -->
+                    <div id="tab-laboratorios" class="tab-content">
+                        <div class="form-section-title">Laboratorios y resultados</div>
+                        <div id="pacientLaboratorios"></div>
+                    </div>
+
                     <div id="tab-datosFamiliares" class="tab-content">
                         <div class="form-section-title">Información Familiar</div>
                         
@@ -5359,7 +5300,7 @@
     
     <!-- Módulos Administrativos -->
     <script src="js/live-search.js?v=20261015-21"></script>
-    <script src="js/pacientes.js?v=20261016-1"></script>
+    <script src="js/pacientes.js?v=20261019-2"></script>
     <script src="js/pacientes-file-manager.js?v=20261015-21"></script>
     <script src="js/medicinas.js?v=20261015-21"></script>
     <script src="js/historia-clinica.js?v=20261016-1"></script>
@@ -5367,14 +5308,14 @@
     <script src="js/saldo-paciente-facturacion-integrado.js?v=20261019-2"></script>
     <script src="js/hospitalizaciones.js?v=20261019-1"></script>
     <script src="js/ordenes-medicas.js?v=20261019-2"></script>
-    <script src="js/ordenes-enfermeria.js?v=20261019-4"></script>
+    <script src="js/ordenes-enfermeria.js?v=20261019-6"></script>
     <script src="js/personal.js?v=20261018-3"></script>
     <script src="js/codigos-articulos.js?v=20261015-21"></script>
     <script src="js/compras.js?v=20261015-21"></script>
     <script src="js/alertas.js?v=20261015-21"></script>
     <script src="js/ventas.js?v=20261015-21"></script>
     <script src="js/cotizaciones.js?v=20261019-1"></script>
-    <script src="js/paciente-acciones.js?v=20261018-1"></script>
+    <script src="js/paciente-acciones.js?v=20261019-1"></script>
     <script src="js/caja.js?v=20261015-21"></script>
     <script src="js/cuentas-por-cobrar.js?v=20261015-21"></script>
     <script src="js/dashboard-financiero.js?v=20261015-21"></script>
@@ -5389,7 +5330,7 @@
     <script src="js/gastos-servicios.js?v=20261018-3"></script>
     
     <!-- App Principal -->
-    <script src="js/app.js?v=20261019-2"></script>
+    <script src="js/app.js?v=20261019-4"></script>
     <script src="js/permisos.js?v=20261019-2"></script>
     <script src="js/comunicacion.js?v=20261019-1"></script>
     <script src="js/inicio.js?v=20261018-1"></script>

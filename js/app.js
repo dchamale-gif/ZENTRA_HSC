@@ -2021,6 +2021,12 @@ function switchPacientTab(tabName) {
         tabElement.classList.add('active');
         button.classList.add('active');
     }
+    if (tabName === 'laboratorios' && typeof PacientesModule !== 'undefined') {
+        PacientesModule.cargarLaboratoriosFicha();
+    }
+    if (tabName === 'ordenesMedicas' && typeof PacientesModule !== 'undefined') {
+        PacientesModule.cargarOrdenesFicha();
+    }
 }
 
 function toggleClasificacionPaciente() {

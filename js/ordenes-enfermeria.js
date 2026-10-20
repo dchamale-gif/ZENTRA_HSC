@@ -563,6 +563,78 @@ const OrdenesEnfermeriaModule = {
         this.state.sinGuardar = true;
     },
 
+    // ---------- Ficha del paciente ----------
+    // Pestaña "Órdenes médicas" de la ficha: cada orden del médico con su traducción
+    // de enfermería, en solo lectura. Para editar se abre la pantalla de enfermería.
+    async montarEnFicha(contenedor, pacienteId) {
+        contenedor.innerHTML = '<p class="cot-sub">Cargando órdenes…</p>';
+        let ordenes;
+        try {
+            ({ data: ordenes = [] } = await this.api(`?paciente_id=${encodeURIComponent(pacienteId)}`));
+        } catch (error) {
+            contenedor.innerHTML = `<div class="cot-vacio"><p>No se pudieron cargar las órdenes médicas.</p><small>${escapeHtml(error.message)}</small></div>`;
+            return;
+        }
+        // La ficha pudo cambiar de paciente mientras se cargaba
+        if (String(document.getElementById('pacientId')?.value) !== String(pacienteId)) return;
+
+        if (!ordenes.length) {
+            contenedor.innerHTML = '<div class="cot-vacio"><p>Este paciente no tiene órdenes médicas.</p></div>';
+            return;
+        }
+
+        const puedeAbrir = Permisos.puedeVerPagina('ordenes-enfermeria');
+        const porTraducir = ordenes.filter(o => ['por-traducir', 'cambio'].includes(this.situacion(o).clave)).length;
+        contenedor.innerHTML = `
+            <p class="ficha-ordenes-resumen">
+                ${ordenes.length} ${ordenes.length === 1 ? 'orden' : 'órdenes'}
+                ${porTraducir ? `· <span class="oe-situacion oe-situacion-por-traducir">${porTraducir} por traducir</span>` : '· todas traducidas'}
+            </p>
+            ${ordenes.map(o => {
+                const s = this.situacion(o);
+                const indicaciones = o.indicaciones || [];
+                return `
+                <article class="ficha-orden">
+                    <header class="ficha-orden-cabecera">
+                        <div>
+                            <strong>Orden #${o.id}</strong>
+                            <span class="ficha-orden-meta">${this.fecha(o.fecha_orden)} · ${escapeHtml(o.doctor || 'Sin médico')}</span>
+                        </div>
+                        <div class="ficha-orden-estados">
+                            <span class="oe-situacion oe-situacion-medica-${escapeHtml(o.estado)}">${escapeHtml(o.estado.charAt(0).toUpperCase() + o.estado.slice(1))}</span>
+                            <span class="oe-situacion oe-situacion-${s.clave}">${s.texto}</span>
+                        </div>
+                    </header>
+                    <div class="ficha-orden-cuerpo">
+                        <section>
+                            <h4><i class="fas fa-user-doctor" aria-hidden="true"></i> Orden del médico</h4>
+                            <p class="oe-texto">${escapeHtml(o.descripcion || '—')}</p>
+                            ${o.notas ? `<p class="ficha-orden-notas"><strong>Notas:</strong> ${escapeHtml(o.notas)}</p>` : ''}
+                        </section>
+                        <section>
+                            <h4><i class="fas fa-user-nurse" aria-hidden="true"></i> Traducción de enfermería</h4>
+                            ${o.orden_cambio ? '<p class="oe-aviso"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> El médico modificó la orden después de esta traducción.</p>' : ''}
+                            ${indicaciones.length
+                                ? `${this.renderSoloLectura(indicaciones, o)}
+                                   <p class="ficha-orden-meta">Por ${escapeHtml(o.actualizado_por_nombre || o.creado_por_nombre || '—')} · ${escapeHtml(formatFechaHora(o.enfermeria_actualizada))}</p>`
+                                : '<p class="ficha-orden-pendiente">Pendiente de traducir por enfermería.</p>'}
+                        </section>
+                    </div>
+                    ${puedeAbrir ? `
+                    <footer class="ficha-orden-pie">
+                        <button type="button" class="btn btn-secondary btn-small" data-ficha-orden="${o.id}">
+                            <i class="fas fa-up-right-from-square" aria-hidden="true"></i> ${indicaciones.length ? 'Abrir en Órdenes de enfermería' : 'Traducir en Órdenes de enfermería'}
+                        </button>
+                    </footer>` : ''}
+                </article>`;
+            }).join('')}`;
+
+        contenedor.querySelectorAll('[data-ficha-orden]').forEach(boton => boton.addEventListener('click', () => {
+            PacientesModule.closePacientModal();
+            this.abrir(boton.dataset.fichaOrden);
+        }));
+    },
+
     // ---------- Guardar / eliminar ----------
     async guardar() {
         const orden = this.state.seleccionada;

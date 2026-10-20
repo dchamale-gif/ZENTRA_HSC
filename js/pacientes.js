@@ -297,6 +297,21 @@ const PacientesModule = {
         // Configurar event listeners para documentos (cada vez que se abre el modal)
         this.setupDocumentListeners();
         
+        // Pestañas con permiso propio; si la que quedó abierta no se permite, volver a la primera,
+        // y si se permite, mostrar los datos del paciente actual
+        const pestañas = [
+            { boton: 'pacientTabLaboratorios', panel: 'tab-laboratorios', modulos: ['laboratorios'], cargar: () => this.cargarLaboratoriosFicha() },
+            { boton: 'pacientTabOrdenes', panel: 'tab-ordenesMedicas', modulos: ['ordenes_medicas', 'ordenes_enfermeria'], cargar: () => this.cargarOrdenesFicha() }
+        ];
+        pestañas.forEach(({ boton, panel, modulos, cargar }) => {
+            const tab = document.getElementById(boton);
+            const permitida = typeof Permisos === 'undefined' || modulos.some(m => Permisos.puede(m));
+            if (tab) tab.hidden = !permitida;
+            if (!document.getElementById(panel)?.classList.contains('active')) return;
+            if (permitida) cargar();
+            else tab?.parentElement.querySelector('.tab-button').click();
+        });
+
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
     },
@@ -1946,186 +1961,28 @@ const PacientesModule = {
         }, 3000);
     },
 
-    // Agregar laboratorio/resultado
-    addLaboratorio() {
+    // Pestaña Laboratorios de la ficha: mismos datos que Acciones → Laboratorios (/api/laboratorios)
+    cargarLaboratoriosFicha() {
+        const contenedor = document.getElementById('pacientLaboratorios');
+        if (!contenedor || typeof PacienteAccionesModule === 'undefined') return;
         const id = document.getElementById('pacientId').value;
         if (!id) {
-            this.showNotification('⚠️ Por favor selecciona un paciente primero', 'warning');
+            contenedor.innerHTML = '<div class="cot-vacio"><p>Guarde primero al paciente para registrar sus laboratorios.</p></div>';
             return;
         }
-
-        const tipo = document.getElementById('laboratorioTipo').value.trim();
-        const fecha = document.getElementById('laboratorioFecha').value;
-        const resultado = document.getElementById('laboratorioResultado').value.trim();
-
-        if (!tipo || !fecha || !resultado) {
-            this.showNotification('⚠️ Completa todos los campos del laboratorio', 'warning');
-            return;
-        }
-
-        const pacient = this.state.pacientes.find(p => p.id === id);
-        if (!pacient) return;
-
-        if (!pacient.laboratorios) {
-            pacient.laboratorios = [];
-        }
-
-        pacient.laboratorios.push({
-            id: this.generateId('LAB'),
-            tipo: tipo,
-            fecha: fecha,
-            resultado: resultado,
-            fechaRegistro: new Date().toISOString().split('T')[0]
-        });
-
-        this.showNotification('✅ Laboratorio agregado', 'success');
-        document.getElementById('laboratorioTipo').value = '';
-        document.getElementById('laboratorioFecha').value = '';
-        document.getElementById('laboratorioResultado').value = '';
-        
-        this.displayLaboratorios(id);
-        this.saveToDB();
+        PacienteAccionesModule.montarLaboratorios(contenedor, id, { prefijo: 'fichaLab' });
     },
 
-    // Mostrar laboratorios
-    displayLaboratorios(pacientId) {
-        const pacient = this.state.pacientes.find(p => p.id === pacientId);
-        const tbody = document.getElementById('laboratoriosTableBody');
-        
-        if (!tbody) return;
-
-        if (!pacient || !pacient.laboratorios || pacient.laboratorios.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="padding: 10px; text-align: center;">Sin resultados registrados</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = pacient.laboratorios.map(lab => `
-            <tr style="border-bottom: 1px solid #eee;">
-                <td style="padding: 10px;">${lab.tipo}</td>
-                <td style="padding: 10px;">${lab.fecha}</td>
-                <td style="padding: 10px;">${lab.resultado}</td>
-                <td style="padding: 10px; text-align: center;">
-                    <button onclick="PacientesModule.deleteLaboratorio('${pacientId}', '${lab.id}')" style="color: #e74c3c; background: none; border: none; cursor: pointer;">🗑️ Eliminar</button>
-                </td>
-            </tr>
-        `).join('');
-    },
-
-    // Eliminar laboratorio
-    deleteLaboratorio(pacientId, labId) {
-        const pacient = this.state.pacientes.find(p => p.id === pacientId);
-        if (pacient && pacient.laboratorios) {
-            pacient.laboratorios = pacient.laboratorios.filter(l => l.id !== labId);
-            this.displayLaboratorios(pacientId);
-            this.saveToDB();
-            this.showNotification('✅ Laboratorio eliminado', 'success');
-        }
-    },
-
-    // Agregar orden/actividad
-    addOrden() {
+    // Pestaña Órdenes médicas de la ficha: orden del médico + traducción de enfermería
+    cargarOrdenesFicha() {
+        const contenedor = document.getElementById('pacientOrdenes');
+        if (!contenedor || typeof OrdenesEnfermeriaModule === 'undefined') return;
         const id = document.getElementById('pacientId').value;
         if (!id) {
-            this.showNotification('⚠️ Por favor selecciona un paciente primero', 'warning');
+            contenedor.innerHTML = '<div class="cot-vacio"><p>Guarde primero al paciente para ver sus órdenes médicas.</p></div>';
             return;
         }
-
-        const tipo = document.getElementById('ordenTipo').value;
-        const descripcion = document.getElementById('ordenDescripcion').value.trim();
-
-        if (!tipo || !descripcion) {
-            this.showNotification('⚠️ Completa todos los campos de la orden', 'warning');
-            return;
-        }
-
-        const pacient = this.state.pacientes.find(p => p.id === id);
-        if (!pacient) return;
-
-        if (!pacient.ordenes) {
-            pacient.ordenes = [];
-        }
-
-        pacient.ordenes.push({
-            id: this.generateId('ORD'),
-            tipo: tipo,
-            descripcion: descripcion,
-            estado: 'pendiente',
-            fechaCreacion: new Date().toISOString().split('T')[0],
-            fechaCompletada: null
-        });
-
-        this.showNotification('✅ Orden agregada', 'success');
-        document.getElementById('ordenTipo').value = '';
-        document.getElementById('ordenDescripcion').value = '';
-        
-        this.displayOrdenes(id);
-        this.saveToDB();
-    },
-
-    // Mostrar órdenes
-    displayOrdenes(pacientId) {
-        const pacient = this.state.pacientes.find(p => p.id === pacientId);
-        const tbody = document.getElementById('ordenesTableBody');
-        
-        if (!tbody) return;
-
-        if (!pacient || !pacient.ordenes || pacient.ordenes.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="padding: 10px; text-align: center;">Sin órdenes registradas</td></tr>';
-            return;
-        }
-
-        const tiposIcons = {
-            ejercicio: '🏃',
-            alimentacion: '🍎',
-            medicamento: '💊',
-            descanso: '😴',
-            higiene: '🧼',
-            otro: '📝'
-        };
-
-        tbody.innerHTML = pacient.ordenes.map(ord => `
-            <tr style="border-bottom: 1px solid #eee;">
-                <td style="padding: 10px;">${tiposIcons[ord.tipo] || '📋'} ${ord.tipo}</td>
-                <td style="padding: 10px;">${ord.descripcion}</td>
-                <td style="padding: 10px;">
-                    <span style="padding: 3px 8px; border-radius: 3px; background: ${ord.estado === 'completada' ? '#27ae60' : '#f39c12'}; color: white; font-size: 12px;">
-                        ${ord.estado === 'completada' ? '✅ Completada' : '⏳ Pendiente'}
-                    </span>
-                </td>
-                <td style="padding: 10px; text-align: center;">
-                    ${ord.estado === 'pendiente' ? `<button onclick="PacientesModule.toggleOrdenEstado('${pacientId}', '${ord.id}')" style="background: #27ae60; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">✓ Completar</button>` : ''}
-                    <button onclick="PacientesModule.deleteOrden('${pacientId}', '${ord.id}')" style="color: #e74c3c; background: none; border: none; cursor: pointer; margin-left: 5px;">🗑️</button>
-                </td>
-            </tr>
-        `).join('');
-    },
-
-    // Cambiar estado de orden
-    toggleOrdenEstado(pacientId, ordenId) {
-        const pacient = this.state.pacientes.find(p => p.id === pacientId);
-        if (pacient && pacient.ordenes) {
-            const orden = pacient.ordenes.find(o => o.id === ordenId);
-            if (orden) {
-                orden.estado = orden.estado === 'pendiente' ? 'completada' : 'pendiente';
-                if (orden.estado === 'completada') {
-                    orden.fechaCompletada = new Date().toISOString().split('T')[0];
-                }
-                this.displayOrdenes(pacientId);
-                this.saveToDB();
-                this.showNotification('✅ Orden actualizada', 'success');
-            }
-        }
-    },
-
-    // Eliminar orden
-    deleteOrden(pacientId, ordenId) {
-        const pacient = this.state.pacientes.find(p => p.id === pacientId);
-        if (pacient && pacient.ordenes) {
-            pacient.ordenes = pacient.ordenes.filter(o => o.id !== ordenId);
-            this.displayOrdenes(pacientId);
-            this.saveToDB();
-            this.showNotification('✅ Orden eliminada', 'success');
-        }
+        OrdenesEnfermeriaModule.montarEnFicha(contenedor, id);
     },
 
     // Agregar alerta
