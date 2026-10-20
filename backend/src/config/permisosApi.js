@@ -16,7 +16,7 @@ const DATOS_PACIENTE = {
 const RUTAS_CARGOS = /^\/(cargos|prescripciones|facturas-mejorada|estado-cuenta)/;
 
 const TODOS_LOS_MODULOS = [
-  'caratula', 'historia_clinica', 'ordenes_medicas', 'evolucion', 'control_medicamentos', 'extras',
+  'caratula', 'historia_clinica', 'ordenes_medicas', 'ordenes_enfermeria', 'evolucion', 'control_medicamentos', 'extras',
   'control_signos', 'notas_enfermeria', 'laboratorios', 'recepcion_articulos', 'cotizacion_paciente',
   'contrato_ingreso', 'hospitalizaciones', 'saldo_paciente', 'medicinas', 'personal', 'codigos_articulos',
   'compras', 'ventas', 'cotizaciones', 'caja', 'cxc', 'gastos', 'dashboard_ejecutivo', 'inventario',
@@ -66,6 +66,7 @@ const PERMISOS_API = {
   hospitalizaciones: { ver: ['hospitalizaciones', 'saldo_paciente'], editar: ['hospitalizaciones'] },
   laboratorios: 'laboratorios',
   ordenes: 'ordenes_medicas',
+  ordenesEnfermeria: 'ordenes_enfermeria',
   alertas: 'alertas',
   // El resumen operativo de Inicio (conteos de pacientes, citas, órdenes, camas; sin montos)
   // lo ve cualquier usuario; el resto de reportes es financiero.

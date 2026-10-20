@@ -276,6 +276,7 @@ function navigateToPage(pageId) {
         'saldo-paciente': 'Saldo del Paciente',
         'hospitalizaciones': 'Hospitalizaciones',
         'ordenes-medicas': 'Órdenes Médicas',
+        'ordenes-enfermeria': 'Órdenes de Enfermería',
         'codigos-articulos': 'Códigos de Artículos',
         'agenda': 'Agenda Médica',
         'reservas-web': 'Reservas desde Web',
@@ -326,6 +327,9 @@ function navigateToPage(pageId) {
     }
     if (pageId === 'cotizaciones' && typeof CotizacionesModule !== 'undefined') {
         CotizacionesModule.cargar();
+    }
+    if (pageId === 'ordenes-enfermeria' && typeof OrdenesEnfermeriaModule !== 'undefined') {
+        OrdenesEnfermeriaModule.cargar();
     }
     if (pageId === 'hospitalizaciones') {
         HospitalizacionesModule.loadData();

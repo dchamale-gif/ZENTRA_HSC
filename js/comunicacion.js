@@ -141,7 +141,15 @@ const Comunicacion = {
             } catch (error) { /* se reintenta la próxima vez */ }
             this.actualizarResumen();
         }
-        if (enlace && typeof navigateToPage === 'function') navigateToPage(enlace);
+        if (enlace && typeof navigateToPage === 'function') navigateToPage(this.destinoNotificacion(enlace));
+    },
+
+    // Quien no escribe órdenes médicas pero sí las traduce (enfermería) va directo a su pantalla
+    destinoNotificacion(enlace) {
+        if (enlace === 'ordenes-medicas' && Permisos.puede('ordenes_enfermeria', 'edit') && !Permisos.puede('ordenes_medicas', 'edit')) {
+            return 'ordenes-enfermeria';
+        }
+        return enlace;
     },
 
     async marcarTodasLeidas() {

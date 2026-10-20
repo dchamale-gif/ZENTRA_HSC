@@ -62,6 +62,7 @@ const OrdenesmedicasModule = {
         }
 
         const btnNuevaOrden = document.getElementById('btnNuevaOrdenMedica');
+        if (btnNuevaOrden) btnNuevaOrden.hidden = !this.puedeEditar();
         if (btnNuevaOrden) {
             btnNuevaOrden.addEventListener('click', () => this.openNuevaOrdenModal());
         }
@@ -75,7 +76,12 @@ const OrdenesmedicasModule = {
         }
     },
 
-    getApiUrl(path) {
+    // Las órdenes las escribe el médico; quien solo puede verlas (p. ej. enfermería) no ve Nueva/Editar/Eliminar
+    puedeEditar() {
+        return typeof Permisos === 'undefined' || Permisos.puede('ordenes_medicas', 'edit');
+    },
+
+        getApiUrl(path) {
         const configuredUrl = typeof authManager !== 'undefined'
             ? authManager.apiBaseUrl
             : 'http://178.128.72.110:3011';
@@ -243,6 +249,9 @@ const OrdenesmedicasModule = {
                 <tbody>
         `;
 
+        const puedeEditar = this.puedeEditar();
+        const verEnfermeria = typeof OrdenesEnfermeriaModule !== 'undefined' && Permisos.puedeVerPagina('ordenes-enfermeria');
+
         ordenesFiltered.forEach(orden => {
             const paciente = this.state.pacientes.find(p => String(p.id) === String(orden.pacienteId));
             const nombrePaciente = paciente ? `${paciente.nombre || ''} ${paciente.apellidoPaterno || paciente.apellido_paterno || ''}`.trim() : 'Sin paciente';
@@ -285,12 +294,17 @@ const OrdenesmedicasModule = {
                         <button class="btn btn-sm btn-info" onclick="OrdenesmedicasModule.verDetalles('${orden.id}')" title="Ver detalles">
                             <i class="fas fa-eye"></i>
                         </button>
+                        ${puedeEditar ? `
                         <button class="btn btn-sm btn-warning" onclick="OrdenesmedicasModule.editarOrden('${orden.id}')" title="Editar">
                             <i class="fas fa-edit"></i>
                         </button>
                         <button class="btn btn-sm btn-danger" onclick="OrdenesmedicasModule.eliminarOrden('${orden.id}')" title="Eliminar">
                             <i class="fas fa-trash"></i>
-                        </button>
+                        </button>` : ''}
+                        ${verEnfermeria ? `
+                        <button class="btn btn-sm btn-secondary" onclick="OrdenesEnfermeriaModule.abrir('${orden.id}')" title="Orden de enfermería" aria-label="Abrir orden de enfermería">
+                            <i class="fas fa-user-nurse"></i>
+                        </button>` : ''}
                         <button class="btn btn-sm btn-success" onclick="OrdenesmedicasModule.descargarPDF('${orden.id}')" title="Descargar PDF">
                             <i class="fas fa-file-pdf"></i>
                         </button>
@@ -678,9 +692,10 @@ const OrdenesmedicasModule = {
 
                         <div style="display: flex; gap: 10px; margin-top: 15px;">
                             <button type="button" class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cerrar</button>
+                            ${this.puedeEditar() ? `
                             <button type="button" class="btn btn-info" onclick="OrdenesmedicasModule.editarOrden('${orden.id}'); this.closest('.modal-overlay').remove();">
                                 <i class="fas fa-edit"></i> Editar
-                            </button>
+                            </button>` : ''}
                             <button type="button" class="btn btn-success" onclick="OrdenesmedicasModule.descargarPDF('${orden.id}'); this.closest('.modal-overlay').remove();">
                                 <i class="fas fa-file-pdf"></i> Descargar PDF
                             </button>

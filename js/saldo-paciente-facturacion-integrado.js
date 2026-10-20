@@ -2383,11 +2383,12 @@ const SaldoPacienteFacturacion = {
 // Exposición global para onclick
 window.switchTab = (tab) => SaldoPacienteFacturacion.switchTab(tab);
 
-// Inicializar cuando DOM esté listo
+// Inicializar cuando DOM esté listo (solo si el usuario puede ver el saldo del paciente)
+const iniciarSaldoPacienteFacturacion = () => {
+    if (typeof Permisos === 'undefined' || Permisos.puedeVerPagina('saldo-paciente')) SaldoPacienteFacturacion.init();
+};
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        SaldoPacienteFacturacion.init();
-    });
+    document.addEventListener('DOMContentLoaded', iniciarSaldoPacienteFacturacion);
 } else {
-    SaldoPacienteFacturacion.init();
+    iniciarSaldoPacienteFacturacion();
 }
