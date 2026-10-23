@@ -6,7 +6,8 @@
 // Historias y antecedentes viven en el servidor (/api/historias-clinicas). Las órdenes médicas
 // y las notas de enfermería quedan ligadas a la historia abierta y se ven en sus pestañas.
 // La evolución médica también vive en el servidor (/api/evoluciones).
-// Prescripciones y medicamentos siguen en HistoriaClinicaModule.
+// Prescripciones y medicamentos salen de las órdenes médicas transcritas por enfermería
+// con las medicinas del catálogo.
 
 const HistoriaPanelModule = {
     TIPOS: [
@@ -506,19 +507,8 @@ const HistoriaPanelModule = {
             return;
         }
 
-        // Pestañas que siguen en HistoriaClinicaModule (datos de este navegador)
-        const hc = HistoriaClinicaModule;
-        const p = this.paciente();
-        hc.state.pacienteSeleccionado = JSON.parse(JSON.stringify(p));
-        const local = hc.state.historiasClinicas.find(h => String(h.pacienteId ?? h.pacientId) === String(p.id));
-        const nota = '<p class="hc2-nota-local">Estos registros se guardan solo en este navegador mientras se pasan al servidor.</p>';
-        if (pestana === 'prescripciones') {
-            contenido.innerHTML = `
-                <div class="hc2-barra"><button type="button" class="btn btn-primary btn-small" data-hc2="prescripcion"><i class="fas fa-plus" aria-hidden="true"></i> Nueva prescripción</button></div>
-                ${hc.htmlPrescripciones(local).trim() || '<p class="hc2-vacio">Sin prescripciones.</p>'}${nota}`;
-        } else if (pestana === 'medicamentos') {
-            const activos = hc.state.medicamentosAsignados.filter(m => String(m.pacienteId) === String(p.id) && m.estado === 'activo');
-            contenido.innerHTML = `${hc.htmlMedicamentosActivos(activos).trim() || '<p class="hc2-vacio">Sin medicamentos en tratamiento.</p>'}${nota}`;
+        if (pestana === 'prescripciones' || pestana === 'medicamentos') {
+            return this.renderMedicacion(contenido, pestana);
         }
     },
 
@@ -867,6 +857,116 @@ const HistoriaPanelModule = {
         }
     },
 
+    // ---------- Prescripciones y medicamentos (de las órdenes médicas) ----------
+    // Los medicamentos que el médico ordena y enfermería transcribe del catálogo de Medicinas
+    async renderMedicacion(contenido, pestana) {
+        const pacienteId = this.state.pacienteId;
+        if (!this.state.refrescando) contenido.innerHTML = '<p class="hc2-vacio">Cargando…</p>';
+        let ordenes = [];
+        let error = '';
+        try {
+            ordenes = (await this.apiGeneral(`/ordenes-enfermeria?paciente_id=${encodeURIComponent(pacienteId)}`)).data || [];
+        } catch (e) {
+            error = e.message;
+        }
+        if (String(this.state.pacienteId) !== String(pacienteId) || this.state.pestana !== pestana) return; // cambió mientras cargaba
+        contenido.innerHTML = `${error ? `<p class="hc2-aviso">No se pudieron cargar las órdenes: ${this.e(error)}</p>` : ''}
+            ${pestana === 'prescripciones' ? this.htmlPrescripciones(ordenes) : this.htmlMedicamentos(ordenes)}
+            ${this.htmlMedicacionLocal(pestana)}`;
+    },
+
+    medicamentosDe(orden) {
+        return (orden.indicaciones || []).filter(i => i.tipo === 'medicamento');
+    },
+
+    // Activo: indicación pendiente en una orden pendiente de una historia que no está cerrada
+    medicamentoActivo(orden, item) {
+        return item.estado === 'pendiente' && orden.estado === 'pendiente' && orden.historia_estado !== 'cerrada';
+    },
+
+    textoEstado(valor) {
+        return { pendiente: 'Pendiente', cumplida: 'Cumplida', suspendida: 'Suspendida', completada: 'Completada', cancelada: 'Cancelada' }[valor] || valor || '—';
+    },
+
+    htmlNombreMedicamento(item) {
+        const c = item.catalogo;
+        return `<strong>${this.e(c?.nombre || item.descripcion)}</strong>${c?.detalle ? ` <small>${this.e(c.detalle)}</small>` : ''}
+            ${c?.origen === 'medicina' ? (c.codigo ? ` <span class="hc2-med-codigo">${this.e(c.codigo)}</span>` : '') : ' <span class="hc2-med-sin-catalogo" title="Registrado a mano, antes de exigir el catálogo">Sin catálogo</span>'}`;
+    },
+
+    htmlPrescripciones(ordenes) {
+        const conMedicamentos = ordenes.filter(o => this.medicamentosDe(o).length);
+        const sinTranscribir = ordenes.filter(o => !o.enfermeria_id && o.estado === 'pendiente');
+        const boton = this.puedeOrdenar()
+            ? '<button type="button" class="btn btn-primary btn-small" data-hc2="nueva-orden"><i class="fas fa-plus" aria-hidden="true"></i> Nueva orden médica</button>'
+            : '';
+        return `
+            <div class="hc2-evol-encabezado"><h3>Prescripciones</h3>${boton}</div>
+            <p class="hc2-nota-local">El médico prescribe en la orden médica; enfermería la transcribe con las medicinas del catálogo y aquí quedan todas, la más reciente primero.</p>
+            ${sinTranscribir.length ? `<div class="hc2-med-pendientes" role="status">
+                <strong>${sinTranscribir.length === 1 ? '1 orden aún sin transcribir' : `${sinTranscribir.length} órdenes aún sin transcribir`} por enfermería:</strong>
+                <ul>${sinTranscribir.map(o => `<li>#${o.id} · ${this.e(this.fecha(o.fecha_orden))} · ${this.e(String(o.descripcion || '').slice(0, 90))}</li>`).join('')}</ul>
+            </div>` : ''}
+            ${conMedicamentos.length ? `<ol class="hc2-evoluciones">${conMedicamentos.map(o => `
+                <li class="hc2-evol">
+                    <div class="hc2-evol-cabecera">
+                        <div class="hc2-evol-titulo"><strong>Orden #${o.id}</strong><span class="hc2-med-estado hc2-med-estado-${this.e(o.estado)}">${this.textoEstado(o.estado)}</span></div>
+                        <time>${this.e(this.fecha(o.fecha_orden))}</time>
+                    </div>
+                    <p class="hc2-evol-medico"><i class="fas fa-user-doctor" aria-hidden="true"></i> ${this.e(o.doctor || '—')}${o.historia_fecha ? ` · Historia del ${this.e(this.fecha(o.historia_fecha))}${o.historia_estado === 'cerrada' ? ' (cerrada)' : ''}` : ''}</p>
+                    <div class="hc2-tabla-med-envoltura">
+                        <table class="hc2-tabla-med">
+                            <thead><tr><th scope="col">Medicamento</th><th scope="col">Dosis</th><th scope="col">Vía</th><th scope="col">Frecuencia</th><th scope="col">Horario</th><th scope="col">Estado</th></tr></thead>
+                            <tbody>${this.medicamentosDe(o).map(item => `<tr>
+                                <td>${this.htmlNombreMedicamento(item)}</td>
+                                <td>${this.e(item.dosis || '—')}</td><td>${this.e(item.via || '—')}</td>
+                                <td>${this.e(item.frecuencia || '—')}</td><td>${this.e(item.horario || '—')}</td>
+                                <td><span class="hc2-med-estado hc2-med-estado-${this.e(item.estado)}">${this.textoEstado(item.estado)}</span></td>
+                            </tr>`).join('')}</tbody>
+                        </table>
+                    </div>
+                    <p class="hc2-med-pie">Transcribió ${this.e(o.actualizado_por_nombre || o.creado_por_nombre || '—')}${o.enfermeria_actualizada ? ` · ${this.e(formatFechaHora(o.enfermeria_actualizada))}` : ''}</p>
+                </li>`).join('')}</ol>`
+            : '<p class="hc2-vacio">Sin medicamentos prescritos en las órdenes médicas.</p>'}`;
+    },
+
+    htmlMedicamentos(ordenes) {
+        const todos = ordenes.flatMap(o => this.medicamentosDe(o).map(item => ({ o, item })));
+        const activos = todos.filter(({ o, item }) => this.medicamentoActivo(o, item));
+        const anteriores = todos.filter(({ o, item }) => !this.medicamentoActivo(o, item));
+        const tarjeta = ({ o, item }, activo) => `
+            <li class="hc2-med${activo ? ' hc2-med-activo' : ''}">
+                <div class="hc2-evol-cabecera">
+                    <div class="hc2-med-nombre">${this.htmlNombreMedicamento(item)}</div>
+                    <span class="hc2-med-estado hc2-med-estado-${this.e(activo ? 'activo' : item.estado)}">${activo ? 'En tratamiento' : this.textoEstado(o.estado === 'pendiente' || item.estado !== 'pendiente' ? item.estado : o.estado)}</span>
+                </div>
+                <p class="hc2-med-dosis">${this.e([item.dosis, item.via, item.frecuencia].filter(Boolean).join(' · ') || 'Sin dosis indicada')}${item.horario ? ` <span>· Horario: ${this.e(item.horario)}</span>` : ''}</p>
+                <p class="hc2-med-pie">Orden #${o.id} del ${this.e(this.fecha(o.fecha_orden))} · ${this.e(o.doctor || '—')}</p>
+            </li>`;
+        return `
+            <div class="hc2-evol-encabezado"><h3>Medicamentos en tratamiento</h3></div>
+            ${activos.length
+                ? `<ul class="hc2-meds">${activos.map(m => tarjeta(m, true)).join('')}</ul>`
+                : '<p class="hc2-vacio">Sin medicamentos en tratamiento. Aparecen aquí cuando enfermería transcribe una orden médica con medicinas del catálogo.</p>'}
+            ${anteriores.length ? `
+            <h3 class="hc2-subtitulo">Anteriores, cumplidos o suspendidos (${anteriores.length})</h3>
+            <ul class="hc2-meds">${anteriores.map(m => tarjeta(m, false)).join('')}</ul>` : ''}`;
+    },
+
+    // Registros que quedaron guardados solo en este navegador antes de usar las órdenes
+    htmlMedicacionLocal(pestana) {
+        const hc = HistoriaClinicaModule;
+        const id = String(this.state.pacienteId);
+        if (pestana === 'prescripciones') {
+            const local = hc.state.historiasClinicas.find(h => String(h.pacienteId ?? h.pacientId) === id);
+            if (!local?.prescripciones?.length) return '';
+            return `<details class="hc2-evol-local"><summary>Prescripciones anteriores guardadas solo en este navegador (${local.prescripciones.length})</summary>${hc.htmlPrescripciones(local)}</details>`;
+        }
+        const activos = hc.state.medicamentosAsignados.filter(m => String(m.pacienteId) === id && m.estado === 'activo');
+        if (!activos.length) return '';
+        return `<details class="hc2-evol-local"><summary>Medicamentos anteriores guardados solo en este navegador (${activos.length})</summary>${hc.htmlMedicamentosActivos(activos)}</details>`;
+    },
+
     // ---------- Evolución médica ----------
     puedeEvolucionar() {
         return Permisos.puede('historia_clinica_cierre', 'edit');
@@ -1177,7 +1277,6 @@ const HistoriaPanelModule = {
         if (transcribir) return OrdenesEnfermeriaModule.abrir(transcribir.dataset.fichaOrden);
 
         const accion = e.target.closest('[data-hc2]')?.dataset.hc2;
-        const hc = HistoriaClinicaModule;
         const acciones = {
             nueva: () => this.nueva(),
             guardar: () => this.guardar(),
@@ -1207,14 +1306,6 @@ const HistoriaPanelModule = {
             actual: () => {
                 const actual = this.state.historias.find(h => h.estado === 'abierta') || this.state.historias[0];
                 if (actual) this.verHistoria(actual.id);
-            },
-            nota: () => {
-                hc.state.pacienteSeleccionado = JSON.parse(JSON.stringify(this.paciente()));
-                hc.openNoteModal().then(() => hc.switchTab('nota'));
-            },
-            prescripcion: () => {
-                hc.state.pacienteSeleccionado = JSON.parse(JSON.stringify(this.paciente()));
-                hc.openNoteModal().then(() => hc.switchTab('prescripcion'));
             }
         };
         acciones[accion]?.();

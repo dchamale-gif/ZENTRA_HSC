@@ -232,7 +232,7 @@ const OrdenesEnfermeriaModule = {
                             <small>${item.origen === 'medicina' ? 'Medicina' : 'Concepto'}${item.codigo ? ` · ${escapeHtml(item.codigo)}` : ''}</small>
                         </button>
                     </li>`).join('')
-                : '<li class="oe-catalogo-vacio">Sin resultados. Puede escribir la indicación a mano con "Agregar indicación".</li>';
+                : '<li class="oe-catalogo-vacio">Sin resultados. Los medicamentos deben estar registrados en Medicinas; otras indicaciones se pueden escribir con "Agregar indicación".</li>';
         }
         resultados.hidden = false;
         buscador?.setAttribute('aria-expanded', 'true');
@@ -245,7 +245,7 @@ const OrdenesEnfermeriaModule = {
         filas.push(this.filaVacia({
             tipo: item.origen === 'medicina' ? 'medicamento' : 'concepto',
             descripcion: item.nombre,
-            catalogo: { origen: item.origen, id: item.id, codigo: item.codigo, nombre: item.nombre }
+            catalogo: { origen: item.origen, id: item.id, codigo: item.codigo, nombre: item.nombre, detalle: item.detalle }
         }));
         this.redibujarFilas(filas);
         this.state.sinGuardar = true;
@@ -502,7 +502,8 @@ const OrdenesEnfermeriaModule = {
     },
 
     filaVacia(datos = {}) {
-        return { tipo: 'medicamento', descripcion: '', dosis: '', via: '', frecuencia: '', horario: '', estado: 'pendiente', ...datos };
+        // Los medicamentos entran desde el catálogo; una fila escrita a mano empieza como cuidado
+        return { tipo: 'cuidado', descripcion: '', dosis: '', via: '', frecuencia: '', horario: '', estado: 'pendiente', ...datos };
     },
 
     renderFila(item, i) {
@@ -519,7 +520,8 @@ const OrdenesEnfermeriaModule = {
                     <select id="${id}Estado" data-campo="estado" class="form-input oe-fila-estado">${opciones(this.ESTADOS, item.estado)}</select>
                     <button type="button" class="btn-accion btn-accion-icono btn-accion-peligro" data-oe-accion="quitar" data-indice="${i}" title="Quitar indicación" aria-label="Quitar indicación ${i + 1}"><i class="fas fa-xmark" aria-hidden="true"></i></button>
                 </div>
-                ${item.catalogo ? `<span class="oe-catalogo-chip"><i class="fas fa-${item.catalogo.origen === 'medicina' ? 'pills' : 'tag'}" aria-hidden="true"></i> Del catálogo${item.catalogo.codigo ? ` · ${escapeHtml(item.catalogo.codigo)}` : ''}</span>` : ''}
+                ${item.catalogo ? `<span class="oe-catalogo-chip"><i class="fas fa-${item.catalogo.origen === 'medicina' ? 'pills' : 'tag'}" aria-hidden="true"></i> Del catálogo${item.catalogo.codigo ? ` · ${escapeHtml(item.catalogo.codigo)}` : ''}${item.catalogo.detalle ? ` · ${escapeHtml(item.catalogo.detalle)}` : ''}</span>` : ''}
+                ${this.medicamentoSinCatalogo(item) ? '<p class="oe-fila-aviso"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> Este medicamento no está ligado al catálogo. Búsquelo arriba en "Agregar medicina o concepto del catálogo" y agréguelo; luego quite esta fila.</p>' : ''}
                 <label class="sr-only" for="${id}Desc">Indicación</label>
                 <textarea id="${id}Desc" data-campo="descripcion" rows="2" maxlength="500" class="form-input" placeholder="Ej.: Ceftriaxona 1 g, curación de herida, dieta blanda…">${escapeHtml(item.descripcion)}</textarea>
                 <div class="oe-fila-detalle">
@@ -531,6 +533,11 @@ const OrdenesEnfermeriaModule = {
                         </label>`).join('')}
                 </div>
             </fieldset>`;
+    },
+
+    // Los medicamentos deben ser medicinas del catálogo del sistema
+    medicamentoSinCatalogo(item) {
+        return item.tipo === 'medicamento' && item.catalogo?.origen !== 'medicina';
     },
 
     // Lee el formulario tal como está en pantalla
@@ -670,6 +677,13 @@ const OrdenesEnfermeriaModule = {
         if (incompleta >= 0) {
             showNotification(`Escriba qué indica la fila ${incompleta + 1}`, 'warning');
             document.querySelectorAll('#oeFilas .oe-fila textarea')[incompleta]?.focus();
+            return;
+        }
+        const sinCatalogo = indicaciones.findIndex(f => this.medicamentoSinCatalogo(f));
+        if (sinCatalogo >= 0) {
+            showNotification(`La fila ${sinCatalogo + 1} es un medicamento: elíjalo del catálogo de Medicinas con el buscador`, 'warning');
+            this.redibujarFilas(this.leerFilas());
+            document.getElementById('oeCatalogoBuscar')?.focus();
             return;
         }
 

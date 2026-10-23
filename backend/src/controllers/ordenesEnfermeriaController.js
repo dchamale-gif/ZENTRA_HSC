@@ -43,14 +43,18 @@ const validarIndicaciones = (indicaciones) => {
     for (const campo of CAMPOS_CORTOS) {
       limpia[campo] = String(item[campo] || '').trim().slice(0, 100);
     }
-    // Medicina o concepto elegido del catálogo (opcional)
+    // Medicina o concepto elegido del catálogo (obligatorio para los medicamentos)
     if (item.catalogo && ORIGENES_CATALOGO.includes(item.catalogo.origen) && String(item.catalogo.id || '').trim()) {
       limpia.catalogo = {
         origen: item.catalogo.origen,
         id: String(item.catalogo.id).trim().slice(0, 50),
         codigo: String(item.catalogo.codigo || '').trim().slice(0, 60),
-        nombre: String(item.catalogo.nombre || '').trim().slice(0, 200)
+        nombre: String(item.catalogo.nombre || '').trim().slice(0, 200),
+        detalle: String(item.catalogo.detalle || '').trim().slice(0, 120)
       };
+    }
+    if (tipo === 'medicamento' && limpia.catalogo?.origen !== 'medicina') {
+      return { error: `La indicación ${i + 1} es un medicamento: elíjalo del catálogo de Medicinas (búsquelo por nombre o código).` };
     }
     limpias.push(limpia);
   }
@@ -110,6 +114,15 @@ const guardar = async (req, res) => {
 
   try {
     await sync.exigirOrdenEditable(ordenMedicaId, 'La orden pertenece a una historia clínica cerrada; su transcripción ya no se puede modificar.');
+    // Los medicamentos deben existir en el catálogo de Medicinas
+    const idsMedicinas = [...new Set(indicaciones.filter(i => i.catalogo?.origen === 'medicina').map(i => i.catalogo.id))];
+    if (idsMedicinas.length) {
+      const existentes = await pool.query('SELECT id::text FROM medicinas WHERE id::text = ANY($1::text[])', [idsMedicinas]);
+      const faltan = indicaciones.filter(i => i.catalogo?.origen === 'medicina' && !existentes.rows.some(r => r.id === i.catalogo.id));
+      if (faltan.length) {
+        return res.status(400).json({ success: false, message: `Estos medicamentos ya no están en el catálogo de Medicinas: ${faltan.map(i => i.descripcion).join(', ')}. Elíjalos de nuevo.` });
+      }
+    }
     const result = await pool.query(
       `INSERT INTO ordenes_enfermeria
          (orden_medica_id, indicaciones, observaciones, orden_medica_firma,
