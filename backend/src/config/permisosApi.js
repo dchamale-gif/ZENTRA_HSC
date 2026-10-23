@@ -71,6 +71,8 @@ const PERMISOS_API = {
   notasEnfermeria: { ver: ['notas_enfermeria', 'historia_clinica'], editar: ['notas_enfermeria'] },
   // Escribe el médico (abre/cierra historias); modificar y eliminar solo el admin
   evoluciones: { ver: ['historia_clinica'], editar: ['historia_clinica_cierre'] },
+  // Los registra quien edita la historia (enfermería o médico)
+  signosVitales: 'historia_clinica',
   ordenes: 'ordenes_medicas',
   // Quien ve las órdenes médicas también ve su traducción (pestaña Órdenes médicas de la ficha)
   ordenesEnfermeria: { ver: ['ordenes_enfermeria', 'ordenes_medicas'], editar: ['ordenes_enfermeria'] },

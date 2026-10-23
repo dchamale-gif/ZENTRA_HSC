@@ -9868,6 +9868,7 @@ body.chat-abierto {
 }
 
 .hc2-tabla-med-envoltura {
+    position: relative; /* contiene los textos solo para lectores de pantalla */
     overflow-x: auto;
 }
 
@@ -9992,4 +9993,64 @@ body.chat-abierto {
     margin: 0;
     color: var(--warning-color);
     font-size: 12px;
+}
+
+/* Historia clínica: signos vitales por toma */
+.hc2-signos-ultima {
+    margin-bottom: 4px;
+}
+
+.hc2-signos-ultima .hc2-evol-cabecera {
+    margin-bottom: 10px;
+}
+
+.hc2-signos-cuando {
+    color: var(--text-gray);
+    font-size: 13px;
+}
+
+.hc2-signos-nota {
+    margin: 8px 0 0;
+    color: var(--text-gray);
+    font-size: 13px;
+}
+
+.hc2-signos-form .hc2-signos-fecha {
+    max-width: 260px;
+}
+
+.hc2-tabla-signos td,
+.hc2-tabla-signos th {
+    padding: 8px 7px;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.hc2-tabla-signos th small {
+    font-weight: 400;
+}
+
+.hc2-tabla-signos tr.hc2-signos-dia th {
+    padding-top: 12px;
+    background: var(--bg-light);
+    color: var(--text-dark);
+    font-size: 12px;
+}
+
+.hc2-tabla-signos tr.editando td {
+    background: var(--primary-soft, #e6f4f2);
+}
+
+.hc2-signos-nota-fila {
+    display: block;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-gray);
+    white-space: nowrap;
+}
+
+.hc2-signos-acciones {
+    position: static;
+    justify-content: flex-end;
 }

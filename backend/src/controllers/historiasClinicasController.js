@@ -160,17 +160,18 @@ const actualizar = async (req, res) => {
     const valores = CAMPOS_TEXTO.map(campo => texto(req.body[campo], campo.replace('_', ' ')));
     const tipo = TIPOS.includes(req.body.tipo) ? req.body.tipo : null;
     const fecha = fechaValida(req.body.fecha);
-    const signos = signosVitales(req.body.signos_vitales);
+    // Los signos vitales se registran por toma (/api/signos-vitales); solo se aceptan aquí si vienen
+    const signos = req.body.signos_vitales === undefined ? null : signosVitales(req.body.signos_vitales);
 
     const result = await pool.query(
       `UPDATE historias_clinicas SET
          motivo_consulta = $2, enfermedad_actual = $3, revision_sistemas = $4,
          examen_fisico = $5, impresion_clinica = $6, plan = $7,
-         signos_vitales = $8::jsonb, tipo = COALESCE($9, tipo), fecha = COALESCE($10::date, fecha),
+         signos_vitales = COALESCE($8::jsonb, signos_vitales), tipo = COALESCE($9, tipo), fecha = COALESCE($10::date, fecha),
          actualizado_por_nombre = $11, updated_at = NOW()
        WHERE id = $1 AND estado = 'abierta'
        RETURNING ${COLUMNAS_COMPLETAS}`,
-      [id, ...valores, JSON.stringify(signos), tipo, fecha, nombreUsuario(req)]
+      [id, ...valores, signos === null ? null : JSON.stringify(signos), tipo, fecha, nombreUsuario(req)]
     );
     if (!result.rowCount) {
       const existe = await pool.query('SELECT estado FROM historias_clinicas WHERE id = $1', [id]);

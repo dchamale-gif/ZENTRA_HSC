@@ -83,6 +83,8 @@ const HistoriaPanelModule = {
         evoluciones: [],
         medicosEvolucion: null,
         evolucionForm: null, // null, 'nueva' o el id de la evolución que el admin modifica
+        tomas: [],
+        signoForm: null, // null, 'nueva' o el id de la toma de signos vitales que se corrige
         refrescando: false,
         cargando: false,
         cambios: { historia: false, antecedentes: false }
@@ -229,7 +231,7 @@ const HistoriaPanelModule = {
 
     // Alguien está escribiendo: el refresco automático espera
     ocupado() {
-        if (this.hayCambios() || this.state.editandoNota || this.state.evolucionForm || document.querySelector('.hc2-dialogo')) return true;
+        if (this.hayCambios() || this.state.editandoNota || this.state.evolucionForm || this.state.signoForm || document.querySelector('.hc2-dialogo')) return true;
         if (document.querySelector('#hc2Contenido [data-hc2-nota="texto"]')?.value.trim()) return true;
         const activo = document.activeElement;
         return !!activo?.closest('#hc2Historia') && activo.matches('input, textarea, select') && !activo.closest('.hc2-nota-form');
@@ -502,9 +504,7 @@ const HistoriaPanelModule = {
             return this.renderEvolucion(contenido);
         }
         if (pestana === 'signos') {
-            contenido.innerHTML = this.htmlPestanaSignos();
-            this.actualizarImc();
-            return;
+            return this.renderSignos(contenido);
         }
 
         if (pestana === 'prescripciones' || pestana === 'medicamentos') {
@@ -605,49 +605,196 @@ const HistoriaPanelModule = {
             </div>`;
     },
 
-    // Pestaña propia: se guardan con la historia (quien edita la historia, p. ej. enfermería, los registra)
-    htmlPestanaSignos() {
-        const h = this.state.historia;
-        if (!h) {
-            return `<div class="hc2-vacio-grande"><i class="fas fa-heart-pulse" aria-hidden="true"></i>
-                <p>Este paciente no tiene historia clínica. Los signos vitales se registran dentro de una historia abierta.</p></div>`;
+    // ---------- Signos vitales: cada toma con fecha y hora ----------
+    // Los registra quien edita la historia (enfermería o médico); la lista es de todas las historias del paciente
+    async renderSignos(contenido) {
+        const pacienteId = this.state.pacienteId;
+        if (!this.state.refrescando) contenido.innerHTML = '<p class="hc2-vacio">Cargando signos vitales…</p>';
+        let error = '';
+        try {
+            this.state.tomas = (await this.apiGeneral(`/signos-vitales?paciente_id=${encodeURIComponent(pacienteId)}`)).data || [];
+        } catch (e) {
+            this.state.tomas = [];
+            error = e.message;
         }
-        const editable = h.estado === 'abierta' && this.puedeEditar();
-        return `
-            ${!this.esActual() || !editable ? `<p class="hc2-nota-local"><i class="fas fa-lock" aria-hidden="true"></i> Historia ${h.estado === 'cerrada' ? 'cerrada' : 'anterior'} del ${this.fecha(h.fecha)}: solo lectura.</p>` : ''}
-            <div data-hc2-seccion="historia">${this.htmlSignos(h, editable)}</div>
-            ${h.actualizado_por_nombre ? `<p class="hc2-nota-local">Última actualización de la historia: ${this.e(h.actualizado_por_nombre)}${h.updated_at ? ` · ${this.e(formatFechaHora(h.updated_at))}` : ''}</p>` : ''}
-            ${editable ? '<div class="hc2-acciones"><button type="button" class="btn btn-primary" data-hc2="guardar"><i class="fas fa-floppy-disk" aria-hidden="true"></i> Guardar signos vitales</button></div>' : ''}`;
+        if (String(this.state.pacienteId) !== String(pacienteId) || this.state.pestana !== 'signos') return; // cambió mientras cargaba
+        contenido.innerHTML = this.htmlSignosVitales(error);
+        this.actualizarImc();
     },
 
-    htmlSignos(h, editable) {
-        const s = h.signos_vitales || {};
-        const celdas = this.SIGNOS.map(sv => editable
-            ? `<label class="hc2-signo"><span>${sv.texto} <small>${sv.unidad}</small></span>
-                   <input type="text" class="form-input" inputmode="${sv.clave === 'pa' ? 'text' : 'decimal'}" maxlength="20" data-signo="${sv.clave}" value="${this.e(s[sv.clave] || '')}" placeholder="${sv.ejemplo || ''}"></label>`
-            : `<div class="hc2-signo"><span>${sv.texto} <small>${sv.unidad}</small></span><strong>${this.e(s[sv.clave] || '—')}</strong></div>`).join('');
-        return `
-            <fieldset class="hc2-signos">
-                <legend>Signos vitales</legend>
+    // IMC = peso / talla² (talla en metros)
+    imc(valores = {}) {
+        const peso = Number(String(valores.peso || '').replace(',', '.'));
+        const talla = Number(String(valores.talla || '').replace(',', '.')) / 100;
+        return peso > 0 && talla > 0 ? (peso / (talla * talla)).toFixed(1) : '';
+    },
+
+    puedeCorregirToma(t) {
+        const admin = Permisos.esAdmin();
+        return this.puedeEditar() && (admin || (String(t.registrado_por_id) === String(Permisos.usuario().id) && t.historia_estado === 'abierta'));
+    },
+
+    htmlSignosVitales(error) {
+        const tomas = this.state.tomas;
+        const hayAbierta = this.state.historias.some(h => h.estado === 'abierta');
+        const puedeRegistrar = this.puedeEditar() && (hayAbierta || this.esMedico());
+        const ultima = tomas[0];
+
+        const tarjetaUltima = ultima ? `
+            <section class="hc2-signos hc2-signos-ultima" aria-label="Última toma">
+                <div class="hc2-evol-cabecera">
+                    <strong>Última toma</strong>
+                    <span class="hc2-signos-cuando">${this.e(this.fechaHora(ultima.fecha_hora))} · ${this.e(ultima.registrado_por_nombre || '—')}</span>
+                </div>
                 <div class="hc2-signos-grid">
-                    ${celdas}
+                    ${this.SIGNOS.map(sv => `<div class="hc2-signo"><span>${sv.texto} <small>${sv.unidad}</small></span><strong>${this.e(ultima.valores?.[sv.clave] || '—')}</strong></div>`).join('')}
+                    <div class="hc2-signo"><span>IMC <small>kg/m²</small></span><strong>${this.imc(ultima.valores) || '—'}</strong></div>
+                </div>
+                ${ultima.nota ? `<p class="hc2-signos-nota">${this.e(ultima.nota)}</p>` : ''}
+            </section>` : '';
+
+        // Historial agrupado por día, la toma más reciente primero
+        const dias = [];
+        tomas.forEach(t => {
+            const dia = String(t.fecha_hora).slice(0, 10);
+            if (dias[dias.length - 1]?.dia !== dia) dias.push({ dia, tomas: [] });
+            dias[dias.length - 1].tomas.push(t);
+        });
+        const nombreDia = dia => {
+            const [a, m, d] = dia.split('-').map(Number);
+            const texto = new Date(a, m - 1, d).toLocaleDateString('es', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+            return texto.charAt(0).toUpperCase() + texto.slice(1);
+        };
+        const columnas = this.SIGNOS.length + 4;
+        const historial = tomas.length ? `
+            <h3 class="hc2-subtitulo">Historial por fecha (${tomas.length} ${tomas.length === 1 ? 'toma' : 'tomas'})</h3>
+            <div class="hc2-tabla-med-envoltura">
+                <table class="hc2-tabla-med hc2-tabla-signos">
+                    <thead><tr>
+                        <th scope="col">Hora</th>
+                        ${this.SIGNOS.map(sv => `<th scope="col">${sv.texto} <small>${sv.unidad}</small></th>`).join('')}
+                        <th scope="col">IMC</th><th scope="col">Registró</th><th scope="col"><span class="sr-only">Acciones</span></th>
+                    </tr></thead>
+                    ${dias.map(({ dia, tomas: delDia }) => `<tbody>
+                        <tr class="hc2-signos-dia"><th scope="rowgroup" colspan="${columnas}">${this.e(nombreDia(dia))}</th></tr>
+                        ${delDia.map(t => `<tr${String(t.id) === String(this.state.signoForm) ? ' class="editando"' : ''}>
+                            <td>${this.e(String(t.fecha_hora).slice(11, 16))}</td>
+                            ${this.SIGNOS.map(sv => `<td>${this.e(t.valores?.[sv.clave] || '—')}</td>`).join('')}
+                            <td>${this.imc(t.valores) || '—'}</td>
+                            <td>${this.e(t.registrado_por_nombre || '—')}${t.nota ? `<small class="hc2-signos-nota-fila">${this.e(t.nota)}</small>` : ''}</td>
+                            <td>${this.puedeCorregirToma(t) ? `<div class="hc2-entrada-acciones hc2-signos-acciones">
+                                <button type="button" class="btn-accion btn-accion-icono" data-hc2="editar-signos" data-toma="${t.id}" title="Corregir" aria-label="Corregir signos vitales"><i class="fas fa-pen" aria-hidden="true"></i></button>
+                                <button type="button" class="btn-accion btn-accion-icono btn-accion-peligro" data-hc2="borrar-signos" data-toma="${t.id}" title="Eliminar" aria-label="Eliminar signos vitales"><i class="fas fa-trash" aria-hidden="true"></i></button>
+                            </div>` : ''}</td>
+                        </tr>`).join('')}
+                    </tbody>`).join('')}
+                </table>
+            </div>` : `<p class="hc2-vacio">${error ? '' : 'Sin signos vitales registrados.'}</p>`;
+
+        return `
+            <div class="hc2-evol-encabezado">
+                <h3>Signos vitales</h3>
+                ${puedeRegistrar && !this.state.signoForm ? '<button type="button" class="btn btn-primary btn-small" data-hc2="registrar-signos"><i class="fas fa-plus" aria-hidden="true"></i> Registrar signos vitales</button>' : ''}
+            </div>
+            ${this.puedeEditar() && !puedeRegistrar ? '<p class="hc2-nota-local"><i class="fas fa-circle-info" aria-hidden="true"></i> Para registrar signos vitales el médico debe abrir la historia clínica.</p>' : ''}
+            ${error ? `<p class="hc2-aviso">${this.e(error)}</p>` : ''}
+            ${this.state.signoForm ? this.htmlFormSignos() : ''}
+            ${tarjetaUltima}${historial}`;
+    },
+
+    htmlFormSignos() {
+        const editando = this.state.signoForm !== 'nueva'
+            ? this.state.tomas.find(t => String(t.id) === String(this.state.signoForm))
+            : null;
+        const v = editando?.valores || {};
+        const sinHistoriaAbierta = !editando && !this.state.historias.some(h => h.estado === 'abierta');
+        return `
+            <div class="hc2-nota-form hc2-evol-form hc2-signos-form" role="group" aria-label="${editando ? 'Corregir signos vitales' : 'Registrar signos vitales'}">
+                <h4>${editando ? 'Corregir signos vitales' : 'Nueva toma de signos vitales'}</h4>
+                <label class="hc2-campo hc2-signos-fecha"><span>Fecha y hora</span>
+                    <input type="datetime-local" class="form-input" data-hc2-toma="fecha" value="${this.e(editando?.fecha_hora || this.ahoraLocal())}">
+                </label>
+                <div class="hc2-signos-grid">
+                    ${this.SIGNOS.map(sv => `<label class="hc2-signo"><span>${sv.texto} <small>${sv.unidad}</small></span>
+                        <input type="text" class="form-input" inputmode="${sv.clave === 'pa' ? 'text' : 'decimal'}" maxlength="20" data-signo="${sv.clave}" value="${this.e(v[sv.clave] || '')}" placeholder="${sv.ejemplo || ''}"></label>`).join('')}
                     <div class="hc2-signo"><span>IMC <small>kg/m²</small></span><strong id="hc2Imc">—</strong></div>
                 </div>
-            </fieldset>`;
+                <label class="hc2-campo"><span>Nota (opcional)</span>
+                    <input type="text" class="form-input" maxlength="500" data-hc2-toma="nota" value="${this.e(editando?.nota || '')}" placeholder="Ej.: en reposo, posterior a medicamento, paciente agitado…">
+                </label>
+                ${sinHistoriaAbierta ? '<p class="hc2-nota-local"><i class="fas fa-circle-info" aria-hidden="true"></i> El paciente no tiene historia abierta: al guardar se abre la historia de hoy.</p>' : ''}
+                <div class="hc2-barra">
+                    <button type="button" class="btn btn-secondary btn-small" data-hc2="cancelar-signos">Cancelar</button>
+                    <button type="button" class="btn btn-primary btn-small" data-hc2="guardar-signos"><i class="fas fa-floppy-disk" aria-hidden="true"></i> ${editando ? 'Guardar corrección' : 'Guardar signos vitales'}</button>
+                </div>
+            </div>`;
     },
 
-    // IMC = peso / talla² (talla en metros), a partir de lo que está en pantalla
+    abrirFormSignos(valor) {
+        this.state.signoForm = valor;
+        const contenido = document.getElementById('hc2Contenido');
+        if (!contenido) return;
+        contenido.innerHTML = this.htmlSignosVitales('');
+        this.actualizarImc();
+        const form = contenido.querySelector('.hc2-signos-form');
+        form?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        form?.querySelector('[data-signo]')?.focus({ preventScroll: true });
+    },
+
+    async guardarSignos() {
+        const form = document.querySelector('#hc2Contenido .hc2-signos-form');
+        if (!form) return;
+        const valores = {};
+        form.querySelectorAll('[data-signo]').forEach(el => { if (el.value.trim()) valores[el.dataset.signo] = el.value.trim(); });
+        if (!Object.keys(valores).length) {
+            showNotification('Escriba al menos un signo vital', 'warning');
+            form.querySelector('[data-signo]')?.focus();
+            return;
+        }
+        const editando = this.state.signoForm !== 'nueva' ? this.state.signoForm : null;
+        const datos = {
+            paciente_id: this.state.pacienteId,
+            fecha_hora: form.querySelector('[data-hc2-toma="fecha"]').value,
+            nota: form.querySelector('[data-hc2-toma="nota"]').value,
+            valores
+        };
+        const boton = form.querySelector('[data-hc2="guardar-signos"]');
+        boton.disabled = true;
+        try {
+            const respuesta = await this.apiGeneral(editando ? `/signos-vitales/${editando}` : '/signos-vitales', { method: editando ? 'PUT' : 'POST', body: JSON.stringify(datos) });
+            this.state.signoForm = null;
+            showNotification(respuesta.data?.historia_abierta_automaticamente
+                ? 'Signos vitales registrados. Se abrió la historia clínica de hoy.'
+                : editando ? 'Signos vitales corregidos' : 'Signos vitales registrados', 'success');
+            if (respuesta.data?.historia_abierta_automaticamente) await this.alCambiarOrdenes();
+            else await this.renderContenido();
+            this.avisar();
+        } catch (error) {
+            showNotification(`No se pudieron guardar los signos vitales: ${error.message}`, 'error');
+            boton.disabled = false;
+        }
+    },
+
+    async borrarSignos(id) {
+        const t = this.state.tomas.find(item => String(item.id) === String(id));
+        if (!t || !confirm(`¿Eliminar la toma de signos vitales del ${this.fechaHora(t.fecha_hora)}?`)) return;
+        try {
+            await this.apiGeneral(`/signos-vitales/${id}`, { method: 'DELETE' });
+            if (String(this.state.signoForm) === String(id)) this.state.signoForm = null;
+            showNotification('Toma de signos vitales eliminada', 'success');
+            await this.renderContenido();
+            this.avisar();
+        } catch (error) {
+            showNotification(`No se pudo eliminar: ${error.message}`, 'error');
+        }
+    },
+
+    // IMC del formulario de signos, mientras se escribe
     actualizarImc() {
         const salida = document.getElementById('hc2Imc');
         if (!salida) return;
-        const leer = clave => {
-            const input = document.querySelector(`#hc2Contenido [data-signo="${clave}"]`);
-            const texto = input ? input.value : (this.state.historia?.signos_vitales || {})[clave];
-            return Number(String(texto || '').replace(',', '.'));
-        };
-        const peso = leer('peso');
-        const talla = leer('talla') / 100;
-        salida.textContent = peso > 0 && talla > 0 ? (peso / (talla * talla)).toFixed(1) : '—';
+        const leer = clave => document.querySelector(`#hc2Contenido [data-signo="${clave}"]`)?.value;
+        salida.textContent = this.imc({ peso: leer('peso'), talla: leer('talla') }) || '—';
     },
 
     htmlAntecedentes(antecedentes, editable, alCierre = false) {
@@ -1268,6 +1415,7 @@ const HistoriaPanelModule = {
             this.state.pestana = pestana.dataset.hc2Pestana;
             this.state.editandoNota = null;
             this.state.evolucionForm = null;
+            this.state.signoForm = null;
             this.renderHistoria();
             return;
         }
@@ -1295,6 +1443,14 @@ const HistoriaPanelModule = {
                 this.renderContenido();
             },
             'borrar-nota': () => this.borrarNota(e.target.closest('[data-nota]').dataset.nota),
+            'registrar-signos': () => this.abrirFormSignos('nueva'),
+            'editar-signos': () => this.abrirFormSignos(e.target.closest('[data-toma]').dataset.toma),
+            'cancelar-signos': () => {
+                this.state.signoForm = null;
+                this.renderContenido();
+            },
+            'guardar-signos': () => this.guardarSignos(),
+            'borrar-signos': () => this.borrarSignos(e.target.closest('[data-toma]').dataset.toma),
             'agregar-evolucion': () => this.abrirFormEvolucion('nueva'),
             'editar-evolucion': () => this.abrirFormEvolucion(e.target.closest('[data-evolucion]').dataset.evolucion),
             'cancelar-evolucion': () => {
@@ -1311,13 +1467,12 @@ const HistoriaPanelModule = {
         acciones[accion]?.();
     },
 
-    // Lo que no está en la pestaña visible (campos o signos vitales) se envía tal como está guardado
+    // Lo que no está en la pestaña visible se envía tal como está guardado (los signos vitales van por toma)
     leerHistoria() {
         const h = this.state.historia || {};
-        const datos = { tipo: h.tipo, fecha: String(h.fecha || '').slice(0, 10) || undefined, signos_vitales: { ...(h.signos_vitales || {}) } };
+        const datos = { tipo: h.tipo, fecha: String(h.fecha || '').slice(0, 10) || undefined };
         this.CAMPOS_HISTORIA.forEach(c => { datos[c.clave] = h[c.clave] ?? ''; });
         document.querySelectorAll('#hc2Contenido [data-hc2-seccion="historia"] [data-campo]').forEach(el => { datos[el.dataset.campo] = el.value; });
-        document.querySelectorAll('#hc2Contenido [data-signo]').forEach(el => { datos.signos_vitales[el.dataset.signo] = el.value.trim(); });
         return datos;
     },
 
@@ -1441,7 +1596,6 @@ const HistoriaPanelModule = {
         const e = valor => this.e(valor);
         const clinica = (typeof CONFIG !== 'undefined' && CONFIG.CLINICA) || { nombre: 'Zentra MED' };
         const antecedentes = h.estado === 'abierta' ? (this.state.antecedentes || {}) : (h.antecedentes_al_cierre || {});
-        const signos = h.signos_vitales || {};
         const texto = valor => valor ? `<p>${e(valor)}</p>` : '<p class="vacio">Sin registrar</p>';
         const ventana = window.open('', '_blank');
         if (!ventana) {
@@ -1449,10 +1603,14 @@ const HistoriaPanelModule = {
             return;
         }
         ventana.document.write('<p style="font-family: sans-serif; padding: 24px">Preparando la historia clínica…</p>');
-        const [{ ordenes, notas }, evoluciones] = await Promise.all([
+        const [{ ordenes, notas }, evoluciones, tomas] = await Promise.all([
             this.cargarOrdenesYNotas(h.id),
-            this.apiEvoluciones(`?paciente_id=${encodeURIComponent(p.id)}`).then(r => (r.data || []).filter(ev => String(ev.historia_id) === String(h.id))).catch(() => [])
+            this.apiEvoluciones(`?paciente_id=${encodeURIComponent(p.id)}`).then(r => (r.data || []).filter(ev => String(ev.historia_id) === String(h.id))).catch(() => []),
+            this.apiGeneral(`/signos-vitales?paciente_id=${encodeURIComponent(p.id)}`).then(r => (r.data || []).filter(t => String(t.historia_id) === String(h.id))).catch(() => [])
         ]);
+        const seccionSignos = tomas.length ? `<table class="tabla-signos"><thead><tr><th>Fecha y hora</th>${this.SIGNOS.map(s => `<th>${s.texto} (${s.unidad})</th>`).join('')}<th>IMC</th><th>Registró</th></tr></thead>
+<tbody>${[...tomas].reverse().map(t => `<tr><td>${e(this.fechaHora(t.fecha_hora))}</td>${this.SIGNOS.map(s => `<td>${e(t.valores?.[s.clave] || '—')}</td>`).join('')}<td>${this.imc(t.valores) || '—'}</td><td>${e(t.registrado_por_nombre || '')}${t.nota ? ` — ${e(t.nota)}` : ''}</td></tr>`).join('')}</tbody></table>`
+            : '<p class="vacio">Sin registrar</p>';
         const turno = valor => this.TURNOS.find(t => t.valor === valor)?.texto || valor;
         const seccionOrdenes = (ordenes || []).length ? `
 <h2>Órdenes médicas y transcripción de enfermería</h2>
@@ -1479,9 +1637,9 @@ ${[...evoluciones].reverse().map(ev => `<div class="orden"><b>${e(this.fechaHora
   h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: #52606d; margin: 14px 0 6px; border-bottom: 1px solid #e4e8ef; padding-bottom: 3px; }
   .datos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 16px; }
   .datos b { color: #52606d; font-weight: 600; }
-  .signos { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
-  .signos div { border: 1px solid #e4e8ef; border-radius: 4px; padding: 4px; text-align: center; }
-  .signos span { display: block; font-size: 10px; color: #52606d; }
+  .tabla-signos { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 4px; }
+  .tabla-signos th, .tabla-signos td { border: 1px solid #e4e8ef; padding: 3px 5px; text-align: center; }
+  .tabla-signos th { color: #52606d; font-weight: 600; }
   .campo { margin-bottom: 8px; } .campo b { display: block; color: #52606d; }
   p { white-space: pre-wrap; } .vacio { color: #8a94a6; font-style: italic; }
   .ant { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; }
@@ -1500,7 +1658,7 @@ ${[...evoluciones].reverse().map(ev => `<div class="orden"><b>${e(this.fechaHora
 </div>
 <h2>Historia clínica</h2>
 ${this.CAMPOS_HISTORIA.slice(0, 3).map(c => `<div class="campo"><b>${c.texto}</b>${texto(h[c.clave])}</div>`).join('')}
-<div class="campo"><b>Signos vitales</b><div class="signos">${this.SIGNOS.map(s => `<div><span>${s.texto} (${s.unidad})</span>${e(signos[s.clave] || '—')}</div>`).join('')}<div><span>IMC</span>${(() => { const peso = Number(String(signos.peso || '').replace(',', '.')); const talla = Number(String(signos.talla || '').replace(',', '.')) / 100; return peso > 0 && talla > 0 ? (peso / (talla * talla)).toFixed(1) : '—'; })()}</div></div></div>
+<div class="campo"><b>Signos vitales</b>${seccionSignos}</div>
 ${this.CAMPOS_HISTORIA.slice(3).map(c => `<div class="campo"><b>${c.texto}</b>${texto(h[c.clave])}</div>`).join('')}
 <h2>Antecedentes${h.estado === 'cerrada' ? ' (al cierre de esta historia)' : ''}</h2>
 <div class="ant">${this.ANTECEDENTES.map(c => `<div class="campo"><b>${c.texto}</b>${texto(antecedentes[c.clave])}</div>`).join('')}</div>
