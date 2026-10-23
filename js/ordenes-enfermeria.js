@@ -54,6 +54,12 @@ const OrdenesEnfermeriaModule = {
             this.renderLista();
         });
         document.getElementById('oeActualizar')?.addEventListener('click', () => this.cargar());
+        // Órdenes nuevas del médico o historias cerradas (en otra ventana o por otro usuario)
+        document.addEventListener('zentra:ordenes-cambiaron', e => {
+            if (e.detail?.origen === 'ordenes-enfermeria' && !e.detail.remoto) return;
+            if (typeof ZentraSync === 'undefined' || ZentraSync.estaVisible('ordenes-enfermeria')) this.refrescar();
+        });
+        if (typeof ZentraSync !== 'undefined') ZentraSync.registrar('ordenes-enfermeria', () => this.refrescar());
         document.getElementById('oeLista')?.addEventListener('click', e => {
             const item = e.target.closest('[data-oe-orden]');
             if (item) this.seleccionar(item.dataset.oeOrden);
@@ -679,13 +685,27 @@ const OrdenesEnfermeriaModule = {
             });
             this.state.sinGuardar = false;
             showNotification('Orden de enfermería guardada', 'success');
-            document.dispatchEvent(new CustomEvent('zentra:ordenes-cambiaron', { detail: { pacienteId: orden.paciente_id } }));
+            this.avisarCambio(orden.paciente_id);
             await this.cargar();
         } catch (error) {
             showNotification(`No se pudo guardar: ${error.message}`, 'error');
         } finally {
             if (boton) boton.disabled = false;
         }
+    },
+
+    // La historia clínica y Órdenes médicas (en esta y otras ventanas) se refrescan con este aviso
+    avisarCambio(pacienteId) {
+        const detalle = { pacienteId, origen: 'ordenes-enfermeria' };
+        if (typeof ZentraSync !== 'undefined') ZentraSync.avisar(detalle);
+        else document.dispatchEvent(new CustomEvent('zentra:ordenes-cambiaron', { detail: detalle }));
+    },
+
+    // Refresco automático: no interrumpe a quien está escribiendo
+    async refrescar() {
+        if (this.state.cargando || this.state.sinGuardar) return;
+        if (document.getElementById('oeLayout')?.contains(document.activeElement) && document.activeElement.matches('input, textarea, select')) return;
+        await this.cargar();
     },
 
     async eliminar() {
@@ -696,7 +716,7 @@ const OrdenesEnfermeriaModule = {
             await this.api(`/${encodeURIComponent(orden.id)}`, { method: 'DELETE' });
             this.state.sinGuardar = false;
             showNotification('Orden de enfermería eliminada', 'success');
-            document.dispatchEvent(new CustomEvent('zentra:ordenes-cambiaron', { detail: { pacienteId: orden.paciente_id } }));
+            this.avisarCambio(orden.paciente_id);
             await this.cargar();
         } catch (error) {
             showNotification(`No se pudo eliminar: ${error.message}`, 'error');

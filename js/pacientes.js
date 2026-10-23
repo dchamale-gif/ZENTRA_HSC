@@ -2164,3 +2164,11 @@ const PacientesModule = {
         return `<span class="${badgeClass}">${badgeText}</span>`;
     }
 };
+
+// Ficha abierta en la pestaña Órdenes médicas: se refresca cuando cambian las órdenes de ese paciente
+document.addEventListener('zentra:ordenes-cambiaron', e => {
+    const panel = document.getElementById('tab-ordenesMedicas');
+    const id = document.getElementById('pacientId')?.value;
+    if (!panel || panel.offsetParent === null || !id) return;
+    if (e.detail?.pacienteId == null || String(e.detail.pacienteId) === String(id)) PacientesModule.cargarOrdenesFicha();
+});

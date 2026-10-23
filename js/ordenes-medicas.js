@@ -20,6 +20,12 @@ const OrdenesmedicasModule = {
     init() {
         this.setupEventListeners();
         this.loadData();
+        // Transcripciones, cierres de historia u órdenes de otra ventana o usuario
+        document.addEventListener('zentra:ordenes-cambiaron', e => {
+            if (e.detail?.origen === 'ordenes-medicas' && !e.detail.remoto) return;
+            if (typeof ZentraSync === 'undefined' || ZentraSync.estaVisible('ordenes-medicas')) this.refrescar().catch(() => {});
+        });
+        if (typeof ZentraSync !== 'undefined') ZentraSync.registrar('ordenes-medicas', () => this.refrescar());
         console.log('Módulo de Órdenes Médicas inicializado');
     },
 
@@ -165,6 +171,14 @@ const OrdenesmedicasModule = {
             this.showNotification(`No se pudieron cargar las órdenes: ${error.message}`, 'error');
         }
 
+        this.renderOrdenes();
+    },
+
+    // Vuelve a pedir las órdenes sin interrumpir el formulario si está abierto
+    async refrescar() {
+        if (document.getElementById('ordenMedicaModal')?.style.display === 'block') return;
+        if (!this.getAuthToken()) return;
+        this.state.ordenes = await this.fetchOrdenes();
         this.renderOrdenes();
     },
 
@@ -784,7 +798,9 @@ const OrdenesmedicasModule = {
 
     // La historia clínica (y otras vistas) escuchan este evento para refrescar sus órdenes
     avisarCambio(pacienteId) {
-        document.dispatchEvent(new CustomEvent('zentra:ordenes-cambiaron', { detail: { pacienteId } }));
+        const detalle = { pacienteId, origen: 'ordenes-medicas' };
+        if (typeof ZentraSync !== 'undefined') ZentraSync.avisar(detalle);
+        else document.dispatchEvent(new CustomEvent('zentra:ordenes-cambiaron', { detail: detalle }));
     },
 
     // Abre "Nueva orden" con el paciente ya elegido (desde la historia clínica)

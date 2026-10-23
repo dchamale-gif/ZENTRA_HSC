@@ -331,6 +331,9 @@ function navigateToPage(pageId) {
     if (pageId === 'ordenes-enfermeria' && typeof OrdenesEnfermeriaModule !== 'undefined') {
         OrdenesEnfermeriaModule.cargar();
     }
+    if (pageId === 'ordenes-medicas' && typeof OrdenesmedicasModule !== 'undefined') {
+        OrdenesmedicasModule.refrescar().catch(() => { /* la tabla conserva lo último cargado */ });
+    }
     if (pageId === 'hospitalizaciones') {
         HospitalizacionesModule.loadData();
     }

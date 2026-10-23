@@ -75,6 +75,7 @@ const HistoriaPanelModule = {
         ordenes: [],
         notas: [],
         editandoNota: null,
+        refrescando: false,
         cargando: false,
         cambios: { historia: false, antecedentes: false }
     },
@@ -199,22 +200,74 @@ const HistoriaPanelModule = {
             if (this.hayCambios()) e.preventDefault();
         });
 
-        // Una orden nueva puede haber abierto la historia; las pestañas de órdenes y notas se refrescan
+        // Órdenes, transcripciones o historias que cambiaron en otra pantalla, ventana o usuario
         document.addEventListener('zentra:ordenes-cambiaron', e => {
-            if (this.state.pacienteId && String(e.detail?.pacienteId) === String(this.state.pacienteId)) this.alCambiarOrdenes();
+            const detalle = e.detail || {};
+            if (detalle.origen === 'historia' && !detalle.remoto) return;
+            // Una orden dada desde esta misma ventana (p. ej. desde la pestaña Órdenes) se refleja enseguida
+            if (!detalle.remoto && this.state.pacienteId && String(detalle.pacienteId) === String(this.state.pacienteId)) {
+                this.alCambiarOrdenes().catch(() => { /* se verá en el próximo refresco */ });
+            } else if (typeof ZentraSync === 'undefined' || ZentraSync.estaVisible('historia-clinica')) {
+                this.refrescar().catch(() => { /* se verá en el próximo refresco */ });
+            }
         });
+        if (typeof ZentraSync !== 'undefined') ZentraSync.registrar('historia-clinica', () => this.refrescar());
+    },
+
+    // Avisa a Órdenes médicas, Órdenes de enfermería y a otras ventanas
+    avisar() {
+        if (typeof ZentraSync !== 'undefined') ZentraSync.avisar({ pacienteId: this.state.pacienteId, origen: 'historia' });
+    },
+
+    // Alguien está escribiendo: el refresco automático espera
+    ocupado() {
+        if (this.hayCambios() || this.state.editandoNota || document.querySelector('.hc2-dialogo')) return true;
+        if (document.querySelector('#hc2Contenido [data-hc2-nota="texto"]')?.value.trim()) return true;
+        const activo = document.activeElement;
+        return !!activo?.closest('#hc2Historia') && activo.matches('input, textarea, select') && !activo.closest('.hc2-nota-form');
+    },
+
+    // Datos frescos del servidor sin interrumpir a quien escribe
+    async refrescar() {
+        if (this.ocupado()) return;
+        if (!this.state.pacienteId) {
+            await this.cargarResumen();
+            this.renderLista();
+            return;
+        }
+        await this.alCambiarOrdenes();
     },
 
     async alCambiarOrdenes() {
-        try {
-            const veiaActual = this.esActual();
-            await this.recargarLista();
+        const pacienteId = this.state.pacienteId;
+        const conCambios = this.hayCambios();
+        const veiaActual = this.esActual();
+        const antes = this.state.historia?.id;
+        await this.recargarLista();
+        if (String(this.state.pacienteId) !== String(pacienteId)) return;
+        if (!conCambios) {
+            // La historia que se veía (o la recién abierta) con su estado actual; pudo cerrarse o eliminarse
             const abierta = this.state.historias.find(h => h.estado === 'abierta');
-            if (veiaActual && abierta && String(abierta.id) !== String(this.state.historia?.id) && !this.hayCambios()) {
-                this.state.historia = (await this.api(`/${abierta.id}`)).data;
-            }
-            if (document.getElementById('hc2Contenido')) this.renderHistoria();
-        } catch (error) { /* se verá al volver a elegir al paciente */ }
+            const sigue = this.state.historias.find(h => String(h.id) === String(antes));
+            const destino = (veiaActual && abierta) || sigue || this.state.historias[0];
+            const [historia, antecedentes] = await Promise.all([
+                destino ? this.api(`/${destino.id}`) : null,
+                this.api(`/antecedentes/${encodeURIComponent(pacienteId)}`)
+            ]);
+            if (String(this.state.pacienteId) !== String(pacienteId) || this.hayCambios()) return;
+            this.state.historia = historia?.data || null;
+            this.state.antecedentes = antecedentes.data;
+            this.renderDatos();
+        } else if (!['ordenes', 'notas'].includes(this.state.pestana)) {
+            return; // el formulario de la historia tiene cambios sin guardar
+        }
+        this.state.refrescando = true;
+        try {
+            if (String(antes) !== String(this.state.historia?.id) || !document.getElementById('hc2Contenido')) await this.renderHistoria();
+            else await this.renderContenido();
+        } finally {
+            this.state.refrescando = false;
+        }
     },
 
     limpiarFiltros() {
@@ -233,8 +286,10 @@ const HistoriaPanelModule = {
         this.init();
         this.cargarResumen().then(() => {
             this.renderLista();
-            if (this.state.pacienteId) this.renderDatos();
-            else this.renderSinSeleccion();
+            if (!this.state.pacienteId) return this.renderSinSeleccion();
+            // Al volver a la pantalla: lo que cambió mientras tanto en órdenes, notas o historias
+            this.renderDatos();
+            this.refrescar().catch(() => { /* se verá en el próximo refresco */ });
         });
     },
 
@@ -420,7 +475,7 @@ const HistoriaPanelModule = {
                 ${this.PESTANAS.map(t => `<button type="button" role="tab" class="hc2-pestana${t.clave === this.state.pestana ? ' activa' : ''}" aria-selected="${t.clave === this.state.pestana}" data-hc2-pestana="${t.clave}">${t.texto}</button>`).join('')}
             </div>
             <div class="hc2-contenido" id="hc2Contenido" role="tabpanel"></div>`;
-        this.renderContenido();
+        return this.renderContenido();
     },
 
     renderContenido() {
@@ -433,8 +488,7 @@ const HistoriaPanelModule = {
             return;
         }
         if (pestana === 'ordenes' || pestana === 'notas') {
-            this.renderOrdenesYNotas(contenido, pestana);
-            return;
+            return this.renderOrdenesYNotas(contenido, pestana);
         }
 
         // Pestañas que siguen en HistoriaClinicaModule (datos de este navegador)
@@ -641,7 +695,7 @@ const HistoriaPanelModule = {
                 ${pestana === 'ordenes' && this.puedeOrdenar() ? '<button type="button" class="btn btn-primary btn-small" data-hc2="nueva-orden"><i class="fas fa-plus" aria-hidden="true"></i> Nueva orden médica</button>' : ''}</div>`;
             return;
         }
-        contenido.innerHTML = '<p class="hc2-vacio">Cargando…</p>';
+        if (!this.state.refrescando) contenido.innerHTML = '<p class="hc2-vacio">Cargando…</p>';
         const { ordenes, notas, error } = await this.cargarOrdenesYNotas(h.id);
         if (String(this.state.historia?.id) !== String(h.id) || this.state.pestana !== pestana) return; // cambió mientras cargaba
         this.state.ordenes = ordenes || [];
@@ -649,7 +703,7 @@ const HistoriaPanelModule = {
         const aviso = `${!this.esActual() || h.estado === 'cerrada' ? `<p class="hc2-nota-local"><i class="fas fa-lock" aria-hidden="true"></i> Historia ${h.estado === 'cerrada' ? 'cerrada' : 'anterior'} del ${this.fecha(h.fecha)}: sus registros quedan en solo lectura.</p>` : ''}
             ${error ? `<p class="hc2-aviso">${this.e(error)}</p>` : ''}`;
         contenido.innerHTML = pestana === 'ordenes' ? this.htmlOrdenes(ordenes, aviso) : this.htmlNotas(aviso);
-        if (pestana === 'notas') contenido.querySelector('[data-hc2-nota="texto"]')?.focus({ preventScroll: true });
+        if (pestana === 'notas' && !this.state.refrescando) contenido.querySelector('[data-hc2-nota="texto"]')?.focus({ preventScroll: true });
     },
 
     puedeOrdenar() {
@@ -769,6 +823,7 @@ const HistoriaPanelModule = {
             this.state.editandoNota = null;
             showNotification(editando ? 'Nota actualizada' : 'Nota de enfermería guardada', 'success');
             this.renderContenido();
+            this.avisar();
         } catch (error) {
             showNotification(`No se pudo guardar la nota: ${error.message}`, 'error');
             boton.disabled = false;
@@ -782,6 +837,7 @@ const HistoriaPanelModule = {
             if (String(this.state.editandoNota) === String(id)) this.state.editandoNota = null;
             showNotification('Nota eliminada', 'success');
             this.renderContenido();
+            this.avisar();
         } catch (error) {
             showNotification(`No se pudo eliminar: ${error.message}`, 'error');
         }
@@ -905,6 +961,7 @@ const HistoriaPanelModule = {
             if (!silencioso) showNotification('Historia clínica guardada', 'success');
             this.renderDatos();
             this.renderContenido();
+            this.avisar();
             return true;
         } catch (error) {
             showNotification(`No se pudo guardar: ${error.message}`, 'error');
@@ -930,6 +987,7 @@ const HistoriaPanelModule = {
             this.state.cambios = { historia: false, antecedentes: false };
             await this.recargarLista();
             this.renderContenido();
+            this.avisar();
             showNotification('Historia clínica abierta. Complete los datos y guarde.', 'success');
             document.querySelector('#hc2Contenido [data-campo="motivo_consulta"]')?.focus();
         } catch (error) {
@@ -955,6 +1013,7 @@ const HistoriaPanelModule = {
             this.state.historia = respuesta.data;
             await this.recargarLista();
             this.renderContenido();
+            this.avisar();
             showNotification('Historia clínica cerrada', 'success');
         } catch (error) {
             showNotification(error.message, 'error');
@@ -968,6 +1027,7 @@ const HistoriaPanelModule = {
             this.state.historia = (await this.api(`/${h.id}/reabrir`, { method: 'POST' })).data;
             await this.recargarLista();
             this.renderContenido();
+            this.avisar();
             showNotification('Historia clínica reabierta', 'success');
         } catch (error) {
             showNotification(error.message, 'error');
@@ -984,6 +1044,7 @@ const HistoriaPanelModule = {
             await this.seleccionar(this.state.pacienteId, { forzar: true });
             await this.cargarResumen();
             this.renderLista();
+            this.avisar();
         } catch (error) {
             showNotification(error.message, 'error');
         }
