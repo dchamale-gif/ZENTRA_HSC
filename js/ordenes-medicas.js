@@ -96,6 +96,8 @@ const OrdenesmedicasModule = {
                 }))
                 : [],
             estado: orden.estado || 'pendiente',
+            historiaId: orden.historia_id ?? null,
+            historiaEstado: orden.historia_estado || null,
             fechaOrden: (orden.fecha_orden || orden.fechaOrden || orden.created_at || '').split('T')[0],
             fechaCreacion: orden.created_at || orden.fechaCreacion || ''
         };
@@ -273,15 +275,17 @@ const OrdenesmedicasModule = {
                         <span style="background: ${estadoBgColor}; color: ${estadoTextColor}; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: 600;">
                             ${orden.estado.charAt(0).toUpperCase() + orden.estado.slice(1)}
                         </span>
+                        ${orden.historiaEstado === 'cerrada' ? '<small style="display: block; margin-top: 6px; color: #5b6678;" title="La orden quedó con su historia clínica cerrada"><i class="fas fa-lock"></i> Historia cerrada</small>' : ''}
                     </td>
                     <td style="padding: 12px 15px; text-align: center;">
                         <button class="btn btn-sm btn-info" onclick="OrdenesmedicasModule.verDetalles('${orden.id}')" title="Ver detalles">
                             <i class="fas fa-eye"></i>
                         </button>
-                        ${puedeEditar ? `
+                        ${puedeEditar && orden.historiaEstado !== 'cerrada' ? `
                         <button class="btn btn-sm btn-warning" onclick="OrdenesmedicasModule.editarOrden('${orden.id}')" title="Editar">
                             <i class="fas fa-edit"></i>
-                        </button>
+                        </button>` : ''}
+                        ${(puedeEditar && orden.historiaEstado !== 'cerrada') || Permisos.esAdmin() ? `
                         <button class="btn btn-sm btn-danger" onclick="OrdenesmedicasModule.eliminarOrden('${orden.id}')" title="Eliminar">
                             <i class="fas fa-trash"></i>
                         </button>` : ''}
@@ -486,7 +490,10 @@ const OrdenesmedicasModule = {
             modal.style.display = 'none';
 
             const paciente = this.state.pacientes.find(p => String(p.id) === pacienteId);
-            this.showNotification(`Orden médica ${ordenId ? 'actualizada' : 'creada'} para ${paciente?.nombre || 'paciente'}`, 'success');
+            this.showNotification(data.historia_abierta_automaticamente
+                ? `Orden creada. Se abrió la historia clínica de hoy para ${paciente?.nombre || 'el paciente'}.`
+                : `Orden médica ${ordenId ? 'actualizada' : 'creada'} para ${paciente?.nombre || 'paciente'}`, 'success');
+            this.avisarCambio(pacienteId);
         } catch (error) {
             console.error('Error guardando orden médica:', error);
             this.showNotification(`No se pudo guardar la orden: ${error.message}`, 'error');
@@ -634,6 +641,7 @@ const OrdenesmedicasModule = {
                 this.state.ordenes = this.state.ordenes.filter(o => String(o.id) !== String(ordenId));
                 this.renderOrdenes();
                 this.showNotification('Orden médica eliminada', 'success');
+                this.avisarCambio(orden.pacienteId);
             } catch (error) {
                 console.error('Error eliminando orden médica:', error);
                 this.showNotification(`No se pudo eliminar la orden: ${error.message}`, 'error');
@@ -772,6 +780,24 @@ const OrdenesmedicasModule = {
         setTimeout(() => {
             ventana.print();
         }, 250);
+    },
+
+    // La historia clínica (y otras vistas) escuchan este evento para refrescar sus órdenes
+    avisarCambio(pacienteId) {
+        document.dispatchEvent(new CustomEvent('zentra:ordenes-cambiaron', { detail: { pacienteId } }));
+    },
+
+    // Abre "Nueva orden" con el paciente ya elegido (desde la historia clínica)
+    async nuevaOrdenPara(pacienteId) {
+        await this.openNuevaOrdenModal();
+        const select = document.getElementById('ordenPacienteId');
+        if (!select) return;
+        if (![...select.options].some(op => op.value === String(pacienteId))) {
+            const p = this.state.pacientes.find(item => String(item.id) === String(pacienteId));
+            if (p) select.add(new Option(`${p.nombre || ''} ${p.apellidoPaterno || p.apellido_paterno || ''}`.trim(), String(pacienteId)));
+        }
+        select.value = String(pacienteId);
+        document.getElementById('ordenMedicaDescripcion')?.focus();
     },
 
     formatCurrency(value) {

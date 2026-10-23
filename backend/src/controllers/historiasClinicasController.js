@@ -1,5 +1,6 @@
 const pool = require('../db/connection');
 const { cargarPermisos } = require('../middleware/auth');
+const sync = require('../services/historiaSincronizada');
 
 // Historias clínicas: una por consulta o ingreso. Mientras está abierta se edita;
 // al cerrarla queda en solo lectura con una copia de los antecedentes de ese momento.
@@ -15,7 +16,7 @@ const MIGRACION_PENDIENTE = 'Falta preparar la base de datos para las historias 
 const errorConEstado = (message, status = 400) => Object.assign(new Error(message), { status });
 
 const responder = (res, contexto, error) => {
-  if (error.status) return res.status(error.status).json({ success: false, message: error.message });
+  if (error.status) return res.status(error.status).json({ success: false, message: error.message, ...(error.datos || {}) });
   if (error.code === '42P01') return res.status(503).json({ success: false, message: MIGRACION_PENDIENTE });
   console.error(`Error en ${contexto}:`, error.message);
   res.status(500).json({ success: false, message: 'No se pudo completar la operación. Intente de nuevo.' });
@@ -182,13 +183,16 @@ const actualizar = async (req, res) => {
   }
 };
 
-// POST /api/historias-clinicas/:id/cerrar - La deja en solo lectura y guarda los antecedentes de hoy
+// POST /api/historias-clinicas/:id/cerrar { ordenes_pendientes?: 'completada' | 'cancelada' }
+// La deja en solo lectura con sus órdenes y notas, y guarda los antecedentes de hoy.
+// Si tiene órdenes médicas pendientes, hay que decir cómo quedan (si no, responde 409 con la lista).
 const cerrar = async (req, res) => {
+  const client = await pool.connect();
   try {
     await exigirCierre(req);
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) throw errorConEstado('Historia no válida');
-    const actual = await pool.query('SELECT * FROM historias_clinicas WHERE id = $1', [id]);
+    const actual = await client.query('SELECT * FROM historias_clinicas WHERE id = $1', [id]);
     if (!actual.rowCount) throw errorConEstado('Historia clínica no encontrada', 404);
     const historia = actual.rows[0];
     if (historia.estado === 'cerrada') throw errorConEstado('Esta historia ya está cerrada', 409);
@@ -196,11 +200,33 @@ const cerrar = async (req, res) => {
       throw errorConEstado('Para cerrar la historia escriba y guarde el motivo de consulta y la impresión clínica');
     }
 
-    const antecedentes = await pool.query(
+    const conOrdenes = await sync.disponible();
+    const destinoPendientes = ['completada', 'cancelada'].includes(req.body?.ordenes_pendientes) ? req.body.ordenes_pendientes : null;
+    if (conOrdenes) {
+      const pendientes = await client.query(
+        `SELECT id, left(descripcion, 160) AS descripcion FROM ordenes
+         WHERE historia_id = $1 AND estado = 'pendiente' ORDER BY id`,
+        [id]
+      );
+      if (pendientes.rowCount && !destinoPendientes) {
+        throw Object.assign(errorConEstado(`La historia tiene ${pendientes.rowCount} orden(es) médica(s) pendiente(s). Indique si se marcan como completadas o canceladas.`, 409),
+          { datos: { code: 'ORDENES_PENDIENTES', pendientes: pendientes.rows } });
+      }
+    }
+
+    const antecedentes = await client.query(
       `SELECT ${ANTECEDENTES.join(', ')} FROM antecedentes_paciente WHERE paciente_id = $1`,
       [historia.paciente_id]
     );
-    const result = await pool.query(
+
+    await client.query('BEGIN');
+    if (conOrdenes && destinoPendientes) {
+      await client.query(
+        "UPDATE ordenes SET estado = $2, updated_at = NOW() WHERE historia_id = $1 AND estado = 'pendiente'",
+        [id, destinoPendientes]
+      );
+    }
+    const result = await client.query(
       `UPDATE historias_clinicas
        SET estado = 'cerrada', cerrada_en = NOW(), cerrada_por_nombre = $2,
            antecedentes_al_cierre = $3::jsonb, updated_at = NOW()
@@ -209,9 +235,13 @@ const cerrar = async (req, res) => {
       [id, nombreUsuario(req), JSON.stringify(antecedentes.rows[0] || {})]
     );
     if (!result.rowCount) throw errorConEstado('Esta historia ya está cerrada', 409);
+    await client.query('COMMIT');
     res.json({ success: true, message: 'Historia clínica cerrada', data: result.rows[0] });
   } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
     responder(res, 'cerrar historia', error);
+  } finally {
+    client.release();
   }
 };
 

@@ -9295,14 +9295,15 @@ body.chat-abierto {
 /* Historia y antecedentes */
 .hc2-pestanas {
     display: flex;
-    gap: 4px;
+    gap: 2px;
+    scrollbar-width: thin;
     padding: 0 12px;
     border-bottom: 1px solid var(--border-color);
     overflow-x: auto;
 }
 
 .hc2-pestana {
-    padding: 12px 10px;
+    padding: 12px 8px;
     border: 0;
     border-bottom: 2px solid transparent;
     background: none;
@@ -9611,4 +9612,94 @@ body.chat-abierto {
     .hc2-datos {
         padding: 14px;
     }
+}
+
+/* Historia clínica: notas de enfermería (línea de tiempo con las transcripciones) */
+.hc2-nota-form {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding: 14px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm, 8px);
+    background: var(--bg-light);
+}
+
+.hc2-nota-form .hc2-barra {
+    margin-bottom: 0;
+}
+
+.hc2-timeline {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.hc2-entrada {
+    position: relative;
+    padding: 10px 12px 10px 14px;
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--primary-color);
+    border-radius: var(--radius-sm, 8px);
+    background: var(--bg-white);
+}
+
+.hc2-entrada-transcripcion {
+    border-left-color: var(--success-color, #12805c);
+}
+
+.hc2-entrada.editando {
+    background: var(--primary-soft, #eaf1fe);
+}
+
+.hc2-entrada-cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 4px 12px;
+    padding-right: 72px;
+}
+
+.hc2-entrada-cabecera span,
+.hc2-entrada-orden,
+.hc2-indicaciones small {
+    color: var(--text-gray);
+    font-size: 13px;
+}
+
+.hc2-entrada-orden {
+    margin: 4px 0 0;
+}
+
+.hc2-entrada-texto {
+    margin: 6px 0 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.hc2-indicaciones {
+    margin: 6px 0 0 18px;
+    padding: 0;
+}
+
+.hc2-entrada-acciones {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    gap: 4px;
+}
+
+.hc2-pendientes {
+    margin: 10px 0 16px 18px;
+}
+
+.hc2-pendientes li + li {
+    margin-top: 4px;
+}
+
+.hc2-dialogo .modal-body p {
+    margin: 0;
 }

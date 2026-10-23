@@ -3,8 +3,9 @@
 // ============================================
 // Filtros arriba; a la izquierda los pacientes; a la derecha arriba los datos generales
 // y abajo la historia clínica con los antecedentes, más las historias anteriores.
-// Historias y antecedentes viven en el servidor (/api/historias-clinicas). Evolución,
-// prescripciones y medicamentos siguen en HistoriaClinicaModule y se muestran en pestañas.
+// Historias y antecedentes viven en el servidor (/api/historias-clinicas). Las órdenes médicas
+// y las notas de enfermería quedan ligadas a la historia abierta y se ven en sus pestañas.
+// Evolución, prescripciones y medicamentos siguen en HistoriaClinicaModule.
 
 const HistoriaPanelModule = {
     TIPOS: [
@@ -44,8 +45,16 @@ const HistoriaPanelModule = {
         { clave: 'medicamentos_habituales', texto: 'Medicamentos habituales' }
     ],
 
+    TURNOS: [
+        { valor: 'manana', texto: 'Mañana' },
+        { valor: 'tarde', texto: 'Tarde' },
+        { valor: 'noche', texto: 'Noche' }
+    ],
+
     PESTANAS: [
         { clave: 'historia', texto: 'Historia y antecedentes' },
+        { clave: 'ordenes', texto: 'Órdenes' },
+        { clave: 'notas', texto: 'Notas de enfermería' },
         { clave: 'evolucion', texto: 'Evolución' },
         { clave: 'prescripciones', texto: 'Prescripciones' },
         { clave: 'medicamentos', texto: 'Medicamentos' }
@@ -63,6 +72,9 @@ const HistoriaPanelModule = {
         historia: null,
         antecedentes: null,
         pestana: 'historia',
+        ordenes: [],
+        notas: [],
+        editandoNota: null,
         cargando: false,
         cambios: { historia: false, antecedentes: false }
     },
@@ -99,8 +111,19 @@ const HistoriaPanelModule = {
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok || data.success === false) {
-            throw Object.assign(new Error(data.message || data.error || `Error ${response.status}`), { status: response.status });
+            throw Object.assign(new Error(data.message || data.error || `Error ${response.status}`), { status: response.status, datos: data });
         }
+        return data;
+    },
+
+    // Otros recursos de la API (órdenes, notas de enfermería)
+    async apiGeneral(path, options = {}) {
+        const response = await fetch(`${authManager.apiBaseUrl}/api${path}`, {
+            ...options,
+            headers: { Authorization: `Bearer ${authManager.getToken()}`, 'Content-Type': 'application/json', ...(options.headers || {}) }
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.success === false) throw new Error(data.message || data.error || `Error ${response.status}`);
         return data;
     },
 
@@ -175,6 +198,23 @@ const HistoriaPanelModule = {
         window.addEventListener('beforeunload', e => {
             if (this.hayCambios()) e.preventDefault();
         });
+
+        // Una orden nueva puede haber abierto la historia; las pestañas de órdenes y notas se refrescan
+        document.addEventListener('zentra:ordenes-cambiaron', e => {
+            if (this.state.pacienteId && String(e.detail?.pacienteId) === String(this.state.pacienteId)) this.alCambiarOrdenes();
+        });
+    },
+
+    async alCambiarOrdenes() {
+        try {
+            const veiaActual = this.esActual();
+            await this.recargarLista();
+            const abierta = this.state.historias.find(h => h.estado === 'abierta');
+            if (veiaActual && abierta && String(abierta.id) !== String(this.state.historia?.id) && !this.hayCambios()) {
+                this.state.historia = (await this.api(`/${abierta.id}`)).data;
+            }
+            if (document.getElementById('hc2Contenido')) this.renderHistoria();
+        } catch (error) { /* se verá al volver a elegir al paciente */ }
     },
 
     limpiarFiltros() {
@@ -392,6 +432,10 @@ const HistoriaPanelModule = {
             this.actualizarImc();
             return;
         }
+        if (pestana === 'ordenes' || pestana === 'notas') {
+            this.renderOrdenesYNotas(contenido, pestana);
+            return;
+        }
 
         // Pestañas que siguen en HistoriaClinicaModule (datos de este navegador)
         const hc = HistoriaClinicaModule;
@@ -574,6 +618,210 @@ const HistoriaPanelModule = {
             </section>`;
     },
 
+    // ---------- Órdenes médicas y notas de enfermería de la historia ----------
+    async cargarOrdenesYNotas(historiaId) {
+        const [ordenes, notas] = await Promise.allSettled([
+            this.apiGeneral(`/ordenes-enfermeria?historia_id=${historiaId}`),
+            this.apiGeneral(`/notas-enfermeria?historia_id=${historiaId}`)
+        ]);
+        return {
+            ordenes: ordenes.status === 'fulfilled' ? ordenes.value.data || [] : null,
+            notas: notas.status === 'fulfilled' ? notas.value.data || [] : null,
+            error: [ordenes, notas].find(r => r.status === 'rejected')?.reason?.message || ''
+        };
+    },
+
+    async renderOrdenesYNotas(contenido, pestana) {
+        const h = this.state.historia;
+        if (!h) {
+            contenido.innerHTML = `<div class="hc2-vacio-grande"><i class="fas fa-file-medical" aria-hidden="true"></i>
+                <p>Este paciente no tiene historia clínica. ${pestana === 'ordenes'
+                    ? 'La primera orden médica abre la historia del día.'
+                    : 'Las notas de enfermería se escriben dentro de una historia abierta.'}</p>
+                ${pestana === 'ordenes' && this.puedeOrdenar() ? '<button type="button" class="btn btn-primary btn-small" data-hc2="nueva-orden"><i class="fas fa-plus" aria-hidden="true"></i> Nueva orden médica</button>' : ''}</div>`;
+            return;
+        }
+        contenido.innerHTML = '<p class="hc2-vacio">Cargando…</p>';
+        const { ordenes, notas, error } = await this.cargarOrdenesYNotas(h.id);
+        if (String(this.state.historia?.id) !== String(h.id) || this.state.pestana !== pestana) return; // cambió mientras cargaba
+        this.state.ordenes = ordenes || [];
+        this.state.notas = notas || [];
+        const aviso = `${!this.esActual() || h.estado === 'cerrada' ? `<p class="hc2-nota-local"><i class="fas fa-lock" aria-hidden="true"></i> Historia ${h.estado === 'cerrada' ? 'cerrada' : 'anterior'} del ${this.fecha(h.fecha)}: sus registros quedan en solo lectura.</p>` : ''}
+            ${error ? `<p class="hc2-aviso">${this.e(error)}</p>` : ''}`;
+        contenido.innerHTML = pestana === 'ordenes' ? this.htmlOrdenes(ordenes, aviso) : this.htmlNotas(aviso);
+        if (pestana === 'notas') contenido.querySelector('[data-hc2-nota="texto"]')?.focus({ preventScroll: true });
+    },
+
+    puedeOrdenar() {
+        return Permisos.puede('ordenes_medicas', 'edit') && typeof OrdenesmedicasModule !== 'undefined';
+    },
+
+    htmlOrdenes(ordenes, aviso) {
+        const h = this.state.historia;
+        const abierta = h.estado === 'abierta';
+        const barra = abierta && this.puedeOrdenar()
+            ? '<div class="hc2-barra"><button type="button" class="btn btn-primary btn-small" data-hc2="nueva-orden"><i class="fas fa-plus" aria-hidden="true"></i> Nueva orden médica</button></div>'
+            : '';
+        if (ordenes === null) return `${barra}${aviso}`;
+        if (!ordenes.length) return `${barra}<p class="hc2-vacio">Esta historia no tiene órdenes médicas.</p>${aviso}`;
+        const puedeAbrir = typeof OrdenesEnfermeriaModule !== 'undefined' && Permisos.puedeVerPagina('ordenes-enfermeria');
+        const pendientes = ordenes.filter(o => o.estado === 'pendiente').length;
+        return `${barra}
+            <p class="ficha-ordenes-resumen">${ordenes.length} ${ordenes.length === 1 ? 'orden' : 'órdenes'}${pendientes ? ` · ${pendientes} pendiente${pendientes === 1 ? '' : 's'}` : ''}</p>
+            ${ordenes.map(o => OrdenesEnfermeriaModule.htmlTarjetaOrden(o, puedeAbrir)).join('')}
+            ${aviso}`;
+    },
+
+    turnoActual() {
+        const hora = new Date().getHours();
+        return hora >= 7 && hora < 13 ? 'manana' : (hora >= 13 && hora < 19 ? 'tarde' : 'noche');
+    },
+
+    // Línea de tiempo: notas de enfermería + transcripciones de las órdenes del médico
+    htmlNotas(aviso) {
+        const h = this.state.historia;
+        const editable = h.estado === 'abierta' && Permisos.puede('notas_enfermeria', 'edit');
+        const editando = this.state.notas.find(n => String(n.id) === String(this.state.editandoNota));
+        const yo = String(Permisos.usuario().id);
+        const admin = Permisos.esAdmin();
+        const turno = editando?.turno || this.turnoActual();
+
+        const formulario = editable ? `
+            <div class="hc2-nota-form" role="group" aria-label="${editando ? 'Editar nota de enfermería' : 'Nueva nota de enfermería'}">
+                <div class="hc2-fila-dos">
+                    <label class="hc2-campo"><span>Turno</span>
+                        <select class="form-input" data-hc2-nota="turno">${this.TURNOS.map(t => `<option value="${t.valor}"${t.valor === turno ? ' selected' : ''}>${t.texto}</option>`).join('')}</select>
+                    </label>
+                    <label class="hc2-campo"><span>Relacionada con la orden</span>
+                        <select class="form-input" data-hc2-nota="orden">
+                            <option value="">Ninguna</option>
+                            ${this.state.ordenes.map(o => `<option value="${o.id}"${String(o.id) === String(editando?.orden_medica_id) ? ' selected' : ''}>#${o.id} · ${this.e(String(o.descripcion || '').slice(0, 60))}</option>`).join('')}
+                        </select>
+                    </label>
+                </div>
+                <label class="hc2-campo"><span>${editando ? 'Editar nota' : 'Nota de enfermería'}</span>
+                    <textarea class="form-input" rows="3" maxlength="5000" data-hc2-nota="texto" placeholder="Estado del paciente, cuidados realizados, medicamentos administrados, observaciones…">${this.e(editando?.nota || '')}</textarea>
+                </label>
+                <div class="hc2-barra">
+                    ${editando ? '<button type="button" class="btn btn-secondary btn-small" data-hc2="cancelar-nota">Cancelar</button>' : ''}
+                    <button type="button" class="btn btn-primary btn-small" data-hc2="guardar-nota"><i class="fas fa-floppy-disk" aria-hidden="true"></i> ${editando ? 'Guardar cambios' : 'Guardar nota'}</button>
+                </div>
+            </div>` : '';
+
+        const entradas = [
+            ...this.state.notas.map(n => ({ tipo: 'nota', fecha: n.fecha_hora, n })),
+            ...this.state.ordenes.filter(o => o.enfermeria_id).map(o => ({ tipo: 'transcripcion', fecha: o.enfermeria_actualizada, o }))
+        ].sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+
+        const timeline = entradas.length ? `<ol class="hc2-timeline">${entradas.map(entrada => {
+            if (entrada.tipo === 'transcripcion') {
+                const o = entrada.o;
+                return `
+                <li class="hc2-entrada hc2-entrada-transcripcion">
+                    <div class="hc2-entrada-cabecera">
+                        <strong>Transcripción de la orden #${o.id}</strong>
+                        <span>${this.e(o.actualizado_por_nombre || o.creado_por_nombre || '—')} · ${this.e(formatFechaHora(o.enfermeria_actualizada))}</span>
+                    </div>
+                    <p class="hc2-entrada-orden">${this.e(String(o.descripcion || '').slice(0, 160))}</p>
+                    <ul class="hc2-indicaciones">${(o.indicaciones || []).map(i => `<li>${this.e(i.descripcion)}${['dosis', 'via', 'frecuencia', 'horario'].map(c => i[c]).filter(Boolean).length ? ` <small>${this.e(['dosis', 'via', 'frecuencia', 'horario'].map(c => i[c]).filter(Boolean).join(' · '))}</small>` : ''}</li>`).join('')}</ul>
+                    ${o.observaciones ? `<p class="hc2-entrada-texto">${this.e(o.observaciones)}</p>` : ''}
+                </li>`;
+            }
+            const n = entrada.n;
+            const propia = String(n.autor_id) === yo || admin;
+            return `
+                <li class="hc2-entrada${String(n.id) === String(this.state.editandoNota) ? ' editando' : ''}">
+                    <div class="hc2-entrada-cabecera">
+                        <strong>Nota · Turno ${this.TURNOS.find(t => t.valor === n.turno)?.texto.toLowerCase() || n.turno}</strong>
+                        <span>${this.e(n.autor_nombre || '—')} · ${this.e(formatFechaHora(n.fecha_hora))}${n.updated_at && n.updated_at !== n.created_at ? ' · editada' : ''}</span>
+                    </div>
+                    ${n.orden_medica_id ? `<p class="hc2-entrada-orden">Sobre la orden #${n.orden_medica_id}: ${this.e(n.orden_descripcion || '')}</p>` : ''}
+                    <p class="hc2-entrada-texto">${this.e(n.nota)}</p>
+                    ${editable && propia ? `<div class="hc2-entrada-acciones">
+                        <button type="button" class="btn-accion btn-accion-icono" data-hc2="editar-nota" data-nota="${n.id}" title="Editar nota" aria-label="Editar nota"><i class="fas fa-pen" aria-hidden="true"></i></button>
+                        <button type="button" class="btn-accion btn-accion-icono btn-accion-peligro" data-hc2="borrar-nota" data-nota="${n.id}" title="Eliminar nota" aria-label="Eliminar nota"><i class="fas fa-trash" aria-hidden="true"></i></button>
+                    </div>` : ''}
+                </li>`;
+        }).join('')}</ol>` : '<p class="hc2-vacio">Sin notas ni transcripciones de enfermería en esta historia.</p>';
+
+        return `${formulario}${timeline}${aviso}`;
+    },
+
+    async guardarNota() {
+        const contenido = document.getElementById('hc2Contenido');
+        const texto = contenido.querySelector('[data-hc2-nota="texto"]');
+        if (!texto.value.trim()) {
+            showNotification('Escriba la nota', 'warning');
+            texto.focus();
+            return;
+        }
+        const datos = {
+            historia_id: this.state.historia.id,
+            turno: contenido.querySelector('[data-hc2-nota="turno"]').value,
+            orden_medica_id: contenido.querySelector('[data-hc2-nota="orden"]').value || null,
+            nota: texto.value
+        };
+        const boton = contenido.querySelector('[data-hc2="guardar-nota"]');
+        boton.disabled = true;
+        try {
+            const editando = this.state.editandoNota;
+            await this.apiGeneral(editando ? `/notas-enfermeria/${editando}` : '/notas-enfermeria', { method: editando ? 'PUT' : 'POST', body: JSON.stringify(datos) });
+            this.state.editandoNota = null;
+            showNotification(editando ? 'Nota actualizada' : 'Nota de enfermería guardada', 'success');
+            this.renderContenido();
+        } catch (error) {
+            showNotification(`No se pudo guardar la nota: ${error.message}`, 'error');
+            boton.disabled = false;
+        }
+    },
+
+    async borrarNota(id) {
+        if (!confirm('¿Eliminar esta nota de enfermería?')) return;
+        try {
+            await this.apiGeneral(`/notas-enfermeria/${id}`, { method: 'DELETE' });
+            if (String(this.state.editandoNota) === String(id)) this.state.editandoNota = null;
+            showNotification('Nota eliminada', 'success');
+            this.renderContenido();
+        } catch (error) {
+            showNotification(`No se pudo eliminar: ${error.message}`, 'error');
+        }
+    },
+
+    // Al cerrar con órdenes pendientes: el médico decide si quedan completadas o canceladas
+    elegirDestinoPendientes(pendientes) {
+        return new Promise(resolver => {
+            const capa = document.createElement('div');
+            capa.className = 'modal-overlay hc2-dialogo';
+            capa.innerHTML = `
+                <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="hc2DialogoTitulo" style="max-width: 520px;">
+                    <div class="modal-header"><h2 id="hc2DialogoTitulo">Órdenes pendientes</h2></div>
+                    <div class="modal-body">
+                        <p>Antes de cerrar la historia, indique cómo quedan ${pendientes.length === 1 ? 'esta orden pendiente' : `estas ${pendientes.length} órdenes pendientes`}:</p>
+                        <ul class="hc2-pendientes">${pendientes.map(o => `<li><strong>#${o.id}</strong> ${this.e(o.descripcion)}</li>`).join('')}</ul>
+                        <div class="hc2-barra">
+                            <button type="button" class="btn btn-secondary" data-destino="">Volver</button>
+                            <button type="button" class="btn btn-outline" data-destino="cancelada">Marcar canceladas</button>
+                            <button type="button" class="btn btn-primary" data-destino="completada">Marcar completadas</button>
+                        </div>
+                    </div>
+                </div>`;
+            const terminar = valor => {
+                capa.remove();
+                document.removeEventListener('keydown', alTeclear);
+                resolver(valor || null);
+            };
+            const alTeclear = e => { if (e.key === 'Escape') terminar(null); };
+            capa.addEventListener('click', e => {
+                const boton = e.target.closest('[data-destino]');
+                if (boton) terminar(boton.dataset.destino);
+                else if (e.target === capa) terminar(null);
+            });
+            document.addEventListener('keydown', alTeclear);
+            document.body.appendChild(capa);
+            capa.querySelector('[data-destino="completada"]').focus();
+        });
+    },
+
     // ---------- Acciones ----------
     alHacerClic(e) {
         const pestana = e.target.closest('[data-hc2-pestana]');
@@ -581,11 +829,14 @@ const HistoriaPanelModule = {
             if (pestana.dataset.hc2Pestana !== 'historia' && this.state.cambios.historia && !this.confirmarDescartar()) return;
             if (pestana.dataset.hc2Pestana !== 'historia') this.state.cambios = { historia: false, antecedentes: false };
             this.state.pestana = pestana.dataset.hc2Pestana;
+            this.state.editandoNota = null;
             this.renderHistoria();
             return;
         }
         const historia = e.target.closest('[data-hc2-historia]');
         if (historia) return this.verHistoria(historia.dataset.hc2Historia);
+        const transcribir = e.target.closest('[data-ficha-orden]');
+        if (transcribir) return OrdenesEnfermeriaModule.abrir(transcribir.dataset.fichaOrden);
 
         const accion = e.target.closest('[data-hc2]')?.dataset.hc2;
         const hc = HistoriaClinicaModule;
@@ -596,6 +847,17 @@ const HistoriaPanelModule = {
             reabrir: () => this.reabrir(),
             eliminar: () => this.eliminar(),
             imprimir: () => this.imprimir(),
+            'nueva-orden': () => OrdenesmedicasModule.nuevaOrdenPara(this.state.pacienteId),
+            'guardar-nota': () => this.guardarNota(),
+            'editar-nota': () => {
+                this.state.editandoNota = e.target.closest('[data-nota]').dataset.nota;
+                this.renderContenido();
+            },
+            'cancelar-nota': () => {
+                this.state.editandoNota = null;
+                this.renderContenido();
+            },
+            'borrar-nota': () => this.borrarNota(e.target.closest('[data-nota]').dataset.nota),
             actual: () => {
                 const actual = this.state.historias.find(h => h.estado === 'abierta') || this.state.historias[0];
                 if (actual) this.verHistoria(actual.id);
@@ -679,9 +941,18 @@ const HistoriaPanelModule = {
         const h = this.state.historia;
         if (!h) return;
         if (this.hayCambios() && !(await this.guardar({ silencioso: true }))) return;
-        if (!confirm(`¿Cerrar la historia clínica del ${this.fecha(h.fecha)}? Después ya no se podrá editar; quedará guardada con los antecedentes de hoy.`)) return;
+        if (!confirm(`¿Cerrar la historia clínica del ${this.fecha(h.fecha)}? Después ya no se podrá editar, ni sus órdenes y notas de enfermería; quedará guardada con los antecedentes de hoy.`)) return;
         try {
-            this.state.historia = (await this.api(`/${h.id}/cerrar`, { method: 'POST' })).data;
+            let respuesta;
+            try {
+                respuesta = await this.api(`/${h.id}/cerrar`, { method: 'POST', body: '{}' });
+            } catch (error) {
+                if (error.datos?.code !== 'ORDENES_PENDIENTES') throw error;
+                const destino = await this.elegirDestinoPendientes(error.datos.pendientes || []);
+                if (!destino) return;
+                respuesta = await this.api(`/${h.id}/cerrar`, { method: 'POST', body: JSON.stringify({ ordenes_pendientes: destino }) });
+            }
+            this.state.historia = respuesta.data;
             await this.recargarLista();
             this.renderContenido();
             showNotification('Historia clínica cerrada', 'success');
@@ -705,7 +976,7 @@ const HistoriaPanelModule = {
 
     async eliminar() {
         const h = this.state.historia;
-        if (!h || !confirm(`¿Eliminar la historia clínica del ${this.fecha(h.fecha)}? No se puede deshacer.`)) return;
+        if (!h || !confirm(`¿Eliminar la historia clínica del ${this.fecha(h.fecha)}? Se borran también sus notas de enfermería; sus órdenes médicas quedan sin historia. No se puede deshacer.`)) return;
         try {
             await this.api(`/${h.id}`, { method: 'DELETE' });
             showNotification('Historia clínica eliminada', 'success');
@@ -718,7 +989,7 @@ const HistoriaPanelModule = {
         }
     },
 
-    imprimir() {
+    async imprimir() {
         const h = this.state.historia;
         const p = this.paciente();
         if (!h || !p) return;
@@ -732,6 +1003,19 @@ const HistoriaPanelModule = {
             showNotification('El navegador bloqueó la ventana de impresión. Permita ventanas emergentes para este sitio.', 'warning');
             return;
         }
+        ventana.document.write('<p style="font-family: sans-serif; padding: 24px">Preparando la historia clínica…</p>');
+        const { ordenes, notas } = await this.cargarOrdenesYNotas(h.id);
+        const turno = valor => this.TURNOS.find(t => t.valor === valor)?.texto || valor;
+        const seccionOrdenes = (ordenes || []).length ? `
+<h2>Órdenes médicas y transcripción de enfermería</h2>
+${ordenes.map(o => `<div class="orden"><b>Orden #${o.id} · ${e(this.fecha(o.fecha_orden))} · ${e(o.doctor || '')} · ${e(o.estado)}</b>
+  <p>${e(o.descripcion || '')}</p>
+  ${(o.indicaciones || []).length ? `<ul>${o.indicaciones.map(i => `<li>${e(i.descripcion)}${['dosis', 'via', 'frecuencia', 'horario'].map(c => i[c]).filter(Boolean).length ? ` — ${e(['dosis', 'via', 'frecuencia', 'horario'].map(c => i[c]).filter(Boolean).join(' · '))}` : ''} (${e(i.estado)})</li>`).join('')}</ul>
+  <small>Transcribió: ${e(o.actualizado_por_nombre || o.creado_por_nombre || '—')}</small>` : '<p class="vacio">Sin transcripción de enfermería</p>'}</div>`).join('')}` : '';
+        const seccionNotas = (notas || []).length ? `
+<h2>Notas de enfermería</h2>
+${[...notas].reverse().map(n => `<div class="orden"><b>${e(formatFechaHora(n.fecha_hora))} · Turno ${e(turno(n.turno))} · ${e(n.autor_nombre || '')}</b>${n.orden_medica_id ? ` <small>(orden #${n.orden_medica_id})</small>` : ''}<p>${e(n.nota)}</p></div>`).join('')}` : '';
+        ventana.document.open();
         ventana.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
 <title>Historia clínica - ${e(this.nombre(p))} - ${e(this.fecha(h.fecha))}</title>
 <style>
@@ -750,6 +1034,8 @@ const HistoriaPanelModule = {
   .campo { margin-bottom: 8px; } .campo b { display: block; color: #52606d; }
   p { white-space: pre-wrap; } .vacio { color: #8a94a6; font-style: italic; }
   .ant { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; }
+  .orden { border: 1px solid #e4e8ef; border-radius: 4px; padding: 6px 8px; margin-bottom: 6px; page-break-inside: avoid; }
+  .orden ul { margin: 4px 0 4px 18px; } .orden small { color: #52606d; }
   footer { margin-top: 30px; display: flex; justify-content: space-between; font-size: 11px; color: #52606d; }
   .firma { border-top: 1px solid #1f2933; padding-top: 4px; width: 240px; text-align: center; margin-top: 40px; }
   @media print { body { padding: 0; } }
@@ -767,6 +1053,8 @@ ${this.CAMPOS_HISTORIA.slice(0, 3).map(c => `<div class="campo"><b>${c.texto}</b
 ${this.CAMPOS_HISTORIA.slice(3).map(c => `<div class="campo"><b>${c.texto}</b>${texto(h[c.clave])}</div>`).join('')}
 <h2>Antecedentes${h.estado === 'cerrada' ? ' (al cierre de esta historia)' : ''}</h2>
 <div class="ant">${this.ANTECEDENTES.map(c => `<div class="campo"><b>${c.texto}</b>${texto(antecedentes[c.clave])}</div>`).join('')}</div>
+${seccionOrdenes}
+${seccionNotas}
 <footer><span>Impreso el ${e(formatFechaHora(new Date()))}</span><div class="firma">${e(h.medico_nombre || 'Médico tratante')}</div></footer>
 </div></body></html>`);
         ventana.document.close();

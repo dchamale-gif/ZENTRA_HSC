@@ -67,6 +67,8 @@ const PERMISOS_API = {
   hospitalizaciones: { ver: ['hospitalizaciones', 'saldo_paciente'], editar: ['hospitalizaciones'] },
   laboratorios: 'laboratorios',
   historiasClinicas: 'historia_clinica',
+  // Quien ve la historia clínica también ve sus notas de enfermería
+  notasEnfermeria: { ver: ['notas_enfermeria', 'historia_clinica'], editar: ['notas_enfermeria'] },
   ordenes: 'ordenes_medicas',
   // Quien ve las órdenes médicas también ve su traducción (pestaña Órdenes médicas de la ficha)
   ordenesEnfermeria: { ver: ['ordenes_enfermeria', 'ordenes_medicas'], editar: ['ordenes_enfermeria'] },

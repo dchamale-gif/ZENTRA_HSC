@@ -1,4 +1,5 @@
 const pool = require('../db/connection');
+const sync = require('../services/historiaSincronizada');
 
 // Una orden de enfermería traduce la orden médica (texto libre) en indicaciones concretas,
 // con las medicinas y conceptos del catálogo que correspondan
@@ -56,10 +57,16 @@ const validarIndicaciones = (indicaciones) => {
   return { indicaciones: limpias };
 };
 
-// GET /api/ordenes-enfermeria[?paciente_id=] - Órdenes médicas con su traducción de enfermería (si existe)
+// GET /api/ordenes-enfermeria[?paciente_id=][&historia_id=] - Órdenes médicas con su traducción de enfermería
 const listar = async (req, res) => {
   const pacienteId = String(req.query.paciente_id || '').trim();
+  const historiaId = req.query.historia_id ? Number(req.query.historia_id) : null;
+  if (historiaId !== null && !Number.isInteger(historiaId)) {
+    return res.status(400).json({ success: false, message: 'Historia no válida' });
+  }
   try {
+    const conHistoria = await sync.disponible();
+    if (historiaId !== null && !conHistoria) return res.json({ success: true, data: [] });
     const result = await pool.query(
       `SELECT o.id, o.paciente_id, o.doctor, o.descripcion, o.notas, o.servicios, o.estado,
               o.fecha_orden, o.created_at,
@@ -68,12 +75,15 @@ const listar = async (req, res) => {
               oe.id AS enfermeria_id, oe.indicaciones, oe.observaciones,
               oe.creado_por_nombre, oe.actualizado_por_nombre, oe.updated_at AS enfermeria_actualizada,
               (oe.id IS NOT NULL AND oe.orden_medica_firma IS DISTINCT FROM ${FIRMA_ORDEN}) AS orden_cambio
+              ${conHistoria ? ", o.historia_id, h.estado AS historia_estado, to_char(h.fecha, 'YYYY-MM-DD') AS historia_fecha" : ''}
        FROM ordenes o
        JOIN pacientes p ON p.id = o.paciente_id
        LEFT JOIN ordenes_enfermeria oe ON oe.orden_medica_id = o.id
+       ${conHistoria ? 'LEFT JOIN historias_clinicas h ON h.id = o.historia_id' : ''}
        WHERE o.tipo = 'medica' AND ($1 = '' OR o.paciente_id::text = $1)
+         ${conHistoria ? 'AND ($2::int IS NULL OR o.historia_id = $2::int)' : ''}
        ORDER BY o.fecha_orden DESC, o.created_at DESC`,
-      [pacienteId]
+      conHistoria ? [pacienteId, historiaId] : [pacienteId]
     );
     res.json({ success: true, data: result.rows });
   } catch (error) {
@@ -99,6 +109,7 @@ const guardar = async (req, res) => {
   const autor = `${req.user.nombre || ''} ${req.user.apellido || ''}`.trim() || req.user.email;
 
   try {
+    await sync.exigirOrdenEditable(ordenMedicaId, 'La orden pertenece a una historia clínica cerrada; su transcripción ya no se puede modificar.');
     const result = await pool.query(
       `INSERT INTO ordenes_enfermeria
          (orden_medica_id, indicaciones, observaciones, orden_medica_firma,
@@ -121,6 +132,7 @@ const guardar = async (req, res) => {
     }
     res.json({ success: true, message: 'Orden de enfermería guardada', data: result.rows[0] });
   } catch (error) {
+    if (error.status) return res.status(error.status).json({ success: false, message: error.message });
     responderError(res, 'guardar orden de enfermería', error);
   }
 };
@@ -132,12 +144,16 @@ const eliminar = async (req, res) => {
     return res.status(400).json({ success: false, message: 'Orden médica no válida' });
   }
   try {
+    if (!(await sync.esAdmin(req))) {
+      await sync.exigirOrdenEditable(ordenMedicaId, 'La orden pertenece a una historia clínica cerrada; su transcripción ya no se puede eliminar.');
+    }
     const result = await pool.query('DELETE FROM ordenes_enfermeria WHERE orden_medica_id = $1', [ordenMedicaId]);
     if (result.rowCount === 0) {
       return res.status(404).json({ success: false, message: 'Esta orden aún no tiene indicaciones de enfermería' });
     }
     res.json({ success: true, message: 'Orden de enfermería eliminada' });
   } catch (error) {
+    if (error.status) return res.status(error.status).json({ success: false, message: error.message });
     responderError(res, 'eliminar orden de enfermería', error);
   }
 };

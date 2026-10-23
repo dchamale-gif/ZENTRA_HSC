@@ -57,7 +57,7 @@ const Permisos = {
             { clave: 'control_medicamentos', texto: 'Control de medicamentos' },
             { clave: 'extras', texto: 'Extras (dentro del hospital)', pendiente: true },
             { clave: 'control_signos', texto: 'Control de signos', pendiente: true },
-            { clave: 'notas_enfermeria', texto: 'Notas de enfermería', pendiente: true },
+            { clave: 'notas_enfermeria', texto: 'Notas de enfermería' },
             { clave: 'laboratorios', texto: 'Laboratorios' },
             { clave: 'recepcion_articulos', texto: 'Recepción de artículos', pendiente: true },
             { clave: 'cotizacion_paciente', texto: 'Cotización del paciente' },

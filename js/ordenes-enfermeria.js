@@ -137,7 +137,10 @@ const OrdenesEnfermeriaModule = {
     // Situación de la traducción, para la lista y el encabezado
     situacion(o) {
         if (o.estado === 'cancelada') return { clave: 'cancelada', texto: 'Orden cancelada' };
+        // Con la historia clínica cerrada ya no hay nada por traducir
+        if (o.historia_estado === 'cerrada' && !o.enfermeria_id) return { clave: 'cancelada', texto: 'Sin transcripción' };
         if (!o.enfermeria_id) return { clave: 'por-traducir', texto: 'Por traducir' };
+        if (o.historia_estado === 'cerrada') return { clave: 'cumplida', texto: 'Historia cerrada' };
         if (o.orden_cambio) return { clave: 'cambio', texto: 'El médico la modificó' };
         const items = o.indicaciones || [];
         const abiertas = items.filter(i => i.estado === 'pendiente').length;
@@ -411,7 +414,8 @@ const OrdenesEnfermeriaModule = {
     renderEnfermeria(o) {
         const panel = document.getElementById('oeEnfermeria');
         if (!panel) return;
-        const editable = this.puedeEditar();
+        // Lo de una historia clínica cerrada queda en solo lectura
+        const editable = this.puedeEditar() && o.historia_estado !== 'cerrada';
         const indicaciones = (o.indicaciones && o.indicaciones.length)
             ? o.indicaciones
             : (editable ? [this.filaVacia()] : []);
@@ -435,6 +439,11 @@ const OrdenesEnfermeriaModule = {
                 <div class="oe-aviso" role="status">
                     <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
                     <span>El médico modificó su orden después de la última traducción. Revise las indicaciones y guarde para confirmarlas.</span>
+                </div>` : ''}
+                ${o.historia_estado === 'cerrada' ? `
+                <div class="oe-aviso" role="status">
+                    <i class="fas fa-lock" aria-hidden="true"></i>
+                    <span>La historia clínica de esta orden${o.historia_fecha ? ` (${this.fecha(o.historia_fecha)})` : ''} está cerrada; la transcripción queda en solo lectura.</span>
                 </div>` : ''}
                 ${o.estado === 'cancelada' ? `
                 <div class="oe-aviso" role="status">
@@ -563,6 +572,48 @@ const OrdenesEnfermeriaModule = {
         this.state.sinGuardar = true;
     },
 
+    // Tarjeta de una orden: lo que indicó el médico junto a su transcripción de enfermería.
+    // La usan la ficha del paciente y la historia clínica.
+    htmlTarjetaOrden(o, puedeAbrir) {
+        const s = this.situacion(o);
+        const cerrada = o.historia_estado === 'cerrada';
+        const indicaciones = o.indicaciones || [];
+        return `
+        <article class="ficha-orden">
+            <header class="ficha-orden-cabecera">
+                <div>
+                    <strong>Orden #${o.id}</strong>
+                    <span class="ficha-orden-meta">${this.fecha(o.fecha_orden)} · ${escapeHtml(o.doctor || 'Sin médico')}</span>
+                </div>
+                <div class="ficha-orden-estados">
+                    <span class="oe-situacion oe-situacion-medica-${escapeHtml(o.estado)}">${escapeHtml(o.estado.charAt(0).toUpperCase() + o.estado.slice(1))}</span>
+                    <span class="oe-situacion oe-situacion-${s.clave}">${s.texto}</span>
+                </div>
+            </header>
+            <div class="ficha-orden-cuerpo">
+                <section>
+                    <h4><i class="fas fa-user-doctor" aria-hidden="true"></i> Orden del médico</h4>
+                    <p class="oe-texto">${escapeHtml(o.descripcion || '—')}</p>
+                    ${o.notas ? `<p class="ficha-orden-notas"><strong>Notas:</strong> ${escapeHtml(o.notas)}</p>` : ''}
+                </section>
+                <section>
+                    <h4><i class="fas fa-user-nurse" aria-hidden="true"></i> Traducción de enfermería</h4>
+                    ${o.orden_cambio ? '<p class="oe-aviso"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> El médico modificó la orden después de esta traducción.</p>' : ''}
+                    ${indicaciones.length
+                        ? `${this.renderSoloLectura(indicaciones, o)}
+                           <p class="ficha-orden-meta">Por ${escapeHtml(o.actualizado_por_nombre || o.creado_por_nombre || '—')} · ${escapeHtml(formatFechaHora(o.enfermeria_actualizada))}</p>`
+                        : `<p class="ficha-orden-pendiente">${cerrada ? 'No se transcribió antes de cerrar la historia.' : 'Pendiente de traducir por enfermería.'}</p>`}
+                </section>
+            </div>
+            ${puedeAbrir ? `
+            <footer class="ficha-orden-pie">
+                <button type="button" class="btn btn-secondary btn-small" data-ficha-orden="${o.id}">
+                    <i class="fas fa-up-right-from-square" aria-hidden="true"></i> ${cerrada || indicaciones.length ? 'Ver en Órdenes de enfermería' : 'Traducir en Órdenes de enfermería'}
+                </button>
+            </footer>` : ''}
+        </article>`;
+    },
+
     // ---------- Ficha del paciente ----------
     // Pestaña "Órdenes médicas" de la ficha: cada orden del médico con su traducción
     // de enfermería, en solo lectura. Para editar se abre la pantalla de enfermería.
@@ -590,44 +641,7 @@ const OrdenesEnfermeriaModule = {
                 ${ordenes.length} ${ordenes.length === 1 ? 'orden' : 'órdenes'}
                 ${porTraducir ? `· <span class="oe-situacion oe-situacion-por-traducir">${porTraducir} por traducir</span>` : '· todas traducidas'}
             </p>
-            ${ordenes.map(o => {
-                const s = this.situacion(o);
-                const indicaciones = o.indicaciones || [];
-                return `
-                <article class="ficha-orden">
-                    <header class="ficha-orden-cabecera">
-                        <div>
-                            <strong>Orden #${o.id}</strong>
-                            <span class="ficha-orden-meta">${this.fecha(o.fecha_orden)} · ${escapeHtml(o.doctor || 'Sin médico')}</span>
-                        </div>
-                        <div class="ficha-orden-estados">
-                            <span class="oe-situacion oe-situacion-medica-${escapeHtml(o.estado)}">${escapeHtml(o.estado.charAt(0).toUpperCase() + o.estado.slice(1))}</span>
-                            <span class="oe-situacion oe-situacion-${s.clave}">${s.texto}</span>
-                        </div>
-                    </header>
-                    <div class="ficha-orden-cuerpo">
-                        <section>
-                            <h4><i class="fas fa-user-doctor" aria-hidden="true"></i> Orden del médico</h4>
-                            <p class="oe-texto">${escapeHtml(o.descripcion || '—')}</p>
-                            ${o.notas ? `<p class="ficha-orden-notas"><strong>Notas:</strong> ${escapeHtml(o.notas)}</p>` : ''}
-                        </section>
-                        <section>
-                            <h4><i class="fas fa-user-nurse" aria-hidden="true"></i> Traducción de enfermería</h4>
-                            ${o.orden_cambio ? '<p class="oe-aviso"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> El médico modificó la orden después de esta traducción.</p>' : ''}
-                            ${indicaciones.length
-                                ? `${this.renderSoloLectura(indicaciones, o)}
-                                   <p class="ficha-orden-meta">Por ${escapeHtml(o.actualizado_por_nombre || o.creado_por_nombre || '—')} · ${escapeHtml(formatFechaHora(o.enfermeria_actualizada))}</p>`
-                                : '<p class="ficha-orden-pendiente">Pendiente de traducir por enfermería.</p>'}
-                        </section>
-                    </div>
-                    ${puedeAbrir ? `
-                    <footer class="ficha-orden-pie">
-                        <button type="button" class="btn btn-secondary btn-small" data-ficha-orden="${o.id}">
-                            <i class="fas fa-up-right-from-square" aria-hidden="true"></i> ${indicaciones.length ? 'Abrir en Órdenes de enfermería' : 'Traducir en Órdenes de enfermería'}
-                        </button>
-                    </footer>` : ''}
-                </article>`;
-            }).join('')}`;
+            ${ordenes.map(o => this.htmlTarjetaOrden(o, puedeAbrir)).join('')}`;
 
         contenedor.querySelectorAll('[data-ficha-orden]').forEach(boton => boton.addEventListener('click', () => {
             PacientesModule.closePacientModal();
@@ -665,6 +679,7 @@ const OrdenesEnfermeriaModule = {
             });
             this.state.sinGuardar = false;
             showNotification('Orden de enfermería guardada', 'success');
+            document.dispatchEvent(new CustomEvent('zentra:ordenes-cambiaron', { detail: { pacienteId: orden.paciente_id } }));
             await this.cargar();
         } catch (error) {
             showNotification(`No se pudo guardar: ${error.message}`, 'error');
@@ -681,6 +696,7 @@ const OrdenesEnfermeriaModule = {
             await this.api(`/${encodeURIComponent(orden.id)}`, { method: 'DELETE' });
             this.state.sinGuardar = false;
             showNotification('Orden de enfermería eliminada', 'success');
+            document.dispatchEvent(new CustomEvent('zentra:ordenes-cambiaron', { detail: { pacienteId: orden.paciente_id } }));
             await this.cargar();
         } catch (error) {
             showNotification(`No se pudo eliminar: ${error.message}`, 'error');
