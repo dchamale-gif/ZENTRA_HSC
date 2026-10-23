@@ -157,14 +157,17 @@ const OrdenesmedicasModule = {
         try {
             if (!this.getAuthToken()) throw new Error('No hay token de autenticación');
 
-            const [pacientes, ordenes, medicos] = await Promise.all([
+            // Cada lista por separado: si falla el personal médico, la tabla sigue mostrando pacientes y órdenes
+            const [pacientes, ordenes, medicos] = await Promise.allSettled([
                 this.fetchPacientes(),
                 this.fetchOrdenes(),
                 this.fetchMedicos()
             ]);
-            this.state.pacientes = pacientes;
-            this.state.ordenes = ordenes;
-            this.state.medicos = medicos;
+            if (ordenes.status === 'rejected') throw ordenes.reason;
+            this.state.ordenes = ordenes.value;
+            this.state.pacientes = pacientes.status === 'fulfilled' ? pacientes.value : [];
+            this.state.medicos = medicos.status === 'fulfilled' ? medicos.value : [];
+            [pacientes, medicos].filter(r => r.status === 'rejected').forEach(r => console.error('Órdenes médicas:', r.reason));
         } catch (error) {
             console.error('Error cargando órdenes médicas desde la API:', error);
             this.state.ordenes = [];
@@ -291,25 +294,27 @@ const OrdenesmedicasModule = {
                         </span>
                         ${orden.historiaEstado === 'cerrada' ? '<small style="display: block; margin-top: 6px; color: #5b6678;" title="La orden quedó con su historia clínica cerrada"><i class="fas fa-lock"></i> Historia cerrada</small>' : ''}
                     </td>
-                    <td style="padding: 12px 15px; text-align: center;">
-                        <button class="btn btn-sm btn-info" onclick="OrdenesmedicasModule.verDetalles('${orden.id}')" title="Ver detalles">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                        ${puedeEditar && orden.historiaEstado !== 'cerrada' ? `
-                        <button class="btn btn-sm btn-warning" onclick="OrdenesmedicasModule.editarOrden('${orden.id}')" title="Editar">
-                            <i class="fas fa-edit"></i>
-                        </button>` : ''}
-                        ${(puedeEditar && orden.historiaEstado !== 'cerrada') || Permisos.esAdmin() ? `
-                        <button class="btn btn-sm btn-danger" onclick="OrdenesmedicasModule.eliminarOrden('${orden.id}')" title="Eliminar">
-                            <i class="fas fa-trash"></i>
-                        </button>` : ''}
-                        ${verEnfermeria ? `
-                        <button class="btn btn-sm btn-secondary" onclick="OrdenesEnfermeriaModule.abrir('${orden.id}')" title="Orden de enfermería" aria-label="Abrir orden de enfermería">
-                            <i class="fas fa-user-nurse"></i>
-                        </button>` : ''}
-                        <button class="btn btn-sm btn-success" onclick="OrdenesmedicasModule.descargarPDF('${orden.id}')" title="Descargar PDF">
-                            <i class="fas fa-file-pdf"></i>
-                        </button>
+                    <td style="padding: 12px 15px;">
+                        <div class="om-acciones">
+                            <button type="button" class="btn-accion btn-accion-icono" onclick="OrdenesmedicasModule.verDetalles('${orden.id}')" title="Ver detalles" aria-label="Ver detalles">
+                                <i class="fas fa-eye" aria-hidden="true"></i>
+                            </button>
+                            ${puedeEditar && orden.historiaEstado !== 'cerrada' ? `
+                            <button type="button" class="btn-accion btn-accion-icono" onclick="OrdenesmedicasModule.editarOrden('${orden.id}')" title="Editar" aria-label="Editar orden">
+                                <i class="fas fa-pen" aria-hidden="true"></i>
+                            </button>` : ''}
+                            ${verEnfermeria ? `
+                            <button type="button" class="btn-accion btn-accion-icono" onclick="OrdenesEnfermeriaModule.abrir('${orden.id}')" title="Orden de enfermería" aria-label="Abrir orden de enfermería">
+                                <i class="fas fa-user-nurse" aria-hidden="true"></i>
+                            </button>` : ''}
+                            <button type="button" class="btn-accion btn-accion-icono" onclick="OrdenesmedicasModule.descargarPDF('${orden.id}')" title="Descargar PDF" aria-label="Descargar PDF">
+                                <i class="fas fa-file-pdf" aria-hidden="true"></i>
+                            </button>
+                            ${(puedeEditar && orden.historiaEstado !== 'cerrada') || Permisos.esAdmin() ? `
+                            <button type="button" class="btn-accion btn-accion-icono btn-accion-peligro" onclick="OrdenesmedicasModule.eliminarOrden('${orden.id}')" title="Eliminar" aria-label="Eliminar orden">
+                                <i class="fas fa-trash" aria-hidden="true"></i>
+                            </button>` : ''}
+                        </div>
                     </td>
                 </tr>
             `;

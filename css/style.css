@@ -9703,3 +9703,159 @@ body.chat-abierto {
 .hc2-dialogo .modal-body p {
     margin: 0;
 }
+
+/* Órdenes médicas: acciones de cada fila en una sola línea */
+.om-acciones {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+}
+
+/* Historia clínica: evolución médica */
+.hc2-fila-tres {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.hc2-evol-encabezado {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.hc2-evol-encabezado h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.hc2-evol-form h4 {
+    margin: 0;
+    font-size: 14px;
+}
+
+.hc2-evol-form .hc2-fila-tres {
+    align-items: start;
+}
+
+.hc2-evol-form .hc2-fila-tres .form-input {
+    width: 100%;
+    min-width: 0;
+    height: 42px;
+    box-sizing: border-box;
+}
+
+.hc2-evol-form input[readonly] {
+    background: var(--bg-white);
+    color: var(--text-dark);
+    cursor: default;
+}
+
+.hc2-evol-form .hc2-campo small {
+    color: var(--text-gray);
+    font-size: 12px;
+}
+
+.hc2-evoluciones {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.hc2-evol {
+    padding: 12px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm, 8px);
+    background: var(--bg-white);
+}
+
+.hc2-evol-ultima {
+    border-color: var(--primary-color);
+    box-shadow: inset 3px 0 0 var(--primary-color);
+}
+
+.hc2-evol.editando {
+    background: var(--primary-soft, #e6f4f2);
+}
+
+.hc2-evol-cabecera,
+.hc2-evol-pie {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.hc2-evol-titulo {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.hc2-evol-etiqueta {
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--primary-soft, #e6f4f2);
+    color: var(--primary-color);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.hc2-evol-cabecera time {
+    color: var(--text-gray);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+}
+
+.hc2-evol-medico {
+    margin: 4px 0 8px;
+    color: var(--text-gray);
+    font-size: 13px;
+}
+
+.hc2-evol-cambio {
+    margin: 6px 0 0;
+    color: var(--warning-color);
+    font-size: 12px;
+}
+
+.hc2-evol-pie {
+    margin-top: 8px;
+}
+
+/* En la tarjeta de evolución las acciones van en el pie, no flotando */
+.hc2-evol-pie .hc2-entrada-acciones {
+    position: static;
+}
+
+.hc2-evol-pie small {
+    color: var(--text-gray);
+}
+
+.hc2-evol-local {
+    margin-top: 16px;
+    color: var(--text-gray);
+    font-size: 13px;
+}
+
+.hc2-evol-local summary {
+    cursor: pointer;
+}
+
+@media (max-width: 720px) {
+    .hc2-fila-tres {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .hc2-evol-encabezado,
+    .hc2-evol-cabecera,
+    .hc2-evol-pie {
+        flex-wrap: wrap;
+    }
+}

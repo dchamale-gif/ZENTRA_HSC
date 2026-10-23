@@ -24,6 +24,7 @@ const ordenesRoutes = require('./src/routes/ordenesRoutes');
 const ordenesEnfermeriaRoutes = require('./src/routes/ordenesEnfermeriaRoutes');
 const historiasClinicasRoutes = require('./src/routes/historiasClinicasRoutes');
 const notasEnfermeriaRoutes = require('./src/routes/notasEnfermeriaRoutes');
+const evolucionesRoutes = require('./src/routes/evolucionesRoutes');
 const alertasRoutes = require('./src/routes/alertasRoutes');
 const datosFamiliaRoutes = require('./src/routes/datosFamiliaRoutes');
 const responsablesRoutes = require('./src/routes/responsablesRoutes');
@@ -161,6 +162,7 @@ app.use('/api/historias-clinicas', authMiddleware, requireModule(PERMISOS.histor
 
 // Notas de enfermería (dentro de cada historia clínica)
 app.use('/api/notas-enfermeria', authMiddleware, requireModule(PERMISOS.notasEnfermeria), notasEnfermeriaRoutes);
+app.use('/api/evoluciones', authMiddleware, requireModule(PERMISOS.evoluciones), evolucionesRoutes);
 
 // Historial Médico - Alertas
 app.use('/api/alertas', authMiddleware, requireModule(PERMISOS.alertas), alertasRoutes);

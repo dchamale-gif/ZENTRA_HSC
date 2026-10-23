@@ -5,7 +5,8 @@
 // y abajo la historia clínica con los antecedentes, más las historias anteriores.
 // Historias y antecedentes viven en el servidor (/api/historias-clinicas). Las órdenes médicas
 // y las notas de enfermería quedan ligadas a la historia abierta y se ven en sus pestañas.
-// Evolución, prescripciones y medicamentos siguen en HistoriaClinicaModule.
+// La evolución médica también vive en el servidor (/api/evoluciones).
+// Prescripciones y medicamentos siguen en HistoriaClinicaModule.
 
 const HistoriaPanelModule = {
     TIPOS: [
@@ -51,6 +52,8 @@ const HistoriaPanelModule = {
         { valor: 'noche', texto: 'Noche' }
     ],
 
+    TIPOS_EVOLUCION: ['Seguimiento', 'Observación', 'Diagnóstico', 'Control', 'Indicaciones', 'Evaluación', 'Contraindicación', 'Procedimiento'],
+
     PESTANAS: [
         { clave: 'historia', texto: 'Historia y antecedentes' },
         { clave: 'ordenes', texto: 'Órdenes' },
@@ -75,6 +78,9 @@ const HistoriaPanelModule = {
         ordenes: [],
         notas: [],
         editandoNota: null,
+        evoluciones: [],
+        medicosEvolucion: null,
+        evolucionForm: null, // null, 'nueva' o el id de la evolución que el admin modifica
         refrescando: false,
         cargando: false,
         cambios: { historia: false, antecedentes: false }
@@ -221,7 +227,7 @@ const HistoriaPanelModule = {
 
     // Alguien está escribiendo: el refresco automático espera
     ocupado() {
-        if (this.hayCambios() || this.state.editandoNota || document.querySelector('.hc2-dialogo')) return true;
+        if (this.hayCambios() || this.state.editandoNota || this.state.evolucionForm || document.querySelector('.hc2-dialogo')) return true;
         if (document.querySelector('#hc2Contenido [data-hc2-nota="texto"]')?.value.trim()) return true;
         const activo = document.activeElement;
         return !!activo?.closest('#hc2Historia') && activo.matches('input, textarea, select') && !activo.closest('.hc2-nota-form');
@@ -490,6 +496,9 @@ const HistoriaPanelModule = {
         if (pestana === 'ordenes' || pestana === 'notas') {
             return this.renderOrdenesYNotas(contenido, pestana);
         }
+        if (pestana === 'evolucion') {
+            return this.renderEvolucion(contenido);
+        }
 
         // Pestañas que siguen en HistoriaClinicaModule (datos de este navegador)
         const hc = HistoriaClinicaModule;
@@ -497,11 +506,7 @@ const HistoriaPanelModule = {
         hc.state.pacienteSeleccionado = JSON.parse(JSON.stringify(p));
         const local = hc.state.historiasClinicas.find(h => String(h.pacienteId ?? h.pacientId) === String(p.id));
         const nota = '<p class="hc2-nota-local">Estos registros se guardan solo en este navegador mientras se pasan al servidor.</p>';
-        if (pestana === 'evolucion') {
-            contenido.innerHTML = `
-                <div class="hc2-barra"><button type="button" class="btn btn-primary btn-small" data-hc2="nota"><i class="fas fa-plus" aria-hidden="true"></i> Agregar nota</button></div>
-                ${hc.htmlEvolucion(local).trim() || '<p class="hc2-vacio">Sin notas de evolución.</p>'}${nota}`;
-        } else if (pestana === 'prescripciones') {
+        if (pestana === 'prescripciones') {
             contenido.innerHTML = `
                 <div class="hc2-barra"><button type="button" class="btn btn-primary btn-small" data-hc2="prescripcion"><i class="fas fa-plus" aria-hidden="true"></i> Nueva prescripción</button></div>
                 ${hc.htmlPrescripciones(local).trim() || '<p class="hc2-vacio">Sin prescripciones.</p>'}${nota}`;
@@ -843,6 +848,256 @@ const HistoriaPanelModule = {
         }
     },
 
+    // ---------- Evolución médica ----------
+    puedeEvolucionar() {
+        return Permisos.puede('historia_clinica_cierre', 'edit');
+    },
+
+    // 'YYYY-MM-DDTHH:MM' → 'dd/mm/aaaa HH:MM'
+    fechaHora(valor) {
+        const [fecha, hora = ''] = String(valor || '').split('T');
+        return fecha ? `${this.fecha(fecha)} ${hora.slice(0, 5)}`.trim() : '—';
+    },
+
+    ahoraLocal() {
+        const d = new Date();
+        const dos = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}T${dos(d.getHours())}:${dos(d.getMinutes())}`;
+    },
+
+    async apiEvoluciones(path = '', options = {}) {
+        return this.apiGeneral(`/evoluciones${path}`, options);
+    },
+
+    async renderEvolucion(contenido) {
+        const pacienteId = this.state.pacienteId;
+        if (!this.state.refrescando) contenido.innerHTML = '<p class="hc2-vacio">Cargando evolución…</p>';
+        let error = '';
+        try {
+            const pedidos = [this.apiEvoluciones(`?paciente_id=${encodeURIComponent(pacienteId)}`)];
+            if (Permisos.esAdmin() && !this.state.medicosEvolucion) pedidos.push(this.apiEvoluciones('/medicos'));
+            const [lista, medicos] = await Promise.all(pedidos);
+            this.state.evoluciones = lista.data || [];
+            if (medicos) this.state.medicosEvolucion = medicos.data || [];
+        } catch (e) {
+            this.state.evoluciones = [];
+            error = e.message;
+        }
+        if (String(this.state.pacienteId) !== String(pacienteId) || this.state.pestana !== 'evolucion') return; // cambió mientras cargaba
+        contenido.innerHTML = this.htmlEvolucion(error);
+    },
+
+    htmlEvolucion(error) {
+        const evoluciones = this.state.evoluciones;
+        const formulario = this.state.evolucionForm ? this.htmlFormEvolucion() : '';
+        const puedeAgregar = this.puedeEvolucionar() && !this.state.evolucionForm;
+        const admin = Permisos.esAdmin();
+
+        const tarjetas = evoluciones.length ? `<ol class="hc2-evoluciones">${evoluciones.map((ev, i) => `
+            <li class="hc2-evol${i === 0 ? ' hc2-evol-ultima' : ''}${String(ev.id) === String(this.state.evolucionForm) ? ' editando' : ''}">
+                <div class="hc2-evol-cabecera">
+                    <div class="hc2-evol-titulo">
+                        <strong>${this.e(ev.tipo)}</strong>
+                        ${i === 0 ? '<span class="hc2-evol-etiqueta">Última</span>' : ''}
+                    </div>
+                    <time datetime="${this.e(ev.fecha_hora)}">${this.e(this.fechaHora(ev.fecha_hora))}</time>
+                </div>
+                <p class="hc2-evol-medico"><i class="fas fa-user-doctor" aria-hidden="true"></i> ${this.e(ev.medico_nombre || '—')}${ev.especialidad ? ` · ${this.e(ev.especialidad)}` : ''}</p>
+                <p class="hc2-entrada-texto">${this.e(ev.contenido)}</p>
+                ${(ev.cambios || []).map(c => `<p class="hc2-evol-cambio"><i class="fas fa-pen-to-square" aria-hidden="true"></i> Modificada por ${this.e(c.usuario)} el ${this.e(formatFechaHora(c.fecha))}: ${this.e(c.motivo)}</p>`).join('')}
+                <div class="hc2-evol-pie">
+                    <small>Historia del ${this.e(this.fecha(ev.historia_fecha))}${ev.historia_estado === 'cerrada' ? ' (cerrada)' : ''}</small>
+                    ${admin ? `<div class="hc2-entrada-acciones">
+                        <button type="button" class="btn-accion btn-accion-icono" data-hc2="editar-evolucion" data-evolucion="${ev.id}" title="Modificar evolución" aria-label="Modificar evolución"><i class="fas fa-pen" aria-hidden="true"></i></button>
+                        <button type="button" class="btn-accion btn-accion-icono btn-accion-peligro" data-hc2="eliminar-evolucion" data-evolucion="${ev.id}" title="Eliminar evolución" aria-label="Eliminar evolución"><i class="fas fa-trash" aria-hidden="true"></i></button>
+                    </div>` : ''}
+                </div>
+            </li>`).join('')}</ol>`
+            : `<p class="hc2-vacio">${error ? '' : 'Sin evoluciones médicas registradas.'}</p>`;
+
+        // Notas que quedaron guardadas solo en este navegador antes de pasar la evolución al servidor
+        const hc = HistoriaClinicaModule;
+        const local = hc.state.historiasClinicas.find(h => String(h.pacienteId ?? h.pacientId) === String(this.state.pacienteId));
+        const anteriores = local?.notas?.length ? `
+            <details class="hc2-evol-local">
+                <summary>Notas de evolución anteriores guardadas solo en este navegador (${local.notas.length})</summary>
+                ${hc.htmlEvolucion(local)}
+            </details>` : '';
+
+        return `
+            <div class="hc2-evol-encabezado">
+                <h3>Evolución médica</h3>
+                ${puedeAgregar ? '<button type="button" class="btn btn-primary btn-small" data-hc2="agregar-evolucion"><i class="fas fa-plus" aria-hidden="true"></i> Agregar evolución</button>' : ''}
+            </div>
+            ${error ? `<p class="hc2-aviso">${this.e(error)}</p>` : ''}
+            ${formulario}${tarjetas}${anteriores}`;
+    },
+
+    htmlFormEvolucion() {
+        const editando = this.state.evolucionForm !== 'nueva'
+            ? this.state.evoluciones.find(ev => String(ev.id) === String(this.state.evolucionForm))
+            : null;
+        const yo = Permisos.usuario();
+        const miNombre = `${yo.nombre || ''} ${yo.apellido || ''}`.trim() || yo.email || '';
+        const admin = Permisos.esAdmin();
+        const medicos = this.state.medicosEvolucion || [];
+        const elegido = String(editando?.medico_id ?? (medicos.some(m => String(m.id) === String(yo.id)) ? yo.id : ''));
+        const sinHistoriaAbierta = !editando && !this.state.historias.some(h => h.estado === 'abierta');
+
+        const campoMedico = admin
+            ? `<select class="form-input" data-hc2-evol="medico" required>
+                    <option value="">Elija el médico</option>
+                    ${medicos.map(m => `<option value="${m.id}"${String(m.id) === elegido ? ' selected' : ''}>${this.e(m.nombre)}${m.especialidad ? ` · ${this.e(m.especialidad)}` : ''}</option>`).join('')}
+               </select>`
+            : `<input type="text" class="form-input" value="${this.e(miNombre)}" readonly aria-describedby="hc2EvolMedicoAyuda">
+               <small id="hc2EvolMedicoAyuda">Se registra a su nombre.</small>`;
+
+        return `
+            <div class="hc2-nota-form hc2-evol-form" role="group" aria-label="${editando ? 'Modificar evolución' : 'Nueva evolución'}">
+                <h4>${editando ? 'Modificar evolución' : 'Nueva evolución'}</h4>
+                <div class="hc2-fila-tres">
+                    <label class="hc2-campo"><span>Médico</span>${campoMedico}</label>
+                    <label class="hc2-campo"><span>Tipo</span>
+                        <select class="form-input" data-hc2-evol="tipo">${this.TIPOS_EVOLUCION.map(t => `<option${t === (editando?.tipo || 'Seguimiento') ? ' selected' : ''}>${t}</option>`).join('')}</select>
+                    </label>
+                    <label class="hc2-campo"><span>Fecha y hora</span>
+                        <input type="datetime-local" class="form-input" data-hc2-evol="fecha" value="${this.e(editando?.fecha_hora || this.ahoraLocal())}">
+                    </label>
+                </div>
+                <label class="hc2-campo"><span>Evolución</span>
+                    <textarea class="form-input" rows="6" maxlength="10000" data-hc2-evol="contenido" placeholder="Estado actual, cambios desde la última evaluación, hallazgos, conducta a seguir…">${this.e(editando?.contenido || '')}</textarea>
+                </label>
+                ${editando ? `<label class="hc2-campo"><span>Motivo del cambio <span class="required">*</span></span>
+                    <textarea class="form-input" rows="2" maxlength="1000" data-hc2-evol="motivo" placeholder="Por qué se modifica esta evolución (queda registrado)"></textarea>
+                </label>` : ''}
+                ${sinHistoriaAbierta ? '<p class="hc2-nota-local"><i class="fas fa-circle-info" aria-hidden="true"></i> El paciente no tiene historia abierta: al guardar se abre la historia de hoy.</p>' : ''}
+                <div class="hc2-barra">
+                    <button type="button" class="btn btn-secondary btn-small" data-hc2="cancelar-evolucion">Cancelar</button>
+                    <button type="button" class="btn btn-primary btn-small" data-hc2="guardar-evolucion"><i class="fas fa-floppy-disk" aria-hidden="true"></i> ${editando ? 'Guardar cambios' : 'Guardar evolución'}</button>
+                </div>
+            </div>`;
+    },
+
+    async abrirFormEvolucion(valor) {
+        this.state.evolucionForm = valor;
+        if (Permisos.esAdmin() && !this.state.medicosEvolucion) {
+            try {
+                this.state.medicosEvolucion = (await this.apiEvoluciones('/medicos')).data || [];
+            } catch (error) {
+                this.state.medicosEvolucion = [];
+            }
+        }
+        const contenido = document.getElementById('hc2Contenido');
+        if (!contenido) return;
+        contenido.innerHTML = this.htmlEvolucion('');
+        const form = contenido.querySelector('.hc2-evol-form');
+        form?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        form?.querySelector('[data-hc2-evol="contenido"]')?.focus({ preventScroll: true });
+    },
+
+    async guardarEvolucion() {
+        const form = document.querySelector('#hc2Contenido .hc2-evol-form');
+        if (!form) return;
+        const campo = nombre => form.querySelector(`[data-hc2-evol="${nombre}"]`);
+        const editando = this.state.evolucionForm !== 'nueva' ? this.state.evolucionForm : null;
+        const avisar = (mensaje, el) => {
+            showNotification(mensaje, 'warning');
+            el?.focus();
+        };
+        if (!campo('contenido').value.trim()) return avisar('Escriba la evolución', campo('contenido'));
+        if (campo('medico') && !campo('medico').value) return avisar('Elija el médico', campo('medico'));
+        if (editando && campo('motivo').value.trim().length < 5) return avisar('Escriba el motivo del cambio (al menos 5 caracteres)', campo('motivo'));
+
+        const datos = {
+            paciente_id: this.state.pacienteId,
+            tipo: campo('tipo').value,
+            fecha_hora: campo('fecha').value,
+            contenido: campo('contenido').value,
+            ...(campo('medico') ? { medico_id: campo('medico').value } : {}),
+            ...(editando ? { motivo: campo('motivo').value } : {})
+        };
+        const boton = form.querySelector('[data-hc2="guardar-evolucion"]');
+        boton.disabled = true;
+        try {
+            const respuesta = await this.apiEvoluciones(editando ? `/${editando}` : '', { method: editando ? 'PUT' : 'POST', body: JSON.stringify(datos) });
+            this.state.evolucionForm = null;
+            showNotification(respuesta.data?.historia_abierta_automaticamente
+                ? 'Evolución guardada. Se abrió la historia clínica de hoy.'
+                : editando ? 'Evolución modificada' : 'Evolución guardada', 'success');
+            if (respuesta.data?.historia_abierta_automaticamente) await this.alCambiarOrdenes();
+            else await this.renderContenido();
+            this.avisar();
+        } catch (error) {
+            showNotification(`No se pudo guardar la evolución: ${error.message}`, 'error');
+            boton.disabled = false;
+        }
+    },
+
+    async eliminarEvolucion(id) {
+        const ev = this.state.evoluciones.find(item => String(item.id) === String(id));
+        if (!ev) return;
+        const motivo = await this.pedirMotivo({
+            titulo: 'Eliminar evolución',
+            texto: `Evolución de ${ev.medico_nombre || 'médico sin nombre'} del ${this.fechaHora(ev.fecha_hora)}. Deja de verse en la historia; la eliminación y su motivo quedan registrados.`,
+            boton: 'Eliminar evolución'
+        });
+        if (!motivo) return;
+        try {
+            await this.apiEvoluciones(`/${id}`, { method: 'DELETE', body: JSON.stringify({ motivo }) });
+            if (String(this.state.evolucionForm) === String(id)) this.state.evolucionForm = null;
+            showNotification('Evolución eliminada', 'success');
+            await this.renderContenido();
+            this.avisar();
+        } catch (error) {
+            showNotification(`No se pudo eliminar: ${error.message}`, 'error');
+        }
+    },
+
+    // Diálogo que exige escribir un motivo; devuelve el texto o null si se cancela
+    pedirMotivo({ titulo, texto, boton }) {
+        return new Promise(resolver => {
+            const capa = document.createElement('div');
+            capa.className = 'modal-overlay hc2-dialogo';
+            capa.innerHTML = `
+                <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="hc2MotivoTitulo" style="max-width: 480px;">
+                    <div class="modal-header"><h2 id="hc2MotivoTitulo">${this.e(titulo)}</h2></div>
+                    <div class="modal-body">
+                        <p>${this.e(texto)}</p>
+                        <label class="hc2-campo"><span>Motivo <span class="required">*</span></span>
+                            <textarea class="form-input" rows="3" maxlength="1000" data-motivo placeholder="Explique por qué"></textarea>
+                        </label>
+                        <p class="hc2-aviso" data-motivo-error hidden>Escriba el motivo (al menos 5 caracteres).</p>
+                        <div class="hc2-barra">
+                            <button type="button" class="btn btn-secondary" data-motivo-accion="cancelar">Cancelar</button>
+                            <button type="button" class="btn btn-danger" data-motivo-accion="aceptar">${this.e(boton)}</button>
+                        </div>
+                    </div>
+                </div>`;
+            const campo = capa.querySelector('[data-motivo]');
+            const terminar = valor => {
+                capa.remove();
+                document.removeEventListener('keydown', alTeclear);
+                resolver(valor);
+            };
+            const alTeclear = e => { if (e.key === 'Escape') terminar(null); };
+            capa.addEventListener('click', e => {
+                const accion = e.target.closest('[data-motivo-accion]')?.dataset.motivoAccion;
+                if (accion === 'cancelar' || e.target === capa) return terminar(null);
+                if (accion !== 'aceptar') return;
+                if (campo.value.trim().length < 5) {
+                    capa.querySelector('[data-motivo-error]').hidden = false;
+                    campo.focus();
+                    return;
+                }
+                terminar(campo.value.trim());
+            });
+            campo.addEventListener('input', () => { capa.querySelector('[data-motivo-error]').hidden = true; });
+            document.addEventListener('keydown', alTeclear);
+            document.body.appendChild(capa);
+            campo.focus();
+        });
+    },
+
     // Al cerrar con órdenes pendientes: el médico decide si quedan completadas o canceladas
     elegirDestinoPendientes(pendientes) {
         return new Promise(resolver => {
@@ -886,6 +1141,7 @@ const HistoriaPanelModule = {
             if (pestana.dataset.hc2Pestana !== 'historia') this.state.cambios = { historia: false, antecedentes: false };
             this.state.pestana = pestana.dataset.hc2Pestana;
             this.state.editandoNota = null;
+            this.state.evolucionForm = null;
             this.renderHistoria();
             return;
         }
@@ -914,6 +1170,14 @@ const HistoriaPanelModule = {
                 this.renderContenido();
             },
             'borrar-nota': () => this.borrarNota(e.target.closest('[data-nota]').dataset.nota),
+            'agregar-evolucion': () => this.abrirFormEvolucion('nueva'),
+            'editar-evolucion': () => this.abrirFormEvolucion(e.target.closest('[data-evolucion]').dataset.evolucion),
+            'cancelar-evolucion': () => {
+                this.state.evolucionForm = null;
+                this.renderContenido();
+            },
+            'guardar-evolucion': () => this.guardarEvolucion(),
+            'eliminar-evolucion': () => this.eliminarEvolucion(e.target.closest('[data-evolucion]').dataset.evolucion),
             actual: () => {
                 const actual = this.state.historias.find(h => h.estado === 'abierta') || this.state.historias[0];
                 if (actual) this.verHistoria(actual.id);
@@ -1036,7 +1300,7 @@ const HistoriaPanelModule = {
 
     async eliminar() {
         const h = this.state.historia;
-        if (!h || !confirm(`¿Eliminar la historia clínica del ${this.fecha(h.fecha)}? Se borran también sus notas de enfermería; sus órdenes médicas quedan sin historia. No se puede deshacer.`)) return;
+        if (!h || !confirm(`¿Eliminar la historia clínica del ${this.fecha(h.fecha)}? Se borran también sus notas de enfermería y su evolución médica; sus órdenes médicas quedan sin historia. No se puede deshacer.`)) return;
         try {
             await this.api(`/${h.id}`, { method: 'DELETE' });
             showNotification('Historia clínica eliminada', 'success');
@@ -1065,7 +1329,10 @@ const HistoriaPanelModule = {
             return;
         }
         ventana.document.write('<p style="font-family: sans-serif; padding: 24px">Preparando la historia clínica…</p>');
-        const { ordenes, notas } = await this.cargarOrdenesYNotas(h.id);
+        const [{ ordenes, notas }, evoluciones] = await Promise.all([
+            this.cargarOrdenesYNotas(h.id),
+            this.apiEvoluciones(`?paciente_id=${encodeURIComponent(p.id)}`).then(r => (r.data || []).filter(ev => String(ev.historia_id) === String(h.id))).catch(() => [])
+        ]);
         const turno = valor => this.TURNOS.find(t => t.valor === valor)?.texto || valor;
         const seccionOrdenes = (ordenes || []).length ? `
 <h2>Órdenes médicas y transcripción de enfermería</h2>
@@ -1076,6 +1343,9 @@ ${ordenes.map(o => `<div class="orden"><b>Orden #${o.id} · ${e(this.fecha(o.fec
         const seccionNotas = (notas || []).length ? `
 <h2>Notas de enfermería</h2>
 ${[...notas].reverse().map(n => `<div class="orden"><b>${e(formatFechaHora(n.fecha_hora))} · Turno ${e(turno(n.turno))} · ${e(n.autor_nombre || '')}</b>${n.orden_medica_id ? ` <small>(orden #${n.orden_medica_id})</small>` : ''}<p>${e(n.nota)}</p></div>`).join('')}` : '';
+        const seccionEvolucion = evoluciones.length ? `
+<h2>Evolución médica</h2>
+${[...evoluciones].reverse().map(ev => `<div class="orden"><b>${e(this.fechaHora(ev.fecha_hora))} · ${e(ev.tipo)} · ${e(ev.medico_nombre || '')}${ev.especialidad ? ` (${e(ev.especialidad)})` : ''}</b><p>${e(ev.contenido)}</p>${(ev.cambios || []).length ? `<small>Modificada: ${ev.cambios.map(c => `${e(c.usuario)}, ${e(formatFechaHora(c.fecha))}: ${e(c.motivo)}`).join(' · ')}</small>` : ''}</div>`).join('')}` : '';
         ventana.document.open();
         ventana.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
 <title>Historia clínica - ${e(this.nombre(p))} - ${e(this.fecha(h.fecha))}</title>
@@ -1114,6 +1384,7 @@ ${this.CAMPOS_HISTORIA.slice(0, 3).map(c => `<div class="campo"><b>${c.texto}</b
 ${this.CAMPOS_HISTORIA.slice(3).map(c => `<div class="campo"><b>${c.texto}</b>${texto(h[c.clave])}</div>`).join('')}
 <h2>Antecedentes${h.estado === 'cerrada' ? ' (al cierre de esta historia)' : ''}</h2>
 <div class="ant">${this.ANTECEDENTES.map(c => `<div class="campo"><b>${c.texto}</b>${texto(antecedentes[c.clave])}</div>`).join('')}</div>
+${seccionEvolucion}
 ${seccionOrdenes}
 ${seccionNotas}
 <footer><span>Impreso el ${e(formatFechaHora(new Date()))}</span><div class="firma">${e(h.medico_nombre || 'Médico tratante')}</div></footer>
