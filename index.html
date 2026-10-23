@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-    <link rel="stylesheet" href="css/style.css?v=20261019-18">
+    <link rel="stylesheet" href="css/style.css?v=20261022-1">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/tema-botengine.css?v=20261018-2">
 </head>
@@ -572,43 +572,55 @@
                         </div>
                     </div>
 
-                    <div class="historia-layout" id="vistaPaciente" style="display: flex;">
-                        <!-- Sidebar con lista de pacientes -->
-                        <aside class="historia-sidebar">
-                            <div class="sidebar-header">
-                                <h3>Selecciona Paciente</h3>
+                    <!-- VISTA PACIENTES: filtros arriba, lista | datos generales / historia y antecedentes -->
+                    <div class="hc2" id="vistaPaciente">
+                        <div class="hc2-filtros" role="search" aria-label="Filtrar pacientes">
+                            <div class="saldo-busqueda hc2-buscar">
+                                <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                                <label for="hc2Buscar" class="sr-only">Buscar paciente</label>
+                                <input type="search" id="hc2Buscar" placeholder="Nombre, DPI o teléfono" autocomplete="off">
                             </div>
-
-                            <div class="sidebar-filters">
-                                <input type="text" id="searchPacientHistoria" class="form-input" placeholder="Buscar paciente...">
-                                <select id="filterEstadoHistoria" class="form-input">
-                                    <option value="activos">Pacientes Activos</option>
-                                    <option value="todos">Todos los Pacientes</option>
+                            <label class="hc2-filtro"><span>Estado</span>
+                                <select id="hc2Estado" class="form-input">
+                                    <option value="activos">Activos</option>
+                                    <option value="todos">Todos</option>
                                 </select>
-                            </div>
+                            </label>
+                            <label class="hc2-filtro"><span>Tipo</span>
+                                <select id="hc2Tipo" class="form-input">
+                                    <option value="">Todos</option>
+                                    <option value="agudo">Agudo</option>
+                                    <option value="cronico">Crónico</option>
+                                    <option value="coex">COEX</option>
+                                </select>
+                            </label>
+                            <label class="hc2-filtro"><span>Médico</span>
+                                <select id="hc2Medico" class="form-input">
+                                    <option value="">Todos</option>
+                                </select>
+                            </label>
+                            <label class="hc2-filtro"><span>Consultas desde</span>
+                                <input type="date" id="hc2Desde" class="form-input">
+                            </label>
+                            <label class="hc2-filtro"><span>Hasta</span>
+                                <input type="date" id="hc2Hasta" class="form-input">
+                            </label>
+                            <button type="button" class="btn btn-secondary hc2-limpiar" id="hc2Limpiar" hidden>
+                                <i class="fas fa-xmark" aria-hidden="true"></i> Limpiar filtros
+                            </button>
+                        </div>
 
-                            <div id="pacientesHistoriaList" class="pacientes-list-container">
-                                <!-- Poblada por JavaScript -->
-                            </div>
-                        </aside>
-
-                        <!-- Contenido de historia clínica -->
-                        <main class="historia-main">
-                            <div id="historiaClinicaContent" class="historia-content">
-                                <div class="empty-state">
-                                    <p><i class="fas fa-pointer"></i> Selecciona un paciente para ver su historia clínica</p>
+                        <div class="hc2-layout">
+                            <aside class="hc2-pacientes" aria-label="Pacientes">
+                                <div class="hc2-pacientes-cabecera">
+                                    <h2>Pacientes</h2>
+                                    <span id="hc2Contador" class="hc2-contador"></span>
                                 </div>
-                            </div>
-
-                            <div class="historia-button-bar" id="historiaButtonBar" style="display: none;">
-                                <button class="btn btn-primary" id="addNoteBtn">
-                                    <i class="fas fa-plus"></i> Agregar Nota
-                                </button>
-                                <button type="button" class="btn btn-secondary" onclick="HistoriaClinicaModule.imprimirHistoriaClinica()">
-                                    <i class="fas fa-print" aria-hidden="true"></i> Imprimir historia clínica
-                                </button>
-                            </div>
-                        </main>
+                                <div class="hc2-lista" id="hc2Lista"><p class="hc2-vacio">Cargando pacientes…</p></div>
+                            </aside>
+                            <section class="hc2-datos" id="hc2Datos" aria-label="Datos generales"></section>
+                            <section class="hc2-historia" id="hc2Historia" aria-label="Historia clínica y antecedentes"></section>
+                        </div>
                     </div>
 
                     <!-- VISTA AGENDA GENERAL -->
@@ -5303,7 +5315,8 @@
     <script src="js/pacientes.js?v=20261019-2"></script>
     <script src="js/pacientes-file-manager.js?v=20261015-21"></script>
     <script src="js/medicinas.js?v=20261015-21"></script>
-    <script src="js/historia-clinica.js?v=20261016-1"></script>
+    <script src="js/historia-clinica-panel.js?v=20261022-3"></script>
+    <script src="js/historia-clinica.js?v=20261022-1"></script>
     <script src="js/saldo-paciente.js?v=20261018-2"></script>
     <script src="js/saldo-paciente-facturacion-integrado.js?v=20261019-2"></script>
     <script src="js/hospitalizaciones.js?v=20261019-1"></script>
@@ -5331,7 +5344,7 @@
     
     <!-- App Principal -->
     <script src="js/app.js?v=20261019-4"></script>
-    <script src="js/permisos.js?v=20261019-2"></script>
+    <script src="js/permisos.js?v=20261022-1"></script>
     <script src="js/comunicacion.js?v=20261019-1"></script>
     <script src="js/inicio.js?v=20261018-1"></script>
 </body>

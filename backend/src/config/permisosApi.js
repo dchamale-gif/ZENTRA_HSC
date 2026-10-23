@@ -16,7 +16,7 @@ const DATOS_PACIENTE = {
 const RUTAS_CARGOS = /^\/(cargos|prescripciones|facturas-mejorada|estado-cuenta)/;
 
 const TODOS_LOS_MODULOS = [
-  'caratula', 'historia_clinica', 'ordenes_medicas', 'ordenes_enfermeria', 'evolucion', 'control_medicamentos', 'extras',
+  'caratula', 'historia_clinica', 'historia_clinica_cierre', 'ordenes_medicas', 'ordenes_enfermeria', 'evolucion', 'control_medicamentos', 'extras',
   'control_signos', 'notas_enfermeria', 'laboratorios', 'recepcion_articulos', 'cotizacion_paciente',
   'contrato_ingreso', 'hospitalizaciones', 'saldo_paciente', 'medicinas', 'personal', 'codigos_articulos',
   'compras', 'ventas', 'cotizaciones', 'caja', 'cxc', 'gastos', 'dashboard_ejecutivo', 'inventario',
@@ -66,6 +66,7 @@ const PERMISOS_API = {
   caja: 'caja',
   hospitalizaciones: { ver: ['hospitalizaciones', 'saldo_paciente'], editar: ['hospitalizaciones'] },
   laboratorios: 'laboratorios',
+  historiasClinicas: 'historia_clinica',
   ordenes: 'ordenes_medicas',
   // Quien ve las órdenes médicas también ve su traducción (pestaña Órdenes médicas de la ficha)
   ordenesEnfermeria: { ver: ['ordenes_enfermeria', 'ordenes_medicas'], editar: ['ordenes_enfermeria'] },

@@ -156,6 +156,8 @@ const HistoriaClinicaModule = {
 
     // Renderizar lista de pacientes
     renderPacientes() {
+        // La página usa el panel de tres recuadros; esta lista queda para compatibilidad
+        if (typeof HistoriaPanelModule !== 'undefined') HistoriaPanelModule.alCargarPacientes();
         const container = document.getElementById('pacientesHistoriaList');
         if (!container) return;
 
@@ -255,6 +257,8 @@ const HistoriaClinicaModule = {
 
     // Renderizar historia clínica completa (en la página o en otro contenedor, p. ej. un popup)
     renderHistoriaClinica(container = document.getElementById('historiaClinicaContent')) {
+        // Sin contenedor explícito = la página: sus pestañas ahora viven en el panel de historia clínica
+        if (arguments.length === 0 && typeof HistoriaPanelModule !== 'undefined') HistoriaPanelModule.refrescarPestanas();
         const enPagina = container?.id === 'historiaClinicaContent';
         const buttonBar = enPagina ? document.getElementById('historiaButtonBar') : null;
         if (!container || !this.state.pacienteSeleccionado) return;
@@ -379,6 +383,16 @@ const HistoriaClinicaModule = {
                     ` : ''}
                 `}
 
+                ${this.htmlMedicamentosActivos(medicamentosActivos)}
+                ${this.htmlEvolucion(historia)}
+                ${this.htmlPrescripciones(historia)}
+            </div>
+        `;
+    },
+
+    // Secciones reutilizables: las usa esta vista y las pestañas del panel de historia clínica
+    htmlMedicamentosActivos(medicamentosActivos) {
+        return `
                 <!-- Medicamentos Actuales -->
                 ${medicamentosActivos.length > 0 ? `
                     <div class="section-card">
@@ -414,6 +428,11 @@ const HistoriaClinicaModule = {
                     </div>
                 ` : ''}
 
+        `;
+    },
+
+    htmlEvolucion(historia) {
+        return `
                 <!-- Evolución del Paciente -->
                 ${historia && historia.notas && historia.notas.length > 0 ? `
                     <div class="section-card">
@@ -441,6 +460,11 @@ const HistoriaClinicaModule = {
                     </div>
                 ` : ''}
 
+        `;
+    },
+
+    htmlPrescripciones(historia) {
+        return `
                 <!-- Prescripciones Médicas -->
                 ${historia && historia.prescripciones && historia.prescripciones.length > 0 ? `
                     <div class="section-card">
@@ -492,7 +516,6 @@ const HistoriaClinicaModule = {
                         </div>
                     </div>
                 ` : ''}
-            </div>
         `;
     },
 
@@ -2016,7 +2039,7 @@ const HistoriaClinicaModule = {
         const tabs = document.querySelectorAll('.tab-vista-historia');
 
         if (vista === 'paciente') {
-            vistaPaciente.style.display = 'flex';
+            vistaPaciente.style.display = '';
             vistaAgenda.style.display = 'none';
             tabs[0].style.color = '#1e3a8a';
             tabs[0].style.borderBottom = '3px solid #1e3a8a';

@@ -31,6 +31,7 @@ FROM (VALUES
     -- Módulo médico
     ('caratula',             'carátula (gestión de pacientes)'),
     ('historia_clinica',     'historia clínica'),
+    ('historia_clinica_cierre', 'abrir y cerrar historias clínicas'),
     ('ordenes_medicas',      'órdenes médicas'),
     ('ordenes_enfermeria',   'órdenes de enfermería'),
     ('evolucion',            'evolución'),
@@ -79,7 +80,7 @@ SELECT r.id, p.id
 FROM (VALUES
     -- RECEPCIÓN
     ('recepcionista', 'caratula', 'E'),
-    ('recepcionista', 'historia_clinica', 'E'),
+    ('recepcionista', 'historia_clinica', 'V'),
     ('recepcionista', 'ordenes_medicas', 'E'),
     ('recepcionista', 'evolucion', 'E'),
     ('recepcionista', 'control_medicamentos', 'E'),
@@ -107,6 +108,7 @@ FROM (VALUES
     -- MÉDICO
     ('doctor', 'caratula', 'E'),
     ('doctor', 'historia_clinica', 'E'),
+    ('doctor', 'historia_clinica_cierre', 'E'),
     ('doctor', 'ordenes_medicas', 'E'),
     ('doctor', 'ordenes_enfermeria', 'V'),
     ('doctor', 'evolucion', 'E'),

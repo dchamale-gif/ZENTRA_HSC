@@ -50,6 +50,7 @@ const Permisos = {
         { seccion: 'Módulo médico', modulos: [
             { clave: 'caratula', texto: 'Carátula (gestión de pacientes)' },
             { clave: 'historia_clinica', texto: 'Historia clínica' },
+            { clave: 'historia_clinica_cierre', texto: 'Abrir y cerrar historias clínicas (médico)' },
             { clave: 'ordenes_medicas', texto: 'Órdenes médicas' },
             { clave: 'ordenes_enfermeria', texto: 'Órdenes de enfermería' },
             { clave: 'evolucion', texto: 'Evolución' },
