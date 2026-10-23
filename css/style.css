@@ -10054,3 +10054,217 @@ body.chat-abierto {
     position: static;
     justify-content: flex-end;
 }
+
+/* ============================================
+   INVENTARIO DE MEDICINAS POR UNIDADES DE MEDIDA
+   ============================================ */
+.inv-presentacion {
+    display: grid;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.inv-presentacion small {
+    color: var(--text-gray);
+    font-size: 12px;
+}
+
+.inv-presentaciones {
+    margin-top: 4px;
+    padding: 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-light);
+}
+
+.inv-presentaciones-cabecera {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.inv-presentaciones-cabecera .btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.inv-presentaciones-cabecera small {
+    display: block;
+    color: var(--text-gray);
+    font-size: 12px;
+}
+
+.inv-presentacion-fila {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr) auto;
+    align-items: end;
+    gap: 10px;
+    padding: 10px 0;
+    border-top: 1px solid var(--border-color);
+}
+
+.inv-campo {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+    font-size: 12px;
+    color: var(--text-gray);
+}
+
+.inv-campo .form-input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.inv-con-unidad {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.inv-con-unidad small {
+    white-space: nowrap;
+}
+
+.inv-vacio {
+    margin: 0;
+    color: var(--text-gray);
+    font-size: 13px;
+}
+
+.inv-kardex .modal-dialog {
+    max-width: 1000px;
+}
+
+.inv-kardex .modal-body {
+    padding: 16px 20px 20px;
+    overflow-y: auto;
+}
+
+.inv-existencia {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.inv-existencia span,
+.inv-existencia small {
+    color: var(--text-gray);
+}
+
+.inv-existencia strong {
+    font-size: 22px;
+    font-variant-numeric: tabular-nums;
+}
+
+.inv-mov-form {
+    margin: 0 0 16px;
+    padding: 12px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-light);
+}
+
+.inv-mov-form legend {
+    padding: 0 6px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.inv-mov-campos {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.inv-campo-ancho {
+    grid-column: 1 / -1;
+}
+
+.inv-mov-pie {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.inv-mov-pie small {
+    color: var(--text-gray);
+}
+
+.inv-tabla-envoltura {
+    position: relative;
+    overflow-x: auto;
+}
+
+.inv-tabla {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.inv-tabla th,
+.inv-tabla td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border-color);
+    text-align: left;
+    vertical-align: top;
+}
+
+.inv-tabla th {
+    color: var(--text-gray);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.inv-tabla td small {
+    color: var(--text-gray);
+}
+
+.inv-num {
+    text-align: right !important;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.inv-entrada {
+    color: var(--success-color);
+    font-weight: 600;
+}
+
+.inv-salida {
+    color: var(--danger-color);
+    font-weight: 600;
+}
+
+.inv-detalle {
+    min-width: 180px;
+    color: var(--text-gray);
+}
+
+@media (max-width: 720px) {
+    .inv-presentacion-fila {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .inv-mov-campos {
+        grid-template-columns: 1fr;
+    }
+
+    .inv-presentaciones-cabecera {
+        flex-direction: column;
+    }
+}
+
+.inv-ayuda {
+    margin: 0 0 10px;
+    color: var(--text-gray);
+    font-size: 12px;
+}

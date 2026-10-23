@@ -1,6 +1,7 @@
 const pool = require('../db/connection');
+const inventario = require('../services/inventarioMedicinas');
 
-const VENTA_SELECT = `
+const ventaSelect = (conInventario) => `
   SELECT v.id, v.numero_venta, v.paciente_id, v.cliente_id, v.user_id,
          v.fecha, v.hora, v.subtotal, v.descuento, v.impuesto, v.total,
          v.metodo_pago, v.estado, v.observaciones, v.created_at, v.updated_at,
@@ -17,7 +18,10 @@ const VENTA_SELECT = `
                'concepto_nombre', COALESCE(m.nombre, a.nombre_articulo, vi.descripcion),
                'cantidad', vi.cantidad,
                'precio_unitario', vi.precio_unitario,
-               'subtotal', vi.subtotal
+               'subtotal', vi.subtotal${conInventario ? `,
+               'presentacion_id', vi.presentacion_id,
+               'presentacion_nombre', vi.presentacion_nombre,
+               'factor', vi.factor` : ''}
              ) ORDER BY vi.created_at, vi.id
            ) FILTER (WHERE vi.id IS NOT NULL),
            '[]'::json
@@ -51,11 +55,18 @@ const normalizeItems = (items) => {
       error.status = 400;
       throw error;
     }
+    const presentacionId = item.tipo === 'medicina' && item.presentacion_id ? Number(item.presentacion_id) : null;
+    if (presentacionId !== null && !Number.isInteger(presentacionId)) {
+      const error = new Error(`Concepto ${index + 1}: presentación no válida`);
+      error.status = 400;
+      throw error;
+    }
     return {
       tipo: item.tipo,
       conceptoId,
       cantidad,
       precioUnitario,
+      presentacionId,
       subtotal: Number((cantidad * precioUnitario).toFixed(2))
     };
   });
@@ -71,13 +82,27 @@ const getNextNumeroVenta = async (client) => {
   return `${parts[1]}${String(Number(parts[2]) + 1).padStart(parts[2].length, '0')}`;
 };
 
-const validateAndDiscountStock = async (client, items) => {
+// Medicinas: se descuenta la presentación vendida convertida a unidades base y queda en el kárdex.
+// Artículos: se descuenta la cantidad tal cual.
+const validateAndDiscountStock = async (client, items, { req, referencia, motivo = 'Venta' }) => {
   for (const item of items) {
-    const isMedicine = item.tipo === 'medicina';
-    const table = isMedicine ? 'medicinas' : 'codigos_articulos';
-    const stockColumn = isMedicine ? 'cantidad' : 'cantidad_disponible';
+    if (item.tipo === 'medicina') {
+      const pres = await inventario.presentacion(client, item.conceptoId, item.presentacionId);
+      item.presentacion = pres;
+      await inventario.mover(client, {
+        medicinaId: item.conceptoId,
+        cantidad: -item.cantidad * pres.factor,
+        tipo: 'venta',
+        presentacion: pres,
+        cantidadPresentacion: item.cantidad,
+        referencia,
+        motivo,
+        req
+      });
+      continue;
+    }
     const result = await client.query(
-      `SELECT ${stockColumn} AS stock FROM ${table} WHERE id = $1 FOR UPDATE`,
+      'SELECT cantidad_disponible AS stock FROM codigos_articulos WHERE id = $1 FOR UPDATE',
       [item.conceptoId]
     );
     if (result.rows.length === 0) {
@@ -91,23 +116,34 @@ const validateAndDiscountStock = async (client, items) => {
       throw error;
     }
     await client.query(
-      `UPDATE ${table} SET ${stockColumn} = ${stockColumn} - $1, updated_at = NOW() WHERE id = $2`,
+      'UPDATE codigos_articulos SET cantidad_disponible = cantidad_disponible - $1, updated_at = NOW() WHERE id = $2',
       [item.cantidad, item.conceptoId]
     );
   }
 };
 
-const restoreStock = async (client, ventaId) => {
+// Devuelve al inventario lo que la venta había descontado (al editarla o eliminarla)
+const restoreStock = async (client, ventaId, { req, motivo }) => {
+  const conInventario = await inventario.disponible();
+  const venta = await client.query('SELECT numero_venta FROM ventas WHERE id = $1', [ventaId]);
   const result = await client.query(
-    'SELECT medicina_id, articulo_id, cantidad FROM venta_items WHERE venta_id = $1 FOR UPDATE',
+    `SELECT medicina_id, articulo_id, cantidad${conInventario ? ', factor, presentacion_nombre' : ''}
+     FROM venta_items WHERE venta_id = $1 FOR UPDATE`,
     [ventaId]
   );
   for (const item of result.rows) {
     if (item.medicina_id) {
-      await client.query(
-        'UPDATE medicinas SET cantidad = cantidad + $1, updated_at = NOW() WHERE id = $2',
-        [item.cantidad, item.medicina_id]
-      );
+      const factor = Number(item.factor) || 1;
+      await inventario.mover(client, {
+        medicinaId: item.medicina_id,
+        cantidad: item.cantidad * factor,
+        tipo: 'devolucion_venta',
+        presentacion: { nombre: item.presentacion_nombre, factor },
+        cantidadPresentacion: item.cantidad,
+        referencia: venta.rows[0]?.numero_venta,
+        motivo,
+        req
+      });
     } else {
       await client.query(
         'UPDATE codigos_articulos SET cantidad_disponible = cantidad_disponible + $1, updated_at = NOW() WHERE id = $2',
@@ -118,23 +154,34 @@ const restoreStock = async (client, ventaId) => {
 };
 
 const insertItems = async (client, ventaId, items) => {
+  const conInventario = await inventario.disponible();
   for (const item of items) {
     const itemId = `VI-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-    await client.query(
-      `INSERT INTO venta_items
-       (id, venta_id, medicina_id, articulo_id, cantidad, precio_unitario, subtotal)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [itemId, ventaId, item.tipo === 'medicina' ? item.conceptoId : null,
-        item.tipo === 'articulo' ? item.conceptoId : null, item.cantidad,
-        item.precioUnitario, item.subtotal]
-    );
+    const valores = [itemId, ventaId, item.tipo === 'medicina' ? item.conceptoId : null,
+      item.tipo === 'articulo' ? item.conceptoId : null, item.cantidad,
+      item.precioUnitario, item.subtotal];
+    if (conInventario) {
+      await client.query(
+        `INSERT INTO venta_items
+         (id, venta_id, medicina_id, articulo_id, cantidad, precio_unitario, subtotal, presentacion_id, presentacion_nombre, factor)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [...valores, item.presentacion?.id ?? null, item.presentacion?.nombre ?? null, item.presentacion?.factor || 1]
+      );
+    } else {
+      await client.query(
+        `INSERT INTO venta_items
+         (id, venta_id, medicina_id, articulo_id, cantidad, precio_unitario, subtotal)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        valores
+      );
+    }
   }
 };
 
 const getVentas = async (req, res) => {
   try {
     const result = await pool.query(
-      `${VENTA_SELECT} GROUP BY v.id, c.nombre, p.nombre, p.apellido_paterno, p.apellido_materno
+      `${ventaSelect(await inventario.disponible())} GROUP BY v.id, c.nombre, p.nombre, p.apellido_paterno, p.apellido_materno
        ORDER BY v.fecha DESC, v.created_at DESC`
     );
     res.status(200).json({ success: true, total: result.rows.length, ventas: result.rows });
@@ -176,8 +223,8 @@ const createVenta = async (req, res) => {
     client = await pool.connect();
     await client.query('BEGIN');
     await client.query("SELECT pg_advisory_xact_lock(hashtext('ventas_numero_correlativo'))");
-    await validateAndDiscountStock(client, items);
     const numeroVenta = await getNextNumeroVenta(client);
+    await validateAndDiscountStock(client, items, { req, referencia: numeroVenta });
     const ventaId = `VTA-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
     const result = await client.query(
       `INSERT INTO ventas
@@ -211,14 +258,14 @@ const updateVenta = async (req, res) => {
 
     client = await pool.connect();
     await client.query('BEGIN');
-    const existing = await client.query('SELECT id FROM ventas WHERE id = $1 FOR UPDATE', [req.params.id]);
+    const existing = await client.query('SELECT id, numero_venta FROM ventas WHERE id = $1 FOR UPDATE', [req.params.id]);
     if (existing.rows.length === 0) {
       const error = new Error('Venta no encontrada');
       error.status = 404;
       throw error;
     }
-    await restoreStock(client, req.params.id);
-    await validateAndDiscountStock(client, items);
+    await restoreStock(client, req.params.id, { req, motivo: 'Venta editada: se devuelve lo vendido antes' });
+    await validateAndDiscountStock(client, items, { req, referencia: existing.rows[0].numero_venta, motivo: 'Venta editada' });
     const result = await client.query(
       `UPDATE ventas SET paciente_id = $1, cliente_id = $2, fecha = $3, subtotal = $4,
        descuento = 0, impuesto = 0, total = $4, metodo_pago = $5, observaciones = $6,
@@ -250,7 +297,7 @@ const deleteVenta = async (req, res) => {
       error.status = 404;
       throw error;
     }
-    await restoreStock(client, req.params.id);
+    await restoreStock(client, req.params.id, { req, motivo: 'Venta eliminada' });
     await client.query('DELETE FROM ventas WHERE id = $1', [req.params.id]);
     await client.query('COMMIT');
     res.status(200).json({ success: true, message: 'Venta eliminada e inventario restituido' });

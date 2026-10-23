@@ -16,6 +16,7 @@
     "migrate:sincronizacion-historia": "node run-sincronizacion-historia-migration.js",
     "migrate:evoluciones-medicas": "node run-evoluciones-medicas-migration.js",
     "migrate:signos-vitales": "node run-signos-vitales-migration.js",
+    "migrate:inventario-medicinas": "node run-inventario-medicinas-migration.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": ["hospital", "medical", "api"],

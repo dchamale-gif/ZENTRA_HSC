@@ -1,6 +1,7 @@
 const pool = require('../db/connection');
+const inventario = require('../services/inventarioMedicinas');
 
-const COMPRA_SELECT = `
+const compraSelect = (conInventario) => `
   SELECT c.id, c.numero_compra, c.proveedor_id, p.nombre AS proveedor_nombre,
          c.user_id, c.fecha, c.fecha_entrega, c.total, c.estado,
          c.observaciones, c.created_at, c.updated_at,
@@ -13,7 +14,10 @@ const COMPRA_SELECT = `
                'concepto_nombre', COALESCE(m.nombre, a.nombre_articulo),
                'cantidad', ci.cantidad,
                'precio_unitario', ci.precio_unitario,
-               'subtotal', ci.subtotal
+               'subtotal', ci.subtotal${conInventario ? `,
+               'presentacion_id', ci.presentacion_id,
+               'presentacion_nombre', ci.presentacion_nombre,
+               'factor', ci.factor` : ''}
              ) ORDER BY ci.created_at, ci.id
            ) FILTER (WHERE ci.id IS NOT NULL),
            '[]'::json
@@ -54,11 +58,18 @@ const normalizeItems = (items) => {
       throw error;
     }
 
+    const presentacionId = tipo === 'medicina' && item.presentacion_id ? Number(item.presentacion_id) : null;
+    if (presentacionId !== null && !Number.isInteger(presentacionId)) {
+      const error = new Error(`Concepto ${index + 1}: presentación no válida`);
+      error.status = 400;
+      throw error;
+    }
     return {
       tipo,
       conceptoId,
       cantidad,
       precioUnitario,
+      presentacionId,
       subtotal: Number((cantidad * precioUnitario).toFixed(2))
     };
   });
@@ -78,29 +89,119 @@ const getNextNumeroCompra = async (client) => {
 };
 
 const insertItems = async (client, compraId, items) => {
+  const conInventario = await inventario.disponible();
   for (const item of items) {
     const itemId = `CI-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-    await client.query(
-      `INSERT INTO compra_items
-       (id, compra_id, medicina_id, articulo_id, cantidad, precio_unitario, subtotal)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [
-        itemId,
-        compraId,
-        item.tipo === 'medicina' ? item.conceptoId : null,
-        item.tipo === 'articulo' ? item.conceptoId : null,
-        item.cantidad,
-        item.precioUnitario,
-        item.subtotal
-      ]
-    );
+    const valores = [
+      itemId,
+      compraId,
+      item.tipo === 'medicina' ? item.conceptoId : null,
+      item.tipo === 'articulo' ? item.conceptoId : null,
+      item.cantidad,
+      item.precioUnitario,
+      item.subtotal
+    ];
+    if (conInventario) {
+      const pres = item.tipo === 'medicina'
+        ? await inventario.presentacion(client, item.conceptoId, item.presentacionId)
+        : { id: null, nombre: null, factor: 1 };
+      await client.query(
+        `INSERT INTO compra_items
+         (id, compra_id, medicina_id, articulo_id, cantidad, precio_unitario, subtotal, presentacion_id, presentacion_nombre, factor)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [...valores, pres.id, pres.nombre, pres.factor]
+      );
+    } else {
+      await client.query(
+        `INSERT INTO compra_items
+         (id, compra_id, medicina_id, articulo_id, cantidad, precio_unitario, subtotal)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        valores
+      );
+    }
   }
+};
+
+// Una compra suma al inventario cuando está recibida (compras.inventario_aplicado lo recuerda).
+// Medicinas: en unidades base, con su costo por unidad, y quedan en el kárdex. Artículos: tal cual.
+const aplicarInventario = async (client, compraId, req) => {
+  const compra = await client.query('SELECT numero_compra FROM compras WHERE id = $1', [compraId]);
+  const items = await client.query(
+    'SELECT medicina_id, articulo_id, cantidad, precio_unitario, presentacion_nombre, factor FROM compra_items WHERE compra_id = $1',
+    [compraId]
+  );
+  for (const item of items.rows) {
+    if (item.medicina_id) {
+      const factor = Number(item.factor) || 1;
+      const costo = Number(item.precio_unitario) / factor;
+      await inventario.mover(client, {
+        medicinaId: item.medicina_id,
+        cantidad: item.cantidad * factor,
+        tipo: 'ingreso_compra',
+        presentacion: { nombre: item.presentacion_nombre, factor },
+        cantidadPresentacion: item.cantidad,
+        costoUnitario: costo,
+        referencia: compra.rows[0].numero_compra,
+        motivo: 'Compra recibida',
+        req
+      });
+      // El costo de la medicina queda con el de la última compra, por unidad base
+      await client.query('UPDATE medicinas SET precio_costo = $1 WHERE id = $2', [Number(costo.toFixed(4)), item.medicina_id]);
+    } else if (item.articulo_id) {
+      await client.query(
+        'UPDATE codigos_articulos SET cantidad_disponible = COALESCE(cantidad_disponible, 0) + $1, updated_at = NOW() WHERE id = $2',
+        [item.cantidad, item.articulo_id]
+      );
+    }
+  }
+  await client.query('UPDATE compras SET inventario_aplicado = true WHERE id = $1', [compraId]);
+};
+
+// Deshace lo que sumó la compra (al editarla, cambiarle el estado o eliminarla)
+const revertirInventario = async (client, compraId, req, motivo) => {
+  const compra = await client.query('SELECT numero_compra FROM compras WHERE id = $1', [compraId]);
+  const items = await client.query(
+    'SELECT medicina_id, articulo_id, cantidad, presentacion_nombre, factor FROM compra_items WHERE compra_id = $1',
+    [compraId]
+  );
+  for (const item of items.rows) {
+    if (item.medicina_id) {
+      const factor = Number(item.factor) || 1;
+      try {
+        await inventario.mover(client, {
+          medicinaId: item.medicina_id,
+          cantidad: -item.cantidad * factor,
+          tipo: 'reversion_compra',
+          presentacion: { nombre: item.presentacion_nombre, factor },
+          cantidadPresentacion: item.cantidad,
+          referencia: compra.rows[0].numero_compra,
+          motivo,
+          req
+        });
+      } catch (error) {
+        if (error.status === 409) error.message = `No se puede deshacer la compra: parte de lo recibido ya salió del inventario. ${error.message}`;
+        throw error;
+      }
+    } else if (item.articulo_id) {
+      const result = await client.query(
+        `UPDATE codigos_articulos SET cantidad_disponible = cantidad_disponible - $1, updated_at = NOW()
+         WHERE id = $2 AND cantidad_disponible >= $1`,
+        [item.cantidad, item.articulo_id]
+      );
+      if (!result.rowCount) {
+        const error = new Error('No se puede deshacer la compra: parte de los artículos recibidos ya salió del inventario.');
+        error.status = 409;
+        throw error;
+      }
+    }
+  }
+  await client.query('UPDATE compras SET inventario_aplicado = false WHERE id = $1', [compraId]);
 };
 
 const getCompras = async (req, res) => {
   try {
     const result = await pool.query(
-      `${COMPRA_SELECT}
+      `${compraSelect(await inventario.disponible())}
        GROUP BY c.id, p.nombre
        ORDER BY c.fecha DESC, c.created_at DESC`
     );
@@ -114,7 +215,7 @@ const getCompras = async (req, res) => {
 const getCompraById = async (req, res) => {
   try {
     const result = await pool.query(
-      `${COMPRA_SELECT}
+      `${compraSelect(await inventario.disponible())}
        WHERE c.id = $1
        GROUP BY c.id, p.nombre`,
       [req.params.id]
@@ -150,6 +251,7 @@ const createCompra = async (req, res) => {
         total, estado, observaciones || null]
     );
     await insertItems(client, compraId, items);
+    if (estado === 'recibida' && await inventario.disponible()) await aplicarInventario(client, compraId, req);
     await client.query('COMMIT');
     res.status(201).json({ success: true, message: 'Compra creada exitosamente', compra: result.rows[0] });
   } catch (error) {
@@ -172,11 +274,19 @@ const updateCompra = async (req, res) => {
     const total = Number(items.reduce((sum, item) => sum + item.subtotal, 0).toFixed(2));
     client = await pool.connect();
     await client.query('BEGIN');
-    const existing = await client.query('SELECT id FROM compras WHERE id = $1 FOR UPDATE', [req.params.id]);
+    const conInventario = await inventario.disponible();
+    const existing = await client.query(
+      `SELECT id, estado${conInventario ? ', inventario_aplicado' : ''} FROM compras WHERE id = $1 FOR UPDATE`,
+      [req.params.id]
+    );
     if (existing.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Compra no encontrada' });
     }
+    // Lo recibido se deshace y, si sigue recibida, se vuelve a sumar con los conceptos nuevos.
+    // Una compra marcada recibida antes de este control no había sumado: solo suma si pasa a recibida ahora.
+    const anterior = existing.rows[0];
+    if (anterior.inventario_aplicado) await revertirInventario(client, req.params.id, req, 'Compra editada');
 
     const result = await client.query(
       `UPDATE compras
@@ -188,6 +298,9 @@ const updateCompra = async (req, res) => {
     );
     await client.query('DELETE FROM compra_items WHERE compra_id = $1', [req.params.id]);
     await insertItems(client, req.params.id, items);
+    if (conInventario && estado === 'recibida' && (anterior.inventario_aplicado || anterior.estado !== 'recibida')) {
+      await aplicarInventario(client, req.params.id, req);
+    }
     await client.query('COMMIT');
     res.status(200).json({ success: true, message: 'Compra actualizada exitosamente', compra: result.rows[0] });
   } catch (error) {
@@ -201,13 +314,27 @@ const updateCompra = async (req, res) => {
 };
 
 const deleteCompra = async (req, res) => {
+  let client;
   try {
-    const result = await pool.query('DELETE FROM compras WHERE id = $1 RETURNING id, numero_compra', [req.params.id]);
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Compra no encontrada' });
+    client = await pool.connect();
+    await client.query('BEGIN');
+    if (await inventario.disponible()) {
+      const existing = await client.query('SELECT inventario_aplicado FROM compras WHERE id = $1 FOR UPDATE', [req.params.id]);
+      if (existing.rows[0]?.inventario_aplicado) await revertirInventario(client, req.params.id, req, 'Compra eliminada');
+    }
+    const result = await client.query('DELETE FROM compras WHERE id = $1 RETURNING id, numero_compra', [req.params.id]);
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Compra no encontrada' });
+    }
+    await client.query('COMMIT');
     res.status(200).json({ success: true, message: 'Compra eliminada exitosamente', compra: result.rows[0] });
   } catch (error) {
+    if (client) await client.query('ROLLBACK');
     console.error('Error en deleteCompra:', error);
-    res.status(500).json({ error: 'Error eliminando compra' });
+    res.status(error.status || 500).json({ error: error.status ? error.message : 'Error eliminando compra' });
+  } finally {
+    if (client) client.release();
   }
 };
 

@@ -57,6 +57,7 @@ const VentasModule = {
         }
         if (medicinasResult.status === 'fulfilled') {
             this.state.medicinas = (medicinasResult.value.medicinas || []).map(medicina => ({
+                ...medicina,
                 id: String(medicina.id),
                 nombre: medicina.nombre,
                 codigo: medicina.codigo_interno || medicina.codigo_externo || medicina.codigo_barra || '',
@@ -72,6 +73,7 @@ const VentasModule = {
                 id: String(articulo.id),
                 nombre: articulo.nombre_articulo,
                 codigo: articulo.codigo || articulo.codigo_barras || articulo.codigo_alternativo || '',
+                codigosExactos: [articulo.codigo, articulo.codigo_barras, articulo.codigo_alternativo].filter(Boolean).map(String),
                 precio: Number(articulo.precio_unitario ?? 0),
                 stock: Number(articulo.cantidad_disponible ?? 0),
                 seccion: articulo.categoria || articulo.seccion || '',
@@ -134,10 +136,11 @@ const VentasModule = {
         this.state.items = venta?.items?.length ? venta.items.map(item => ({
             tipo: item.tipo,
             concepto_id: String(item.concepto_id),
+            presentacion_id: item.presentacion_id != null ? String(item.presentacion_id) : '',
             cantidad: Number(item.cantidad),
             precio_unitario: Number(item.precio_unitario),
             filtros: { seccion: '', familia: '', subfamilia: '' }
-        })) : [{ tipo: 'articulo', concepto_id: '', cantidad: 1, precio_unitario: 0, filtros: { seccion: '', familia: '', subfamilia: '' } }];
+        })) : [{ tipo: 'articulo', concepto_id: '', presentacion_id: '', cantidad: 1, precio_unitario: 0, filtros: { seccion: '', familia: '', subfamilia: '' } }];
         this.renderItems();
         document.getElementById('saleModal').style.display = 'flex';
         document.body.style.overflow = 'hidden';
@@ -180,7 +183,7 @@ const VentasModule = {
     },
 
     addItem() {
-        this.state.items.push({ tipo: 'articulo', concepto_id: '', cantidad: 1, precio_unitario: 0, filtros: { seccion: '', familia: '', subfamilia: '' } });
+        this.state.items.push({ tipo: 'articulo', concepto_id: '', presentacion_id: '', cantidad: 1, precio_unitario: 0, filtros: { seccion: '', familia: '', subfamilia: '' } });
         this.renderItems();
     },
 
@@ -196,12 +199,49 @@ const VentasModule = {
         if (field === 'tipo') {
             item.tipo = value;
             item.concepto_id = '';
+            item.presentacion_id = '';
             item.precio_unitario = 0;
             item.filtros = { seccion: '', familia: '', subfamilia: '' };
+        } else if (field === 'presentacion_id') {
+            // Cada presentación tiene su precio de venta
+            const medicina = this.state.medicinas.find(entry => entry.id === String(item.concepto_id));
+            item.presentacion_id = String(value || '');
+            item.precio_unitario = InventarioMedicinas.presentacion(medicina, item.presentacion_id).precio_venta;
         } else {
             item[field] = Number(value);
         }
         this.renderItems();
+    },
+
+    // Código de barras escaneado (o escrito completo): elige el producto y, en medicinas, la presentación
+    aplicarCodigo(index, codigo) {
+        const item = this.state.items[index];
+        const encontrado = InventarioMedicinas.buscarPorCodigo(this.state.medicinas, codigo);
+        if (encontrado) {
+            Object.assign(item, {
+                tipo: 'medicina',
+                concepto_id: encontrado.medicina.id,
+                presentacion_id: String(encontrado.presentacion.id),
+                precio_unitario: encontrado.presentacion.precio_venta
+            });
+        } else {
+            const limpio = String(codigo || '').trim();
+            const articulo = limpio && this.state.articulos.find(a => a.codigosExactos.includes(limpio));
+            if (!articulo) return false;
+            Object.assign(item, { tipo: 'articulo', concepto_id: articulo.id, presentacion_id: '', precio_unitario: articulo.precio });
+        }
+        this.renderItems();
+        document.querySelector(`#saleItemsBody tr:nth-child(${index + 1}) [data-venta-cantidad]`)?.select();
+        return true;
+    },
+
+    // Enter en el buscador (los lectores de código lo envían al final): código exacto o el único resultado
+    alTeclearConcepto(event, index) {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        if (this.aplicarCodigo(index, event.target.value)) return;
+        const resultados = document.querySelectorAll(`#saleConceptResults-${index} .concept-search-result`);
+        if (resultados.length === 1) resultados[0].click();
     },
 
     getCatalog(type) {
@@ -246,9 +286,11 @@ const VentasModule = {
         const selected = this.getCatalog(item.tipo).find(entry => entry.id === String(item.concepto_id));
         if (!selected || selected.nombre !== term) {
             item.concepto_id = '';
+            item.presentacion_id = '';
             item.precio_unitario = 0;
             this.updateTotalsOnly();
         }
+        if (InventarioMedicinas.buscarPorCodigo(this.state.medicinas, term) && this.aplicarCodigo(index, term)) return;
         const normalized = this.normalizeSearch(term);
         const filters = item.filtros || {};
         const hasFilters = filters.seccion || filters.familia || filters.subfamilia;
@@ -266,7 +308,7 @@ const VentasModule = {
             <button class="concept-search-result" type="button" data-id="${this.escapeHtml(concepto.id)}"
                 onclick="VentasModule.selectConcept(${index}, this.dataset.id)">
                 <strong>${this.escapeHtml(concepto.nombre)}</strong>
-                <small>${this.escapeHtml(concepto.codigo || 'Sin código')} · Existencia: ${concepto.stock}</small>
+                <small>${this.escapeHtml(concepto.codigo || 'Sin código')} · Existencia: ${this.escapeHtml(item.tipo === 'medicina' ? InventarioMedicinas.existencia(concepto) : concepto.stock)}</small>
             </button>`).join('') : '<div class="concept-search-empty">Sin coincidencias</div>';
         results.hidden = false;
     },
@@ -276,8 +318,27 @@ const VentasModule = {
         const concepto = this.getCatalog(item.tipo).find(entry => entry.id === String(id));
         if (!concepto) return;
         item.concepto_id = concepto.id;
+        item.presentacion_id = '';
         item.precio_unitario = concepto.precio;
         this.renderItems();
+    },
+
+    // Medicina elegida: presentación (tableta, blíster, caja…) y su equivalente en unidades base
+    htmlPresentacion(item, index) {
+        if (item.tipo !== 'medicina' || !item.concepto_id) return '';
+        const medicina = this.state.medicinas.find(entry => entry.id === String(item.concepto_id));
+        if (!medicina) return '';
+        const presentaciones = InventarioMedicinas.presentaciones(medicina);
+        const elegida = InventarioMedicinas.presentacion(medicina, item.presentacion_id);
+        const unidad = InventarioMedicinas.unidadBase(medicina);
+        const total = (Number(item.cantidad) || 0) * elegida.factor;
+        return `<div class="inv-presentacion">
+            ${presentaciones.length > 1 ? `<label class="sr-only" for="salePresentation-${index}">Presentación</label>
+            <select id="salePresentation-${index}" class="form-input" onchange="VentasModule.updateItem(${index}, 'presentacion_id', this.value)">
+                ${presentaciones.map(p => `<option value="${this.escapeHtml(p.id)}" ${String(p.id) === String(elegida.id) ? 'selected' : ''}>${this.escapeHtml(InventarioMedicinas.nombrePresentacion(medicina, p))} · ${formatQ(p.precio_venta)}</option>`).join('')}
+            </select>` : ''}
+            <small>${elegida.factor > 1 ? `Descuenta ${this.escapeHtml(InventarioMedicinas.texto(total, unidad))} · ` : ''}Existencia: ${this.escapeHtml(InventarioMedicinas.existencia(medicina))}</small>
+        </div>`;
     },
 
     renderItems() {
@@ -297,7 +358,7 @@ const VentasModule = {
                 </select></td>
                 <td><div class="concept-search"><div class="concept-search-input"><i class="fas fa-search"></i>
                     <input id="saleConceptSearch-${index}" class="form-input" type="search" autocomplete="off" placeholder="Buscar por nombre o código..."
-                        value="${this.escapeHtml(selected?.nombre || '')}" oninput="VentasModule.searchConcept(${index}, this.value)">
+                        value="${this.escapeHtml(selected?.nombre || '')}" oninput="VentasModule.searchConcept(${index}, this.value)" onkeydown="VentasModule.alTeclearConcepto(event, ${index})">
                     <button class="concept-filter-toggle" type="button" title="Filtrar conceptos" onclick="VentasModule.toggleConceptFilters(${index})"><i class="fas fa-filter"></i></button>
                     </div>
                     <div id="saleConceptFilters-${index}" class="concept-filter-panel" hidden>
@@ -314,8 +375,9 @@ const VentasModule = {
                             ${subfamilies.map(value => `<option value="${this.escapeHtml(value)}" ${item.filtros.subfamilia === value ? 'selected' : ''}>${this.escapeHtml(value)}</option>`).join('')}
                         </select>
                     </div>
-                    <div id="saleConceptResults-${index}" class="concept-search-results" hidden></div></div></td>
-                <td><input class="form-input" type="number" min="1" step="1" value="${item.cantidad}" onchange="VentasModule.updateItem(${index}, 'cantidad', this.value)"></td>
+                    <div id="saleConceptResults-${index}" class="concept-search-results" hidden></div></div>
+                    ${this.htmlPresentacion(item, index)}</td>
+                <td><input class="form-input" type="number" min="1" step="1" value="${item.cantidad}" data-venta-cantidad onchange="VentasModule.updateItem(${index}, 'cantidad', this.value)"></td>
                 <td><input class="form-input" type="number" min="0" step="0.01" value="${item.precio_unitario}" onchange="VentasModule.updateItem(${index}, 'precio_unitario', this.value)"></td>
                 <td><strong>${formatQ(subtotal)}</strong></td>
                 <td><button class="btn-icon btn-delete" type="button" title="Quitar concepto" onclick="VentasModule.removeItem(${index})" ${this.state.items.length === 1 ? 'disabled' : ''}><i class="fas fa-trash"></i></button></td>
@@ -339,6 +401,7 @@ const VentasModule = {
             items: this.state.items.map(item => ({
                 tipo: item.tipo,
                 concepto_id: item.concepto_id,
+                presentacion_id: item.tipo === 'medicina' && item.presentacion_id ? Number(item.presentacion_id) : null,
                 cantidad: Number(item.cantidad),
                 precio_unitario: Number(item.precio_unitario)
             }))
@@ -370,7 +433,7 @@ const VentasModule = {
         const venta = this.state.ventas.find(entry => String(entry.id) === String(id));
         if (!venta) return;
         const details = venta.items.map(item =>
-            `${item.concepto_nombre}: ${item.cantidad} × ${formatQ(item.precio_unitario)}`
+            `${item.concepto_nombre}: ${item.cantidad}${item.presentacion_nombre ? ` ${item.presentacion_nombre}` : ''} × ${formatQ(item.precio_unitario)}`
         ).join('\n');
         alert(`${venta.numero_venta}\n${venta.receptor_nombre}\n\n${details}\n\nTotal: ${formatQ(venta.total)}`);
     },

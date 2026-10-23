@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-    <link rel="stylesheet" href="css/style.css?v=20261023-8">
+    <link rel="stylesheet" href="css/style.css?v=20261023-10">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/tema-botengine.css?v=20261018-2">
 </head>
@@ -3739,6 +3739,7 @@
                                 <option value="recibida">Recibida</option>
                                 <option value="cancelada">Cancelada</option>
                             </select>
+                            <small class="form-hint">Al marcarla «Recibida» suma sus conceptos al inventario.</small>
                         </div>
                     </div>
 
@@ -4292,21 +4293,49 @@
                         </div>
                     </div>
 
-                    <div class="form-section-title">Inventario</div>
+                    <div class="form-section-title">Inventario y unidades de medida</div>
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Cantidad En Stock</label>
-                            <input type="number" id="medicineCantidad" class="form-input" placeholder="0" min="0" value="0">
+                            <label for="medicineUnidadBase">Unidad base de inventario</label>
+                            <input type="text" id="medicineUnidadBase" class="form-input" list="medicineUnidadesLista" maxlength="30" value="Unidad" placeholder="Ej: Tableta">
+                            <datalist id="medicineUnidadesLista"></datalist>
+                            <small class="form-hint">La existencia se cuenta en esta unidad (p. ej. tabletas), aunque se compre o venda por caja.</small>
                         </div>
                         <div class="form-group">
-                            <label>Cantidad Mínima Alerta</label>
+                            <label for="medicineCantidad">Existencia (<span data-unidad-base>unidades</span>)</label>
+                            <input type="number" id="medicineCantidad" class="form-input" placeholder="0" min="0" value="0">
+                            <small class="form-hint" id="medicineCantidadAyuda">Existencia inicial al registrar la medicina.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="medicineCantidadMinima">Mínimo para alerta (<span data-unidad-base>unidades</span>)</label>
                             <input type="number" id="medicineCantidadMinima" class="form-input" placeholder="0" min="0" value="0">
                         </div>
+                    </div>
+
+                    <div class="form-row">
                         <div class="form-group">
-                            <label>Precio unitario (Q)</label>
+                            <label for="medicinePrecioCosto">Costo por <span data-unidad-base>unidad</span> (Q)</label>
+                            <input type="number" id="medicinePrecioCosto" class="form-input" placeholder="0.00" step="0.0001" min="0">
+                            <small class="form-hint">Se actualiza con cada compra recibida.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="medicinePrecioUnitario">Precio de venta por <span data-unidad-base>unidad</span> (Q)</label>
                             <input type="number" id="medicinePrecioUnitario" class="form-input" placeholder="0.00" step="0.01" min="0">
                         </div>
+                    </div>
+
+                    <div class="inv-presentaciones">
+                        <div class="inv-presentaciones-cabecera">
+                            <div>
+                                <strong>Presentaciones</strong>
+                                <small>Cajas, blísteres o frascos que contienen varias unidades base, con su precio y código de barras.</small>
+                            </div>
+                            <button type="button" class="btn btn-secondary btn-small" onclick="MedicinasModule.agregarPresentacion()">
+                                <i class="fas fa-plus" aria-hidden="true"></i> Agregar presentación
+                            </button>
+                        </div>
+                        <div id="medicinePresentaciones"></div>
                     </div>
 
                     <div class="form-section-title">Información Farmacológica</div>
@@ -5314,7 +5343,8 @@
     <script src="js/live-search.js?v=20261015-21"></script>
     <script src="js/pacientes.js?v=20261023-1"></script>
     <script src="js/pacientes-file-manager.js?v=20261015-21"></script>
-    <script src="js/medicinas.js?v=20261015-21"></script>
+    <script src="js/inventario-medicinas.js?v=20261023-1"></script>
+    <script src="js/medicinas.js?v=20261023-2"></script>
     <script src="js/sincronizacion.js?v=20261023-1"></script>
     <script src="js/historia-clinica-panel.js?v=20261023-6"></script>
     <script src="js/historia-clinica.js?v=20261022-1"></script>
@@ -5325,9 +5355,9 @@
     <script src="js/ordenes-enfermeria.js?v=20261023-2"></script>
     <script src="js/personal.js?v=20261018-3"></script>
     <script src="js/codigos-articulos.js?v=20261015-21"></script>
-    <script src="js/compras.js?v=20261015-21"></script>
+    <script src="js/compras.js?v=20261023-2"></script>
     <script src="js/alertas.js?v=20261015-21"></script>
-    <script src="js/ventas.js?v=20261015-21"></script>
+    <script src="js/ventas.js?v=20261023-1"></script>
     <script src="js/cotizaciones.js?v=20261019-1"></script>
     <script src="js/paciente-acciones.js?v=20261019-3"></script>
     <script src="js/caja.js?v=20261015-21"></script>

@@ -52,6 +52,7 @@ const ComprasModule = {
             this.state.compras = comprasData.compras || [];
             this.state.proveedores = proveedoresData.proveedores || [];
             this.state.medicinas = (medicinasData.medicinas || []).map(medicina => ({
+                ...medicina,
                 id: String(medicina.id),
                 nombre: medicina.nombre,
                 codigo: medicina.codigo_interno || medicina.codigo_externo || medicina.codigo_barra || '',
@@ -64,6 +65,7 @@ const ComprasModule = {
                 id: String(articulo.id),
                 nombre: articulo.nombre_articulo,
                 codigo: articulo.codigo || articulo.codigo_barras || articulo.codigo_alternativo || '',
+                codigosExactos: [articulo.codigo, articulo.codigo_barras, articulo.codigo_alternativo].filter(Boolean).map(String),
                 precio: Number(articulo.precio_costo ?? 0),
                 seccion: articulo.categoria || articulo.seccion || '',
                 familia: articulo.familia || '',
@@ -76,6 +78,11 @@ const ComprasModule = {
             this.render();
             this.notify(`No se pudieron cargar las compras: ${error.message}`, 'error');
         }
+    },
+
+    // La llama app.js al entrar a la página
+    refreshTable() {
+        this.render();
     },
 
     render() {
@@ -120,11 +127,12 @@ const ComprasModule = {
             ? compra.items.map(item => ({
                 tipo: item.tipo,
                 concepto_id: String(item.concepto_id),
+                presentacion_id: item.presentacion_id != null ? String(item.presentacion_id) : '',
                 cantidad: Number(item.cantidad),
                 precio_unitario: Number(item.precio_unitario),
                 filtros: { seccion: '', familia: '', subfamilia: '' }
             }))
-            : [{ tipo: 'articulo', concepto_id: '', cantidad: 1, precio_unitario: 0, filtros: { seccion: '', familia: '', subfamilia: '' } }];
+            : [{ tipo: 'articulo', concepto_id: '', presentacion_id: '', cantidad: 1, precio_unitario: 0, filtros: { seccion: '', familia: '', subfamilia: '' } }];
         this.renderItems();
         document.getElementById('purchaseModal').style.display = 'flex';
         document.body.style.overflow = 'hidden';
@@ -194,7 +202,7 @@ const ComprasModule = {
     },
 
     addItem() {
-        this.state.items.push({ tipo: 'articulo', concepto_id: '', cantidad: 1, precio_unitario: 0, filtros: { seccion: '', familia: '', subfamilia: '' } });
+        this.state.items.push({ tipo: 'articulo', concepto_id: '', presentacion_id: '', cantidad: 1, precio_unitario: 0, filtros: { seccion: '', familia: '', subfamilia: '' } });
         this.renderItems();
     },
 
@@ -211,16 +219,71 @@ const ComprasModule = {
         if (field === 'tipo') {
             item.tipo = value;
             item.concepto_id = '';
+            item.presentacion_id = '';
             item.precio_unitario = 0;
             item.filtros = { seccion: '', familia: '', subfamilia: '' };
         } else if (field === 'concepto_id') {
             item.concepto_id = value;
+            item.presentacion_id = '';
             const concepto = this.getCatalog(item.tipo).find(entry => entry.id === String(value));
             item.precio_unitario = concepto?.precio || 0;
+        } else if (field === 'presentacion_id') {
+            item.presentacion_id = String(value || '');
+            item.precio_unitario = this.costoPresentacion(item);
         } else {
             item[field] = Number(value);
         }
         this.renderItems();
+    },
+
+    // Costo sugerido de una presentación: el último costo por unidad base × su factor
+    costoPresentacion(item) {
+        const medicina = this.state.medicinas.find(entry => entry.id === String(item.concepto_id));
+        const presentacion = InventarioMedicinas.presentacion(medicina, item.presentacion_id);
+        return Number(((Number(medicina?.precio_costo) || 0) * presentacion.factor).toFixed(2));
+    },
+
+    // Código de barras escaneado (o escrito completo): elige el producto y, en medicinas, la presentación
+    aplicarCodigo(index, codigo) {
+        const item = this.state.items[index];
+        const encontrado = InventarioMedicinas.buscarPorCodigo(this.state.medicinas, codigo);
+        if (encontrado) {
+            Object.assign(item, { tipo: 'medicina', concepto_id: encontrado.medicina.id, presentacion_id: String(encontrado.presentacion.id) });
+            item.precio_unitario = this.costoPresentacion(item);
+        } else {
+            const limpio = String(codigo || '').trim();
+            const articulo = limpio && this.state.articulos.find(a => a.codigosExactos.includes(limpio));
+            if (!articulo) return false;
+            Object.assign(item, { tipo: 'articulo', concepto_id: articulo.id, presentacion_id: '', precio_unitario: articulo.precio });
+        }
+        this.renderItems();
+        document.querySelector(`#purchaseItemsBody tr:nth-child(${index + 1}) [data-compra-cantidad]`)?.select();
+        return true;
+    },
+
+    alTeclearConcepto(event, index) {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        if (this.aplicarCodigo(index, event.target.value)) return;
+        const resultados = document.querySelectorAll(`#conceptSearchResults-${index} .concept-search-result`);
+        if (resultados.length === 1) resultados[0].click();
+    },
+
+    // Medicina elegida: presentación comprada y cuántas unidades base suma al recibirse
+    htmlPresentacion(item, index) {
+        if (item.tipo !== 'medicina' || !item.concepto_id) return '';
+        const medicina = this.state.medicinas.find(entry => entry.id === String(item.concepto_id));
+        if (!medicina) return '';
+        const presentaciones = InventarioMedicinas.presentaciones(medicina);
+        const elegida = InventarioMedicinas.presentacion(medicina, item.presentacion_id);
+        const total = (Number(item.cantidad) || 0) * elegida.factor;
+        return `<div class="inv-presentacion">
+            ${presentaciones.length > 1 ? `<label class="sr-only" for="purchasePresentation-${index}">Presentación</label>
+            <select id="purchasePresentation-${index}" class="form-input" onchange="ComprasModule.updateItem(${index}, 'presentacion_id', this.value)">
+                ${presentaciones.map(p => `<option value="${this.escapeHtml(p.id)}" ${String(p.id) === String(elegida.id) ? 'selected' : ''}>${this.escapeHtml(InventarioMedicinas.nombrePresentacion(medicina, p))}</option>`).join('')}
+            </select>` : ''}
+            <small>Al recibirse suma ${this.escapeHtml(InventarioMedicinas.texto(total, InventarioMedicinas.unidadBase(medicina)))}</small>
+        </div>`;
     },
 
     getCatalog(tipo) {
@@ -266,11 +329,13 @@ const ComprasModule = {
         const selected = this.getCatalog(item.tipo).find(entry => entry.id === String(item.concepto_id));
         if (!selected || selected.nombre !== term) {
             item.concepto_id = '';
+            item.presentacion_id = '';
             item.precio_unitario = 0;
             document.getElementById(`purchaseItemPrice-${index}`).value = 0;
             document.getElementById(`purchaseItemSubtotal-${index}`).textContent = 'Q0.00';
             this.updateCalculatedTotal();
         }
+        if (InventarioMedicinas.buscarPorCodigo(this.state.medicinas, term) && this.aplicarCodigo(index, term)) return;
 
         const normalizedTerm = this.normalizeSearch(term);
         const filters = item.filtros || {};
@@ -305,6 +370,7 @@ const ComprasModule = {
         const concepto = this.getCatalog(item.tipo).find(entry => entry.id === String(conceptId));
         if (!concepto) return;
         item.concepto_id = concepto.id;
+        item.presentacion_id = '';
         item.precio_unitario = concepto.precio || 0;
         this.renderItems();
     },
@@ -339,7 +405,7 @@ const ComprasModule = {
                                 <input id="purchaseConceptSearch-${index}" class="form-input" type="search" autocomplete="off"
                                     placeholder="Buscar por nombre o código..."
                                     value="${this.escapeHtml(selectedConcept?.nombre || '')}"
-                                    oninput="ComprasModule.searchConcept(${index}, this.value)">
+                                    oninput="ComprasModule.searchConcept(${index}, this.value)" onkeydown="ComprasModule.alTeclearConcepto(event, ${index})">
                                 <button class="concept-filter-toggle" type="button" title="Filtrar conceptos" onclick="ComprasModule.toggleConceptFilters(${index})">
                                     <i class="fas fa-filter"></i>
                                 </button>
@@ -360,8 +426,9 @@ const ComprasModule = {
                             </div>
                             <div id="conceptSearchResults-${index}" class="concept-search-results" hidden></div>
                         </div>
+                        ${this.htmlPresentacion(item, index)}
                     </td>
-                    <td><input class="form-input" type="number" min="1" step="1" value="${item.cantidad}" onchange="ComprasModule.updateItem(${index}, 'cantidad', this.value)"></td>
+                    <td><input class="form-input" type="number" min="1" step="1" value="${item.cantidad}" data-compra-cantidad onchange="ComprasModule.updateItem(${index}, 'cantidad', this.value)"></td>
                     <td><input id="purchaseItemPrice-${index}" class="form-input" type="number" min="0" step="0.01" value="${item.precio_unitario}" onchange="ComprasModule.updateItem(${index}, 'precio_unitario', this.value)"></td>
                     <td><strong id="purchaseItemSubtotal-${index}">${formatQ(subtotal)}</strong></td>
                     <td>
@@ -394,6 +461,7 @@ const ComprasModule = {
             items: this.state.items.map(item => ({
                 tipo: item.tipo,
                 concepto_id: item.concepto_id,
+                presentacion_id: item.tipo === 'medicina' && item.presentacion_id ? Number(item.presentacion_id) : null,
                 cantidad: Number(item.cantidad),
                 precio_unitario: Number(item.precio_unitario)
             }))

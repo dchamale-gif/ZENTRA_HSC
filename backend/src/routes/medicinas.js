@@ -25,6 +25,10 @@ router.put('/:id', medicinasController.updateMedicina);
 // PUT - Actualizar stock
 router.put('/:id/stock', medicinasController.actualizarStock);
 
+// Kárdex: movimientos de inventario, consumo interno y ajustes
+router.get('/:id/movimientos', medicinasController.getMovimientos);
+router.post('/:id/movimientos', medicinasController.registrarMovimiento);
+
 // DELETE - Eliminar medicina
 router.delete('/:id', medicinasController.deleteMedicina);
 

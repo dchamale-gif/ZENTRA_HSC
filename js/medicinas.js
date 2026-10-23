@@ -20,7 +20,9 @@ const MedicinasModule = {
         familiasDisponibles: [],
         subfamiliasDisponibles: [],
         presentaciones: ['Tabletas', 'Cápsulas', 'Solución Oral', 'Inyectable', 'Crema', 'Polvo', 'Jarabe', 'Grageas'],
-        medicinasSeleccionadas: [] // Medicinas temporales para asignación múltiple
+        medicinasSeleccionadas: [], // Medicinas temporales para asignación múltiple
+        presentacionesForm: [], // Presentaciones (caja, blíster…) en edición en el formulario
+        kardex: null // { medicina, movimientos } del kárdex abierto
     },
 
     // Inicializar el módulo
@@ -148,6 +150,8 @@ const MedicinasModule = {
                     this.deleteMedicine(medicineId);
                 } else if (action === 'view') {
                     this.viewMedicineDetails(medicineId);
+                } else if (action === 'kardex') {
+                    this.abrirKardex(medicineId);
                 }
             });
         }
@@ -380,6 +384,8 @@ const MedicinasModule = {
             form.reset();
             document.getElementById('medicineId').value = '';
             document.getElementById('medicineActiva').checked = true;
+            this.state.presentacionesForm = [];
+            this.prepararInventarioForm(null);
             document.getElementById('medicineSection').value = '';
             document.getElementById('medicineFamily').value = '';
             document.getElementById('medicineSubfamily').value = '';
@@ -464,6 +470,297 @@ const MedicinasModule = {
     },
 
     // Cerrar modal
+    // ---------- Unidades de medida y presentaciones (formulario) ----------
+    // Con kárdex, la existencia de una medicina ya registrada solo cambia con movimientos
+    prepararInventarioForm(medicine) {
+        const lista = document.getElementById('medicineUnidadesLista');
+        if (lista && !lista.children.length) lista.innerHTML = InventarioMedicinas.UNIDADES.map(u => `<option value="${u}">`).join('');
+        const unidad = document.getElementById('medicineUnidadBase');
+        if (unidad) {
+            unidad.value = medicine ? InventarioMedicinas.unidadBase(medicine) : 'Unidad';
+            if (!unidad.dataset.enlazado) {
+                unidad.dataset.enlazado = '1';
+                unidad.addEventListener('input', () => this.actualizarEtiquetasUnidad());
+            }
+        }
+        const cantidad = document.getElementById('medicineCantidad');
+        const ayuda = document.getElementById('medicineCantidadAyuda');
+        if (cantidad) cantidad.readOnly = Boolean(medicine);
+        if (ayuda) {
+            ayuda.textContent = medicine
+                ? 'Cambia con compras recibidas, ventas, consumo interno y ajustes. Para corregirla use el kárdex de la medicina.'
+                : 'Existencia inicial al registrar la medicina.';
+        }
+        this.renderPresentacionesForm();
+        this.actualizarEtiquetasUnidad();
+    },
+
+    unidadFormulario() {
+        return document.getElementById('medicineUnidadBase')?.value.trim() || 'Unidad';
+    },
+
+    actualizarEtiquetasUnidad() {
+        const unidad = this.unidadFormulario().toLowerCase();
+        document.querySelectorAll('#editMedicineForm [data-unidad-base]').forEach(el => { el.textContent = unidad; });
+        document.querySelectorAll('#medicinePresentaciones [data-unidad-fila]').forEach(el => {
+            const fila = this.state.presentacionesForm[Number(el.dataset.unidadFila)];
+            el.textContent = InventarioMedicinas.texto(parseInt(fila?.factor, 10) || 0, this.unidadFormulario()).replace(/^\d+\s/, '');
+        });
+    },
+
+    agregarPresentacion() {
+        const tieneCaja = this.state.presentacionesForm.some(p => String(p.nombre).toLowerCase() === 'caja');
+        this.state.presentacionesForm.push({ nombre: tieneCaja ? '' : 'Caja', factor: '', precio_venta: '', codigo_barra: '' });
+        this.renderPresentacionesForm();
+        const filas = document.querySelectorAll('#medicinePresentaciones .inv-presentacion-fila');
+        filas[filas.length - 1]?.querySelector(tieneCaja ? '[data-campo="nombre"]' : '[data-campo="factor"]')?.focus();
+    },
+
+    quitarPresentacion(indice) {
+        this.state.presentacionesForm.splice(indice, 1);
+        this.renderPresentacionesForm();
+    },
+
+    renderPresentacionesForm() {
+        const contenedor = document.getElementById('medicinePresentaciones');
+        if (!contenedor) return;
+        const e = valor => this.escapeHTML(valor ?? '');
+        const filas = this.state.presentacionesForm;
+        contenedor.innerHTML = filas.length ? filas.map((p, i) => `
+            <div class="inv-presentacion-fila" data-indice="${i}">
+                <label class="inv-campo"><span>Presentación</span>
+                    <input type="text" class="form-input" data-campo="nombre" list="medicinePresentacionNombres" maxlength="40" value="${e(p.nombre)}" placeholder="Caja">
+                </label>
+                <label class="inv-campo"><span>Contiene</span>
+                    <span class="inv-con-unidad">
+                        <input type="number" class="form-input" data-campo="factor" min="2" step="1" value="${e(p.factor)}" placeholder="100">
+                        <small data-unidad-fila="${i}"></small>
+                    </span>
+                </label>
+                <label class="inv-campo"><span>Precio de venta (Q)</span>
+                    <input type="number" class="form-input" data-campo="precio_venta" min="0" step="0.01" value="${e(p.precio_venta)}" placeholder="0.00">
+                </label>
+                <label class="inv-campo"><span>Código de barras</span>
+                    <input type="text" class="form-input" data-campo="codigo_barra" maxlength="60" value="${e(p.codigo_barra)}" placeholder="Opcional">
+                </label>
+                <button type="button" class="btn-accion btn-accion-icono btn-accion-peligro" onclick="MedicinasModule.quitarPresentacion(${i})" title="Quitar presentación" aria-label="Quitar presentación ${i + 1}">
+                    <i class="fas fa-xmark" aria-hidden="true"></i>
+                </button>
+            </div>`).join('') + '<datalist id="medicinePresentacionNombres"><option value="Caja"><option value="Blíster"><option value="Frasco"><option value="Paquete"><option value="Display"></datalist>'
+            : '<p class="inv-vacio">Sin presentaciones: se compra y vende solo por unidad base.</p>';
+        if (!contenedor.dataset.enlazado) {
+            contenedor.dataset.enlazado = '1';
+            contenedor.addEventListener('input', ev => {
+                const fila = ev.target.closest('[data-indice]');
+                const campo = ev.target.dataset.campo;
+                if (!fila || !campo) return;
+                this.state.presentacionesForm[Number(fila.dataset.indice)][campo] = ev.target.value;
+                if (campo === 'factor') this.actualizarEtiquetasUnidad();
+            });
+        }
+        this.actualizarEtiquetasUnidad();
+    },
+
+    // ---------- Kárdex: movimientos, consumo interno y ajustes ----------
+    async apiMedicinas(path, options = {}) {
+        const response = await fetch(`${authManager.apiBaseUrl}/api/medicinas${path}`, {
+            ...options,
+            headers: { Authorization: `Bearer ${authManager.getToken()}`, 'Content-Type': 'application/json', ...(options.headers || {}) }
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || data.message || `Error ${response.status}`);
+        return data;
+    },
+
+    async abrirKardex(id) {
+        const medicina = this.state.medicinas.find(m => String(m.id) === String(id));
+        if (!medicina) return;
+        document.getElementById('kardexMedicina')?.remove();
+        const capa = document.createElement('div');
+        capa.id = 'kardexMedicina';
+        capa.className = 'modal-overlay inv-kardex';
+        capa.innerHTML = `
+            <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="kardexTitulo">
+                <div class="modal-header">
+                    <h2 id="kardexTitulo">Kárdex · ${this.escapeHTML(medicina.nombre)}</h2>
+                    <button type="button" class="close-btn" data-kardex="cerrar" aria-label="Cerrar">&times;</button>
+                </div>
+                <div class="modal-body" id="kardexContenido"><p class="inv-vacio">Cargando movimientos…</p></div>
+            </div>`;
+        const cerrar = () => {
+            capa.remove();
+            document.removeEventListener('keydown', alTeclear);
+            this.state.kardex = null;
+        };
+        const alTeclear = ev => { if (ev.key === 'Escape') cerrar(); };
+        capa.addEventListener('click', ev => {
+            if (ev.target === capa || ev.target.closest('[data-kardex="cerrar"]')) cerrar();
+            if (ev.target.closest('[data-kardex="registrar"]')) this.registrarMovimiento();
+        });
+        capa.addEventListener('change', ev => {
+            if (ev.target.matches('[data-mov="tipo"]')) this.actualizarFormMovimiento();
+        });
+        capa.addEventListener('input', ev => {
+            if (ev.target.matches('[data-mov="cantidad"], [data-mov="presentacion"]')) this.actualizarFormMovimiento();
+        });
+        document.addEventListener('keydown', alTeclear);
+        document.body.appendChild(capa);
+        capa.querySelector('[data-kardex="cerrar"]').focus();
+        await this.cargarKardex(medicina.id);
+    },
+
+    async cargarKardex(id) {
+        const contenido = document.getElementById('kardexContenido');
+        try {
+            const [{ medicina }, { movimientos }] = await Promise.all([
+                this.apiMedicinas(`/${encodeURIComponent(id)}`),
+                this.apiMedicinas(`/${encodeURIComponent(id)}/movimientos`)
+            ]);
+            if (Permisos.puede('medicinas', 'edit') && !this.state.pacientesKardex) {
+                this.state.pacientesKardex = await fetch(`${authManager.apiBaseUrl}/api/pacientes`, { headers: { Authorization: `Bearer ${authManager.getToken()}` } })
+                    .then(r => (r.ok ? r.json() : {})).then(d => d.pacientes || d.data || []).catch(() => []);
+            }
+            this.state.kardex = { medicina, movimientos };
+            if (contenido) contenido.innerHTML = this.htmlKardex();
+            this.actualizarFormMovimiento();
+        } catch (error) {
+            if (contenido) contenido.innerHTML = `<p class="inv-vacio">No se pudo cargar el kárdex: ${this.escapeHTML(error.message)}</p>`;
+        }
+    },
+
+    htmlKardex() {
+        const { medicina, movimientos } = this.state.kardex;
+        const e = valor => this.escapeHTML(valor ?? '');
+        const unidad = InventarioMedicinas.unidadBase(medicina);
+        const presentaciones = InventarioMedicinas.presentaciones(medicina);
+        const cantidad = Number(medicina.cantidad) || 0;
+        const desglose = InventarioMedicinas.desglose(cantidad, medicina);
+        const pacientes = this.state.pacientesKardex || [];
+
+        const formulario = Permisos.puede('medicinas', 'edit') ? `
+            <fieldset class="inv-mov-form">
+                <legend>Registrar consumo interno o ajuste</legend>
+                <p class="inv-ayuda">Consumo interno: lo usado para atender a pacientes del centro (no es venta). Ajuste: correcciones por conteo físico, merma o vencimiento.</p>
+                <div class="inv-mov-campos">
+                    <label class="inv-campo"><span>Movimiento</span>
+                        <select class="form-input" data-mov="tipo">
+                            <option value="consumo_interno">Consumo interno</option>
+                            <option value="ajuste_salida">Ajuste de salida</option>
+                            <option value="ajuste_entrada">Ajuste de entrada</option>
+                        </select>
+                    </label>
+                    <label class="inv-campo"><span>Presentación</span>
+                        <select class="form-input" data-mov="presentacion">
+                            ${presentaciones.map(p => `<option value="${e(p.id)}">${e(InventarioMedicinas.nombrePresentacion(medicina, p))}</option>`).join('')}
+                        </select>
+                    </label>
+                    <label class="inv-campo"><span>Cantidad</span>
+                        <input type="number" class="form-input" data-mov="cantidad" min="1" step="1" value="1">
+                    </label>
+                    <label class="inv-campo" data-mov-paciente><span>Paciente (opcional)</span>
+                        <select class="form-input" data-mov="paciente">
+                            <option value="">Sin paciente</option>
+                            ${pacientes.map(p => `<option value="${e(p.id)}">${e([p.nombre, p.apellido_paterno || p.apellidoPaterno, p.apellido_materno || p.apellidoMaterno].filter(Boolean).join(' '))}</option>`).join('')}
+                        </select>
+                    </label>
+                    <label class="inv-campo inv-campo-ancho"><span data-mov-motivo-etiqueta>Detalle (opcional)</span>
+                        <input type="text" class="form-input" data-mov="motivo" maxlength="500" placeholder="Ej.: dosis de la noche, blíster dañado, conteo físico…">
+                    </label>
+                </div>
+                <div class="inv-mov-pie">
+                    <small data-mov-equivale></small>
+                    <button type="button" class="btn btn-primary btn-small" data-kardex="registrar"><i class="fas fa-check" aria-hidden="true"></i> Registrar</button>
+                </div>
+            </fieldset>` : '';
+
+        const filas = movimientos.length ? movimientos.map(m => {
+            const entra = m.cantidad > 0;
+            const detalle = [m.paciente_nombre ? `Paciente: ${m.paciente_nombre}` : '', m.motivo].filter(Boolean).join(' · ');
+            return `<tr>
+                <td>${e(formatFechaHora(m.fecha))}</td>
+                <td>${e(InventarioMedicinas.MOVIMIENTOS[m.tipo] || m.tipo)}${m.referencia ? `<br><small>${e(m.referencia)}</small>` : ''}</td>
+                <td>${m.factor > 1 ? `${e(m.cantidad_presentacion)} × ${e(m.presentacion)}` : e(InventarioMedicinas.texto(Math.abs(m.cantidad), m.presentacion || unidad))}</td>
+                <td class="inv-num ${entra ? 'inv-entrada' : 'inv-salida'}">${entra ? '+' : '−'}${Math.abs(m.cantidad)}</td>
+                <td class="inv-num">${e(m.existencia_resultante)}</td>
+                <td>${e(m.usuario_nombre || '—')}</td>
+                <td class="inv-detalle">${e(detalle)}</td>
+            </tr>`;
+        }).join('') : `<tr><td colspan="7" class="inv-vacio">Sin movimientos.</td></tr>`;
+
+        return `
+            <div class="inv-existencia">
+                <span>Existencia</span>
+                <strong>${e(InventarioMedicinas.texto(cantidad, unidad))}</strong>
+                ${desglose ? `<small>${e(desglose)}</small>` : ''}
+            </div>
+            ${formulario}
+            <div class="inv-tabla-envoltura">
+                <table class="inv-tabla">
+                    <thead><tr><th scope="col">Fecha</th><th scope="col">Movimiento</th><th scope="col">Presentación</th>
+                        <th scope="col" class="inv-num">Entrada / salida <small>(${e(unidad.toLowerCase())})</small></th><th scope="col" class="inv-num">Existencia</th>
+                        <th scope="col">Usuario</th><th scope="col">Detalle</th></tr></thead>
+                    <tbody>${filas}</tbody>
+                </table>
+            </div>`;
+    },
+
+    // El paciente solo aplica al consumo interno; el ajuste exige motivo. Muestra el equivalente en unidades base.
+    actualizarFormMovimiento() {
+        const capa = document.getElementById('kardexMedicina');
+        if (!capa || !this.state.kardex) return;
+        const campo = nombre => capa.querySelector(`[data-mov="${nombre}"]`);
+        if (!campo('tipo')) return;
+        const consumo = campo('tipo').value === 'consumo_interno';
+        capa.querySelector('[data-mov-paciente]').hidden = !consumo;
+        capa.querySelector('[data-mov-motivo-etiqueta]').textContent = consumo ? 'Detalle (opcional)' : 'Motivo del ajuste *';
+        const { medicina } = this.state.kardex;
+        const p = InventarioMedicinas.presentacion(medicina, campo('presentacion').value);
+        const cantidad = parseInt(campo('cantidad').value, 10) || 0;
+        capa.querySelector('[data-mov-equivale]').textContent = p.factor > 1 && cantidad > 0
+            ? `Equivale a ${InventarioMedicinas.texto(cantidad * p.factor, InventarioMedicinas.unidadBase(medicina))}`
+            : '';
+    },
+
+    async registrarMovimiento() {
+        const capa = document.getElementById('kardexMedicina');
+        const { medicina } = this.state.kardex || {};
+        if (!capa || !medicina) return;
+        const campo = nombre => capa.querySelector(`[data-mov="${nombre}"]`);
+        const tipo = campo('tipo').value;
+        const cantidad = parseInt(campo('cantidad').value, 10);
+        const motivo = campo('motivo').value.trim();
+        if (!(cantidad > 0)) {
+            this.showNotification('Escriba una cantidad mayor a cero', 'warning');
+            campo('cantidad').focus();
+            return;
+        }
+        if (tipo !== 'consumo_interno' && motivo.length < 3) {
+            this.showNotification('Escriba el motivo del ajuste', 'warning');
+            campo('motivo').focus();
+            return;
+        }
+        const boton = capa.querySelector('[data-kardex="registrar"]');
+        boton.disabled = true;
+        try {
+            const { medicina: actualizada } = await this.apiMedicinas(`/${encodeURIComponent(medicina.id)}/movimientos`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    tipo,
+                    cantidad,
+                    presentacion_id: campo('presentacion').value || null,
+                    paciente_id: tipo === 'consumo_interno' ? campo('paciente').value || null : null,
+                    motivo
+                })
+            });
+            this.showNotification(`Movimiento registrado. Existencia: ${InventarioMedicinas.existencia(actualizada)}`, 'success');
+            await this.cargarKardex(medicina.id);
+            this.loadData();
+        } catch (error) {
+            this.showNotification(error.message, 'error');
+            boton.disabled = false;
+        }
+    },
+
     closeMedicineModal() {
         const modal = document.getElementById('medicineModal');
         if (modal) {
@@ -482,6 +779,12 @@ const MedicinasModule = {
 
         if (!this.validateMedicineForm()) {
             this.showNotification('⚠️ Por favor completa todos los campos requeridos', 'warning');
+            return;
+        }
+        const presentacionMala = this.state.presentacionesForm.findIndex(p => !String(p.nombre || '').trim() || !(parseInt(p.factor, 10) >= 2));
+        if (presentacionMala >= 0) {
+            this.showNotification(`Complete la presentación ${presentacionMala + 1}: nombre y cuántas unidades contiene (2 o más)`, 'warning');
+            document.querySelector(`#medicinePresentaciones [data-indice="${presentacionMala}"] input`)?.focus();
             return;
         }
 
@@ -517,6 +820,14 @@ const MedicinasModule = {
                 cantidad: parseInt(document.getElementById('medicineCantidad').value, 10) || 0,
                 cantidad_minima: parseInt(document.getElementById('medicineCantidadMinima').value, 10) || 0,
                 precio_venta: parseFloat(document.getElementById('medicinePrecioUnitario').value) || 0,
+                precio_costo: parseFloat(document.getElementById('medicinePrecioCosto').value) || 0,
+                unidad_base: valor('medicineUnidadBase') || 'Unidad',
+                presentaciones: this.state.presentacionesForm.map(p => ({
+                    nombre: String(p.nombre || '').trim(),
+                    factor: parseInt(p.factor, 10),
+                    precio_venta: parseFloat(p.precio_venta) || 0,
+                    codigo_barra: String(p.codigo_barra || '').trim() || null
+                })),
                 contraindicaciones: valor('medicineContraindicaciones'),
                 efectos_secundarios: valor('medicineEfectosSecundarios'),
                 proveedor: valor('medicineProveedor'),
@@ -620,6 +931,9 @@ const MedicinasModule = {
             fillField('medicineCantidad', String(medicine.cantidad));
             fillField('medicineCantidadMinima', String(medicine.cantidadMinima));
             fillField('medicinePrecioUnitario', medicine.precioUnitario ? medicine.precioUnitario.toFixed(2) : '');
+            fillField('medicinePrecioCosto', medicine.precioCosto ? String(medicine.precioCosto) : '');
+            this.state.presentacionesForm = (medicine.presentaciones || []).map(p => ({ ...p }));
+            this.prepararInventarioForm(medicine);
             fillField('medicineContraindicaciones', medicine.contraindicaciones);
             fillField('medicineEfectosSecundarios', medicine.efectosSecundarios);
             
@@ -833,6 +1147,9 @@ const MedicinasModule = {
                     <button class="btn-icon btn-view" title="Ver detalles" data-action="view">
                         <i class="fas fa-eye"></i>
                     </button>
+                    <button class="btn-icon" title="Kárdex: movimientos, consumo interno y ajustes" aria-label="Kárdex de ${e(medicine.nombre)}" data-action="kardex">
+                        <i class="fas fa-clipboard-list"></i>
+                    </button>
                     <button class="btn-icon btn-edit" title="Editar" data-action="edit">
                         <i class="fas fa-edit"></i>
                     </button>
@@ -897,13 +1214,16 @@ const MedicinasModule = {
     getStockBadge(medicine) {
         const stock = medicine.stock || medicine.cantidad || 0;
         const stockMinimo = medicine.stock_minimo || medicine.cantidadMinima || 0;
-        
+        const texto = this.escapeHTML(InventarioMedicinas.texto(stock, InventarioMedicinas.unidadBase(medicine)));
+        const desglose = InventarioMedicinas.desglose(stock, medicine);
+        const detalle = desglose ? `<br><small class="medicina-sub">${this.escapeHTML(desglose)}</small>` : '';
+
         if (stock === 0) {
             return '<span class="badge badge-danger">Agotado (0)</span>';
         } else if (stock <= stockMinimo) {
-            return `<span class="badge badge-warning">Bajo ${stock}</span>`;
+            return `<span class="badge badge-warning">Bajo: ${texto}</span>${detalle}`;
         }
-        return `<span class="badge badge-success">${stock} unid.</span>`;
+        return `<span class="badge badge-success">${texto}</span>${detalle}`;
     },
 
     // Verificar si está vencida
