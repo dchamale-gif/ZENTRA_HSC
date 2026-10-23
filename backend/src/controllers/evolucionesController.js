@@ -16,40 +16,53 @@ const responder = (res, contexto, error) => {
   res.status(500).json({ success: false, message: 'No se pudo completar la operación. Intente de nuevo.' });
 };
 
-// Médicos: usuarios activos con un rol (no admin) que abre y cierra historias. La especialidad sale de
-// Personal médico cuando el correo coincide.
-const consultaMedicos = async (db, filtroId = null) => {
-  const conPersonal = (await db.query("SELECT to_regclass('public.personal_medico') IS NOT NULL AS hay")).rows[0].hay;
-  const especialidad = conPersonal
-    ? `COALESCE((SELECT e.nombre FROM personal_medico pm JOIN especialidades_medicas e ON e.id = pm.especialidad_id
-                 WHERE lower(pm.email) = lower(u.email) LIMIT 1), '')`
-    : "''";
-  const result = await db.query(
-    `SELECT DISTINCT u.id, trim(concat(u.nombre, ' ', u.apellido)) AS nombre, ${especialidad} AS especialidad
+// Médicos que se pueden elegir: los usuarios con un rol (no admin) que abre y cierra historias y el
+// Personal médico activo. Cuando el correo coincide son la misma persona y se unen (la especialidad
+// sale de Personal médico). Clave: 'u:<id de usuario>' o 'p:<id de personal médico>'.
+const consultaMedicos = async (db) => {
+  const usuarios = (await db.query(
+    `SELECT DISTINCT u.id, u.email, trim(concat(u.nombre, ' ', u.apellido)) AS nombre
      FROM users u
      JOIN user_roles ur ON ur.user_id = u.id
      JOIN roles r ON r.id = ur.role_id
      JOIN role_permissions rp ON rp.role_id = ur.role_id
      JOIN permissions p ON p.id = rp.permission_id
-     WHERE p.nombre = 'historia_clinica_cierre_edit' AND r.nombre <> 'admin' AND u.activo = true
-       ${filtroId !== null ? 'AND u.id = $1' : ''}
-     ORDER BY 2`,
-    filtroId !== null ? [filtroId] : []
-  );
-  return result.rows;
+     WHERE p.nombre = 'historia_clinica_cierre_edit' AND r.nombre <> 'admin' AND u.activo = true`
+  )).rows;
+
+  const conPersonal = (await db.query("SELECT to_regclass('public.personal_medico') IS NOT NULL AS hay")).rows[0].hay;
+  const personal = conPersonal ? (await db.query(
+    `SELECT pm.id, pm.email, trim(concat_ws(' ', pm.nombre, pm.apellido_paterno, pm.apellido_materno)) AS nombre,
+            COALESCE(e.nombre, '') AS especialidad
+     FROM personal_medico pm
+     LEFT JOIN especialidades_medicas e ON e.id = pm.especialidad_id
+     WHERE pm.estado = 'activo'`
+  )).rows : [];
+
+  const porCorreo = new Map(personal.filter(pm => pm.email).map(pm => [pm.email.toLowerCase(), pm]));
+  const unidos = new Set();
+  const lista = usuarios.map(u => {
+    const pm = porCorreo.get(String(u.email || '').toLowerCase());
+    if (pm) unidos.add(pm.id);
+    return { clave: `u:${u.id}`, usuario_id: u.id, nombre: u.nombre || u.email, especialidad: pm?.especialidad || '' };
+  });
+  personal.filter(pm => !unidos.has(pm.id)).forEach(pm => {
+    lista.push({ clave: `p:${pm.id}`, usuario_id: null, nombre: pm.nombre, especialidad: pm.especialidad });
+  });
+  return lista.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 };
 
-// El médico de la evolución: el usuario mismo; el admin puede elegir a otro médico
+// El médico de la evolución: el usuario mismo; el admin puede elegir a otro médico (medico_clave)
 const resolverMedico = async (req, db, admin) => {
-  const pedido = req.body.medico_id ? Number(req.body.medico_id) : null;
-  if (!admin || pedido === null || pedido === Number(req.user.id)) {
-    const [propio] = await consultaMedicos(db, Number(req.user.id));
+  const clave = String(req.body.medico_clave || '');
+  const lista = await consultaMedicos(db);
+  if (!admin || !clave || clave === `u:${req.user.id}`) {
+    const propio = lista.find(m => m.clave === `u:${req.user.id}`);
     return { id: req.user.id, nombre: sync.nombreUsuario(req), especialidad: propio?.especialidad || '' };
   }
-  if (!Number.isInteger(pedido)) throw sync.errorConEstado('Médico no válido');
-  const [medico] = await consultaMedicos(db, pedido);
+  const medico = lista.find(m => m.clave === clave);
   if (!medico) throw sync.errorConEstado('El médico elegido no existe o no está activo');
-  return medico;
+  return { id: medico.usuario_id, nombre: medico.nombre, especialidad: medico.especialidad };
 };
 
 const validar = (body) => {
@@ -107,7 +120,7 @@ const listar = async (req, res) => {
   }
 };
 
-// POST /api/evoluciones { paciente_id, tipo, fecha_hora?, contenido, medico_id? (solo admin) }
+// POST /api/evoluciones { paciente_id, tipo, fecha_hora?, contenido, medico_clave? (solo admin) }
 const crear = async (req, res) => {
   const client = await pool.connect();
   try {
@@ -148,7 +161,7 @@ const evolucionActual = async (db, id) => {
   return result.rows[0];
 };
 
-// PUT /api/evoluciones/:id { tipo, fecha_hora, contenido, medico_id, motivo }  (admin)
+// PUT /api/evoluciones/:id { tipo, fecha_hora, contenido, medico_clave, motivo }  (admin)
 const actualizar = async (req, res) => {
   const client = await pool.connect();
   try {
@@ -159,7 +172,8 @@ const actualizar = async (req, res) => {
     const { tipo, contenido, fecha } = validar(req.body);
     await client.query('BEGIN');
     const antes = await evolucionActual(client, id);
-    const medico = req.body.medico_id && Number(req.body.medico_id) !== Number(antes.medico_id)
+    // 'actual' (o sin clave) conserva el médico registrado, aunque ya no esté en la lista
+    const medico = req.body.medico_clave && req.body.medico_clave !== 'actual'
       ? await resolverMedico(req, client, true)
       : { id: antes.medico_id, nombre: antes.medico_nombre, especialidad: antes.especialidad };
     await client.query(

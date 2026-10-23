@@ -55,7 +55,8 @@ const HistoriaPanelModule = {
     TIPOS_EVOLUCION: ['Seguimiento', 'Observación', 'Diagnóstico', 'Control', 'Indicaciones', 'Evaluación', 'Contraindicación', 'Procedimiento'],
 
     PESTANAS: [
-        { clave: 'historia', texto: 'Historia y antecedentes' },
+        { clave: 'historia', texto: 'Historia' },
+        { clave: 'signos', texto: 'Signos vitales' },
         { clave: 'ordenes', texto: 'Órdenes' },
         { clave: 'notas', texto: 'Notas de enfermería' },
         { clave: 'evolucion', texto: 'Evolución' },
@@ -499,6 +500,11 @@ const HistoriaPanelModule = {
         if (pestana === 'evolucion') {
             return this.renderEvolucion(contenido);
         }
+        if (pestana === 'signos') {
+            contenido.innerHTML = this.htmlPestanaSignos();
+            this.actualizarImc();
+            return;
+        }
 
         // Pestañas que siguen en HistoriaClinicaModule (datos de este navegador)
         const hc = HistoriaClinicaModule;
@@ -580,9 +586,7 @@ const HistoriaPanelModule = {
                             <input type="date" class="form-input" data-campo="fecha" value="${this.e(String(h.fecha).slice(0, 10))}" max="${this.hoy()}">
                         </label>
                     </div>` : ''}
-                    ${this.CAMPOS_HISTORIA.slice(0, 3).map(c => this.htmlCampo(c, h, editable)).join('')}
-                    ${this.htmlSignos(h, editable)}
-                    ${this.CAMPOS_HISTORIA.slice(3).map(c => this.htmlCampo(c, h, editable)).join('')}
+                    ${this.CAMPOS_HISTORIA.map(c => this.htmlCampo(c, h, editable)).join('')}
                 </div>
                 ${this.htmlAntecedentes(antecedentes, antecedentesEditables, !abierta)}
             </div>
@@ -609,6 +613,21 @@ const HistoriaPanelModule = {
                 <span>${campo.texto}</span>
                 <p>${valor ? this.e(valor) : '<em>Sin registrar</em>'}</p>
             </div>`;
+    },
+
+    // Pestaña propia: se guardan con la historia (quien edita la historia, p. ej. enfermería, los registra)
+    htmlPestanaSignos() {
+        const h = this.state.historia;
+        if (!h) {
+            return `<div class="hc2-vacio-grande"><i class="fas fa-heart-pulse" aria-hidden="true"></i>
+                <p>Este paciente no tiene historia clínica. Los signos vitales se registran dentro de una historia abierta.</p></div>`;
+        }
+        const editable = h.estado === 'abierta' && this.puedeEditar();
+        return `
+            ${!this.esActual() || !editable ? `<p class="hc2-nota-local"><i class="fas fa-lock" aria-hidden="true"></i> Historia ${h.estado === 'cerrada' ? 'cerrada' : 'anterior'} del ${this.fecha(h.fecha)}: solo lectura.</p>` : ''}
+            <div data-hc2-seccion="historia">${this.htmlSignos(h, editable)}</div>
+            ${h.actualizado_por_nombre ? `<p class="hc2-nota-local">Última actualización de la historia: ${this.e(h.actualizado_por_nombre)}${h.updated_at ? ` · ${this.e(formatFechaHora(h.updated_at))}` : ''}</p>` : ''}
+            ${editable ? '<div class="hc2-acciones"><button type="button" class="btn btn-primary" data-hc2="guardar"><i class="fas fa-floppy-disk" aria-hidden="true"></i> Guardar signos vitales</button></div>' : ''}`;
     },
 
     htmlSignos(h, editable) {
@@ -941,13 +960,19 @@ const HistoriaPanelModule = {
         const miNombre = `${yo.nombre || ''} ${yo.apellido || ''}`.trim() || yo.email || '';
         const admin = Permisos.esAdmin();
         const medicos = this.state.medicosEvolucion || [];
-        const elegido = String(editando?.medico_id ?? (medicos.some(m => String(m.id) === String(yo.id)) ? yo.id : ''));
+        // Al modificar: el médico registrado (por usuario o por nombre); si ya no está en la lista se conserva tal cual
+        const registrado = editando && (medicos.find(m => editando.medico_id && m.usuario_id != null && String(m.usuario_id) === String(editando.medico_id))
+            || medicos.find(m => m.nombre === editando.medico_nombre));
+        const elegido = editando
+            ? (registrado ? registrado.clave : 'actual')
+            : (medicos.some(m => m.clave === `u:${yo.id}`) ? `u:${yo.id}` : '');
         const sinHistoriaAbierta = !editando && !this.state.historias.some(h => h.estado === 'abierta');
 
         const campoMedico = admin
             ? `<select class="form-input" data-hc2-evol="medico" required>
-                    <option value="">Elija el médico</option>
-                    ${medicos.map(m => `<option value="${m.id}"${String(m.id) === elegido ? ' selected' : ''}>${this.e(m.nombre)}${m.especialidad ? ` · ${this.e(m.especialidad)}` : ''}</option>`).join('')}
+                    <option value="">${medicos.length ? 'Elija el médico' : 'No hay médicos registrados'}</option>
+                    ${elegido === 'actual' ? `<option value="actual" selected>${this.e(editando.medico_nombre || 'Médico registrado')}${editando.especialidad ? ` · ${this.e(editando.especialidad)}` : ''}</option>` : ''}
+                    ${medicos.map(m => `<option value="${this.e(m.clave)}"${m.clave === elegido ? ' selected' : ''}>${this.e(m.nombre)}${m.especialidad ? ` · ${this.e(m.especialidad)}` : ''}</option>`).join('')}
                </select>`
             : `<input type="text" class="form-input" value="${this.e(miNombre)}" readonly aria-describedby="hc2EvolMedicoAyuda">
                <small id="hc2EvolMedicoAyuda">Se registra a su nombre.</small>`;
@@ -1013,7 +1038,7 @@ const HistoriaPanelModule = {
             tipo: campo('tipo').value,
             fecha_hora: campo('fecha').value,
             contenido: campo('contenido').value,
-            ...(campo('medico') ? { medico_id: campo('medico').value } : {}),
+            ...(campo('medico') ? { medico_clave: campo('medico').value } : {}),
             ...(editando ? { motivo: campo('motivo').value } : {})
         };
         const boton = form.querySelector('[data-hc2="guardar-evolucion"]');
@@ -1137,8 +1162,9 @@ const HistoriaPanelModule = {
     alHacerClic(e) {
         const pestana = e.target.closest('[data-hc2-pestana]');
         if (pestana) {
-            if (pestana.dataset.hc2Pestana !== 'historia' && this.state.cambios.historia && !this.confirmarDescartar()) return;
-            if (pestana.dataset.hc2Pestana !== 'historia') this.state.cambios = { historia: false, antecedentes: false };
+            const cambia = pestana.dataset.hc2Pestana !== this.state.pestana;
+            if (cambia && !this.confirmarDescartar()) return;
+            if (cambia) this.state.cambios = { historia: false, antecedentes: false };
             this.state.pestana = pestana.dataset.hc2Pestana;
             this.state.editandoNota = null;
             this.state.evolucionForm = null;
@@ -1194,8 +1220,11 @@ const HistoriaPanelModule = {
         acciones[accion]?.();
     },
 
+    // Lo que no está en la pestaña visible (campos o signos vitales) se envía tal como está guardado
     leerHistoria() {
-        const datos = { signos_vitales: {} };
+        const h = this.state.historia || {};
+        const datos = { tipo: h.tipo, fecha: String(h.fecha || '').slice(0, 10) || undefined, signos_vitales: { ...(h.signos_vitales || {}) } };
+        this.CAMPOS_HISTORIA.forEach(c => { datos[c.clave] = h[c.clave] ?? ''; });
         document.querySelectorAll('#hc2Contenido [data-hc2-seccion="historia"] [data-campo]').forEach(el => { datos[el.dataset.campo] = el.value; });
         document.querySelectorAll('#hc2Contenido [data-signo]').forEach(el => { datos.signos_vitales[el.dataset.signo] = el.value.trim(); });
         return datos;
