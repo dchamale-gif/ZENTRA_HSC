@@ -68,7 +68,7 @@ const login = async (req, res) => {
 
     // Buscar usuario
     const result = await pool.query(
-      'SELECT id, email, password_hash, nombre, apellido, activo FROM users WHERE email = $1',
+      "SELECT id, email, password_hash, nombre, apellido, activo, to_jsonb(users)->>'tema' AS tema FROM users WHERE email = $1",
       [email]
     );
 
@@ -172,6 +172,7 @@ const login = async (req, res) => {
         email: user.email,
         nombre: user.nombre,
         apellido: user.apellido,
+        tema: user.tema || 'claro',
         roles: roles,
         permissions: permissions
       }
@@ -199,7 +200,7 @@ const getProfile = async (req, res) => {
     const userId = req.user.id;
 
     const result = await pool.query(
-      'SELECT id, email, nombre, apellido, telefono, activo, ultimo_login FROM users WHERE id = $1',
+      "SELECT id, email, nombre, apellido, telefono, activo, ultimo_login, COALESCE(to_jsonb(users)->>'tema', 'claro') AS tema FROM users WHERE id = $1",
       [userId]
     );
 
@@ -222,9 +223,28 @@ const getProfile = async (req, res) => {
   }
 };
 
+const TEMAS = ['claro', 'oscuro', 'sistema'];
+
+// PREFERENCIAS: el usuario actual elige su tema
+const updatePreferencias = async (req, res) => {
+  const { tema } = req.body;
+  if (!TEMAS.includes(tema)) return res.status(400).json({ error: 'Tema no válido' });
+  try {
+    await pool.query('UPDATE users SET tema = $1, updated_at = NOW() WHERE id = $2', [tema, req.user.id]);
+    res.status(200).json({ tema });
+  } catch (error) {
+    if (error.code === '42703') {
+      return res.status(503).json({ error: 'Falta preparar la base de datos (npm run migrate:preferencias-usuario). El tema queda solo en este equipo.' });
+    }
+    console.error('Error en updatePreferencias:', error);
+    res.status(500).json({ error: 'No se pudo guardar el tema' });
+  }
+};
+
 module.exports = {
   register,
   login,
   logout,
-  getProfile
+  getProfile,
+  updatePreferencias
 };

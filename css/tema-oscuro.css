@@ -1,0 +1,189 @@
+/* ============================================
+   TEMA OSCURO · AJUSTES A MANO
+   Se activa con <html data-theme="dark"> (lo pone js/tema.js según el perfil).
+   Primero van los tokens; tema-oscuro-auto.css (generado) pasa a oscuro los
+   colores fijos, y aquí se corrige lo que el generador no puede decidir.
+   ============================================ */
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+
+    --primary-color: #4c82ec;
+    --primary-hover: #6d9af0;
+    --primary-soft: rgba(76, 130, 236, 0.16);
+    --secondary-color: #4c82ec;
+    --accent-color: #4c82ec;
+    --danger-color: #f26b6b;
+    --danger-soft: rgba(242, 107, 107, 0.14);
+    --success-color: #3fbf86;
+    --success-soft: rgba(63, 191, 134, 0.14);
+    --warning-color: #e8a838;
+    --warning-soft: rgba(232, 168, 56, 0.14);
+
+    --bg-light: #0e131a;
+    --bg-white: #161d27;
+    --bg-dark: #05080c;
+    --sidebar-bg: #121821;
+    --sidebar-hover: #1b2330;
+    --sidebar-active: rgba(76, 130, 236, 0.16);
+
+    --text-dark: #e8edf4;
+    --text-body: #cdd5df;
+    --text-gray: #94a0b2;
+    --text-subtle: #6b7789;
+    --text-light: #f3f7f7;
+
+    --border-color: #263042;
+    --border-strong: #334055;
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.25);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.35), 0 24px 48px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-theme="dark"] body {
+    background: var(--bg-light);
+    color: var(--text-body);
+}
+
+/* Campos de formulario: fondo un poco más hundido que la tarjeta */
+:root[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] textarea {
+    background-color: #0f151d;
+    color: var(--text-dark);
+    border-color: var(--border-strong);
+}
+
+:root[data-theme="dark"] input::placeholder,
+:root[data-theme="dark"] textarea::placeholder {
+    color: var(--text-subtle);
+}
+
+:root[data-theme="dark"] input:disabled,
+:root[data-theme="dark"] select:disabled,
+:root[data-theme="dark"] textarea:disabled {
+    background-color: #131a23;
+    color: var(--text-gray);
+}
+
+/* Superficies: modales, tarjetas, tablas y menús */
+:root[data-theme="dark"] .modal-content,
+:root[data-theme="dark"] .modal-overlay .modal-dialog,
+:root[data-theme="dark"] .modal-overlay .modal-header,
+:root[data-theme="dark"] .modal-footer,
+:root[data-theme="dark"] .user-menu-panel,
+:root[data-theme="dark"] .top-bar,
+:root[data-theme="dark"] .header {
+    background-color: var(--bg-white);
+    color: var(--text-body);
+    border-color: var(--border-color);
+}
+
+:root[data-theme="dark"] table {
+    background-color: transparent;
+    color: var(--text-body);
+}
+
+:root[data-theme="dark"] th {
+    color: var(--text-gray);
+}
+
+:root[data-theme="dark"] td,
+:root[data-theme="dark"] th {
+    border-color: var(--border-color);
+}
+
+:root[data-theme="dark"] .modal-overlay {
+    background-color: rgba(0, 0, 0, 0.6);
+}
+
+/* Botones con texto blanco: el fondo un tono más oscuro que el color del tema para que se lea */
+:root[data-theme="dark"] .btn-primary {
+    background-color: #2f66d0;
+    border-color: #2f66d0;
+    color: #fff;
+}
+
+:root[data-theme="dark"] .btn-primary:hover:not(:disabled) {
+    background-color: #3b74e0;
+    border-color: #3b74e0;
+}
+
+:root[data-theme="dark"] .btn-danger {
+    background-color: #b93a3a;
+    border-color: #b93a3a;
+    color: #fff;
+}
+
+:root[data-theme="dark"] .btn-danger:hover:not(:disabled) {
+    background-color: #c94848;
+    border-color: #c94848;
+}
+
+/* Las imágenes con fondo blanco (logo, fotos de documentos) se atenúan un poco */
+:root[data-theme="dark"] img:not(.personal-avatar) {
+    filter: brightness(0.92);
+}
+
+/* Barras de desplazamiento */
+:root[data-theme="dark"] * {
+    scrollbar-color: #334055 transparent;
+}
+
+/* Selector de tema en el menú del usuario */
+.user-menu-tema {
+    padding: 8px 12px;
+}
+
+.user-menu-tema-titulo {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--text-gray);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.user-menu-tema-opciones {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    padding: 3px;
+    border-radius: 8px;
+    background: var(--bg-light);
+}
+
+.user-menu-tema-opciones button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 4px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-gray);
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.user-menu-tema-opciones button:hover {
+    color: var(--text-dark);
+}
+
+.user-menu-tema-opciones button[aria-checked="true"] {
+    background: var(--bg-white);
+    color: var(--primary-color);
+    font-weight: 600;
+    box-shadow: var(--shadow-sm);
+}
+
+.user-menu-tema-opciones i {
+    font-size: 14px;
+}
+
+@media print {
+    :root[data-theme="dark"] {
+        color-scheme: light;
+    }
+}

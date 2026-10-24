@@ -13,5 +13,6 @@ router.post('/register', authMiddleware, requireRole('admin'), authController.re
 // Rutas protegidas
 router.post('/logout', authMiddleware, authController.logout);
 router.get('/profile', authMiddleware, authController.getProfile);
+router.put('/preferencias', authMiddleware, authController.updatePreferencias);
 
 module.exports = router;

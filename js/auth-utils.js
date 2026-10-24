@@ -150,6 +150,8 @@ class AuthManager {
             }
 
             this.saveUser(data.user);
+            // El tema guardado en el perfil manda sobre el de este equipo
+            if (typeof Tema !== 'undefined') Tema.sincronizar(data.user);
             return { success: true, user: data.user };
         } catch (error) {
             console.error('Error obteniendo perfil:', error);
