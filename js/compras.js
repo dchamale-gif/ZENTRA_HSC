@@ -9,7 +9,18 @@ const ComprasModule = {
         medicinas: [],
         articulos: [],
         items: [],
+        // Pago de la compra (con la migración del pago de compras)
+        pagos: false,
+        vouchers: [],
+        vouchersNuevos: [],
         initialized: false
+    },
+
+    FORMAS_PAGO: {
+        efectivo: { texto: 'Efectivo', referencia: 'No. de recibo' },
+        tarjeta: { texto: 'Tarjeta', referencia: 'No. de autorización' },
+        cheque: { texto: 'Cheque', referencia: 'No. de cheque' },
+        transferencia: { texto: 'Transferencia', referencia: 'No. de transferencia o boleta' }
     },
 
     init() {
@@ -22,6 +33,19 @@ const ComprasModule = {
     setupEventListeners() {
         document.getElementById('addPurchaseBtn')?.addEventListener('click', () => this.openPurchaseModal());
         document.getElementById('savePurchaseBtn')?.addEventListener('click', () => this.savePurchase());
+
+        // Pago
+        document.querySelectorAll('input[name="purchasePaymentTerms"]').forEach(radio =>
+            radio.addEventListener('change', () => this.actualizarPago()));
+        ['purchaseCreditDays', 'purchaseDate'].forEach(id =>
+            document.getElementById(id)?.addEventListener('input', () => this.actualizarPago()));
+        document.getElementById('purchasePaymentMethod')?.addEventListener('change', () => this.actualizarPago());
+        document.getElementById('purchaseProvider')?.addEventListener('change', (e) => this.llenarCuentaProveedor(e.target.value));
+        document.getElementById('purchaseVoucherInput')?.addEventListener('change', (e) => {
+            this.agregarVouchers([...e.target.files]);
+            e.target.value = '';
+        });
+        document.getElementById('purchaseVoucherList')?.addEventListener('click', (e) => this.alClicVoucher(e));
     },
 
     async apiRequest(path, options = {}) {
@@ -50,6 +74,7 @@ const ComprasModule = {
                 this.apiRequest('/api/codigos-articulos')
             ]);
             this.state.compras = comprasData.compras || [];
+            this.state.pagos = Boolean(comprasData.pagos);
             this.state.proveedores = proveedoresData.proveedores || [];
             this.state.medicinas = (medicinasData.medicinas || []).map(medicina => ({
                 ...medicina,
@@ -88,9 +113,11 @@ const ComprasModule = {
     render() {
         const tbody = document.querySelector('#comprasTable tbody');
         if (!tbody) return;
+        const columnaPago = document.querySelector('#comprasTable th.compras-col-pago');
+        if (columnaPago) columnaPago.hidden = !this.state.pagos;
 
         if (this.state.compras.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center">No hay compras registradas</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="${this.state.pagos ? 7 : 6}" class="text-center">No hay compras registradas</td></tr>`;
             return;
         }
 
@@ -101,6 +128,7 @@ const ComprasModule = {
                 <td>${this.escapeHtml(compra.proveedor_nombre)}</td>
                 <td>${formatQ(compra.total || 0)}</td>
                 <td><span class="badge badge-${this.escapeHtml(compra.estado)}">${this.capitalize(compra.estado)}</span></td>
+                ${this.state.pagos ? `<td class="compras-col-pago">${this.estadoPagoHTML(compra)}</td>` : ''}
                 <td class="actions">
                     <button class="btn-icon btn-edit" title="Editar compra" onclick="ComprasModule.editPurchase('${compra.id}')">
                         <i class="fas fa-edit"></i>
@@ -113,13 +141,246 @@ const ComprasModule = {
         `).join('');
     },
 
+    // ---------- Pago ----------
+    hoy() {
+        return new Intl.DateTimeFormat('en-CA', { timeZone: CONFIG.REGION.timeZone }).format(new Date());
+    },
+
+    // Resumen del pago para el listado: pagada, crédito por vencer o vencido, o pendiente
+    estadoPagoHTML(compra) {
+        const forma = this.FORMAS_PAGO[compra.forma_pago]?.texto;
+        const vouchers = compra.vouchers?.length
+            ? ` <i class="fas fa-paperclip" title="${compra.vouchers.length} voucher(s)" aria-label="${compra.vouchers.length} voucher(s)"></i>` : '';
+        if (compra.fecha_pago) {
+            return `<span class="compra-pago-estado pagada">Pagada ${formatFecha(compra.fecha_pago)}</span>
+                <small>${this.escapeHtml(forma || '')}${vouchers}</small>`;
+        }
+        if (compra.estado === 'cancelada') return '<small>—</small>';
+        if (compra.condicion_pago === 'credito') {
+            const vencida = compra.fecha_vencimiento_pago && compra.fecha_vencimiento_pago < this.hoy();
+            return `<span class="compra-pago-estado ${vencida ? 'vencida' : 'credito'}">${vencida ? 'Crédito vencido' : `Crédito ${compra.dias_credito} días`}</span>
+                <small>Vence ${formatFecha(compra.fecha_vencimiento_pago)}${vouchers}</small>`;
+        }
+        return `<span class="compra-pago-estado pendiente">Pago inmediato pendiente</span>${vouchers ? `<small>${vouchers}</small>` : ''}`;
+    },
+
+    condicionPago() {
+        return document.querySelector('input[name="purchasePaymentTerms"]:checked')?.value || 'contado';
+    },
+
+    // Muestra los días de crédito y su vencimiento, y la referencia según la forma de pago
+    actualizarPago() {
+        const credito = this.condicionPago() === 'credito';
+        document.getElementById('purchaseCreditDaysGroup').hidden = !credito;
+        const dias = Number(document.getElementById('purchaseCreditDays').value);
+        const fecha = document.getElementById('purchaseDate').value;
+        const hint = document.getElementById('purchaseDueHint');
+        if (credito && fecha && Number.isInteger(dias) && dias > 0) {
+            const vence = new Date(`${fecha}T00:00:00`);
+            vence.setDate(vence.getDate() + dias);
+            hint.textContent = `Vence el ${formatFecha(vence)}`;
+        } else {
+            hint.textContent = '';
+        }
+        const forma = this.FORMAS_PAGO[document.getElementById('purchasePaymentMethod').value];
+        document.getElementById('purchasePaymentRefGroup').hidden = !forma;
+        if (forma) document.getElementById('purchasePaymentRefLabel').textContent = forma.referencia;
+    },
+
+    cuentaProveedor() {
+        return {
+            banco: document.getElementById('purchaseProviderBank').value.trim(),
+            numero_cuenta: document.getElementById('purchaseProviderAccount').value.trim(),
+            tipo_cuenta: document.getElementById('purchaseProviderAccountType').value
+        };
+    },
+
+    llenarCuentaProveedor(proveedorId) {
+        const proveedor = this.state.proveedores.find(p => String(p.id) === String(proveedorId));
+        document.getElementById('purchaseProviderBank').value = proveedor?.banco || '';
+        document.getElementById('purchaseProviderAccount').value = proveedor?.numero_cuenta || '';
+        document.getElementById('purchaseProviderAccountType').value = proveedor?.tipo_cuenta || '';
+    },
+
+    prepararPago(compra) {
+        const seccion = document.getElementById('purchasePaymentSection');
+        seccion.hidden = !this.state.pagos;
+        this.state.vouchers = [...(compra?.vouchers || [])];
+        this.state.vouchersNuevos = [];
+        if (!this.state.pagos) return;
+        const condicion = compra?.condicion_pago || 'contado';
+        document.querySelector(`input[name="purchasePaymentTerms"][value="${condicion}"]`).checked = true;
+        document.getElementById('purchaseCreditDays').value = compra?.dias_credito || '';
+        document.getElementById('purchasePaymentMethod').value = compra?.forma_pago || '';
+        document.getElementById('purchasePaymentRef').value = compra?.referencia_pago || '';
+        document.getElementById('purchasePaymentDate').value = compra?.fecha_pago || '';
+        this.llenarCuentaProveedor(compra?.proveedor_id || '');
+        this.renderVouchers();
+        this.actualizarPago();
+    },
+
+    leerPago() {
+        if (!this.state.pagos) return {};
+        const condicion = this.condicionPago();
+        return {
+            condicion_pago: condicion,
+            dias_credito: condicion === 'credito' ? Number(document.getElementById('purchaseCreditDays').value) : null,
+            forma_pago: document.getElementById('purchasePaymentMethod').value || null,
+            referencia_pago: document.getElementById('purchasePaymentRef').value.trim() || null,
+            fecha_pago: document.getElementById('purchasePaymentDate').value || null
+        };
+    },
+
+    // Devuelve un mensaje si el pago está incompleto
+    validarPago(pago) {
+        if (!this.state.pagos) return '';
+        if (pago.condicion_pago === 'credito' && !(Number.isInteger(pago.dias_credito) && pago.dias_credito >= 1 && pago.dias_credito <= 365)) {
+            return 'Indica los días de crédito (de 1 a 365).';
+        }
+        if (pago.fecha_pago && !pago.forma_pago) return 'Indica la forma de pago.';
+        if (this.state.vouchersNuevos.length && !pago.fecha_pago) return 'Indica la fecha del pago del voucher adjunto.';
+        return '';
+    },
+
+    renderVouchers() {
+        const lista = document.getElementById('purchaseVoucherList');
+        const icono = tipo => tipo === 'application/pdf' ? 'fa-file-pdf' : 'fa-file-image';
+        const existentes = this.state.vouchers.map(v => `
+            <li>
+                <i class="fas ${icono(v.tipo_contenido)}" aria-hidden="true"></i>
+                <button type="button" class="btn-link" data-ver-voucher="${v.id}">${this.escapeHtml(v.nombre)}</button>
+                <small>${this.tamano(v.tamano)}${v.subido_por ? ` · ${this.escapeHtml(v.subido_por)}` : ''}</small>
+                <button type="button" class="btn-icon btn-delete" data-quitar-voucher="${v.id}" title="Eliminar voucher" aria-label="Eliminar ${this.escapeHtml(v.nombre)}"><i class="fas fa-trash"></i></button>
+            </li>`);
+        const nuevos = this.state.vouchersNuevos.map((archivo, i) => `
+            <li class="nuevo">
+                <i class="fas ${icono(archivo.type)}" aria-hidden="true"></i>
+                <span>${this.escapeHtml(archivo.name)}</span>
+                <small>${this.tamano(archivo.size)} · se sube al guardar</small>
+                <button type="button" class="btn-icon btn-delete" data-quitar-nuevo="${i}" title="Quitar" aria-label="Quitar ${this.escapeHtml(archivo.name)}"><i class="fas fa-times"></i></button>
+            </li>`);
+        lista.innerHTML = [...existentes, ...nuevos].join('') || '<li class="vacio">Sin voucher adjunto.</li>';
+    },
+
+    tamano(bytes) {
+        return bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+    },
+
+    agregarVouchers(archivos) {
+        for (const archivo of archivos) {
+            if (!/^(application\/pdf|image\/(jpeg|png|webp))$/.test(archivo.type)) {
+                this.notify(`"${archivo.name}" no es PDF, JPG, PNG o WEBP.`, 'warning');
+            } else if (archivo.size > 10 * 1024 * 1024) {
+                this.notify(`"${archivo.name}" pesa más de 10 MB.`, 'warning');
+            } else {
+                this.state.vouchersNuevos.push(archivo);
+            }
+        }
+        // Con voucher, la fecha del pago parte de hoy
+        const fechaPago = document.getElementById('purchasePaymentDate');
+        if (this.state.vouchersNuevos.length && !fechaPago.value) fechaPago.value = this.hoy();
+        this.renderVouchers();
+    },
+
+    async alClicVoucher(e) {
+        const ver = e.target.closest('[data-ver-voucher]');
+        const quitar = e.target.closest('[data-quitar-voucher]');
+        const quitarNuevo = e.target.closest('[data-quitar-nuevo]');
+        if (ver) {
+            this.verVoucher(this.state.vouchers.find(v => String(v.id) === ver.dataset.verVoucher));
+        } else if (quitarNuevo) {
+            this.state.vouchersNuevos.splice(Number(quitarNuevo.dataset.quitarNuevo), 1);
+            this.renderVouchers();
+        } else if (quitar) {
+            const voucher = this.state.vouchers.find(v => String(v.id) === quitar.dataset.quitarVoucher);
+            if (!voucher || !confirm(`¿Eliminar el voucher "${voucher.nombre}"? No se puede deshacer.`)) return;
+            try {
+                await this.apiRequest(`/api/compras/vouchers/${voucher.id}`, { method: 'DELETE' });
+                this.state.vouchers = this.state.vouchers.filter(v => v !== voucher);
+                const compra = this.state.compras.find(c => c.vouchers?.includes(voucher));
+                if (compra) compra.vouchers = compra.vouchers.filter(v => v !== voucher);
+                this.renderVouchers();
+                this.render();
+                this.notify('Voucher eliminado.', 'success');
+            } catch (error) {
+                this.notify(error.message, 'error');
+            }
+        }
+    },
+
+    // Abre el voucher en una pestaña nueva (se pide con el token, por eso no es un enlace directo)
+    async verVoucher(voucher) {
+        if (!voucher) return;
+        const ventana = window.open('', '_blank');
+        try {
+            const response = await fetch(`${authManager.apiBaseUrl}/api/compras/vouchers/${voucher.id}`, {
+                headers: { Authorization: `Bearer ${authManager.getToken()}` }
+            });
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                throw new Error(data.error || `Error ${response.status}`);
+            }
+            const url = URL.createObjectURL(await response.blob());
+            if (ventana) {
+                ventana.location.href = url;
+            } else {
+                // Si el navegador bloqueó la pestaña, se descarga
+                const enlace = document.createElement('a');
+                enlace.href = url;
+                enlace.download = voucher.nombre || 'voucher';
+                enlace.click();
+            }
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+        } catch (error) {
+            ventana?.close();
+            this.notify(`No se pudo abrir el voucher: ${error.message}`, 'error');
+        }
+    },
+
+    // Sube los vouchers pendientes; devuelve los nombres de los que no se pudieron subir
+    async subirVouchers(compraId) {
+        const fallidos = [];
+        for (const archivo of this.state.vouchersNuevos) {
+            try {
+                const response = await fetch(`${authManager.apiBaseUrl}/api/compras/${encodeURIComponent(compraId)}/vouchers?nombre=${encodeURIComponent(archivo.name)}`, {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${authManager.getToken()}`, 'Content-Type': archivo.type },
+                    body: archivo
+                });
+                if (!response.ok) {
+                    const data = await response.json().catch(() => ({}));
+                    throw new Error(data.error || `Error ${response.status}`);
+                }
+            } catch (error) {
+                fallidos.push(`${archivo.name} (${error.message})`);
+            }
+        }
+        this.state.vouchersNuevos = [];
+        return fallidos;
+    },
+
+    // Si cambió la cuenta del proveedor, se guarda en el proveedor
+    async guardarCuentaProveedor(proveedorId) {
+        if (!this.state.pagos) return;
+        const proveedor = this.state.proveedores.find(p => String(p.id) === String(proveedorId));
+        if (!proveedor) return;
+        const cuenta = this.cuentaProveedor();
+        const cambio = ['banco', 'numero_cuenta', 'tipo_cuenta'].some(campo => (proveedor[campo] || '') !== cuenta[campo]);
+        if (!cambio) return;
+        const data = await this.apiRequest(`/api/proveedores/${encodeURIComponent(proveedorId)}`, {
+            method: 'PUT',
+            body: JSON.stringify({ banco: cuenta.banco || null, numero_cuenta: cuenta.numero_cuenta || null, tipo_cuenta: cuenta.tipo_cuenta || null })
+        });
+        Object.assign(proveedor, data.proveedor);
+    },
+
     openPurchaseModal(compra = null) {
         const form = document.getElementById('purchaseForm');
         form.reset();
         document.getElementById('purchaseId').value = compra?.id || '';
         document.getElementById('purchaseModalTitle').textContent = compra ? 'Editar Compra' : 'Nueva Compra';
         this.renderProviderOptions(compra?.proveedor_id || '');
-        document.getElementById('purchaseDate').value = compra ? this.dateValue(compra.fecha) : this.dateValue(new Date());
+        document.getElementById('purchaseDate').value = compra ? this.dateValue(compra.fecha) : this.hoy();
         document.getElementById('purchaseDeliveryDate').value = compra?.fecha_entrega ? this.dateValue(compra.fecha_entrega) : '';
         document.getElementById('purchaseStatus').value = compra?.estado || 'pendiente';
         document.getElementById('purchaseObservations').value = compra?.observaciones || '';
@@ -134,6 +395,7 @@ const ComprasModule = {
             }))
             : [{ tipo: 'articulo', concepto_id: '', presentacion_id: '', cantidad: 1, precio_unitario: 0, filtros: { seccion: '', familia: '', subfamilia: '' } }];
         this.renderItems();
+        this.prepararPago(compra);
         document.getElementById('purchaseModal').style.display = 'flex';
         document.body.style.overflow = 'hidden';
         this.toggleProviderForm(this.state.proveedores.length === 0);
@@ -173,7 +435,10 @@ const ComprasModule = {
             email: document.getElementById('quickProviderEmail').value.trim() || null,
             telefono: document.getElementById('quickProviderPhone').value.trim() || null,
             ciudad: document.getElementById('quickProviderCity').value.trim() || null,
-            direccion: document.getElementById('quickProviderAddress').value.trim() || null
+            direccion: document.getElementById('quickProviderAddress').value.trim() || null,
+            banco: document.getElementById('quickProviderBank').value.trim() || null,
+            numero_cuenta: document.getElementById('quickProviderAccount').value.trim() || null,
+            tipo_cuenta: document.getElementById('quickProviderAccountType').value || null
         };
 
         button.disabled = true;
@@ -185,7 +450,8 @@ const ComprasModule = {
             this.state.proveedores.push(data.proveedor);
             this.state.proveedores.sort((a, b) => a.nombre.localeCompare(b.nombre));
             this.renderProviderOptions(data.proveedor.id);
-            document.querySelectorAll('#quickProviderForm input').forEach(input => { input.value = ''; });
+            this.llenarCuentaProveedor(data.proveedor.id);
+            document.querySelectorAll('#quickProviderForm input, #quickProviderForm select').forEach(input => { input.value = ''; });
             this.toggleProviderForm(false);
             this.notify('Proveedor creado y seleccionado.', 'success');
         } catch (error) {
@@ -199,6 +465,7 @@ const ComprasModule = {
         document.getElementById('purchaseModal').style.display = 'none';
         document.body.style.overflow = 'auto';
         this.state.items = [];
+        this.state.vouchersNuevos = [];
     },
 
     addItem() {
@@ -458,6 +725,7 @@ const ComprasModule = {
             fecha_entrega: document.getElementById('purchaseDeliveryDate').value || null,
             estado: document.getElementById('purchaseStatus').value,
             observaciones: document.getElementById('purchaseObservations').value.trim() || null,
+            ...this.leerPago(),
             items: this.state.items.map(item => ({
                 tipo: item.tipo,
                 concepto_id: item.concepto_id,
@@ -472,18 +740,38 @@ const ComprasModule = {
             this.notify('Completa el proveedor, la fecha y todos los conceptos de la compra.', 'warning');
             return;
         }
+        const errorPago = this.validarPago(payload);
+        if (errorPago) {
+            this.notify(errorPago, 'warning');
+            return;
+        }
 
+        const boton = document.getElementById('savePurchaseBtn');
+        boton.disabled = true;
         try {
-            await this.apiRequest(id ? `/api/compras/${id}` : '/api/compras', {
+            const data = await this.apiRequest(id ? `/api/compras/${id}` : '/api/compras', {
                 method: id ? 'PUT' : 'POST',
                 body: JSON.stringify(payload)
             });
+            const compraId = id || data.compra?.id;
+            // La compra ya quedó guardada: la cuenta del proveedor y los vouchers se avisan aparte si fallan
+            const avisos = [];
+            try {
+                await this.guardarCuentaProveedor(payload.proveedor_id);
+            } catch (error) {
+                avisos.push(`No se guardó la cuenta del proveedor: ${error.message}`);
+            }
+            const fallidos = compraId ? await this.subirVouchers(compraId) : [];
+            if (fallidos.length) avisos.push(`No se subieron estos vouchers: ${fallidos.join(', ')}`);
             this.closePurchaseModal();
             await this.loadData();
             this.notify(id ? 'Compra actualizada correctamente.' : 'Compra registrada correctamente.', 'success');
+            avisos.forEach(aviso => this.notify(aviso, 'warning'));
         } catch (error) {
             console.error('Error guardando compra:', error);
             this.notify(error.message, 'error');
+        } finally {
+            boton.disabled = false;
         }
     },
 

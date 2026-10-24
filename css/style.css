@@ -10883,3 +10883,163 @@ body.chat-abierto {
     color: var(--text-gray);
     text-align: center;
 }
+
+/* ---------- Compras: pago ---------- */
+.compra-pago {
+    margin: 16px 0;
+    padding: 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+.compra-pago .purchase-items-header {
+    margin-top: 0;
+}
+
+.compra-pago-condicion {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+    margin: 0 0 16px;
+    padding: 0;
+    border: 0;
+}
+
+.compra-pago-condicion legend {
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.compra-pago-opcion {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.compra-pago-opcion:has(input:checked) {
+    border-color: var(--primary-color);
+    background: var(--primary-soft);
+}
+
+.compra-pago-opcion input {
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    accent-color: var(--primary-color);
+}
+
+.compra-pago-opcion strong {
+    display: block;
+    font-size: 14px;
+}
+
+.compra-pago-opcion small {
+    color: var(--text-gray);
+    font-size: 12px;
+}
+
+.compra-pago-subtitulo {
+    margin: 16px 0 8px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.compra-vouchers {
+    display: grid;
+    gap: 6px;
+    margin: 0 0 10px;
+    padding: 0;
+    list-style: none;
+}
+
+.compra-vouchers li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+.compra-vouchers li > i {
+    width: 16px;
+    color: var(--primary-color);
+    text-align: center;
+}
+
+.compra-vouchers li > span,
+.compra-vouchers li > .btn-link {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+}
+
+.compra-vouchers li small {
+    color: var(--text-gray);
+}
+
+.compra-vouchers li.nuevo {
+    border-style: dashed;
+}
+
+.compra-vouchers li.vacio {
+    display: block;
+    border: 0;
+    padding: 0;
+    color: var(--text-gray);
+}
+
+.compra-pago-estado {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.compras-col-pago small {
+    display: block;
+    margin-top: 2px;
+    color: var(--text-gray);
+    font-size: 12px;
+}
+
+.compra-pago-estado.pagada {
+    background: #e7f6ec;
+    color: var(--success-color);
+}
+
+.compra-pago-estado.credito {
+    background: var(--bg-light);
+    color: var(--text-dark);
+}
+
+.compra-pago-estado.vencida {
+    background: #fdecec;
+    color: var(--danger-color);
+}
+
+.compra-pago-estado.pendiente {
+    background: #fff4dc;
+    color: var(--warning-color);
+}
+
+@media (max-width: 640px) {
+    .compra-vouchers li {
+        grid-template-columns: auto minmax(0, 1fr) auto;
+    }
+
+    .compra-vouchers li small {
+        grid-column: 2;
+        grid-row: 2;
+    }
+}

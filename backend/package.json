@@ -19,6 +19,7 @@
     "migrate:inventario-medicinas": "node run-inventario-medicinas-migration.js",
     "migrate:control-medicamentos": "node run-administracion-medicamentos-migration.js",
     "migrate:personal": "node run-personal-migration.js",
+    "migrate:compras-pagos": "node run-compras-pagos-migration.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": ["hospital", "medical", "api"],

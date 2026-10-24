@@ -1,5 +1,6 @@
 const express = require('express');
 const { authMiddleware, requireModule } = require('../middleware/auth');
+const { recibirArchivo } = require('../services/archivos');
 
 // Rutas comunes de Personal médico y Personal. `modulo`: permiso que exigen los documentos
 // (títulos, antecedentes, contratos), que solo ve quien maneja ese módulo y no las
@@ -20,9 +21,7 @@ const crearRutasPersonal = (controller, { modulo, extra } = {}) => {
   router.get('/archivos/:archivoId', soloModulo, controller.verArchivo);
   router.delete('/archivos/:archivoId', soloModulo, controller.eliminarArchivo);
   router.get('/:id/archivos', soloModulo, controller.getArchivos);
-  router.post('/:id/archivos', soloModulo,
-    express.raw({ type: ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'], limit: '10mb' }),
-    controller.subirArchivo);
+  router.post('/:id/archivos', soloModulo, recibirArchivo(express), controller.subirArchivo);
 
   // Documento de más de 10 MB: mensaje en español en lugar del error genérico
   router.use((err, req, res, next) => {

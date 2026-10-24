@@ -1,9 +1,27 @@
 const pool = require('../db/connection');
 
+const { pagosDisponibles } = require('./comprasController');
+
 const PROVIDER_COLUMNS = `
   id, nombre, email, telefono, direccion, ciudad, razon_social,
   nit, contacto, activo, created_at, updated_at
 `;
+
+// Cuenta bancaria del proveedor (llega con la migración del pago de compras)
+const CUENTA_COLUMNS = ['banco', 'numero_cuenta', 'tipo_cuenta'];
+const TIPOS_CUENTA = ['monetaria', 'ahorro'];
+
+const columnasProveedor = async () =>
+  (await pagosDisponibles()) ? `${PROVIDER_COLUMNS}, ${CUENTA_COLUMNS.join(', ')}` : PROVIDER_COLUMNS;
+
+// Limpia los datos de la cuenta; devuelve un mensaje de error o null
+const validarCuenta = (body) => {
+  if (body.tipo_cuenta && !TIPOS_CUENTA.includes(body.tipo_cuenta)) return 'Tipo de cuenta no válido';
+  if (body.numero_cuenta && !/^[0-9A-Za-z -]{3,40}$/.test(String(body.numero_cuenta).trim())) {
+    return 'El número de cuenta solo puede tener números, letras, espacios o guiones';
+  }
+  return null;
+};
 
 // ==========================================
 // PROVEEDORES CONTROLLER
@@ -17,7 +35,7 @@ const getProveedores = async (req, res) => {
   try {
     const { activo = true } = req.query;
     
-    let query = `SELECT ${PROVIDER_COLUMNS} FROM proveedores WHERE 1=1`;
+    let query = `SELECT ${await columnasProveedor()} FROM proveedores WHERE 1=1`;
     const params = [];
     let paramIndex = 1;
 
@@ -52,7 +70,7 @@ const getProveedorById = async (req, res) => {
     const { id } = req.params;
 
     const result = await pool.query(
-      `SELECT ${PROVIDER_COLUMNS} FROM proveedores WHERE id = $1`,
+      `SELECT ${await columnasProveedor()} FROM proveedores WHERE id = $1`,
       [id]
     );
 
@@ -104,6 +122,9 @@ const createProveedor = async (req, res) => {
       }
     }
 
+    const errorCuenta = validarCuenta(req.body);
+    if (errorCuenta) return res.status(400).json({ error: errorCuenta });
+
     const id = `PRV-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
 
     const result = await pool.query(
@@ -118,10 +139,20 @@ const createProveedor = async (req, res) => {
       ]
     );
 
+    let proveedor = result.rows[0];
+    if (await pagosDisponibles()) {
+      const cuenta = await pool.query(
+        `UPDATE proveedores SET banco = $2, numero_cuenta = $3, tipo_cuenta = $4 WHERE id = $1
+         RETURNING ${await columnasProveedor()}`,
+        [id, String(req.body.banco || '').trim() || null, String(req.body.numero_cuenta || '').trim() || null, req.body.tipo_cuenta || null]
+      );
+      proveedor = cuenta.rows[0];
+    }
+
     res.status(201).json({
       success: true,
       message: 'Proveedor creado exitosamente',
-      proveedor: result.rows[0]
+      proveedor
     });
   } catch (error) {
     console.error('Error en createProveedor:', error);
@@ -155,14 +186,18 @@ const updateProveedor = async (req, res) => {
       }
     }
 
+    const errorCuenta = validarCuenta(req.body);
+    if (errorCuenta) return res.status(400).json({ error: errorCuenta });
+
     const allowedFields = ['nombre', 'email', 'telefono', 'direccion', 'ciudad',
-      'razon_social', 'nit', 'contacto', 'activo'];
+      'razon_social', 'nit', 'contacto', 'activo',
+      ...((await pagosDisponibles()) ? CUENTA_COLUMNS : [])];
     const updates = [];
     const values = [];
     allowedFields.forEach(field => {
       if (req.body[field] !== undefined) {
         updates.push(`${field} = $${values.length + 1}`);
-        values.push(req.body[field]);
+        values.push(CUENTA_COLUMNS.includes(field) ? String(req.body[field] || '').trim() || null : req.body[field]);
       }
     });
 
@@ -177,7 +212,7 @@ const updateProveedor = async (req, res) => {
     await pool.query(query, values);
 
     const updated = await pool.query(
-      `SELECT ${PROVIDER_COLUMNS} FROM proveedores WHERE id = $1`,
+      `SELECT ${await columnasProveedor()} FROM proveedores WHERE id = $1`,
       [id]
     );
 

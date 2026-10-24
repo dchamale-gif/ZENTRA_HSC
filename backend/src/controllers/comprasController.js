@@ -1,10 +1,73 @@
 const pool = require('../db/connection');
 const inventario = require('../services/inventarioMedicinas');
+const { validarSubida, limpiarNombre, enviarArchivo } = require('../services/archivos');
 
-const compraSelect = (conInventario) => `
+const MIGRACION_PAGOS = 'Falta preparar la base de datos para el pago de las compras (npm run migrate:compras-pagos).';
+const FORMAS_PAGO = ['efectivo', 'tarjeta', 'cheque', 'transferencia'];
+const FECHA = /^\d{4}-\d{2}-\d{2}$/;
+
+// El pago de las compras llega con su migración; mientras falte, las compras funcionan como antes
+let pagosCache = { valor: false, hasta: 0 };
+const pagosDisponibles = async () => {
+  if (Date.now() < pagosCache.hasta) return pagosCache.valor;
+  const result = await pool.query(
+    `SELECT to_regclass('public.compra_vouchers') IS NOT NULL
+        AND EXISTS (SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'proveedores' AND column_name = 'numero_cuenta') AS listo`
+  );
+  const valor = result.rows[0].listo;
+  pagosCache = { valor, hasta: valor ? Infinity : Date.now() + 60000 };
+  return valor;
+};
+
+const errorConEstado = (message, status = 400) => Object.assign(new Error(message), { status });
+
+// Condición y datos del pago. Crédito: vence a los días indicados desde la fecha de la compra;
+// pago inmediato: vence el mismo día. La fecha de pago queda vacía mientras no se haya pagado.
+const leerPago = (body, fechaCompra) => {
+  const condicion = body.condicion_pago === 'credito' ? 'credito' : 'contado';
+  let dias = null;
+  if (condicion === 'credito') {
+    dias = Number(body.dias_credito);
+    if (!Number.isInteger(dias) || dias < 1 || dias > 365) throw errorConEstado('Indique los días de crédito (de 1 a 365)');
+  }
+  const forma = body.forma_pago || null;
+  if (forma && !FORMAS_PAGO.includes(forma)) throw errorConEstado('Forma de pago no válida');
+  const fechaPago = body.fecha_pago || null;
+  if (fechaPago && !FECHA.test(fechaPago)) throw errorConEstado('Fecha de pago no válida');
+  if (fechaPago && !forma) throw errorConEstado('Indique la forma de pago');
+  const vence = new Date(`${String(fechaCompra).slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(vence.getTime())) throw errorConEstado('Fecha de la compra no válida');
+  vence.setUTCDate(vence.getUTCDate() + (dias || 0));
+  return {
+    condicion,
+    dias,
+    vencimiento: vence.toISOString().slice(0, 10),
+    forma,
+    referencia: String(body.referencia_pago || '').trim().slice(0, 60) || null,
+    fechaPago
+  };
+};
+
+const guardarPago = (client, compraId, pago) => client.query(
+  `UPDATE compras SET condicion_pago = $2, dias_credito = $3, fecha_vencimiento_pago = $4,
+          forma_pago = $5, referencia_pago = $6, fecha_pago = $7
+   WHERE id = $1`,
+  [compraId, pago.condicion, pago.dias, pago.vencimiento, pago.forma, pago.referencia, pago.fechaPago]
+);
+
+const compraSelect = (conInventario, conPagos) => `
   SELECT c.id, c.numero_compra, c.proveedor_id, p.nombre AS proveedor_nombre,
          c.user_id, c.fecha, c.fecha_entrega, c.total, c.estado,
-         c.observaciones, c.created_at, c.updated_at,
+         c.observaciones, c.created_at, c.updated_at,${conPagos ? `
+         c.condicion_pago, c.dias_credito, to_char(c.fecha_vencimiento_pago, 'YYYY-MM-DD') AS fecha_vencimiento_pago,
+         c.forma_pago, c.referencia_pago, to_char(c.fecha_pago, 'YYYY-MM-DD') AS fecha_pago,
+         p.banco AS proveedor_banco, p.numero_cuenta AS proveedor_numero_cuenta, p.tipo_cuenta AS proveedor_tipo_cuenta,
+         COALESCE((SELECT json_agg(json_build_object(
+                     'id', v.id, 'nombre', v.nombre_archivo, 'tipo_contenido', v.tipo_contenido,
+                     'tamano', v.tamano, 'subido_por', v.subido_por_nombre, 'fecha', v.created_at
+                   ) ORDER BY v.created_at)
+                   FROM compra_vouchers v WHERE v.compra_id = c.id), '[]'::json) AS vouchers,` : ''}
          COALESCE(
            json_agg(
              json_build_object(
@@ -200,12 +263,13 @@ const revertirInventario = async (client, compraId, req, motivo) => {
 
 const getCompras = async (req, res) => {
   try {
+    const conPagos = await pagosDisponibles();
     const result = await pool.query(
-      `${compraSelect(await inventario.disponible())}
-       GROUP BY c.id, p.nombre
+      `${compraSelect(await inventario.disponible(), conPagos)}
+       GROUP BY c.id, p.id
        ORDER BY c.fecha DESC, c.created_at DESC`
     );
-    res.status(200).json({ success: true, total: result.rows.length, compras: result.rows });
+    res.status(200).json({ success: true, total: result.rows.length, compras: result.rows, pagos: conPagos });
   } catch (error) {
     console.error('Error en getCompras:', error);
     res.status(500).json({ error: 'Error obteniendo compras' });
@@ -215,9 +279,9 @@ const getCompras = async (req, res) => {
 const getCompraById = async (req, res) => {
   try {
     const result = await pool.query(
-      `${compraSelect(await inventario.disponible())}
+      `${compraSelect(await inventario.disponible(), await pagosDisponibles())}
        WHERE c.id = $1
-       GROUP BY c.id, p.nombre`,
+       GROUP BY c.id, p.id`,
       [req.params.id]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Compra no encontrada' });
@@ -236,6 +300,7 @@ const createCompra = async (req, res) => {
 
     const items = normalizeItems(req.body.items);
     const total = Number(items.reduce((sum, item) => sum + item.subtotal, 0).toFixed(2));
+    const pago = (await pagosDisponibles()) ? leerPago(req.body, fecha) : null;
     client = await pool.connect();
     await client.query('BEGIN');
     await client.query("SELECT pg_advisory_xact_lock(hashtext('compras_numero_correlativo'))");
@@ -251,6 +316,7 @@ const createCompra = async (req, res) => {
         total, estado, observaciones || null]
     );
     await insertItems(client, compraId, items);
+    if (pago) await guardarPago(client, compraId, pago);
     if (estado === 'recibida' && await inventario.disponible()) await aplicarInventario(client, compraId, req);
     await client.query('COMMIT');
     res.status(201).json({ success: true, message: 'Compra creada exitosamente', compra: result.rows[0] });
@@ -272,6 +338,7 @@ const updateCompra = async (req, res) => {
 
     const items = normalizeItems(req.body.items);
     const total = Number(items.reduce((sum, item) => sum + item.subtotal, 0).toFixed(2));
+    const pago = (await pagosDisponibles()) ? leerPago(req.body, fecha) : null;
     client = await pool.connect();
     await client.query('BEGIN');
     const conInventario = await inventario.disponible();
@@ -298,6 +365,7 @@ const updateCompra = async (req, res) => {
     );
     await client.query('DELETE FROM compra_items WHERE compra_id = $1', [req.params.id]);
     await insertItems(client, req.params.id, items);
+    if (pago) await guardarPago(client, req.params.id, pago);
     if (conInventario && estado === 'recibida' && (anterior.inventario_aplicado || anterior.estado !== 'recibida')) {
       await aplicarInventario(client, req.params.id, req);
     }
@@ -338,4 +406,63 @@ const deleteCompra = async (req, res) => {
   }
 };
 
-module.exports = { getCompras, getCompraById, createCompra, updateCompra, deleteCompra };
+// POST /api/compras/:id/vouchers?nombre= (cuerpo: el PDF o la imagen del voucher tal cual)
+const subirVoucher = async (req, res) => {
+  const { tipoContenido, status, error: errorArchivo } = validarSubida(req.body);
+  if (errorArchivo) return res.status(status).json({ error: errorArchivo });
+  const autor = `${req.user.nombre || ''} ${req.user.apellido || ''}`.trim() || req.user.email;
+  try {
+    if (!(await pagosDisponibles())) return res.status(503).json({ error: MIGRACION_PAGOS });
+    const result = await pool.query(
+      `INSERT INTO compra_vouchers (compra_id, nombre_archivo, tipo_contenido, tamano, contenido, subido_por, subido_por_nombre)
+       SELECT c.id, $2, $3, $4, $5, $6, $7 FROM compras c WHERE c.id = $1
+       RETURNING id, nombre_archivo AS nombre, tipo_contenido, tamano, subido_por_nombre AS subido_por, created_at AS fecha`,
+      [req.params.id, limpiarNombre(req.query.nombre, tipoContenido, 'voucher'), tipoContenido,
+        req.body.length, req.body, req.user.id, autor]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Compra no encontrada' });
+    res.status(201).json({ success: true, voucher: result.rows[0] });
+  } catch (error) {
+    console.error('Error en subirVoucher:', error.message);
+    res.status(500).json({ error: 'No se pudo guardar el voucher' });
+  }
+};
+
+// GET /api/compras/vouchers/:voucherId - Devuelve el voucher para verlo o descargarlo
+const verVoucher = async (req, res) => {
+  const voucherId = Number(req.params.voucherId);
+  if (!Number.isInteger(voucherId)) return res.status(400).json({ error: 'Voucher no válido' });
+  try {
+    if (!(await pagosDisponibles())) return res.status(503).json({ error: MIGRACION_PAGOS });
+    const result = await pool.query(
+      'SELECT nombre_archivo, tipo_contenido, contenido FROM compra_vouchers WHERE id = $1',
+      [voucherId]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Voucher no encontrado' });
+    const { nombre_archivo: nombre, tipo_contenido: tipoContenido, contenido } = result.rows[0];
+    enviarArchivo(res, { nombre, tipoContenido, contenido });
+  } catch (error) {
+    console.error('Error en verVoucher:', error.message);
+    res.status(500).json({ error: 'No se pudo abrir el voucher' });
+  }
+};
+
+// DELETE /api/compras/vouchers/:voucherId
+const eliminarVoucher = async (req, res) => {
+  const voucherId = Number(req.params.voucherId);
+  if (!Number.isInteger(voucherId)) return res.status(400).json({ error: 'Voucher no válido' });
+  try {
+    if (!(await pagosDisponibles())) return res.status(503).json({ error: MIGRACION_PAGOS });
+    const result = await pool.query('DELETE FROM compra_vouchers WHERE id = $1', [voucherId]);
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Voucher no encontrado' });
+    res.json({ success: true, message: 'Voucher eliminado' });
+  } catch (error) {
+    console.error('Error en eliminarVoucher:', error.message);
+    res.status(500).json({ error: 'No se pudo eliminar el voucher' });
+  }
+};
+
+module.exports = {
+  getCompras, getCompraById, createCompra, updateCompra, deleteCompra,
+  subirVoucher, verVoucher, eliminarVoucher, pagosDisponibles
+};

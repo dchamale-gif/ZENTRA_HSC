@@ -1,5 +1,6 @@
 const pool = require('../db/connection');
 const { cargarPermisos } = require('../middleware/auth');
+const { validarSubida, limpiarNombre, enviarArchivo } = require('../services/archivos');
 
 // ============================================
 // Base común de Personal médico y Personal (administrativo y de apoyo).
@@ -15,7 +16,6 @@ const TIPOS_DOCUMENTO = [
   'titulo_universitario', 'titulo_especialidad', 'colegiado_activo', 'antecedentes_penales',
   'antecedentes_policiacos', 'contrato', 'curriculum', 'tarjeta_salud', 'otro'
 ];
-const MAX_DOCUMENTO_BYTES = 10 * 1024 * 1024;
 const DIAS_AVISO_VENCIMIENTO = 30;
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -99,23 +99,6 @@ const usuarioVinculado = (body) => {
   if (body.user_id === null || body.user_id === '') return null;
   const id = Number(body.user_id);
   return Number.isInteger(id) && id > 0 ? id : false;
-};
-
-// El tipo real del archivo sale de sus primeros bytes, no de lo que diga el navegador
-const tipoDeArchivo = (contenido) => {
-  if (contenido.subarray(0, 4).toString('latin1') === '%PDF') return 'application/pdf';
-  if (contenido[0] === 0xff && contenido[1] === 0xd8 && contenido[2] === 0xff) return 'image/jpeg';
-  if (contenido.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'image/png';
-  if (contenido.subarray(0, 4).toString('latin1') === 'RIFF' && contenido.subarray(8, 12).toString('latin1') === 'WEBP') return 'image/webp';
-  return null;
-};
-
-const EXTENSIONES = { 'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
-
-// El nombre llega en la URL; se limpia para guardarlo y para el encabezado de descarga
-const limpiarNombre = (nombre, tipoContenido) => {
-  const limpio = String(nombre || '').replace(/[\\/\r\n"]/g, '_').trim().slice(0, 200) || 'documento';
-  return /\.(pdf|jpe?g|png|webp)$/i.test(limpio) ? limpio : `${limpio}.${EXTENSIONES[tipoContenido]}`;
 };
 
 const COLUMNAS_DOCUMENTO = `id, tipo, nombre_archivo AS nombre, tipo_contenido, tamano,
@@ -377,14 +360,8 @@ const crearControladorPersonal = (cfg) => {
     // POST /:id/archivos?tipo=&nombre=&vencimiento=&notas= (cuerpo: el PDF o la imagen tal cual)
     subirArchivo: async (req, res) => {
       const contenido = req.body;
-      if (!Buffer.isBuffer(contenido) || contenido.length === 0) {
-        return res.status(400).json({ error: 'Adjunte un PDF o una imagen' });
-      }
-      if (contenido.length > MAX_DOCUMENTO_BYTES) {
-        return res.status(413).json({ error: 'El documento puede pesar hasta 10 MB' });
-      }
-      const tipoContenido = tipoDeArchivo(contenido);
-      if (!tipoContenido) return res.status(400).json({ error: 'El archivo debe ser PDF, JPG, PNG o WEBP' });
+      const { tipoContenido, status, error: errorArchivo } = validarSubida(contenido);
+      if (errorArchivo) return res.status(status).json({ error: errorArchivo });
       const tipo = String(req.query.tipo || '');
       if (!TIPOS_DOCUMENTO.includes(tipo)) return res.status(400).json({ error: 'Seleccione el tipo de documento' });
       const vencimiento = String(req.query.vencimiento || '');
@@ -423,14 +400,7 @@ const crearControladorPersonal = (cfg) => {
         );
         if (result.rowCount === 0) return res.status(404).json({ error: 'Documento no encontrado' });
         const { nombre_archivo: nombre, tipo_contenido: tipoContenido, contenido } = result.rows[0];
-        res.set({
-          'Content-Type': tipoContenido,
-          'Content-Length': contenido.length,
-          'Content-Disposition': `inline; filename="${nombre.replace(/[^\x20-\x7e]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(nombre)}`,
-          'X-Content-Type-Options': 'nosniff',
-          'Cache-Control': 'private, no-store'
-        });
-        res.send(contenido);
+        enviarArchivo(res, { nombre, tipoContenido, contenido });
       } catch (error) {
         responder(res, 'abrir el documento', error);
       }

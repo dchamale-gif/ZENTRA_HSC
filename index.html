@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-    <link rel="stylesheet" href="css/style.css?v=20261023-15">
+    <link rel="stylesheet" href="css/style.css?v=20261023-16">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/tema-botengine.css?v=20261018-2">
 </head>
@@ -1906,6 +1906,7 @@
                                     <th>Proveedor</th>
                                     <th>Total</th>
                                     <th>Estado</th>
+                                    <th class="compras-col-pago">Pago</th>
                                     <th>Acciones</th>
                                 </tr>
                             </thead>
@@ -3856,6 +3857,22 @@
                                 <label>Dirección</label>
                                 <input id="quickProviderAddress" class="form-input" type="text">
                             </div>
+                            <div class="form-group compras-cuenta-campo">
+                                <label for="quickProviderBank">Banco</label>
+                                <input id="quickProviderBank" class="form-input" type="text" list="comprasBancos" autocomplete="off">
+                            </div>
+                            <div class="form-group compras-cuenta-campo">
+                                <label for="quickProviderAccount">Número de cuenta</label>
+                                <input id="quickProviderAccount" class="form-input" type="text" inputmode="numeric" maxlength="40" autocomplete="off">
+                            </div>
+                            <div class="form-group compras-cuenta-campo">
+                                <label for="quickProviderAccountType">Tipo de cuenta</label>
+                                <select id="quickProviderAccountType" class="form-input">
+                                    <option value="">-- Selecciona --</option>
+                                    <option value="monetaria">Monetaria</option>
+                                    <option value="ahorro">Ahorro</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="quick-provider-actions">
                             <button class="btn btn-secondary" type="button" onclick="ComprasModule.toggleProviderForm(false)">Cancelar</button>
@@ -3888,6 +3905,104 @@
                     </div>
 
                     <div class="purchase-total">Total: <strong id="purchaseCalculatedTotal">Q0.00</strong></div>
+
+                    <section id="purchasePaymentSection" class="compra-pago" aria-labelledby="purchasePaymentTitle" hidden>
+                        <div class="purchase-items-header">
+                            <h3 id="purchasePaymentTitle">Pago</h3>
+                        </div>
+
+                        <fieldset class="compra-pago-condicion">
+                            <legend>Condición de pago</legend>
+                            <label class="compra-pago-opcion">
+                                <input type="radio" name="purchasePaymentTerms" value="contado" checked>
+                                <span><strong>Pago inmediato</strong><small>Se paga al momento de la compra</small></span>
+                            </label>
+                            <label class="compra-pago-opcion">
+                                <input type="radio" name="purchasePaymentTerms" value="credito">
+                                <span><strong>Crédito</strong><small>Se paga después, en un plazo de días</small></span>
+                            </label>
+                        </fieldset>
+
+                        <div class="form-row">
+                            <div class="form-group" id="purchaseCreditDaysGroup" hidden>
+                                <label for="purchaseCreditDays">Días de crédito <span class="required">*</span></label>
+                                <input type="number" id="purchaseCreditDays" class="form-input" min="1" max="365" step="1" list="purchaseCreditDaysList" inputmode="numeric">
+                                <datalist id="purchaseCreditDaysList">
+                                    <option value="15"></option>
+                                    <option value="30"></option>
+                                    <option value="45"></option>
+                                    <option value="60"></option>
+                                    <option value="90"></option>
+                                </datalist>
+                                <small class="form-hint" id="purchaseDueHint"></small>
+                            </div>
+                            <div class="form-group">
+                                <label for="purchasePaymentMethod">Forma de pago</label>
+                                <select id="purchasePaymentMethod" class="form-input">
+                                    <option value="">-- Selecciona --</option>
+                                    <option value="efectivo">Efectivo</option>
+                                    <option value="tarjeta">Tarjeta</option>
+                                    <option value="cheque">Cheque</option>
+                                    <option value="transferencia">Transferencia o depósito</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="purchasePaymentRefGroup" hidden>
+                                <label for="purchasePaymentRef" id="purchasePaymentRefLabel">Referencia</label>
+                                <input type="text" id="purchasePaymentRef" class="form-input" maxlength="60" autocomplete="off">
+                            </div>
+                            <div class="form-group">
+                                <label for="purchasePaymentDate">Fecha del pago</label>
+                                <input type="date" id="purchasePaymentDate" class="form-input">
+                                <small class="form-hint">Déjela vacía mientras no se haya pagado.</small>
+                            </div>
+                        </div>
+
+                        <div class="compra-pago-subtitulo">Cuenta del proveedor</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="purchaseProviderBank">Banco</label>
+                                <input type="text" id="purchaseProviderBank" class="form-input" list="comprasBancos" autocomplete="off">
+                            </div>
+                            <div class="form-group">
+                                <label for="purchaseProviderAccount">Número de cuenta</label>
+                                <input type="text" id="purchaseProviderAccount" class="form-input" inputmode="numeric" maxlength="40" autocomplete="off">
+                            </div>
+                            <div class="form-group">
+                                <label for="purchaseProviderAccountType">Tipo de cuenta</label>
+                                <select id="purchaseProviderAccountType" class="form-input">
+                                    <option value="">-- Selecciona --</option>
+                                    <option value="monetaria">Monetaria</option>
+                                    <option value="ahorro">Ahorro</option>
+                                </select>
+                            </div>
+                        </div>
+                        <small class="form-hint">Se guarda en el proveedor y aparece en sus próximas compras.</small>
+
+                        <div class="compra-pago-subtitulo">Voucher de pago</div>
+                        <ul id="purchaseVoucherList" class="compra-vouchers"></ul>
+                        <label class="btn btn-secondary btn-small" for="purchaseVoucherInput">
+                            <i class="fas fa-paperclip" aria-hidden="true"></i> Adjuntar voucher
+                        </label>
+                        <input type="file" id="purchaseVoucherInput" accept="application/pdf,image/jpeg,image/png,image/webp" multiple hidden>
+                        <small class="form-hint">PDF, JPG, PNG o WEBP de hasta 10 MB. Se sube al guardar la compra.</small>
+                    </section>
+
+                    <datalist id="comprasBancos">
+                        <option value="Banco Industrial"></option>
+                        <option value="Banrural"></option>
+                        <option value="BAM"></option>
+                        <option value="G&amp;T Continental"></option>
+                        <option value="Bantrab"></option>
+                        <option value="BAC Credomatic"></option>
+                        <option value="Banco Promerica"></option>
+                        <option value="Interbanco"></option>
+                        <option value="Banco Inmobiliario"></option>
+                        <option value="Banco Ficohsa"></option>
+                        <option value="Vivibanco"></option>
+                        <option value="Banco Azteca"></option>
+                        <option value="Crédito Hipotecario Nacional (CHN)"></option>
+                    </datalist>
+
                     <div class="form-group full-width">
                         <label>Observaciones</label>
                         <textarea id="purchaseObservations" class="form-input" rows="3"></textarea>
@@ -5679,7 +5794,7 @@
     <script src="js/control-medicamentos.js?v=20261023-2"></script>
     <script src="js/personal.js?v=20261023-2"></script>
     <script src="js/codigos-articulos.js?v=20261015-21"></script>
-    <script src="js/compras.js?v=20261023-2"></script>
+    <script src="js/compras.js?v=20261023-4"></script>
     <script src="js/alertas.js?v=20261015-21"></script>
     <script src="js/ventas.js?v=20261023-1"></script>
     <script src="js/cotizaciones.js?v=20261019-1"></script>
