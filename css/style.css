@@ -11043,3 +11043,223 @@ body.chat-abierto {
         grid-row: 2;
     }
 }
+
+/* ---------- Inventario de bienes ---------- */
+.inv-resumen {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.inv-resumen > div {
+    display: grid;
+    gap: 2px;
+    padding: 12px 14px;
+    background: var(--bg-white);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+.inv-resumen span {
+    color: var(--text-gray);
+    font-size: 12px;
+}
+
+.inv-resumen strong {
+    font-size: 18px;
+    font-variant-numeric: tabular-nums;
+}
+
+.inv-resumen strong.inv-alerta {
+    color: var(--danger-color);
+}
+
+.inv-tabla td small {
+    display: block;
+    color: var(--text-gray);
+    font-size: 12px;
+}
+
+.inv-nombre {
+    font-weight: 600;
+}
+
+.inv-tabla td:first-child {
+    white-space: nowrap;
+}
+
+.inv-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.inv-fila-baja td {
+    color: var(--text-gray);
+}
+
+.inv-fila-baja .inv-nombre {
+    text-decoration: line-through;
+}
+
+.inv-acciones {
+    white-space: nowrap;
+}
+
+.inv-acciones .btn-small {
+    margin-left: 4px;
+}
+
+.inv-estado {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.inv-estado-bueno { background: #e7f6ec; color: var(--success-color); }
+.inv-estado-regular { background: var(--bg-light); color: var(--text-dark); }
+.inv-estado-malo { background: #fdecec; color: var(--danger-color); }
+.inv-estado-en_reparacion { background: #fff4dc; color: var(--warning-color); }
+.inv-estado-dado_de_baja { background: var(--bg-light); color: var(--text-gray); }
+
+.inv-cargo-badge {
+    color: var(--danger-color) !important;
+}
+
+.modal-overlay .modal-dialog.inv-dialogo {
+    max-width: 640px;
+}
+
+.modal-overlay .modal-dialog.inv-dialogo-historial {
+    max-width: 560px;
+}
+
+.inv-campos {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.inv-campos .form-group {
+    margin: 0;
+}
+
+.inv-ancho {
+    grid-column: 1 / -1;
+}
+
+.inv-actual {
+    margin: 0 0 16px;
+    color: var(--text-gray);
+    font-size: 13px;
+}
+
+.inv-actual small {
+    margin-left: 4px;
+}
+
+.inv-error {
+    margin: 12px 0 0;
+    color: var(--danger-color);
+    font-size: 13px;
+}
+
+.inv-dialogo-acciones {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.inv-cargo-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 16px;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.inv-cargo-check input {
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    accent-color: var(--danger-color);
+}
+
+.inv-cargo-check strong {
+    display: block;
+    font-size: 14px;
+}
+
+.inv-cargo-check small {
+    color: var(--text-gray);
+    font-size: 12px;
+}
+
+.inv-cargo {
+    margin-top: 12px;
+}
+
+.inv-historial ol {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.inv-mov {
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--primary-color);
+    border-radius: 6px;
+}
+
+.inv-mov-baja { border-left-color: var(--danger-color); }
+.inv-mov-traslado { border-left-color: var(--text-gray); }
+
+.inv-mov-encabezado {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 14px;
+}
+
+.inv-mov-encabezado span {
+    color: var(--text-gray);
+    font-size: 12px;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.inv-mov p {
+    margin: 6px 0 0;
+    font-size: 13px;
+}
+
+.inv-mov-cargo {
+    color: var(--danger-color);
+}
+
+.inv-mov small {
+    display: block;
+    margin-top: 6px;
+    color: var(--text-gray);
+    font-size: 12px;
+}
+
+@media (max-width: 640px) {
+    .inv-campos {
+        grid-template-columns: 1fr;
+    }
+
+    .inv-acciones {
+        white-space: normal;
+    }
+}

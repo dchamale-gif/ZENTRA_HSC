@@ -29,7 +29,7 @@ const PERMISOS_API = {
       'caratula', 'historia_clinica', 'ordenes_medicas', 'evolucion', 'control_medicamentos',
       'extras', 'control_signos', 'notas_enfermeria', 'laboratorios', 'recepcion_articulos',
       'cotizacion_paciente', 'contrato_ingreso', 'hospitalizaciones', 'saldo_paciente',
-      'cotizaciones', 'ventas', 'agenda', 'cxc'
+      'cotizaciones', 'ventas', 'agenda', 'cxc', 'inventario'
     ],
     editar: ['caratula']
   },
@@ -61,6 +61,7 @@ const PERMISOS_API = {
     editar: ['personal']
   },
   personalGeneral: 'personal_general',
+  inventarioActivos: 'inventario',
   agenda: 'agenda',
   gastos: 'gastos',
   cxc: 'cxc',

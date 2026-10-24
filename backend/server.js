@@ -33,6 +33,7 @@ const responsablesRoutes = require('./src/routes/responsablesRoutes');
 const documentosPacienteRoutes = require('./src/routes/documentosPacienteRoutes');
 const personalMedicoRoutes = require('./src/routes/personalMedicoRoutes');
 const personalGeneralRoutes = require('./src/routes/personalGeneralRoutes');
+const inventarioActivosRoutes = require('./src/routes/inventarioActivosRoutes');
 const comprasRoutes = require('./src/routes/compras');
 const ventasRoutes = require('./src/routes/ventas');
 const cajaRoutes = require('./src/routes/caja');
@@ -129,6 +130,9 @@ app.use('/api/doctors', authMiddleware, requireModule(PERMISOS.personal), doctor
 
 // Gestión de personal médico
 app.use('/api/personal-medico', authMiddleware, requireModule(PERMISOS.personal), personalMedicoRoutes);
+
+// Inventario de bienes (mobiliario y equipo)
+app.use('/api/inventario-activos', authMiddleware, requireModule(PERMISOS.inventarioActivos), inventarioActivosRoutes);
 
 // Personal administrativo y de apoyo
 app.use('/api/personal-general', authMiddleware, requireModule(PERMISOS.personalGeneral), personalGeneralRoutes);

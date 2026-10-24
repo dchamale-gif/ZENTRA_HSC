@@ -261,7 +261,7 @@ function navigateToPage(pageId) {
     // Update page title
     const titleMap = {
         'dashboard': 'Inicio',
-        'inventory': 'Gestión de Inventario',
+        'inventory': 'Inventario',
         'compras': 'Gestión de Compras',
         'ventas': 'Gestión de Ventas',
         'cotizaciones': 'Cotizaciones',
