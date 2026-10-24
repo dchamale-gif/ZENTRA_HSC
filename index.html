@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-    <link rel="stylesheet" href="css/style.css?v=20261023-17">
+    <link rel="stylesheet" href="css/style.css?v=20261023-18">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/tema-botengine.css?v=20261018-2">
     <link rel="stylesheet" href="css/tema-oscuro-auto.css?v=20261023-1">
@@ -368,7 +368,7 @@
                                     <option value="">Todas</option>
                                     <option value="borrador">Borradores</option>
                                     <option value="generada">Generadas</option>
-                                    <option value="ingresada">Ingresadas</option>
+                                    <option value="ingresada">En ficha del paciente</option>
                                     <option value="anulada">Anuladas</option>
                                 </select>
                             </div>
@@ -431,9 +431,19 @@
                                     <label for="cotMotivo">Motivo / servicio cotizado</label>
                                     <input type="text" id="cotMotivo" class="form-input" placeholder="Ej: Internamiento psiquiátrico 7 días">
                                 </div>
-                                <div class="form-group">
-                                    <label for="cotVigencia">Vigencia (días)</label>
-                                    <input type="number" id="cotVigencia" class="form-input" min="1" step="1" value="15">
+                                <div class="cot-campos">
+                                    <div class="form-group">
+                                        <label for="cotEmpresa">Empresa que cotiza</label>
+                                        <select id="cotEmpresa" class="form-input"></select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="cotIva">IVA</label>
+                                        <select id="cotIva" class="form-input"></select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="cotVigencia">Vigencia (días)</label>
+                                        <input type="number" id="cotVigencia" class="form-input" min="1" step="1" value="15">
+                                    </div>
                                 </div>
                                 <div class="form-group" data-solo-editable>
                                     <label for="cotPlantillaSelect">Precargar desde plantilla</label>
@@ -466,8 +476,9 @@
                                 <dl class="cot-totales">
                                     <div><dt>Subtotal</dt><dd id="cotSubtotal">Q0.00</dd></div>
                                     <div><dt>Descuentos</dt><dd id="cotDescuento">-Q0.00</dd></div>
+                                    <div id="cotIvaFila"><dt id="cotIvaEtiqueta">IVA (12%)</dt><dd id="cotIvaMonto">Q0.00</dd></div>
                                     <div class="cot-total"><dt>Total</dt><dd id="cotTotal">Q0.00</dd></div>
-                                    <div class="cot-iva"><dt>IVA (12%) incluido</dt><dd id="cotIvaIncluido">Q0.00</dd></div>
+                                    <div class="cot-iva" id="cotIvaIncluidoFila" hidden><dt>IVA (12%) incluido</dt><dd id="cotIvaIncluido">Q0.00</dd></div>
                                 </dl>
                             </div>
                         </section>
@@ -478,7 +489,7 @@
                             <button type="button" class="btn btn-secondary" id="cotComoPlantillaBtn" data-solo-editable><i class="fas fa-layer-group" aria-hidden="true"></i> Guardar como plantilla</button>
                             <button type="button" class="btn btn-secondary" id="cotGuardarBtn" data-solo-editable><i class="fas fa-floppy-disk" aria-hidden="true"></i> Guardar borrador</button>
                             <button type="button" class="btn btn-secondary" id="cotGenerarBtn" data-solo-editable><i class="fas fa-print" aria-hidden="true"></i> Generar e imprimir</button>
-                            <button type="button" class="btn btn-primary" id="cotIngresarBtn"><i class="fas fa-right-to-bracket" aria-hidden="true"></i> Ingresar paciente</button>
+                            <button type="button" class="btn btn-primary" id="cotIngresarBtn"><i class="fas fa-folder-plus" aria-hidden="true"></i> Guardar en ficha del paciente</button>
                         </div>
                     </div>
                 </div>
@@ -5849,8 +5860,8 @@
     <script src="js/inventario-activos.js?v=20261023-1"></script>
     <script src="js/alertas.js?v=20261015-21"></script>
     <script src="js/ventas.js?v=20261023-1"></script>
-    <script src="js/cotizaciones.js?v=20261019-1"></script>
-    <script src="js/paciente-acciones.js?v=20261019-3"></script>
+    <script src="js/cotizaciones.js?v=20261023-1"></script>
+    <script src="js/paciente-acciones.js?v=20261023-1"></script>
     <script src="js/caja.js?v=20261015-21"></script>
     <script src="js/cuentas-por-cobrar.js?v=20261015-21"></script>
     <script src="js/dashboard-financiero.js?v=20261015-21"></script>

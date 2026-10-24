@@ -1,16 +1,30 @@
 // ============================================
 // CONTROLADOR DE COTIZACIONES
 // Cotizaciones para pacientes o interesados, con plantillas reutilizables.
-// Al ingresar el paciente, la cotización se convierte en una factura a su
-// estado de cuenta en la misma transacción.
+// Cada una indica la empresa que la emite (A o B) y el IVA que se suma al total.
+// Al ingresar al paciente, la cotización solo queda guardada en su ficha
+// (no genera cargos), para llevar la cuenta de cuántas veces cotiza.
 // ============================================
 
 const db = require('../db/connection');
 const { generateId } = require('../utils/helpers');
-const billingMejoradoController = require('./billingMejoradoController');
 
 const ESTADOS_EDITABLES = ['borrador', 'generada'];
-const IVA = 12;
+const EMPRESAS = ['A', 'B'];
+const IVA_OPCIONES = [12, 5, 0];
+
+// Las columnas de empresa e IVA llegan con npm run migrate:cotizaciones.
+// Mientras no se corra, las cotizaciones se guardan como antes (IVA 12 % incluido).
+let empresaIvaCache = { valor: false, hasta: 0 };
+const empresaIvaDisponible = async () => {
+    if (Date.now() < empresaIvaCache.hasta) return empresaIvaCache.valor;
+    const { rows } = await db.query(`
+        SELECT EXISTS (SELECT 1 FROM information_schema.columns
+                       WHERE table_name = 'cotizaciones' AND column_name = 'iva_monto') AS listo`);
+    const valor = rows[0].listo;
+    empresaIvaCache = { valor, hasta: valor ? Infinity : Date.now() + 60000 };
+    return valor;
+};
 
 const redondear = valor => Math.round((Number(valor) + Number.EPSILON) * 100) / 100;
 
@@ -85,10 +99,30 @@ const validarCatalogo = async (client, items) => {
     });
 };
 
-const calcularTotales = (items) => {
+// Empresa que emite y IVA. iva_porcentaje null = cotización anterior, con el IVA del 12 % ya en los precios.
+const leerFacturacion = (body) => {
+    const empresa = String(body.empresa || 'A').trim().toUpperCase();
+    if (!EMPRESAS.includes(empresa)) throw errorConEstado('Elige la empresa A o la empresa B');
+    if (body.iva_porcentaje === null || body.iva_porcentaje === 'incluido') return { empresa, ivaPorcentaje: null };
+    const ivaPorcentaje = Number(body.iva_porcentaje ?? 12);
+    if (!IVA_OPCIONES.includes(ivaPorcentaje)) throw errorConEstado('El IVA debe ser 12 %, 5 % o sin IVA');
+    return { empresa, ivaPorcentaje };
+};
+
+// El IVA se calcula sobre el monto ya descontado y se suma al total, como en el estado de cuenta
+const calcularTotales = (items, ivaPorcentaje = null) => {
     const subtotal = redondear(items.reduce((suma, i) => suma + i.cantidad * i.precio_unitario, 0));
     const descuento = redondear(items.reduce((suma, i) => suma + i.descuento, 0));
-    return { subtotal, descuento, total: redondear(subtotal - descuento) };
+    const base = redondear(subtotal - descuento);
+    const iva = ivaPorcentaje ? redondear(base * ivaPorcentaje / 100) : 0;
+    return { subtotal, descuento, iva, total: redondear(base + iva) };
+};
+
+const guardarFacturacion = async (client, id, facturacion, totales) => {
+    await client.query(
+        'UPDATE cotizaciones SET empresa = $1, iva_porcentaje = $2, iva_monto = $3 WHERE id = $4',
+        [facturacion.empresa, facturacion.ivaPorcentaje, totales.iva, id]
+    );
 };
 
 // Datos del cliente: si viene un paciente registrado, se completan con su ficha
@@ -117,6 +151,10 @@ const resolverCliente = async (client, body) => {
     return { pacienteId, nombre, telefono, dpi, email, responsable };
 };
 
+// Cuántas cotizaciones (sin contar las anuladas) tiene el paciente de esta cotización
+const SQL_VECES_PACIENTE = `(SELECT COUNT(*) FROM cotizaciones c2
+    WHERE c.paciente_id IS NOT NULL AND c2.paciente_id = c.paciente_id AND c2.estado <> 'anulada')::int AS veces_paciente`;
+
 const guardarItems = async (client, cotizacionId, items) => {
     await client.query('DELETE FROM cotizacion_items WHERE cotizacion_id = $1', [cotizacionId]);
     for (const item of items) {
@@ -135,7 +173,8 @@ const obtenerCotizacion = async (client, id) => {
         SELECT c.*,
                (c.created_at + make_interval(days => c.vigencia_dias))::date AS valida_hasta,
                NULLIF(TRIM(CONCAT_WS(' ', p.nombre, p.apellido_paterno, p.apellido_materno)), '') AS paciente_nombre,
-               NULLIF(TRIM(CONCAT_WS(' ', u.nombre, u.apellido)), '') AS cotizador_nombre
+               NULLIF(TRIM(CONCAT_WS(' ', u.nombre, u.apellido)), '') AS cotizador_nombre,
+               ${SQL_VECES_PACIENTE}
         FROM cotizaciones c
         LEFT JOIN pacientes p ON p.id = c.paciente_id
         LEFT JOIN users u ON u.id = c.usuario_id
@@ -146,6 +185,9 @@ const obtenerCotizacion = async (client, id) => {
     );
     return { ...rows[0], items: items.rows };
 };
+
+const avisoSinMigracion = conFacturacion => conFacturacion ? undefined
+    : 'Se guardó con el IVA del 12 % incluido: la empresa y el IVA elegidos se guardarán cuando se corra npm run migrate:cotizaciones';
 
 const responderError = (res, error, accion) => {
     console.error(`Error al ${accion}:`, error);
@@ -181,6 +223,9 @@ const cotizacionesController = {
                 SELECT c.id, c.numero, c.paciente_id, c.cliente_nombre, c.cliente_telefono, c.cliente_dpi,
                        c.motivo, c.estado, c.vigencia_dias, c.subtotal, c.descuento, c.total,
                        c.numero_factura, c.fecha_generada, c.fecha_ingreso, c.created_at, c.updated_at,
+                       to_jsonb(c)->>'empresa' AS empresa, (to_jsonb(c)->>'iva_porcentaje')::numeric AS iva_porcentaje,
+                       COALESCE((to_jsonb(c)->>'iva_monto')::numeric, 0) AS iva_monto,
+                       ${SQL_VECES_PACIENTE},
                        (c.created_at + make_interval(days => c.vigencia_dias))::date AS valida_hasta,
                        (SELECT COUNT(*) FROM cotizacion_items i WHERE i.cotizacion_id = c.id)::int AS total_items
                 FROM cotizaciones c
@@ -211,9 +256,11 @@ const cotizacionesController = {
             const estado = req.body.estado === 'generada' ? 'generada' : 'borrador';
             const vigencia = Number(req.body.vigencia_dias) || 15;
 
+            const conFacturacion = await empresaIvaDisponible();
+            const facturacion = leerFacturacion(req.body);
             client = await db.connect();
             const items = await validarCatalogo(client, normalizarItems(req.body.items));
-            const totales = calcularTotales(items);
+            const totales = calcularTotales(items, conFacturacion ? facturacion.ivaPorcentaje : null);
             await client.query('BEGIN');
             const cliente = await resolverCliente(client, req.body);
             const { rows } = await client.query(
@@ -233,10 +280,11 @@ const cotizacionesController = {
                     totales.subtotal, totales.descuento, totales.total, Number(req.user?.id) || null,
                     cliente.responsable, estado === 'generada']
             );
+            if (conFacturacion) await guardarFacturacion(client, id, facturacion, totales);
             await guardarItems(client, id, items);
             const cotizacion = await obtenerCotizacion(client, id);
             await client.query('COMMIT');
-            res.status(201).json({ success: true, data: cotizacion });
+            res.status(201).json({ success: true, data: cotizacion, aviso: avisoSinMigracion(conFacturacion) });
         } catch (error) {
             if (client) await client.query('ROLLBACK');
             responderError(res, error, 'crear la cotización');
@@ -249,9 +297,11 @@ const cotizacionesController = {
     async actualizar(req, res) {
         let client;
         try {
+            const conFacturacion = await empresaIvaDisponible();
+            const facturacion = leerFacturacion(req.body);
             client = await db.connect();
             const items = await validarCatalogo(client, normalizarItems(req.body.items));
-            const totales = calcularTotales(items);
+            const totales = calcularTotales(items, conFacturacion ? facturacion.ivaPorcentaje : null);
             await client.query('BEGIN');
 
             const actual = await client.query('SELECT estado FROM cotizaciones WHERE id = $1 FOR UPDATE', [req.params.id]);
@@ -276,10 +326,11 @@ const cotizacionesController = {
                     Number(req.body.vigencia_dias) || 15, totales.subtotal, totales.descuento, totales.total, req.params.id,
                     cliente.responsable, estado === 'generada']
             );
+            if (conFacturacion) await guardarFacturacion(client, req.params.id, facturacion, totales);
             await guardarItems(client, req.params.id, items);
             const cotizacion = await obtenerCotizacion(client, req.params.id);
             await client.query('COMMIT');
-            res.json({ success: true, data: cotizacion });
+            res.json({ success: true, data: cotizacion, aviso: avisoSinMigracion(conFacturacion) });
         } catch (error) {
             if (client) await client.query('ROLLBACK');
             responderError(res, error, 'actualizar la cotización');
@@ -289,73 +340,29 @@ const cotizacionesController = {
     },
 
     // POST /api/cotizaciones/:id/ingresar  { paciente_id }
-    // Convierte la cotización en una factura al estado de cuenta del paciente.
+    // Guarda la cotización en la ficha del paciente. No genera cargos en su estado de cuenta.
     async ingresar(req, res) {
-        let client;
         try {
             const pacienteId = textoOpcional(req.body.paciente_id);
-            const userId = Number(req.user?.id);
-            if (!pacienteId) throw errorConEstado('Selecciona el paciente que ingresa');
-            if (!Number.isInteger(userId)) throw errorConEstado('Usuario no válido');
+            if (!pacienteId) throw errorConEstado('Selecciona el paciente');
+            const paciente = await db.query('SELECT id FROM pacientes WHERE id::text = $1', [pacienteId]);
+            if (paciente.rows.length === 0) throw errorConEstado('El paciente seleccionado no existe', 404);
 
-            client = await db.connect();
-            await client.query('BEGIN');
-            const actual = await client.query('SELECT * FROM cotizaciones WHERE id = $1 FOR UPDATE', [req.params.id]);
-            if (actual.rows.length === 0) throw errorConEstado('Cotización no encontrada', 404);
-            const cotizacion = actual.rows[0];
-            if (!ESTADOS_EDITABLES.includes(cotizacion.estado)) {
-                throw errorConEstado(`Esta cotización ya está ${cotizacion.estado}`, 409);
-            }
-
-            const { rows: items } = await client.query(
-                'SELECT * FROM cotizacion_items WHERE cotizacion_id = $1 ORDER BY orden, id', [cotizacion.id]
-            );
-            if (items.length === 0) throw errorConEstado('La cotización no tiene conceptos');
-
-            // Precios con IVA incluido, como el resto de cargos del sistema
-            const total = redondear(cotizacion.total);
-            const base = redondear(total / (1 + IVA / 100));
-            const itemsFactura = billingMejoradoController.normalizarItemsFactura(items.map(item => ({
-                descripcion: item.descripcion,
-                cantidad: Number(item.cantidad),
-                precio_unitario: Number(item.precio_unitario),
-                subtotal: redondear(Number(item.cantidad) * Number(item.precio_unitario)),
-                descuento_total: Number(item.descuento),
-                total_item: Number(item.total),
-                tipo_item: item.tipo_item,
-                medicina_id: item.medicina_id
-            })));
-
-            const factura = await billingMejoradoController.registrarFacturaPaciente(client, {
-                pacienteId,
-                userId,
-                items: itemsFactura,
-                totales: {
-                    subtotal: Number(cotizacion.subtotal),
-                    total_descuentos: Number(cotizacion.descuento),
-                    base_impuesto: base,
-                    total_impuestos: redondear(total - base),
-                    total_neto: total
-                },
-                metodoPago: 'credito',
-                observaciones: `Cotización ${cotizacion.numero}${cotizacion.motivo ? `: ${cotizacion.motivo}` : ''}`
-            });
-
-            await client.query(`
+            const { rows } = await db.query(`
                 UPDATE cotizaciones SET
-                    estado = 'ingresada', paciente_id = $1, venta_id = $2, numero_factura = $3,
-                    fecha_ingreso = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-                WHERE id = $4`,
-                [pacienteId, factura.facturaId, factura.numeroFactura, cotizacion.id]
-            );
-            const resultado = await obtenerCotizacion(client, cotizacion.id);
-            await client.query('COMMIT');
-            res.json({ success: true, message: `Cotización cargada al estado de cuenta (factura ${factura.numeroFactura})`, data: resultado });
+                    estado = 'ingresada', paciente_id = $1, fecha_ingreso = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                WHERE id = $2 AND estado IN ('borrador', 'generada')
+                RETURNING id`, [paciente.rows[0].id, req.params.id]);
+            if (rows.length === 0) {
+                const existe = await db.query('SELECT estado FROM cotizaciones WHERE id = $1', [req.params.id]);
+                if (existe.rows.length === 0) throw errorConEstado('Cotización no encontrada', 404);
+                const estado = existe.rows[0].estado === 'ingresada' ? 'en la ficha del paciente' : existe.rows[0].estado;
+                throw errorConEstado(`Esta cotización ya está ${estado}`, 409);
+            }
+            const resultado = await obtenerCotizacion(db, req.params.id);
+            res.json({ success: true, message: `Cotización ${resultado.numero} guardada en la ficha del paciente`, data: resultado });
         } catch (error) {
-            if (client) await client.query('ROLLBACK');
             responderError(res, error, 'ingresar la cotización');
-        } finally {
-            if (client) client.release();
         }
     },
 
@@ -408,7 +415,7 @@ const cotizacionesController = {
         }
     },
 
-    // Solo administrador. Los cargos que ya pasaron al estado de cuenta no se tocan.
+    // Solo administrador. Los cargos de cotizaciones ingresadas con la versión anterior se conservan.
     async eliminar(req, res) {
         try {
             const { rowCount } = await db.query('DELETE FROM cotizaciones WHERE id = $1', [req.params.id]);

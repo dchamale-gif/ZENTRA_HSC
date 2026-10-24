@@ -11,14 +11,18 @@
  * Numeración: COT-001, COT-002, … (crece a COT-1000 sin truncar).
  * Cada concepto guarda "qué contiene" (contenido), también dentro de las plantillas.
  *
+ * Cada cotización indica la empresa que la emite (A o B) y el IVA que se suma
+ * al total (12 %, 5 % o sin IVA). Las cotizaciones anteriores a este cambio
+ * quedan con iva_porcentaje NULL: sus precios ya incluían el IVA del 12 %.
+ *
  * Estados de una cotización:
  *   borrador  -> guardada sin generar
  *   generada  -> generada/impresa, sigue editable
- *   ingresada -> el paciente ingresó y la cotización pasó a su estado de cuenta (ya no se edita)
+ *   ingresada -> guardada en la ficha del paciente (ya no se edita; no genera cargos)
  *   anulada   -> descartada
  *
  * Es idempotente: se puede ejecutar varias veces sin efectos secundarios.
- * Uso en el servidor:  cd backend && node run-cotizaciones-migration.js
+ * Uso en el servidor:  cd backend && npm run migrate:cotizaciones
  */
 
 const { Pool } = require('pg');
@@ -87,6 +91,9 @@ CREATE TABLE IF NOT EXISTS cotizacion_items (
 ALTER TABLE cotizacion_items ADD COLUMN IF NOT EXISTS articulo_id VARCHAR(50);
 ALTER TABLE cotizacion_items ADD COLUMN IF NOT EXISTS contenido TEXT;
 ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS cliente_responsable VARCHAR(150);
+ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS empresa VARCHAR(5);
+ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS iva_porcentaje NUMERIC(5, 2);
+ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS iva_monto NUMERIC(12, 2) NOT NULL DEFAULT 0;
 
 CREATE INDEX IF NOT EXISTS idx_cotizacion_items_cotizacion ON cotizacion_items (cotizacion_id, orden);
 

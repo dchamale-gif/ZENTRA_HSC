@@ -22,6 +22,7 @@
     "migrate:compras-pagos": "node run-compras-pagos-migration.js",
     "migrate:inventario-activos": "node run-inventario-activos-migration.js",
     "migrate:preferencias-usuario": "node run-preferencias-usuario-migration.js",
+    "migrate:cotizaciones": "node run-cotizaciones-migration.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": ["hospital", "medical", "api"],

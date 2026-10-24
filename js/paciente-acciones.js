@@ -543,8 +543,16 @@ const PacienteAccionesModule = {
         (async () => {
             try {
                 const { data = [] } = await this.api(`/api/cotizaciones?paciente_id=${encodeURIComponent(p.id)}`);
+                // Cuántas veces ha cotizado el paciente (las anuladas no cuentan)
+                const vigentes = data.filter(c => c.estado !== 'anulada');
+                const anuladas = data.length - vigentes.length;
+                const resumen = `<div class="pac-cot-resumen">
+                        <div><strong>${vigentes.length}</strong><span>${vigentes.length === 1 ? 'cotización' : 'cotizaciones'}</span></div>
+                        <div><strong>${formatQ(vigentes.reduce((suma, c) => suma + Number(c.total || 0), 0))}</strong><span>total cotizado</span></div>
+                        <div><strong>${vigentes.length ? formatFecha(vigentes[0].created_at) : '—'}</strong><span>última cotización</span></div>
+                    </div>${anuladas ? `<p class="cot-sub" style="margin: -4px 0 10px;">Además tiene ${anuladas} anulada${anuladas === 1 ? '' : 's'}, que no se cuentan.</p>` : ''}`;
                 cuerpo.innerHTML = data.length
-                    ? `<div class="table-responsive"><table class="data-table">
+                    ? `${resumen}<div class="table-responsive"><table class="data-table">
                         <thead><tr><th>Número</th><th>Fecha</th><th>Motivo</th><th class="text-right">Total</th><th>Estado</th><th class="text-center">Acciones</th></tr></thead>
                         <tbody>${data.map(c => {
                             const estado = CotizacionesModule.estadoVisible(c);
@@ -552,7 +560,7 @@ const PacienteAccionesModule = {
                                 <td><strong>${this.e(c.numero)}</strong></td>
                                 <td>${formatFecha(c.created_at)}</td>
                                 <td><small>${this.e(c.motivo || '—')}</small></td>
-                                <td class="text-right"><strong>${formatQ(c.total)}</strong></td>
+                                <td class="text-right"><strong>${formatQ(c.total)}</strong><small class="cot-sub">${this.e(CotizacionesModule.nombreEmpresa(c.empresa))} · ${CotizacionesModule.textoIva(CotizacionesModule.ivaDe(c))}</small></td>
                                 <td><span class="cot-estado cot-estado-${estado.clave}">${estado.texto}</span></td>
                                 <td><div class="acciones-saldo">
                                     <button type="button" class="btn-accion btn-accion-icono" data-cot="${this.e(c.id)}" data-accion="abrir" title="Abrir" aria-label="Abrir cotización ${this.e(c.numero)}"><i class="fas fa-pen" aria-hidden="true"></i></button>

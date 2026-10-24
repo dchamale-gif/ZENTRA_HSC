@@ -1,8 +1,9 @@
 // ============================================
 // MÓDULO DE COTIZACIONES
 // Cotizaciones para pacientes o interesados. Se precargan con plantillas,
-// se guardan como borrador, se generan (imprimen) y, cuando el paciente
-// ingresa, pasan como cargos a su estado de cuenta.
+// se guardan como borrador y se generan (imprimen). Cada una indica la empresa
+// que cotiza (A o B) y el IVA que se suma al total. Al ingresar al paciente
+// solo se guardan en su ficha (no generan cargos), para ver cuántas veces cotiza.
 // ============================================
 
 const CotizacionesModule = {
@@ -31,11 +32,14 @@ const CotizacionesModule = {
     ESTADOS: {
         borrador: 'Borrador',
         generada: 'Generada',
-        ingresada: 'Ingresada',
+        ingresada: 'En ficha',
         anulada: 'Anulada'
     },
 
-    NOTAS_PREDETERMINADAS: 'Precios en quetzales, incluyen IVA. Los montos pueden variar según la evolución clínica del paciente.',
+    NOTAS_PREDETERMINADAS: 'Precios en quetzales. Los montos pueden variar según la evolución clínica del paciente.',
+
+    // Valor del selector de IVA para cotizaciones anteriores, cuyos precios ya incluían el 12 %
+    IVA_INCLUIDO: 'incluido',
 
     init() {
         if (this._iniciado) return;
@@ -63,6 +67,11 @@ const CotizacionesModule = {
         document.getElementById('cotIngresarBtn')?.addEventListener('click', () => this.abrirIngreso());
         document.getElementById('cotAnularBtn')?.addEventListener('click', () => this.anular());
         document.getElementById('cotQuitarPacienteBtn')?.addEventListener('click', () => this.seleccionarPaciente(null));
+        document.getElementById('cotIva')?.addEventListener('change', () => this.renderTotales());
+        document.addEventListener('zentra:empresas-actualizadas', () => {
+            const select = document.getElementById('cotEmpresa');
+            if (select) this.renderEmpresaIva(select.value, this.ivaElegido());
+        });
 
         const busquedaPaciente = document.getElementById('cotBuscarPaciente');
         busquedaPaciente?.addEventListener('input', () => this.sugerirPacientes(busquedaPaciente.value, 'cotSugerenciasPaciente', p => this.seleccionarPaciente(p)));
@@ -137,6 +146,43 @@ const CotizacionesModule = {
     estadoVisible(c) {
         const vencida = ['borrador', 'generada'].includes(c.estado) && c.valida_hasta && String(c.valida_hasta).slice(0, 10) < this.hoyKey();
         return { clave: vencida ? 'vencida' : c.estado, texto: vencida ? 'Vencida' : this.ESTADOS[c.estado] || c.estado };
+    },
+
+    // IVA guardado en una cotización: null en las anteriores a la elección de IVA (12 % incluido)
+    ivaDe(c) {
+        return c?.iva_porcentaje === null || c?.iva_porcentaje === undefined ? null : Number(c.iva_porcentaje);
+    },
+
+    nombreEmpresa(id) {
+        const empresa = typeof getEmpresaFacturacion === 'function' ? getEmpresaFacturacion(id || 'A') : null;
+        return empresa?.nombre || `Empresa ${id || 'A'}`;
+    },
+
+    textoIva(porcentaje) {
+        if (porcentaje === null) return 'IVA 12% incluido';
+        return porcentaje > 0 ? `IVA ${porcentaje}%` : 'Sin IVA';
+    },
+
+    // null = cotización anterior con IVA incluido
+    ivaElegido() {
+        const valor = document.getElementById('cotIva')?.value;
+        return valor === this.IVA_INCLUIDO ? null : Number(valor ?? 12);
+    },
+
+    renderEmpresaIva(empresa, iva) {
+        const empresas = (typeof CONFIG !== 'undefined' && CONFIG.EMPRESAS_FACTURACION) || [{ id: 'A', nombre: 'Empresa A' }, { id: 'B', nombre: 'Empresa B' }];
+        const selectEmpresa = document.getElementById('cotEmpresa');
+        if (selectEmpresa) {
+            selectEmpresa.innerHTML = empresas.map(e => `<option value="${this.e(e.id)}">${this.e(e.nombre)}</option>`).join('');
+            selectEmpresa.value = empresas.some(e => e.id === empresa) ? empresa : empresas[0].id;
+        }
+        const selectIva = document.getElementById('cotIva');
+        if (selectIva) {
+            const opciones = (typeof CONFIG !== 'undefined' && CONFIG.IVA_OPCIONES) || [12, 5, 0];
+            selectIva.innerHTML = (iva === null ? `<option value="${this.IVA_INCLUIDO}">12% ya incluido en los precios</option>` : '')
+                + opciones.map(p => `<option value="${p}">${this.textoIva(p)}</option>`).join('');
+            selectIva.value = iva === null ? this.IVA_INCLUIDO : String(opciones.includes(iva) ? iva : 12);
+        }
     },
 
     // ---------- Catálogo (artículos + medicinas) ----------
@@ -328,16 +374,17 @@ const CotizacionesModule = {
                                 <td><strong>${this.e(c.numero)}</strong></td>
                                 <td>${formatFecha(c.created_at)}</td>
                                 <td>${this.e(c.cliente_nombre)}${c.paciente_id ? ' <span class="cot-tag">Paciente</span>' : ''}
-                                    ${c.cliente_telefono ? `<small class="cot-sub">${this.e(c.cliente_telefono)}</small>` : ''}</td>
+                                    ${c.cliente_telefono ? `<small class="cot-sub">${this.e(c.cliente_telefono)}</small>` : ''}
+                                    ${c.veces_paciente ? `<small class="cot-sub">${this.textoVeces(c.veces_paciente)}</small>` : ''}</td>
                                 <td><small>${this.e(c.motivo || '—')}</small></td>
-                                <td class="text-right"><strong>${formatQ(c.total)}</strong><small class="cot-sub">${c.total_items} concepto${c.total_items === 1 ? '' : 's'}</small></td>
+                                <td class="text-right"><strong>${formatQ(c.total)}</strong><small class="cot-sub">${this.e(this.nombreEmpresa(c.empresa))} · ${this.textoIva(this.ivaDe(c))}</small><small class="cot-sub">${c.total_items} concepto${c.total_items === 1 ? '' : 's'}</small></td>
                                 <td>${c.valida_hasta ? formatFecha(c.valida_hasta) : '—'}</td>
                                 <td><span class="cot-estado cot-estado-${estado.clave}">${estado.texto}</span>
                                     ${c.numero_factura ? `<small class="cot-sub">Factura ${this.e(c.numero_factura)}</small>` : ''}</td>
                                 <td><div class="acciones-saldo">
                                     <button type="button" class="btn-accion btn-accion-icono" data-accion="abrir" data-id="${this.e(c.id)}" title="${editable ? 'Abrir / editar' : 'Ver'}" aria-label="Abrir cotización"><i class="fas ${editable ? 'fa-pen' : 'fa-eye'}" aria-hidden="true"></i></button>
                                     <button type="button" class="btn-accion btn-accion-icono" data-accion="imprimir" data-id="${this.e(c.id)}" title="Imprimir" aria-label="Imprimir cotización"><i class="fas fa-print" aria-hidden="true"></i></button>
-                                    ${editable ? `<button type="button" class="btn-accion btn-accion-primaria" data-accion="ingresar" data-id="${this.e(c.id)}" title="El paciente ingresa: pasar a su estado de cuenta"><i class="fas fa-right-to-bracket" aria-hidden="true"></i> Ingresar</button>` : ''}
+                                    ${editable ? `<button type="button" class="btn-accion btn-accion-primaria" data-accion="ingresar" data-id="${this.e(c.id)}" title="Guardar en la ficha del paciente (no genera cargos)"><i class="fas fa-folder-plus" aria-hidden="true"></i> A ficha</button>` : ''}
                                     ${Permisos.esAdmin() ? `<button type="button" class="btn-accion btn-accion-icono btn-accion-peligro" data-accion="eliminar" data-id="${this.e(c.id)}" title="Eliminar" aria-label="Eliminar cotización ${this.e(c.numero)}"><i class="fas fa-trash" aria-hidden="true"></i></button>` : ''}
                                 </div></td>
                             </tr>`;
@@ -345,6 +392,10 @@ const CotizacionesModule = {
                     </tbody>
                 </table>
             </div>`;
+    },
+
+    textoVeces(veces) {
+        return veces === 1 ? 'Primera cotización del paciente' : `Ha cotizado ${veces} veces`;
     },
 
     // ---------- Editor ----------
@@ -381,6 +432,7 @@ const CotizacionesModule = {
         valor('cotClienteResponsable', cotizacion?.cliente_responsable);
         valor('cotMotivo', cotizacion?.motivo);
         valor('cotVigencia', cotizacion?.vigencia_dias || 15);
+        this.renderEmpresaIva(cotizacion?.empresa || 'A', cotizacion ? this.ivaDe(cotizacion) : 12);
         valor('cotNotas', cotizacion ? cotizacion.notas : this.NOTAS_PREDETERMINADAS);
         valor('cotBuscarPaciente', '');
         this.state.pacienteId = cotizacion?.paciente_id || null;
@@ -418,7 +470,10 @@ const CotizacionesModule = {
             if (c?.estado === 'ingresada') {
                 aviso.hidden = false;
                 aviso.className = 'cot-aviso cot-aviso-ok';
-                aviso.innerHTML = `<i class="fas fa-circle-check" aria-hidden="true"></i> <span>Paciente ingresado (${formatFechaHora(c.fecha_ingreso)}). Cargada a su estado de cuenta con la factura <strong>${this.e(c.numero_factura)}</strong>.</span>`;
+                // Las ingresadas con la versión anterior sí pasaron a su estado de cuenta
+                aviso.innerHTML = c.numero_factura
+                    ? `<i class="fas fa-circle-check" aria-hidden="true"></i> <span>Paciente ingresado (${formatFechaHora(c.fecha_ingreso)}). Cargada a su estado de cuenta con la factura <strong>${this.e(c.numero_factura)}</strong>.</span>`
+                    : `<i class="fas fa-circle-check" aria-hidden="true"></i> <span>Guardada en la ficha de <strong>${this.e(c.paciente_nombre || c.cliente_nombre)}</strong> (${formatFechaHora(c.fecha_ingreso)}). No generó cargos.${c.veces_paciente ? ` ${this.textoVeces(c.veces_paciente)}.` : ''}</span>`;
             } else if (c?.estado === 'anulada') {
                 aviso.hidden = false;
                 aviso.className = 'cot-aviso cot-aviso-error';
@@ -522,12 +577,18 @@ const CotizacionesModule = {
         this.renderTotales();
     },
 
-    calcularTotales() {
+    // Mismo cálculo que el servidor: el IVA elegido se suma sobre el monto ya descontado.
+    // En las cotizaciones anteriores (porcentaje null) el 12 % ya venía incluido en los precios.
+    calcularTotales(porcentaje = this.ivaElegido()) {
         const subtotal = this.redondear(this.state.items.reduce((s, i) => s + (Number(i.cantidad) || 0) * (Number(i.precio_unitario) || 0), 0));
         const descuento = this.redondear(this.state.items.reduce((s, i) => s + (Number(i.descuento) || 0), 0));
-        const total = this.redondear(subtotal - descuento);
-        const iva = typeof desglosarIVA === 'function' ? desglosarIVA(total).iva : this.redondear(total - total / 1.12);
-        return { subtotal, descuento, total, iva };
+        const base = this.redondear(subtotal - descuento);
+        if (porcentaje === null) {
+            const incluido = typeof desglosarIVA === 'function' ? desglosarIVA(base, 12).iva : this.redondear(base - base / 1.12);
+            return { subtotal, descuento, base, porcentaje, iva: 0, incluido, total: base };
+        }
+        const iva = this.redondear(base * porcentaje / 100);
+        return { subtotal, descuento, base, porcentaje, iva, incluido: 0, total: this.redondear(base + iva) };
     },
 
     renderTotales() {
@@ -536,7 +597,13 @@ const CotizacionesModule = {
         set('cotSubtotal', formatQ(t.subtotal));
         set('cotDescuento', `-${formatQ(t.descuento)}`);
         set('cotTotal', formatQ(t.total));
-        set('cotIvaIncluido', formatQ(t.iva));
+        set('cotIvaEtiqueta', t.porcentaje ? `IVA (${t.porcentaje}%)` : 'Sin IVA');
+        set('cotIvaMonto', formatQ(t.iva));
+        set('cotIvaIncluido', formatQ(t.incluido));
+        const fila = document.getElementById('cotIvaFila');
+        if (fila) fila.hidden = t.porcentaje === null;
+        const incluido = document.getElementById('cotIvaIncluidoFila');
+        if (incluido) incluido.hidden = t.porcentaje !== null;
     },
 
     // ---------- Paciente ----------
@@ -632,6 +699,8 @@ const CotizacionesModule = {
             motivo: valor('cotMotivo'),
             notas: valor('cotNotas'),
             vigencia_dias: Number(valor('cotVigencia')) || 15,
+            empresa: valor('cotEmpresa') || 'A',
+            iva_porcentaje: this.ivaElegido(),
             estado,
             items: this.state.items
                 .filter(i => this.esDelCatalogo(i) || String(i.descripcion || '').trim())
@@ -676,8 +745,11 @@ const CotizacionesModule = {
                 body: JSON.stringify(datos)
             });
             this.state.actual = result.data;
+            this.renderEmpresaIva(result.data.empresa || 'A', this.ivaDe(result.data));
             this.renderEncabezadoEditor();
-            if (!silencioso) this.notificar(`Cotización ${result.data.numero} guardada`, 'success');
+            this.renderTotales();
+            if (result.aviso) this.notificar(result.aviso, 'warning');
+            else if (!silencioso) this.notificar(`Cotización ${result.data.numero} guardada`, 'success');
             return result.data;
         } catch (err) {
             this.notificar(`No se pudo guardar: ${err.message}`, 'error');
@@ -699,7 +771,7 @@ const CotizacionesModule = {
     abrirIngreso() {
         const c = this.state.actual;
         if (!c) {
-            this.notificar('Guarda la cotización antes de ingresar al paciente', 'warning');
+            this.notificar('Guarda la cotización antes de pasarla a la ficha del paciente', 'warning');
             return;
         }
         if (!['borrador', 'generada'].includes(c.estado)) return;
@@ -712,13 +784,13 @@ const CotizacionesModule = {
         modal.innerHTML = `
             <div class="modal-content" style="max-width: 520px;">
                 <div class="modal-header">
-                    <h2><i class="fas fa-right-to-bracket" aria-hidden="true"></i> Ingreso del paciente</h2>
+                    <h2><i class="fas fa-folder-plus" aria-hidden="true"></i> Guardar en la ficha del paciente</h2>
                     <button type="button" class="modal-close" aria-label="Cerrar" onclick="document.getElementById('cotIngresoModal').remove()">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <p style="margin-bottom: 12px;">La cotización <strong>${this.e(c.numero)}</strong> por <strong>${formatQ(c.total)}</strong> se cargará al estado de cuenta del paciente con estos mismos precios.</p>
+                    <p style="margin-bottom: 12px;">La cotización <strong>${this.e(c.numero)}</strong> por <strong>${formatQ(c.total)}</strong> quedará en la ficha del paciente, para llevar la cuenta de cuántas veces cotiza. No genera cargos en su estado de cuenta.</p>
                     <div class="form-group">
-                        <label for="cotIngresoBuscar">Paciente que ingresa <span class="required">*</span></label>
+                        <label for="cotIngresoBuscar">Paciente <span class="required">*</span></label>
                         <div class="patient-search-box">
                             <input type="search" id="cotIngresoBuscar" class="form-input" placeholder="Buscar por nombre, DPI o teléfono" autocomplete="off">
                             <div id="cotIngresoSugerencias" class="patient-suggestions" style="display: none;"></div>
@@ -729,7 +801,7 @@ const CotizacionesModule = {
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="document.getElementById('cotIngresoModal').remove()">Cancelar</button>
-                    <button type="button" class="btn btn-primary" id="cotIngresoConfirmar" disabled><i class="fas fa-check" aria-hidden="true"></i> Ingresar y cargar a su cuenta</button>
+                    <button type="button" class="btn btn-primary" id="cotIngresoConfirmar" disabled><i class="fas fa-check" aria-hidden="true"></i> Guardar en su ficha</button>
                 </div>
             </div>`;
         document.body.appendChild(modal);
@@ -778,13 +850,10 @@ const CotizacionesModule = {
                 this.state.actual = result.data;
                 this.renderEncabezadoEditor();
                 this.renderItems();
-                this.notificar(result.message || 'Cotización cargada al estado de cuenta', 'success');
-                if (typeof SaldoPacienteFacturacion !== 'undefined' && SaldoPacienteFacturacion.refrescarSaldoDelPaciente) {
-                    SaldoPacienteFacturacion.refrescarSaldoDelPaciente(pacienteElegido.id);
-                }
+                this.notificar(result.message || 'Cotización guardada en la ficha del paciente', 'success');
             } catch (error) {
                 confirmar.disabled = false;
-                this.notificar(`No se pudo ingresar: ${error.message}`, 'error');
+                this.notificar(`No se pudo guardar en la ficha: ${error.message}`, 'error');
             }
         });
     },
@@ -813,7 +882,9 @@ const CotizacionesModule = {
         const c = this.state.cotizaciones.find(item => item.id === id);
         if (!c) return;
         const aviso = c.estado === 'ingresada'
-            ? '\n\nYa fue ingresada: los cargos que pasó al estado de cuenta del paciente se conservan.'
+            ? (c.numero_factura
+                ? '\n\nYa fue ingresada: los cargos que pasó al estado de cuenta del paciente se conservan.'
+                : '\n\nEstá en la ficha del paciente: dejará de contar entre sus cotizaciones.')
             : '';
         if (!confirm(`¿Eliminar la cotización ${c.numero}? No se puede deshacer.${aviso}`)) return;
         try {
@@ -979,11 +1050,16 @@ const CotizacionesModule = {
         const e = v => this.e(v);
         const clinica = (typeof CONFIG !== 'undefined' && CONFIG.CLINICA) || { nombre: 'Zentra MED' };
         const tipos = Object.fromEntries(this.TIPOS);
-        // Precios con IVA incluido: el subtotal impreso es la base sin IVA
         const total = this.redondear(c.total);
-        const iva = typeof desglosarIVA === 'function' ? desglosarIVA(total).iva : this.redondear(total - total / 1.12);
-        const base = this.redondear(total - iva);
+        const porcentaje = this.ivaDe(c);
         const descuento = Number(c.descuento) || 0;
+        // Cotizaciones anteriores: precios con el 12 % incluido, el subtotal impreso es la base sin IVA
+        const iva = porcentaje === null
+            ? (typeof desglosarIVA === 'function' ? desglosarIVA(total, 12).iva : this.redondear(total - total / 1.12))
+            : this.redondear(Number(c.iva_monto) || 0);
+        const base = this.redondear(total - iva);
+        const empresa = typeof getEmpresaFacturacion === 'function' ? getEmpresaFacturacion(c.empresa || 'A') : { nombre: this.nombreEmpresa(c.empresa) };
+        const datosEmpresa = [empresa.razonSocial, empresa.nit ? `NIT ${empresa.nit}` : '', empresa.direccion, empresa.telefono].filter(Boolean);
         const fecha = formatFecha(c.fecha_generada || c.created_at);
         // Logo propio en img/logo-clinica.png; si no existe se usa el de Zentra
         const logo = new URL('img/logo-clinica.png', location.href).href;
@@ -1011,6 +1087,9 @@ const CotizacionesModule = {
     .doc { max-width: 860px; margin: 0 auto; }
     .cabecera { display: flex; align-items: flex-start; gap: 16px; }
     .cabecera-izq { flex: 1; }
+    .empresa { margin-bottom: 10px; }
+    .empresa strong { display: block; font-size: 17px; text-transform: uppercase; }
+    .empresa span { display: block; font-size: 11.5px; color: #444; }
     .barra { background: #2f8fce; color: #fff; text-align: center; font-size: 19px; padding: 10px 12px; }
     .logo { width: 150px; height: 120px; object-fit: contain; flex-shrink: 0; }
     .numero { display: grid; grid-template-columns: 1fr 1fr; margin: 26px 0 30px; }
@@ -1045,6 +1124,8 @@ const CotizacionesModule = {
 <body><div class="doc">
 <div class="cabecera">
     <div class="cabecera-izq">
+        <div class="empresa"><strong>${e(empresa.nombre)}</strong>${empresa.eslogan ? `<span>${e(empresa.eslogan)}</span>` : ''}
+            ${datosEmpresa.length ? `<span>${datosEmpresa.map(e).join(' · ')}</span>` : ''}</div>
         <div class="barra">Cotización de servicios hospitalarios</div>
         <div class="numero"><span>Número de cotización</span><span>${e(c.numero)}</span></div>
         <div class="datos">
@@ -1066,7 +1147,7 @@ const CotizacionesModule = {
         <tr><td class="vacio"></td><td colspan="3">Suma de conceptos</td><td class="valor"><span>Q</span>${formatNumero(c.subtotal)}</td></tr>
         <tr><td class="vacio"></td><td colspan="3">Descuentos</td><td class="valor"><span>Q</span>-${formatNumero(descuento)}</td></tr>` : ''}
         <tr><td class="vacio"></td><td colspan="3">Subtotal</td><td class="valor"><span>Q</span>${formatNumero(base)}</td></tr>
-        <tr><td class="vacio"></td><td colspan="3">IVA</td><td class="valor"><span>Q</span>${formatNumero(iva)}</td></tr>
+        ${porcentaje === 0 ? '' : `<tr><td class="vacio"></td><td colspan="3">IVA${porcentaje ? ` ${porcentaje}%` : ''}</td><td class="valor"><span>Q</span>${formatNumero(iva)}</td></tr>`}
         <tr class="total"><td class="vacio"></td><td colspan="3">TOTAL</td><td class="valor"><span>Q</span>${formatNumero(total)}</td></tr>
     </tbody>
 </table>

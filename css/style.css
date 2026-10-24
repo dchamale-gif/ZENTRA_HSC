@@ -7146,6 +7146,33 @@ tr.medicina-inactiva td {
 .cot-estado-anulada { background: #fdecec; color: #991b1b; }
 .cot-estado-vencida { background: #fff4e5; color: #92400e; }
 
+/* Resumen de cotizaciones en la ficha del paciente */
+.pac-cot-resumen {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.pac-cot-resumen div {
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    background: var(--bg-light);
+}
+
+.pac-cot-resumen strong {
+    display: block;
+    color: var(--text-dark);
+    font-size: 18px;
+    font-variant-numeric: tabular-nums;
+}
+
+.pac-cot-resumen span {
+    color: var(--text-gray);
+    font-size: 12px;
+}
+
 .cot-vacio {
     padding: 32px 16px;
     text-align: center;
