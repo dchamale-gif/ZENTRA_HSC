@@ -389,6 +389,19 @@ const LiveSearch = {
             emptyText: 'Sin personal que coincida'
         });
 
+        // --- Personal (administrativo y de apoyo) ---
+        this.attach({
+            input: 'searchEmpleados',
+            source: () => (typeof PersonalGeneralModule !== 'undefined'
+                ? PersonalGeneralModule.state?.personal : []) || [],
+            label: d => `${d.nombre || ''} ${d.apellidoPaterno || ''}`.trim() || 'Sin nombre',
+            meta: d => [d.puesto, d.area].filter(Boolean).join(' · '),
+            query: d => `${d.nombre || ''} ${d.apellidoPaterno || ''}`.trim(),
+            extra: d => `${d.email || ''} ${d.puesto || ''} ${d.area || ''}`,
+            container: 'empleadosTable',
+            emptyText: 'Sin personal que coincida'
+        });
+
         // --- Medicinas ---
         this.attach({
             input: 'searchMedicine',

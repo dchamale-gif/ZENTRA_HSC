@@ -25,6 +25,7 @@ const Permisos = {
         'ordenes-medicas': 'ordenes_medicas',
         'ordenes-enfermeria': 'ordenes_enfermeria',
         'personal': 'personal',
+        'personal-general': 'personal_general',
         'codigos-articulos': 'codigos_articulos',
         'compras': 'compras',
         'ventas': 'ventas',
@@ -78,6 +79,7 @@ const Permisos = {
             { clave: 'dashboard_ejecutivo', texto: 'Dashboard ejecutivo' }
         ] },
         { seccion: 'Módulo administrativo', modulos: [
+            { clave: 'personal_general', texto: 'Personal (administrativo y de apoyo)' },
             { clave: 'inventario', texto: 'Inventario' }
         ] },
         { seccion: 'Finanzas', modulos: [
@@ -250,7 +252,10 @@ const UsuariosAdmin = {
 
         tbody.innerHTML = this.usuarios.map(u => `
             <tr>
-                <td data-label="Nombre"><strong>${escapeHtml(`${u.nombre} ${u.apellido || ''}`.trim())}</strong></td>
+                <td data-label="Nombre">
+                    <strong>${escapeHtml(`${u.nombre} ${u.apellido || ''}`.trim())}</strong>
+                    ${u.personal ? `<small class="usuario-personal-vinculado"><i class="fas fa-id-badge" aria-hidden="true"></i> ${u.personal.modulo === 'personal_medico' ? 'Personal médico' : 'Personal'}: ${escapeHtml(u.personal.nombre)}</small>` : ''}
+                </td>
                 <td data-label="Email">${escapeHtml(u.email)}</td>
                 <td data-label="Roles">${(u.roles || []).map(r => `<span class="badge badge-info">${escapeHtml(Permisos.nombreRol(r))}</span>`).join(' ') || '—'}</td>
                 <td data-label="Estado"><span class="badge ${u.activo ? 'badge-active' : 'badge-inactive'}">${u.activo ? 'Activo' : 'Inactivo'}</span></td>

@@ -1589,41 +1589,191 @@ const HistoriaPanelModule = {
         }
     },
 
+    // ---------- Impresión ----------
+    // Secciones que se pueden imprimir (las pestañas de la historia); la selección se recuerda
+    SECCIONES_IMPRESION: [
+        { clave: 'datos', texto: 'Datos generales del paciente' },
+        { clave: 'historia', texto: 'Historia clínica', detalle: 'Motivo, enfermedad actual, examen físico, impresión y plan' },
+        { clave: 'antecedentes', texto: 'Antecedentes' },
+        { clave: 'signos', texto: 'Signos vitales' },
+        { clave: 'ordenes', texto: 'Órdenes médicas', detalle: 'Con la transcripción de enfermería' },
+        { clave: 'notas', texto: 'Notas de enfermería' },
+        { clave: 'evolucion', texto: 'Evolución médica' },
+        { clave: 'prescripciones', texto: 'Prescripciones' },
+        { clave: 'medicamentos', texto: 'Medicamentos', detalle: 'En tratamiento y finalizados o suspendidos' }
+    ],
+
+    seccionesGuardadas() {
+        try {
+            const guardadas = JSON.parse(localStorage.getItem('hc2Impresion') || 'null');
+            if (Array.isArray(guardadas) && guardadas.length) return new Set(guardadas);
+        } catch (error) { /* sin almacenamiento: todas */ }
+        return new Set(this.SECCIONES_IMPRESION.map(s => s.clave));
+    },
+
+    // Diálogo con una casilla por sección; devuelve el Set elegido o null
+    elegirSecciones(conteos) {
+        return new Promise(resolver => {
+            const previo = document.activeElement;
+            const elegidas = this.seccionesGuardadas();
+            const capa = document.createElement('div');
+            capa.className = 'modal-overlay hc2-dialogo';
+            capa.innerHTML = `
+                <div class="modal-dialog hc2-imprimir" role="dialog" aria-modal="true" aria-labelledby="hc2ImprimirTitulo">
+                    <div class="modal-header"><h2 id="hc2ImprimirTitulo"><i class="fas fa-print" aria-hidden="true"></i> Imprimir historia clínica</h2></div>
+                    <div class="modal-body">
+                        <fieldset class="hc2-imprimir-lista">
+                            <legend>Elija qué secciones aparecen en la impresión</legend>
+                            <label class="hc2-imprimir-todas">
+                                <input type="checkbox" data-imprimir-todas>
+                                <span>Todas las secciones</span>
+                            </label>
+                            ${this.SECCIONES_IMPRESION.map(s => {
+                                const n = conteos[s.clave];
+                                return `<label class="hc2-imprimir-opcion">
+                                    <input type="checkbox" value="${s.clave}"${elegidas.has(s.clave) ? ' checked' : ''}>
+                                    <span><strong>${s.texto}</strong>${s.detalle ? `<small>${s.detalle}</small>` : ''}</span>
+                                    ${n === undefined ? '' : `<em class="hc2-imprimir-conteo${n ? '' : ' vacio'}">${n ? n : 'Sin registros'}</em>`}
+                                </label>`;
+                            }).join('')}
+                        </fieldset>
+                        <p class="hc2-aviso" data-imprimir-error hidden>Elija al menos una sección.</p>
+                        <div class="hc2-barra">
+                            <button type="button" class="btn btn-secondary" data-imprimir="cancelar">Cancelar</button>
+                            <button type="button" class="btn btn-primary" data-imprimir="aceptar"><i class="fas fa-print" aria-hidden="true"></i> Imprimir</button>
+                        </div>
+                    </div>
+                </div>`;
+            const casillas = [...capa.querySelectorAll('.hc2-imprimir-opcion input')];
+            const todas = capa.querySelector('[data-imprimir-todas]');
+            const actualizarTodas = () => {
+                const marcadas = casillas.filter(c => c.checked).length;
+                todas.checked = marcadas === casillas.length;
+                todas.indeterminate = marcadas > 0 && marcadas < casillas.length;
+            };
+            const terminar = valor => {
+                capa.remove();
+                document.removeEventListener('keydown', alTeclear);
+                previo?.focus?.();
+                resolver(valor);
+            };
+            const alTeclear = ev => { if (ev.key === 'Escape') terminar(null); };
+            todas.addEventListener('change', () => {
+                casillas.forEach(c => { c.checked = todas.checked; });
+                capa.querySelector('[data-imprimir-error]').hidden = true;
+            });
+            casillas.forEach(c => c.addEventListener('change', () => {
+                actualizarTodas();
+                capa.querySelector('[data-imprimir-error]').hidden = true;
+            }));
+            capa.addEventListener('click', ev => {
+                const accion = ev.target.closest('[data-imprimir]')?.dataset.imprimir;
+                if (accion === 'cancelar' || ev.target === capa) return terminar(null);
+                if (accion !== 'aceptar') return;
+                const seleccion = casillas.filter(c => c.checked).map(c => c.value);
+                if (!seleccion.length) {
+                    capa.querySelector('[data-imprimir-error]').hidden = false;
+                    return;
+                }
+                try { localStorage.setItem('hc2Impresion', JSON.stringify(seleccion)); } catch (error) { /* sin almacenamiento */ }
+                terminar(new Set(seleccion));
+            });
+            document.addEventListener('keydown', alTeclear);
+            document.body.appendChild(capa);
+            actualizarTodas();
+            capa.querySelector('[data-imprimir="aceptar"]').focus();
+        });
+    },
+
     async imprimir() {
         const h = this.state.historia;
         const p = this.paciente();
         if (!h || !p) return;
         const e = valor => this.e(valor);
-        const clinica = (typeof CONFIG !== 'undefined' && CONFIG.CLINICA) || { nombre: 'Zentra MED' };
-        const antecedentes = h.estado === 'abierta' ? (this.state.antecedentes || {}) : (h.antecedentes_al_cierre || {});
-        const texto = valor => valor ? `<p>${e(valor)}</p>` : '<p class="vacio">Sin registrar</p>';
+        const boton = document.querySelector('#hc2Contenido [data-hc2="imprimir"]');
+        if (boton) boton.disabled = true;
+        let ordenes, notas, evoluciones, tomas;
+        try {
+            [{ ordenes, notas }, evoluciones, tomas] = await Promise.all([
+                this.cargarOrdenesYNotas(h.id),
+                this.apiEvoluciones(`?paciente_id=${encodeURIComponent(p.id)}`).then(r => (r.data || []).filter(ev => String(ev.historia_id) === String(h.id))).catch(() => []),
+                this.apiGeneral(`/signos-vitales?paciente_id=${encodeURIComponent(p.id)}`).then(r => (r.data || []).filter(t => String(t.historia_id) === String(h.id))).catch(() => [])
+            ]);
+        } finally {
+            if (boton) boton.disabled = false;
+        }
+        ordenes = ordenes || [];
+        notas = notas || [];
+        const medicamentos = ordenes.flatMap(o => this.medicamentosDe(o).map(item => ({ o, item })));
+        const activo = ({ o, item }) => item.estado === 'pendiente' && o.estado === 'pendiente' && h.estado !== 'cerrada';
+
+        const secciones = await this.elegirSecciones({
+            signos: tomas.length,
+            ordenes: ordenes.length,
+            notas: notas.length,
+            evolucion: evoluciones.length,
+            prescripciones: medicamentos.length,
+            medicamentos: medicamentos.length
+        });
+        if (!secciones) return;
+
         const ventana = window.open('', '_blank');
         if (!ventana) {
             showNotification('El navegador bloqueó la ventana de impresión. Permita ventanas emergentes para este sitio.', 'warning');
             return;
         }
-        ventana.document.write('<p style="font-family: sans-serif; padding: 24px">Preparando la historia clínica…</p>');
-        const [{ ordenes, notas }, evoluciones, tomas] = await Promise.all([
-            this.cargarOrdenesYNotas(h.id),
-            this.apiEvoluciones(`?paciente_id=${encodeURIComponent(p.id)}`).then(r => (r.data || []).filter(ev => String(ev.historia_id) === String(h.id))).catch(() => []),
-            this.apiGeneral(`/signos-vitales?paciente_id=${encodeURIComponent(p.id)}`).then(r => (r.data || []).filter(t => String(t.historia_id) === String(h.id))).catch(() => [])
-        ]);
-        const seccionSignos = tomas.length ? `<table class="tabla-signos"><thead><tr><th>Fecha y hora</th>${this.SIGNOS.map(s => `<th>${s.texto} (${s.unidad})</th>`).join('')}<th>IMC</th><th>Registró</th></tr></thead>
-<tbody>${[...tomas].reverse().map(t => `<tr><td>${e(this.fechaHora(t.fecha_hora))}</td>${this.SIGNOS.map(s => `<td>${e(t.valores?.[s.clave] || '—')}</td>`).join('')}<td>${this.imc(t.valores) || '—'}</td><td>${e(t.registrado_por_nombre || '')}${t.nota ? ` — ${e(t.nota)}` : ''}</td></tr>`).join('')}</tbody></table>`
-            : '<p class="vacio">Sin registrar</p>';
+        const clinica = (typeof CONFIG !== 'undefined' && CONFIG.CLINICA) || { nombre: 'Zentra MED' };
+        const antecedentes = h.estado === 'abierta' ? (this.state.antecedentes || {}) : (h.antecedentes_al_cierre || {});
+        const texto = valor => valor ? `<p>${e(valor)}</p>` : '<p class="vacio">Sin registrar</p>';
+        const vacio = mensaje => `<p class="vacio">${mensaje}</p>`;
         const turno = valor => this.TURNOS.find(t => t.valor === valor)?.texto || valor;
-        const seccionOrdenes = (ordenes || []).length ? `
+        const detalleMed = item => ['dosis', 'via', 'frecuencia', 'horario'].map(c => item[c]).filter(Boolean).join(' · ');
+
+        const html = {
+            datos: () => `
+<h2>Datos generales</h2>
+<div class="datos">
+  <div><b>Paciente:</b> ${e(this.nombre(p))}</div><div><b>DPI:</b> ${e(p.dpi || p.pasaporte || '—')}</div><div><b>Edad:</b> ${e(this.edad(p) || '—')}</div>
+  <div><b>Género:</b> ${e(p.genero || '—')}</div><div><b>Teléfono:</b> ${e(p.telefono || '—')}</div><div><b>Médico:</b> ${e(h.medico_nombre || '—')}</div>
+</div>`,
+            historia: () => `
+<h2>Historia clínica</h2>
+${this.CAMPOS_HISTORIA.map(c => `<div class="campo"><b>${c.texto}</b>${texto(h[c.clave])}</div>`).join('')}`,
+            antecedentes: () => `
+<h2>Antecedentes${h.estado === 'cerrada' ? ' (al cierre de esta historia)' : ''}</h2>
+<div class="ant">${this.ANTECEDENTES.map(c => `<div class="campo"><b>${c.texto}</b>${texto(antecedentes[c.clave])}</div>`).join('')}</div>`,
+            signos: () => `
+<h2>Signos vitales</h2>
+${tomas.length ? `<table class="tabla"><thead><tr><th>Fecha y hora</th>${this.SIGNOS.map(s => `<th>${s.texto} (${s.unidad})</th>`).join('')}<th>IMC</th><th>Registró</th></tr></thead>
+<tbody>${[...tomas].reverse().map(t => `<tr><td>${e(this.fechaHora(t.fecha_hora))}</td>${this.SIGNOS.map(s => `<td>${e(t.valores?.[s.clave] || '—')}</td>`).join('')}<td>${this.imc(t.valores) || '—'}</td><td>${e(t.registrado_por_nombre || '')}${t.nota ? ` — ${e(t.nota)}` : ''}</td></tr>`).join('')}</tbody></table>` : vacio('Sin signos vitales registrados')}`,
+            ordenes: () => `
 <h2>Órdenes médicas y transcripción de enfermería</h2>
-${ordenes.map(o => `<div class="orden"><b>Orden #${o.id} · ${e(this.fecha(o.fecha_orden))} · ${e(o.doctor || '')} · ${e(o.estado)}</b>
+${ordenes.length ? ordenes.map(o => `<div class="orden"><b>Orden #${o.id} · ${e(this.fecha(o.fecha_orden))} · ${e(o.doctor || '')} · ${e(o.estado)}</b>
   <p>${e(o.descripcion || '')}</p>
-  ${(o.indicaciones || []).length ? `<ul>${o.indicaciones.map(i => `<li>${e(i.descripcion)}${['dosis', 'via', 'frecuencia', 'horario'].map(c => i[c]).filter(Boolean).length ? ` — ${e(['dosis', 'via', 'frecuencia', 'horario'].map(c => i[c]).filter(Boolean).join(' · '))}` : ''} (${e(i.estado)})</li>`).join('')}</ul>
-  <small>Transcribió: ${e(o.actualizado_por_nombre || o.creado_por_nombre || '—')}</small>` : '<p class="vacio">Sin transcripción de enfermería</p>'}</div>`).join('')}` : '';
-        const seccionNotas = (notas || []).length ? `
+  ${(o.indicaciones || []).length ? `<ul>${o.indicaciones.map(i => `<li>${e(i.descripcion)}${detalleMed(i) ? ` — ${e(detalleMed(i))}` : ''} (${e(i.estado)})</li>`).join('')}</ul>
+  <small>Transcribió: ${e(o.actualizado_por_nombre || o.creado_por_nombre || '—')}</small>` : vacio('Sin transcripción de enfermería')}</div>`).join('') : vacio('Sin órdenes médicas')}`,
+            notas: () => `
 <h2>Notas de enfermería</h2>
-${[...notas].reverse().map(n => `<div class="orden"><b>${e(formatFechaHora(n.fecha_hora))} · Turno ${e(turno(n.turno))} · ${e(n.autor_nombre || '')}</b>${n.orden_medica_id ? ` <small>(orden #${n.orden_medica_id})</small>` : ''}<p>${e(n.nota)}</p></div>`).join('')}` : '';
-        const seccionEvolucion = evoluciones.length ? `
+${notas.length ? [...notas].reverse().map(n => `<div class="orden"><b>${e(formatFechaHora(n.fecha_hora))} · Turno ${e(turno(n.turno))} · ${e(n.autor_nombre || '')}</b>${n.orden_medica_id ? ` <small>(orden #${n.orden_medica_id})</small>` : ''}<p>${e(n.nota)}</p></div>`).join('') : vacio('Sin notas de enfermería')}`,
+            evolucion: () => `
 <h2>Evolución médica</h2>
-${[...evoluciones].reverse().map(ev => `<div class="orden"><b>${e(this.fechaHora(ev.fecha_hora))} · ${e(ev.tipo)} · ${e(ev.medico_nombre || '')}${ev.especialidad ? ` (${e(ev.especialidad)})` : ''}</b><p>${e(ev.contenido)}</p>${(ev.cambios || []).length ? `<small>Modificada: ${ev.cambios.map(c => `${e(c.usuario)}, ${e(formatFechaHora(c.fecha))}: ${e(c.motivo)}`).join(' · ')}</small>` : ''}</div>`).join('')}` : '';
+${evoluciones.length ? [...evoluciones].reverse().map(ev => `<div class="orden"><b>${e(this.fechaHora(ev.fecha_hora))} · ${e(ev.tipo)} · ${e(ev.medico_nombre || '')}${ev.especialidad ? ` (${e(ev.especialidad)})` : ''}</b><p>${e(ev.contenido)}</p>${(ev.cambios || []).length ? `<small>Modificada: ${ev.cambios.map(c => `${e(c.usuario)}, ${e(formatFechaHora(c.fecha))}: ${e(c.motivo)}`).join(' · ')}</small>` : ''}</div>`).join('') : vacio('Sin evolución médica')}`,
+            prescripciones: () => `
+<h2>Prescripciones</h2>
+${medicamentos.length ? `<table class="tabla izquierda"><thead><tr><th>Orden</th><th>Medicamento</th><th>Dosis</th><th>Vía</th><th>Frecuencia</th><th>Horario</th><th>Estado</th></tr></thead>
+<tbody>${medicamentos.map(({ o, item }) => `<tr><td>#${o.id} · ${e(this.fecha(o.fecha_orden))}<br><small>${e(o.doctor || '')}</small></td><td>${e(item.catalogo?.nombre || item.descripcion)}${item.catalogo?.detalle ? ` <small>${e(item.catalogo.detalle)}</small>` : ''}</td><td>${e(item.dosis || '—')}</td><td>${e(item.via || '—')}</td><td>${e(item.frecuencia || '—')}</td><td>${e(item.horario || '—')}</td><td>${e(this.textoEstado(item.estado))}</td></tr>`).join('')}</tbody></table>` : vacio('Sin medicamentos prescritos')}`,
+            medicamentos: () => {
+                const activos = medicamentos.filter(activo);
+                const anteriores = medicamentos.filter(m => !activo(m));
+                const lista = items => `<ul class="meds">${items.map(({ o, item }) => `<li><b>${e(item.catalogo?.nombre || item.descripcion)}</b>${detalleMed(item) ? ` — ${e(detalleMed(item))}` : ''} <small>(orden #${o.id}${item.estado !== 'pendiente' ? ` · ${e(this.textoEstado(item.estado))}` : ''}${item.suspension?.motivo ? `: ${e(item.suspension.motivo)}` : ''})</small></li>`).join('')}</ul>`;
+                return `
+<h2>Medicamentos</h2>
+<div class="campo"><b>En tratamiento</b>${activos.length ? lista(activos) : vacio('Sin medicamentos en tratamiento')}</div>
+${anteriores.length ? `<div class="campo"><b>Finalizados o suspendidos</b>${lista(anteriores)}</div>` : ''}`;
+            }
+        };
+        const cuerpo = this.SECCIONES_IMPRESION.filter(s => secciones.has(s.clave)).map(s => html[s.clave]()).join('\n');
+
         ventana.document.open();
         ventana.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
 <title>Historia clínica - ${e(this.nombre(p))} - ${e(this.fecha(h.fecha))}</title>
@@ -1637,10 +1787,14 @@ ${[...evoluciones].reverse().map(ev => `<div class="orden"><b>${e(this.fechaHora
   h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: #52606d; margin: 14px 0 6px; border-bottom: 1px solid #e4e8ef; padding-bottom: 3px; }
   .datos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 16px; }
   .datos b { color: #52606d; font-weight: 600; }
-  .tabla-signos { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 4px; }
-  .tabla-signos th, .tabla-signos td { border: 1px solid #e4e8ef; padding: 3px 5px; text-align: center; }
-  .tabla-signos th { color: #52606d; font-weight: 600; }
+  .tabla { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 4px; }
+  .tabla th, .tabla td { border: 1px solid #e4e8ef; padding: 3px 5px; text-align: center; vertical-align: top; }
+  .tabla.izquierda th, .tabla.izquierda td { text-align: left; }
+  .tabla th { color: #52606d; font-weight: 600; }
+  .tabla small, .meds small { color: #52606d; }
+  tr { page-break-inside: avoid; }
   .campo { margin-bottom: 8px; } .campo b { display: block; color: #52606d; }
+  .meds { margin: 2px 0 0 18px; } .meds li b { display: inline; color: #1f2933; }
   p { white-space: pre-wrap; } .vacio { color: #8a94a6; font-style: italic; }
   .ant { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; }
   .orden { border: 1px solid #e4e8ef; border-radius: 4px; padding: 6px 8px; margin-bottom: 6px; page-break-inside: avoid; }
@@ -1649,22 +1803,9 @@ ${[...evoluciones].reverse().map(ev => `<div class="orden"><b>${e(this.fechaHora
   .firma { border-top: 1px solid #1f2933; padding-top: 4px; width: 240px; text-align: center; margin-top: 40px; }
   @media print { body { padding: 0; } }
 </style></head><body><div class="doc">
-<header><div><strong>${e(clinica.nombre || 'Zentra MED')}</strong></div>
+<header><div><strong>${e(clinica.nombre || 'Zentra MED')}</strong>${secciones.has('datos') ? '' : `<div>${e(this.nombre(p))}</div>`}</div>
 <div><h1>HISTORIA CLÍNICA</h1><div style="text-align:right">${e(this.tipoTexto(h.tipo))} · ${e(this.fecha(h.fecha))} · ${h.estado === 'abierta' ? 'Abierta' : 'Cerrada'}</div></div></header>
-<h2>Datos generales</h2>
-<div class="datos">
-  <div><b>Paciente:</b> ${e(this.nombre(p))}</div><div><b>DPI:</b> ${e(p.dpi || p.pasaporte || '—')}</div><div><b>Edad:</b> ${e(this.edad(p) || '—')}</div>
-  <div><b>Género:</b> ${e(p.genero || '—')}</div><div><b>Teléfono:</b> ${e(p.telefono || '—')}</div><div><b>Médico:</b> ${e(h.medico_nombre || '—')}</div>
-</div>
-<h2>Historia clínica</h2>
-${this.CAMPOS_HISTORIA.slice(0, 3).map(c => `<div class="campo"><b>${c.texto}</b>${texto(h[c.clave])}</div>`).join('')}
-<div class="campo"><b>Signos vitales</b>${seccionSignos}</div>
-${this.CAMPOS_HISTORIA.slice(3).map(c => `<div class="campo"><b>${c.texto}</b>${texto(h[c.clave])}</div>`).join('')}
-<h2>Antecedentes${h.estado === 'cerrada' ? ' (al cierre de esta historia)' : ''}</h2>
-<div class="ant">${this.ANTECEDENTES.map(c => `<div class="campo"><b>${c.texto}</b>${texto(antecedentes[c.clave])}</div>`).join('')}</div>
-${seccionEvolucion}
-${seccionOrdenes}
-${seccionNotas}
+${cuerpo}
 <footer><span>Impreso el ${e(formatFechaHora(new Date()))}</span><div class="firma">${e(h.medico_nombre || 'Médico tratante')}</div></footer>
 </div></body></html>`);
         ventana.document.close();

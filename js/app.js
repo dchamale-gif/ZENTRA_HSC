@@ -278,6 +278,8 @@ function navigateToPage(pageId) {
         'ordenes-medicas': 'Órdenes Médicas',
         'ordenes-enfermeria': 'Órdenes de Enfermería',
         'codigos-articulos': 'Códigos de Artículos',
+        'personal': 'Personal Médico',
+        'personal-general': 'Personal',
         'agenda': 'Agenda Médica',
         'reservas-web': 'Reservas desde Web',
         'confirmaciones': 'Confirmaciones Automáticas',
@@ -330,6 +332,7 @@ function navigateToPage(pageId) {
     }
     if (pageId === 'ordenes-enfermeria' && typeof OrdenesEnfermeriaModule !== 'undefined') {
         OrdenesEnfermeriaModule.cargar();
+        if (typeof ControlMedicamentosModule !== 'undefined') ControlMedicamentosModule.alMostrarPagina();
     }
     if (pageId === 'ordenes-medicas' && typeof OrdenesmedicasModule !== 'undefined') {
         OrdenesmedicasModule.refrescar().catch(() => { /* la tabla conserva lo último cargado */ });

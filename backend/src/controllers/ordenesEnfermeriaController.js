@@ -1,5 +1,6 @@
 const pool = require('../db/connection');
 const sync = require('../services/historiaSincronizada');
+const { conservarSuspensiones } = require('../services/controlMedicamentos');
 
 // Una orden de enfermería traduce la orden médica (texto libre) en indicaciones concretas,
 // con las medicinas y conceptos del catálogo que correspondan
@@ -123,6 +124,9 @@ const guardar = async (req, res) => {
         return res.status(400).json({ success: false, message: `Estos medicamentos ya no están en el catálogo de Medicinas: ${faltan.map(i => i.descripcion).join(', ')}. Elíjalos de nuevo.` });
       }
     }
+    // Un medicamento que sigue suspendido conserva desde cuándo y por qué (Control de medicamentos)
+    const anterior = await pool.query('SELECT indicaciones FROM ordenes_enfermeria WHERE orden_medica_id = $1', [ordenMedicaId]);
+    if (anterior.rowCount) conservarSuspensiones(indicaciones, anterior.rows[0].indicaciones);
     const result = await pool.query(
       `INSERT INTO ordenes_enfermeria
          (orden_medica_id, indicaciones, observaciones, orden_medica_firma,

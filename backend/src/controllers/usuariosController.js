@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const pool = require('../db/connection');
+const { migracionLista, SQL_PERSONAL_DE_USUARIO } = require('./personalController');
 
 const ROLES_CON_USUARIOS = `
   COALESCE(
@@ -200,6 +201,7 @@ const getUsuarios = async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT u.id, u.email, u.nombre, u.apellido, u.telefono, u.activo, u.ultimo_login, ${ROLES_CON_USUARIOS}
+              ${(await migracionLista()) ? `, ${SQL_PERSONAL_DE_USUARIO}` : ''}
        FROM users u
        ORDER BY u.activo DESC, u.nombre, u.apellido`
     );

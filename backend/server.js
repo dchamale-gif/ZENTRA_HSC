@@ -22,6 +22,7 @@ const contactosEmergenciaRoutes = require('./src/routes/contactosEmergenciaRoute
 const laboratoriosRoutes = require('./src/routes/laboratoriosRoutes');
 const ordenesRoutes = require('./src/routes/ordenesRoutes');
 const ordenesEnfermeriaRoutes = require('./src/routes/ordenesEnfermeriaRoutes');
+const administracionMedicamentosRoutes = require('./src/routes/administracionMedicamentosRoutes');
 const historiasClinicasRoutes = require('./src/routes/historiasClinicasRoutes');
 const notasEnfermeriaRoutes = require('./src/routes/notasEnfermeriaRoutes');
 const evolucionesRoutes = require('./src/routes/evolucionesRoutes');
@@ -31,6 +32,7 @@ const datosFamiliaRoutes = require('./src/routes/datosFamiliaRoutes');
 const responsablesRoutes = require('./src/routes/responsablesRoutes');
 const documentosPacienteRoutes = require('./src/routes/documentosPacienteRoutes');
 const personalMedicoRoutes = require('./src/routes/personalMedicoRoutes');
+const personalGeneralRoutes = require('./src/routes/personalGeneralRoutes');
 const comprasRoutes = require('./src/routes/compras');
 const ventasRoutes = require('./src/routes/ventas');
 const cajaRoutes = require('./src/routes/caja');
@@ -128,6 +130,9 @@ app.use('/api/doctors', authMiddleware, requireModule(PERMISOS.personal), doctor
 // Gestión de personal médico
 app.use('/api/personal-medico', authMiddleware, requireModule(PERMISOS.personal), personalMedicoRoutes);
 
+// Personal administrativo y de apoyo
+app.use('/api/personal-general', authMiddleware, requireModule(PERMISOS.personalGeneral), personalGeneralRoutes);
+
 // Citas y agenda
 app.use('/api/appointments', authMiddleware, requireModule(PERMISOS.agenda), appointmentsRoutes);
 
@@ -157,6 +162,7 @@ app.use('/api/ordenes', authMiddleware, requireModule(PERMISOS.ordenes), ordenes
 
 // Órdenes de enfermería (traducción de las órdenes médicas)
 app.use('/api/ordenes-enfermeria', authMiddleware, requireModule(PERMISOS.ordenesEnfermeria), ordenesEnfermeriaRoutes);
+app.use('/api/administracion-medicamentos', authMiddleware, requireModule(PERMISOS.controlMedicamentos), administracionMedicamentosRoutes);
 
 // Historias clínicas (una por consulta o ingreso) y antecedentes del paciente
 app.use('/api/historias-clinicas', authMiddleware, requireModule(PERMISOS.historiasClinicas), historiasClinicasRoutes);

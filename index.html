@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-    <link rel="stylesheet" href="css/style.css?v=20261023-10">
+    <link rel="stylesheet" href="css/style.css?v=20261023-15">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/tema-botengine.css?v=20261018-2">
 </head>
@@ -62,6 +62,10 @@
                 <a href="#" class="nav-item" data-page="personal">
                     <i class="fas fa-user-md"></i>
                     <span>Personal Médico</span>
+                </a>
+                <a href="#" class="nav-item" data-page="personal-general">
+                    <i class="fas fa-id-badge"></i>
+                    <span>Personal</span>
                 </a>
 
                 <!-- MÓDULO CONTABLE -->
@@ -2145,10 +2149,19 @@
                     <div class="oe-encabezado">
                         <div class="saldo-encabezado">
                             <h1>Órdenes de enfermería</h1>
-                            <p>Elija una orden: la del médico queda a la izquierda mientras escribe a la derecha las indicaciones de enfermería.</p>
+                            <p id="oeDescripcion">Elija una orden: la del médico queda a la izquierda mientras escribe a la derecha las indicaciones de enfermería.</p>
                         </div>
                         <button type="button" class="btn btn-secondary" id="oeActualizar">
                             <i class="fas fa-rotate" aria-hidden="true"></i> Actualizar
+                        </button>
+                    </div>
+
+                    <div class="oe-vistas" id="oeVistas" role="tablist" aria-label="Vistas de órdenes de enfermería">
+                        <button type="button" role="tab" class="oe-vista activa" id="oeVistaOrdenes" aria-selected="true" aria-controls="oeLayout" data-oe-vista="ordenes">
+                            <i class="fas fa-notes-medical" aria-hidden="true"></i> Órdenes
+                        </button>
+                        <button type="button" role="tab" class="oe-vista" id="oeVistaControl" aria-selected="false" aria-controls="oeControl" data-oe-vista="control" tabindex="-1">
+                            <i class="fas fa-pills" aria-hidden="true"></i> Control de medicamentos
                         </button>
                     </div>
 
@@ -2171,6 +2184,8 @@
                         <section class="oe-panel oe-panel-medico" id="oeMedico" aria-label="Orden del médico"></section>
                         <section class="oe-panel oe-panel-enfermeria" id="oeEnfermeria" aria-label="Orden de enfermería"></section>
                     </div>
+
+                    <section class="cm" id="oeControl" role="tabpanel" aria-labelledby="oeVistaControl" hidden></section>
                 </div>
 
                 <!-- Personal Médico Page -->
@@ -2199,6 +2214,7 @@
                                 <option value="activos">Activos</option>
                                 <option value="todos">Todos</option>
                                 <option value="inactivos">Inactivos</option>
+                                <option value="emergencias">Disponibles para emergencias</option>
                             </select>
                             <button class="btn btn-outline" onclick="PersonalModule.loadData()">
                                 <i class="fas fa-sync-alt"></i> Actualizar
@@ -2206,8 +2222,65 @@
                         </div>
                     </div>
 
+                    <!-- Médicos a quienes llamar en caso de emergencia -->
+                    <section id="personalEmergencias" class="personal-emergencias" aria-labelledby="personalEmergenciasTitulo" hidden></section>
+
+                    <!-- Documentos vencidos o por vencer -->
+                    <div id="personalAvisoDocumentos" class="personal-aviso-documentos" role="status" hidden></div>
+
                     <!-- Tabla de Personal -->
                     <div class="table-responsive" id="personalTable" style="background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <!-- Poblada por JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Personal (administrativo y de apoyo) Page -->
+                <div id="page-personal-general" class="page">
+                    <div class="page-header">
+                        <h1><i class="fas fa-id-badge"></i> Gestión de Personal</h1>
+                        <button class="btn btn-primary" id="btnNuevoEmpleado">
+                            <i class="fas fa-user-plus"></i> Registrar Personal
+                        </button>
+                    </div>
+
+                    <!-- Filtros -->
+                    <div class="filter-panel">
+                        <div class="filter-row">
+                            <input type="text" id="searchEmpleados" class="form-input" placeholder="Buscar por nombre, email, DPI o puesto...">
+                            <select id="filterAreaEmpleados" class="form-input">
+                                <option value="">Todas las áreas</option>
+                                <option>Administración</option>
+                                <option>Enfermería</option>
+                                <option>Recepción</option>
+                                <option>Farmacia</option>
+                                <option>Contabilidad</option>
+                                <option>Laboratorio</option>
+                                <option>Limpieza</option>
+                                <option>Mantenimiento</option>
+                                <option>Seguridad</option>
+                                <option>Cocina</option>
+                                <option>Otra</option>
+                            </select>
+                            <select id="filterEstadoEmpleados" class="form-input">
+                                <option value="activos">Activos</option>
+                                <option value="todos">Todos</option>
+                                <option value="inactivos">Inactivos</option>
+                                <option value="emergencias">Disponibles para emergencias</option>
+                            </select>
+                            <button class="btn btn-outline" onclick="PersonalGeneralModule.loadData()">
+                                <i class="fas fa-sync-alt"></i> Actualizar
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Médicos a quienes llamar en caso de emergencia -->
+                    <section id="empleadosEmergencias" class="personal-emergencias" aria-labelledby="empleadosEmergenciasTitulo" hidden></section>
+
+                    <!-- Documentos vencidos o por vencer -->
+                    <div id="empleadosAvisoDocumentos" class="personal-aviso-documentos" role="status" hidden></div>
+
+                    <!-- Tabla de Personal -->
+                    <div class="table-responsive" id="empleadosTable" style="background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                         <!-- Poblada por JavaScript -->
                     </div>
                 </div>
@@ -5279,6 +5352,51 @@
                     </div>
                 </div>
 
+                <div class="form-section-title">Emergencias</div>
+
+                <label class="personal-emergencia-check" for="personalDisponibleEmergencias">
+                    <input type="checkbox" id="personalDisponibleEmergencias">
+                    <span>
+                        <strong>Disponible para emergencias</strong>
+                        <small>Se le puede llamar fuera de su horario cuando haya una emergencia.</small>
+                    </span>
+                </label>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="personalTelefonoEmergencia">Teléfono para emergencias</label>
+                        <input type="tel" id="personalTelefonoEmergencia" class="form-input" placeholder="+502 5000-0000" autocomplete="off">
+                        <small class="form-hint">Si se deja vacío se usa el teléfono de contacto.</small>
+                    </div>
+                </div>
+
+                <div class="personal-usuario-seccion" hidden>
+                    <div class="form-section-title">Usuario del sistema</div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="personalUsuario">Usuario vinculado</label>
+                            <select id="personalUsuario" class="form-input"></select>
+                            <small class="form-hint">La cuenta con la que esta persona entra al sistema. Un usuario se vincula a una sola persona.</small>
+                        </div>
+                    </div>
+                    <div class="personal-usuario-nuevo" hidden>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="personalUsuarioEmail">Email del usuario <span class="required">*</span></label>
+                                <input type="email" id="personalUsuarioEmail" class="form-input" autocomplete="off" placeholder="email@ejemplo.com">
+                            </div>
+                            <div class="form-group">
+                                <label for="personalUsuarioClave">Contraseña <span class="required">*</span></label>
+                                <input type="password" id="personalUsuarioClave" class="form-input" autocomplete="new-password" minlength="8">
+                                <small class="form-hint">Al menos 8 caracteres.</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="personalUsuarioRol">Rol <span class="required">*</span></label>
+                                <select id="personalUsuarioRol" class="form-input"></select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="form-section-title">Horario Laboral</div>
 
                 <div class="form-row">
@@ -5325,6 +5443,211 @@
         </div>
     </div>
 
+        <!-- Modal Personal (administrativo y de apoyo) -->
+    <div id="empleadoModal" class="modal">
+        <div class="modal-content modal-content-lg">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-plus"></i> Nuevo Personal</h2>
+                <button class="modal-close" onclick="document.getElementById('empleadoModal').style.display='none'">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-section-title">Información Personal</div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Nombre <span class="required">*</span></label>
+                        <input type="text" id="empleadoNombre" class="form-input" placeholder="Nombre..." required>
+                    </div>
+                    <div class="form-group">
+                        <label>Apellido Paterno <span class="required">*</span></label>
+                        <input type="text" id="empleadoApellidoPaterno" class="form-input" placeholder="Apellido paterno..." required>
+                    </div>
+                    <div class="form-group">
+                        <label>Apellido Materno</label>
+                        <input type="text" id="empleadoApellidoMaterno" class="form-input" placeholder="Apellido materno...">
+                    </div>
+                </div>
+
+                <div class="form-section-title">Fotografía y DPI</div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="empleadoDPI">Número de DPI</label>
+                        <input type="text" id="empleadoDPI" class="form-input" inputmode="numeric" maxlength="15" placeholder="0000 00000 0000" autocomplete="off">
+                        <small class="form-hint">13 dígitos, como aparece en el documento.</small>
+                    </div>
+                </div>
+
+                <div class="foto-grid">
+                    <div class="foto-tile foto-tile-perfil" data-imagen="foto_perfil">
+                        <span class="foto-tile-label">Foto de la persona</span>
+                        <label class="foto-tile-drop" for="empleadoImg_foto_perfil">
+                            <img alt="" hidden>
+                            <span class="foto-tile-vacio"><i class="fas fa-user" aria-hidden="true"></i><span>Toca para subir o tomar foto</span></span>
+                        </label>
+                        <input type="file" id="empleadoImg_foto_perfil" accept="image/jpeg,image/png,image/webp" hidden>
+                        <div class="foto-tile-acciones">
+                            <label class="btn btn-secondary btn-small" for="empleadoImg_foto_perfil"><i class="fas fa-upload" aria-hidden="true"></i> <span>Subir</span></label>
+                            <button type="button" class="btn btn-secondary btn-small foto-tile-quitar" hidden><i class="fas fa-trash" aria-hidden="true"></i> Quitar</button>
+                        </div>
+                    </div>
+                    <div class="foto-tile" data-imagen="dpi_frente">
+                        <span class="foto-tile-label">DPI · frente</span>
+                        <label class="foto-tile-drop" for="empleadoImg_dpi_frente">
+                            <img alt="" hidden>
+                            <span class="foto-tile-vacio"><i class="fas fa-id-card" aria-hidden="true"></i><span>Fotografía del frente</span></span>
+                        </label>
+                        <input type="file" id="empleadoImg_dpi_frente" accept="image/jpeg,image/png,image/webp" hidden>
+                        <div class="foto-tile-acciones">
+                            <label class="btn btn-secondary btn-small" for="empleadoImg_dpi_frente"><i class="fas fa-upload" aria-hidden="true"></i> <span>Subir</span></label>
+                            <button type="button" class="btn btn-secondary btn-small foto-tile-quitar" hidden><i class="fas fa-trash" aria-hidden="true"></i> Quitar</button>
+                        </div>
+                    </div>
+                    <div class="foto-tile" data-imagen="dpi_reverso">
+                        <span class="foto-tile-label">DPI · reverso</span>
+                        <label class="foto-tile-drop" for="empleadoImg_dpi_reverso">
+                            <img alt="" hidden>
+                            <span class="foto-tile-vacio"><i class="fas fa-id-card" aria-hidden="true"></i><span>Fotografía del reverso</span></span>
+                        </label>
+                        <input type="file" id="empleadoImg_dpi_reverso" accept="image/jpeg,image/png,image/webp" hidden>
+                        <div class="foto-tile-acciones">
+                            <label class="btn btn-secondary btn-small" for="empleadoImg_dpi_reverso"><i class="fas fa-upload" aria-hidden="true"></i> <span>Subir</span></label>
+                            <button type="button" class="btn btn-secondary btn-small foto-tile-quitar" hidden><i class="fas fa-trash" aria-hidden="true"></i> Quitar</button>
+                        </div>
+                    </div>
+                </div>
+                <p class="form-hint">JPG, PNG o WEBP. Las imágenes se reducen automáticamente antes de guardarse.</p>
+
+                <div class="form-section-title">Puesto</div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="empleadoPuesto">Puesto <span class="required">*</span></label>
+                        <input type="text" id="empleadoPuesto" class="form-input" maxlength="120" placeholder="Ej.: Recepcionista, Enfermera auxiliar…" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="empleadoArea">Área</label>
+                        <select id="empleadoArea" class="form-input">
+                            <option value="">-- Selecciona área --</option>
+                            <option>Administración</option>
+                            <option>Enfermería</option>
+                            <option>Recepción</option>
+                            <option>Farmacia</option>
+                            <option>Contabilidad</option>
+                            <option>Laboratorio</option>
+                            <option>Limpieza</option>
+                            <option>Mantenimiento</option>
+                            <option>Seguridad</option>
+                            <option>Cocina</option>
+                            <option>Otra</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-section-title">Contacto</div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Email (Opcional)</label>
+                        <input type="email" id="empleadoEmail" class="form-input" placeholder="email@ejemplo.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Teléfono <span class="required">*</span></label>
+                        <input type="tel" id="empleadoTelefono" class="form-input" placeholder="+502 5000-0000" required>
+                    </div>
+                </div>
+
+                <div class="form-section-title">Emergencias</div>
+
+                <label class="personal-emergencia-check" for="empleadoDisponibleEmergencias">
+                    <input type="checkbox" id="empleadoDisponibleEmergencias">
+                    <span>
+                        <strong>Disponible para emergencias</strong>
+                        <small>Se le puede llamar fuera de su horario cuando haya una emergencia.</small>
+                    </span>
+                </label>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="empleadoTelefonoEmergencia">Teléfono para emergencias</label>
+                        <input type="tel" id="empleadoTelefonoEmergencia" class="form-input" placeholder="+502 5000-0000" autocomplete="off">
+                        <small class="form-hint">Si se deja vacío se usa el teléfono de contacto.</small>
+                    </div>
+                </div>
+
+                <div class="personal-usuario-seccion" hidden>
+                    <div class="form-section-title">Usuario del sistema</div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="empleadoUsuario">Usuario vinculado</label>
+                            <select id="empleadoUsuario" class="form-input"></select>
+                            <small class="form-hint">La cuenta con la que esta persona entra al sistema. Un usuario se vincula a una sola persona.</small>
+                        </div>
+                    </div>
+                    <div class="personal-usuario-nuevo" hidden>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="empleadoUsuarioEmail">Email del usuario <span class="required">*</span></label>
+                                <input type="email" id="empleadoUsuarioEmail" class="form-input" autocomplete="off" placeholder="email@ejemplo.com">
+                            </div>
+                            <div class="form-group">
+                                <label for="empleadoUsuarioClave">Contraseña <span class="required">*</span></label>
+                                <input type="password" id="empleadoUsuarioClave" class="form-input" autocomplete="new-password" minlength="8">
+                                <small class="form-hint">Al menos 8 caracteres.</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="empleadoUsuarioRol">Rol <span class="required">*</span></label>
+                                <select id="empleadoUsuarioRol" class="form-input"></select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section-title">Horario Laboral</div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Hora Inicio <span class="required">*</span></label>
+                        <input type="time" id="empleadoHorarioInicio" class="form-input" value="08:00" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Hora Fin <span class="required">*</span></label>
+                        <input type="time" id="empleadoHorarioFin" class="form-input" value="16:00" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Estado</label>
+                        <select id="empleadoEstado" class="form-input">
+                            <option value="activo">Activo</option>
+                            <option value="inactivo">Inactivo</option>
+                            <option value="licencia">En Licencia</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 15px;">
+                    <label>Días Laborales <span class="required">*</span></label>
+                    <div id="empleadoDiasLaborales" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-top: 8px;">
+                        <label><input type="checkbox" name="empleadoDiaLaboral" value="lunes"> Lunes</label>
+                        <label><input type="checkbox" name="empleadoDiaLaboral" value="martes"> Martes</label>
+                        <label><input type="checkbox" name="empleadoDiaLaboral" value="miercoles"> Miércoles</label>
+                        <label><input type="checkbox" name="empleadoDiaLaboral" value="jueves"> Jueves</label>
+                        <label><input type="checkbox" name="empleadoDiaLaboral" value="viernes"> Viernes</label>
+                        <label><input type="checkbox" name="empleadoDiaLaboral" value="sabado"> Sábado</label>
+                        <label><input type="checkbox" name="empleadoDiaLaboral" value="domingo"> Domingo</label>
+                    </div>
+                </div>
+
+                <div class="form-row" style="margin-top: 20px;">
+                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('empleadoModal').style.display='none'">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="PersonalGeneralModule.guardarPersonal()">
+                        <i class="fas fa-save"></i> Guardar Personal
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Script imports -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -5340,20 +5663,21 @@
     <script src="js/auth-utils.js?v=20261015-21"></script>
     
     <!-- Módulos Administrativos -->
-    <script src="js/live-search.js?v=20261015-21"></script>
+    <script src="js/live-search.js?v=20261023-1"></script>
     <script src="js/pacientes.js?v=20261023-1"></script>
     <script src="js/pacientes-file-manager.js?v=20261015-21"></script>
     <script src="js/inventario-medicinas.js?v=20261023-1"></script>
     <script src="js/medicinas.js?v=20261023-2"></script>
-    <script src="js/sincronizacion.js?v=20261023-1"></script>
-    <script src="js/historia-clinica-panel.js?v=20261023-6"></script>
+    <script src="js/sincronizacion.js?v=20261023-2"></script>
+    <script src="js/historia-clinica-panel.js?v=20261023-7"></script>
     <script src="js/historia-clinica.js?v=20261022-1"></script>
     <script src="js/saldo-paciente.js?v=20261018-2"></script>
     <script src="js/saldo-paciente-facturacion-integrado.js?v=20261019-2"></script>
     <script src="js/hospitalizaciones.js?v=20261019-1"></script>
     <script src="js/ordenes-medicas.js?v=20261023-3"></script>
     <script src="js/ordenes-enfermeria.js?v=20261023-2"></script>
-    <script src="js/personal.js?v=20261018-3"></script>
+    <script src="js/control-medicamentos.js?v=20261023-2"></script>
+    <script src="js/personal.js?v=20261023-2"></script>
     <script src="js/codigos-articulos.js?v=20261015-21"></script>
     <script src="js/compras.js?v=20261023-2"></script>
     <script src="js/alertas.js?v=20261015-21"></script>
@@ -5374,8 +5698,8 @@
     <script src="js/gastos-servicios.js?v=20261018-3"></script>
     
     <!-- App Principal -->
-    <script src="js/app.js?v=20261023-1"></script>
-    <script src="js/permisos.js?v=20261022-2"></script>
+    <script src="js/app.js?v=20261023-3"></script>
+    <script src="js/permisos.js?v=20261023-1"></script>
     <script src="js/comunicacion.js?v=20261019-1"></script>
     <script src="js/inicio.js?v=20261018-1"></script>
 </body>

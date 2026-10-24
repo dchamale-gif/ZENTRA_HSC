@@ -10268,3 +10268,618 @@ body.chat-abierto {
     color: var(--text-gray);
     font-size: 12px;
 }
+
+/* ============================================
+   ÓRDENES DE ENFERMERÍA: VISTAS Y CONTROL DE MEDICAMENTOS
+   ============================================ */
+.oe-vistas {
+    display: flex;
+    gap: 4px;
+    margin: 14px 0 16px;
+    border-bottom: 1px solid var(--border-color);
+    overflow-x: auto;
+}
+
+.oe-vista {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: none;
+    color: var(--text-gray);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.oe-vista:hover {
+    color: var(--text-dark);
+}
+
+.oe-vista.activa {
+    border-bottom-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.oe-vista:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: -2px;
+}
+
+.oe-layout[hidden],
+.cm[hidden] {
+    display: none;
+}
+
+.cm-barra {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.cm-campo {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+    font-size: 12px;
+    color: var(--text-gray);
+}
+
+.cm-barra .cm-campo {
+    flex: 0 1 320px;
+}
+
+.cm-semana {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.cm-semana strong {
+    min-width: 220px;
+    text-align: center;
+    font-size: 14px;
+}
+
+.cm-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.cm-grid .day-card-agenda {
+    min-width: 0;
+    min-height: 260px;
+    padding: 8px;
+}
+
+.cm-grid .day-card-agenda > div:first-child span {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.cm-grid .day-card-agenda > div:nth-child(2) {
+    overflow-x: hidden;
+}
+
+.cm-pasado:not(.today) .mar-pendiente {
+    border-left-color: var(--warning-color);
+}
+
+.cm-sin {
+    padding: 20px 5px;
+    color: #999;
+    text-align: center;
+}
+
+.cm-quien {
+    color: var(--success-color);
+}
+
+.mar-check:disabled {
+    cursor: default;
+    opacity: 0.5;
+}
+
+.cm-vacio,
+.cm-error {
+    margin: 0 0 14px;
+    font-size: 13px;
+}
+
+.cm-vacio {
+    color: var(--text-gray);
+}
+
+.cm-error {
+    color: var(--danger-color);
+}
+
+.cm-resumen {
+    margin-top: 18px;
+    padding: 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-white);
+}
+
+.cm-resumen h3 {
+    margin: 0 0 10px;
+    font-size: 15px;
+}
+
+.cm-resumen-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 10px;
+}
+
+.cm-resumen-paciente {
+    padding: 10px 12px;
+    border-radius: 6px;
+    background: var(--bg-light);
+}
+
+.cm-resumen-paciente ul {
+    margin: 6px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.cm-resumen-paciente li {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 3px 0;
+    font-size: 12.5px;
+}
+
+.cm-resumen-paciente li small {
+    color: var(--text-gray);
+}
+
+.cm-resumen-paciente b {
+    font-variant-numeric: tabular-nums;
+}
+
+.cm-dialogo .modal-body p {
+    margin: 0 0 8px;
+}
+
+@media (max-width: 1100px) {
+    .cm-grid {
+        grid-template-columns: repeat(7, minmax(150px, 1fr));
+        overflow-x: auto;
+        padding-bottom: 6px;
+    }
+}
+
+@media (max-width: 720px) {
+    .cm-semana strong {
+        min-width: 0;
+        flex: 1 1 100%;
+        order: -1;
+        text-align: left;
+    }
+}
+
+/* Historia clínica: elegir qué secciones se imprimen */
+.modal-overlay .modal-dialog.hc2-imprimir {
+    max-width: 520px;
+}
+
+.hc2-imprimir-lista {
+    display: grid;
+    gap: 2px;
+    margin: 0 0 12px;
+    padding: 0;
+    border: 0;
+}
+
+.hc2-imprimir-lista legend {
+    margin-bottom: 8px;
+    color: var(--text-gray);
+    font-size: 13px;
+}
+
+.hc2-imprimir-todas,
+.hc2-imprimir-opcion {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.hc2-imprimir-todas {
+    grid-template-columns: auto 1fr;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--border-color);
+    border-radius: 6px 6px 0 0;
+    font-weight: 600;
+}
+
+.hc2-imprimir-opcion:hover,
+.hc2-imprimir-todas:hover {
+    background: var(--bg-light);
+}
+
+.hc2-imprimir-lista input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--primary-color);
+}
+
+.hc2-imprimir-opcion strong {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.hc2-imprimir-opcion small {
+    display: block;
+    color: var(--text-gray);
+    font-size: 12px;
+}
+
+.hc2-imprimir-conteo {
+    color: var(--primary-color);
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.hc2-imprimir-conteo.vacio {
+    color: var(--text-gray);
+    font-weight: 400;
+}
+
+/* ---------- Personal médico: emergencias y documentos ---------- */
+.personal-emergencias {
+    margin-bottom: 16px;
+    padding: 16px;
+    background: var(--bg-white);
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--danger-color);
+    border-radius: 8px;
+}
+
+.personal-emergencias-encabezado {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.personal-emergencias-encabezado h2 {
+    margin: 0;
+    font-size: 16px;
+    color: var(--text-dark);
+}
+
+.personal-emergencias-encabezado h2 i {
+    color: var(--danger-color);
+}
+
+.personal-emergencias-total {
+    white-space: nowrap;
+    color: var(--text-gray);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+}
+
+.personal-emergencias-lista {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.personal-emergencia-tarjeta {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 6px 12px;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+.personal-emergencia-datos {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.personal-emergencia-datos strong {
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.personal-emergencia-datos small {
+    color: var(--text-gray);
+    font-size: 12px;
+}
+
+.personal-emergencia-estado {
+    font-size: 12px;
+    color: var(--text-gray);
+    font-variant-numeric: tabular-nums;
+}
+
+.personal-emergencia-estado.en-turno {
+    color: var(--success-color);
+    font-weight: 600;
+}
+
+.personal-emergencia-llamar {
+    grid-column: 1 / -1;
+    justify-content: center;
+    min-height: 40px;
+    font-variant-numeric: tabular-nums;
+    text-decoration: none;
+}
+
+.personal-emergencias-vacio {
+    margin: 0;
+    color: var(--text-gray);
+    font-size: 13px;
+}
+
+.personal-badge-emergencia {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 2px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: #fdecec;
+    color: var(--danger-color);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.personal-btn-emergencia,
+.personal-btn-documentos {
+    position: relative;
+    background: var(--bg-white);
+    border: 1px solid var(--border-color);
+    color: var(--text-gray);
+}
+
+.personal-btn-emergencia.activo {
+    background: var(--danger-color);
+    border-color: var(--danger-color);
+    color: #fff;
+}
+
+.personal-btn-documentos.por-vencer {
+    border-color: var(--warning-color);
+    color: var(--warning-color);
+}
+
+.personal-btn-documentos.vencidos {
+    border-color: var(--danger-color);
+    color: var(--danger-color);
+}
+
+.personal-btn-conteo {
+    margin-left: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.personal-aviso-documentos {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border: 1px solid #f3d9a4;
+    border-radius: 8px;
+    background: #fff8eb;
+    color: var(--text-dark);
+    font-size: 13px;
+}
+
+.personal-aviso-documentos > i {
+    margin-top: 2px;
+    color: var(--warning-color);
+}
+
+.personal-aviso-documentos small {
+    color: var(--text-gray);
+}
+
+.personal-aviso-enlace {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--primary-color);
+    font: inherit;
+    font-weight: 600;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.personal-emergencia-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 12px;
+    cursor: pointer;
+}
+
+.personal-emergencia-check input {
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    accent-color: var(--danger-color);
+}
+
+.personal-emergencia-check strong {
+    display: block;
+    font-size: 14px;
+}
+
+.personal-emergencia-check small {
+    color: var(--text-gray);
+    font-size: 12px;
+}
+
+.modal-overlay .modal-dialog.personal-docs {
+    max-width: 640px;
+}
+
+.personal-docs-form {
+    padding-bottom: 16px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.personal-docs-campos {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.personal-docs-campos .form-group {
+    margin: 0;
+}
+
+.personal-docs-ancho {
+    grid-column: 1 / -1;
+}
+
+.personal-docs-error {
+    margin: 0 0 10px;
+    color: var(--danger-color);
+    font-size: 13px;
+}
+
+.personal-docs-lista ul {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.personal-docs-vacio {
+    margin: 0;
+    color: var(--text-gray);
+    font-size: 13px;
+}
+
+.personal-doc {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: start;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+.personal-doc-icono {
+    width: 20px;
+    text-align: center;
+    margin-top: 2px;
+    font-size: 20px;
+    color: var(--primary-color);
+}
+
+.personal-doc-datos {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.personal-doc-datos strong {
+    font-size: 14px;
+}
+
+.personal-doc-datos small {
+    color: var(--text-gray);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+.personal-doc-vence {
+    justify-self: start;
+    margin-top: 4px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--bg-light);
+    color: var(--text-gray);
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.personal-doc-vence.por-vencer {
+    background: #fff4dc;
+    color: var(--warning-color);
+}
+
+.personal-doc-vence.vencido {
+    background: #fdecec;
+    color: var(--danger-color);
+}
+
+.personal-doc-vence.sin-fecha {
+    font-weight: 400;
+}
+
+.personal-doc-acciones {
+    display: flex;
+    gap: 6px;
+}
+
+@media (max-width: 640px) {
+    .personal-docs-campos {
+        grid-template-columns: 1fr;
+    }
+
+    .personal-doc {
+        grid-template-columns: auto 1fr;
+    }
+
+    .personal-doc-acciones {
+        grid-column: 1 / -1;
+        justify-content: flex-end;
+    }
+}
+
+.personal-usuario-vinculado,
+.usuario-personal-vinculado {
+    display: block;
+    color: var(--text-gray);
+    font-size: 12px;
+    font-weight: 400;
+}
+
+.personal-error-carga {
+    margin: 0;
+    padding: 24px;
+    color: var(--text-gray);
+    text-align: center;
+}

@@ -47,7 +47,7 @@ const ZentraSync = {
 
     // Cada pantalla indica cómo refrescarse; cada una decide si puede hacerlo sin perder lo que se escribe
     registrar(pagina, refrescar) {
-        this.vistas[pagina] = refrescar;
+        (this.vistas[pagina] ||= []).push(refrescar);
     },
 
     estaVisible(pagina) {
@@ -56,8 +56,9 @@ const ZentraSync = {
 
     refrescarVisible() {
         if (document.hidden || typeof currentPage === 'undefined') return;
-        const refrescar = this.vistas[currentPage];
-        if (refrescar) Promise.resolve(refrescar()).catch(() => { /* se reintenta en el próximo ciclo */ });
+        (this.vistas[currentPage] || []).forEach(refrescar => {
+            Promise.resolve(refrescar()).catch(() => { /* se reintenta en el próximo ciclo */ });
+        });
     }
 };
 

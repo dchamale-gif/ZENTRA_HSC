@@ -18,7 +18,7 @@ const RUTAS_CARGOS = /^\/(cargos|prescripciones|facturas-mejorada|estado-cuenta)
 const TODOS_LOS_MODULOS = [
   'caratula', 'historia_clinica', 'historia_clinica_cierre', 'ordenes_medicas', 'ordenes_enfermeria', 'evolucion', 'control_medicamentos', 'extras',
   'control_signos', 'notas_enfermeria', 'laboratorios', 'recepcion_articulos', 'cotizacion_paciente',
-  'contrato_ingreso', 'hospitalizaciones', 'saldo_paciente', 'medicinas', 'personal', 'codigos_articulos',
+  'contrato_ingreso', 'hospitalizaciones', 'saldo_paciente', 'medicinas', 'personal', 'personal_general', 'codigos_articulos',
   'compras', 'ventas', 'cotizaciones', 'caja', 'cxc', 'gastos', 'dashboard_ejecutivo', 'inventario',
   'transacciones', 'reportes', 'agenda', 'alertas'
 ];
@@ -60,6 +60,7 @@ const PERMISOS_API = {
     ver: ['personal', 'caratula', 'historia_clinica', 'ordenes_medicas', 'evolucion', 'agenda', 'hospitalizaciones'],
     editar: ['personal']
   },
+  personalGeneral: 'personal_general',
   agenda: 'agenda',
   gastos: 'gastos',
   cxc: 'cxc',
@@ -76,6 +77,8 @@ const PERMISOS_API = {
   ordenes: 'ordenes_medicas',
   // Quien ve las órdenes médicas también ve su traducción (pestaña Órdenes médicas de la ficha)
   ordenesEnfermeria: { ver: ['ordenes_enfermeria', 'ordenes_medicas'], editar: ['ordenes_enfermeria'] },
+  // Control de medicamentos (dosis dadas, suspensiones) dentro de Órdenes de enfermería
+  controlMedicamentos: { ver: ['ordenes_enfermeria', 'control_medicamentos'], editar: ['ordenes_enfermeria', 'control_medicamentos'] },
   alertas: 'alertas',
   // El resumen operativo de Inicio (conteos de pacientes, citas, órdenes, camas; sin montos)
   // lo ve cualquier usuario; el resto de reportes es financiero.
