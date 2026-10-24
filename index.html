@@ -8,11 +8,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-    <link rel="stylesheet" href="css/style.css?v=20261023-18">
+    <link rel="stylesheet" href="css/style.css?v=20261023-19">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/tema-botengine.css?v=20261018-2">
-    <link rel="stylesheet" href="css/tema-oscuro-auto.css?v=20261023-1">
-    <link rel="stylesheet" href="css/tema-oscuro.css?v=20261023-2">
+    <link rel="stylesheet" href="css/tema-oscuro-auto.css?v=20261023-2">
+    <link rel="stylesheet" href="css/tema-oscuro.css?v=20261023-3">
     <script>
         // Tema del perfil antes de pintar, para que no destelle en claro (js/tema.js hace el resto)
         (function () {
@@ -2806,6 +2806,7 @@
                         <button type="button" class="tab-button" onclick="switchPacientTab('historialMedico')">🏥 Historial Médico</button>
                         <button type="button" class="tab-button" id="pacientTabOrdenes" onclick="switchPacientTab('ordenesMedicas')">📋 Órdenes médicas</button>
                         <button type="button" class="tab-button" id="pacientTabLaboratorios" onclick="switchPacientTab('laboratorios')">🧪 Laboratorios</button>
+                        <button type="button" class="tab-button" id="pacientTabCotizaciones" onclick="switchPacientTab('cotizaciones')">💲 Cotizaciones</button>
                         <button type="button" class="tab-button" onclick="switchPacientTab('datosFamiliares')">👨‍👩‍👧 Familiares</button>
                         <button type="button" class="tab-button" onclick="switchPacientTab('responsable')">👤 Responsable</button>
                         <button type="button" class="tab-button" onclick="switchPacientTab('fotografias')">📷 Fotografías</button>
@@ -3545,6 +3546,15 @@
                     <div id="tab-laboratorios" class="tab-content">
                         <div class="form-section-title">Laboratorios y resultados</div>
                         <div id="pacientLaboratorios"></div>
+                    </div>
+
+                    <!-- TAB: COTIZACIONES (cuántas veces ha cotizado el paciente; mismas que Acciones → Cotización) -->
+                    <div id="tab-cotizaciones" class="tab-content">
+                        <div class="form-section-title ficha-cot-titulo">
+                            <span>Cotizaciones</span>
+                            <button type="button" class="btn btn-primary btn-small" id="pacientNuevaCotizacionBtn"><i class="fas fa-plus" aria-hidden="true"></i> Nueva cotización</button>
+                        </div>
+                        <div id="pacientCotizaciones"></div>
                     </div>
 
                     <div id="tab-datosFamiliares" class="tab-content">
@@ -5841,7 +5851,7 @@
     
     <!-- Módulos Administrativos -->
     <script src="js/live-search.js?v=20261023-1"></script>
-    <script src="js/pacientes.js?v=20261023-1"></script>
+    <script src="js/pacientes.js?v=20261023-2"></script>
     <script src="js/pacientes-file-manager.js?v=20261015-21"></script>
     <script src="js/inventario-medicinas.js?v=20261023-1"></script>
     <script src="js/medicinas.js?v=20261023-2"></script>
@@ -5861,7 +5871,7 @@
     <script src="js/alertas.js?v=20261015-21"></script>
     <script src="js/ventas.js?v=20261023-1"></script>
     <script src="js/cotizaciones.js?v=20261023-1"></script>
-    <script src="js/paciente-acciones.js?v=20261023-1"></script>
+    <script src="js/paciente-acciones.js?v=20261023-2"></script>
     <script src="js/caja.js?v=20261015-21"></script>
     <script src="js/cuentas-por-cobrar.js?v=20261015-21"></script>
     <script src="js/dashboard-financiero.js?v=20261015-21"></script>
@@ -5876,7 +5886,7 @@
     <script src="js/gastos-servicios.js?v=20261018-3"></script>
     
     <!-- App Principal -->
-    <script src="js/app.js?v=20261023-4"></script>
+    <script src="js/app.js?v=20261023-5"></script>
     <script src="js/permisos.js?v=20261023-1"></script>
     <script src="js/comunicacion.js?v=20261019-1"></script>
     <script src="js/inicio.js?v=20261018-1"></script>

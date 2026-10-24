@@ -301,7 +301,8 @@ const PacientesModule = {
         // y si se permite, mostrar los datos del paciente actual
         const pestañas = [
             { boton: 'pacientTabLaboratorios', panel: 'tab-laboratorios', modulos: ['laboratorios'], cargar: () => this.cargarLaboratoriosFicha() },
-            { boton: 'pacientTabOrdenes', panel: 'tab-ordenesMedicas', modulos: ['ordenes_medicas', 'ordenes_enfermeria'], cargar: () => this.cargarOrdenesFicha() }
+            { boton: 'pacientTabOrdenes', panel: 'tab-ordenesMedicas', modulos: ['ordenes_medicas', 'ordenes_enfermeria'], cargar: () => this.cargarOrdenesFicha() },
+            { boton: 'pacientTabCotizaciones', panel: 'tab-cotizaciones', modulos: ['cotizaciones', 'cotizacion_paciente'], cargar: () => this.cargarCotizacionesFicha() }
         ];
         pestañas.forEach(({ boton, panel, modulos, cargar }) => {
             const tab = document.getElementById(boton);
@@ -1983,6 +1984,23 @@ const PacientesModule = {
             return;
         }
         OrdenesEnfermeriaModule.montarEnFicha(contenedor, id);
+    },
+
+    // Pestaña Cotizaciones de la ficha: cuántas veces ha cotizado y su listado (/api/cotizaciones)
+    cargarCotizacionesFicha() {
+        const contenedor = document.getElementById('pacientCotizaciones');
+        const nueva = document.getElementById('pacientNuevaCotizacionBtn');
+        if (!contenedor || typeof PacienteAccionesModule === 'undefined' || typeof CotizacionesModule === 'undefined') return;
+        const id = document.getElementById('pacientId').value;
+        if (nueva) nueva.hidden = !id;
+        if (!id) {
+            contenedor.innerHTML = '<div class="cot-vacio"><p>Guarde primero al paciente para ver sus cotizaciones.</p></div>';
+            return;
+        }
+        const paciente = PacienteAccionesModule.paciente(id) || { id, nombre: document.getElementById('pacientNombre')?.value || '' };
+        const alSalir = () => this.closePacientModal();
+        if (nueva) nueva.onclick = () => PacienteAccionesModule.irACotizacion(paciente, null, alSalir);
+        PacienteAccionesModule.montarCotizaciones(contenedor, paciente, { alSalir });
     },
 
     // Agregar alerta

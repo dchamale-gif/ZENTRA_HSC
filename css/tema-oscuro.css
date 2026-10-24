@@ -120,6 +120,23 @@
     border-color: #c94848;
 }
 
+/* Pestañas tipo chip (tema-botengine.css): el bloque <style> de index.html no debe taparlas */
+:root[data-theme="dark"] .tabs-container .tab-btn {
+    background: var(--bg-white);
+    color: var(--text-gray);
+}
+
+:root[data-theme="dark"] .tabs-container .tab-btn:hover {
+    background: var(--bg-light);
+    color: var(--text-dark);
+}
+
+:root[data-theme="dark"] .tabs-container .tab-btn.active {
+    background: var(--primary-soft);
+    border-color: var(--primary-soft);
+    color: var(--primary-color);
+}
+
 /* Las imágenes con fondo blanco (logo, fotos de documentos) se atenúan un poco */
 :root[data-theme="dark"] img:not(.personal-avatar) {
     filter: brightness(0.92);

@@ -3,8 +3,8 @@
 Genera css/tema-oscuro-auto.css: la versión oscura de los colores fijos del sistema.
 
 El CSS de Zentra MED usa variables para casi todo, pero aún tiene cientos de colores
-escritos a mano (en style.css, en tema-botengine.css y en estilos en línea de index.html
-y de los js). Este script los recorre y escribe, bajo :root[data-theme="dark"], la misma
+escritos a mano (en style.css, en tema-botengine.css, en los bloques <style> de index.html
+y en estilos en línea de index.html y de los js). Este script los recorre y escribe, bajo :root[data-theme="dark"], la misma
 regla con el color pasado a oscuro conservando su tono:
 
   - fondos claros  -> superficies oscuras (los tintes de color, translúcidos)
@@ -25,6 +25,7 @@ import re
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FUENTES_CSS = ['css/style.css', 'css/tema-botengine.css']
+FUENTES_BLOQUES_STYLE = ['index.html']
 FUENTES_EN_LINEA = ['index.html'] + sorted(glob.glob(os.path.join(RAIZ, 'js', '*.js')))
 SALIDA = 'css/tema-oscuro-auto.css'
 PREFIJO = ':root[data-theme="dark"]'
@@ -253,6 +254,11 @@ def main():
             css = sin_comentarios(f.read())
         bloques.append(f'/* ---------- {ruta} ---------- */')
         bloques.extend(reglas(css))
+    for ruta in FUENTES_BLOQUES_STYLE:
+        with open(os.path.join(RAIZ, ruta), encoding='utf-8') as f:
+            estilos = re.findall(r'<style[^>]*>(.*?)</style>', f.read(), flags=re.S | re.I)
+        bloques.append(f'/* ---------- bloques <style> de {ruta} ---------- */')
+        bloques.extend(reglas(sin_comentarios('\n'.join(estilos))))
     bloques.append('/* ---------- estilos en línea (index.html y js) ---------- */')
     bloques.extend(estilos_en_linea())
     encabezado = ('/* ============================================\n'

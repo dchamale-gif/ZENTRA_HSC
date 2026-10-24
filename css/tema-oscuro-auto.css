@@ -531,6 +531,39 @@
     color: #7994e2;
 }
 
+/* ---------- bloques <style> de index.html ---------- */
+
+:root[data-theme="dark"] .tabs-container {
+    background: #171c23;
+}
+
+:root[data-theme="dark"] .tab-btn {
+    background: #232a35;
+    color: #afc1d3;
+}
+
+:root[data-theme="dark"] .tab-content {
+    background: #171c23;
+}
+
+:root[data-theme="dark"] .info-box {
+    background: rgba(60, 174, 195, 0.16);
+    color: #9fe7f3;
+}
+
+:root[data-theme="dark"] .modal-content {
+    background-color: #181d24;
+}
+
+:root[data-theme="dark"] .modal-footer {
+    background: #1c212a;
+    border-top: 1px solid #3d4552;
+}
+
+:root[data-theme="dark"] .close-btn:hover {
+    color: #ededed;
+}
+
 /* ---------- estilos en línea (index.html y js) ---------- */
 
 :root[data-theme="dark"] [style*="background-color: white"] {

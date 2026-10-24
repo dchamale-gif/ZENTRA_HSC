@@ -2033,6 +2033,9 @@ function switchPacientTab(tabName) {
     if (tabName === 'ordenesMedicas' && typeof PacientesModule !== 'undefined') {
         PacientesModule.cargarOrdenesFicha();
     }
+    if (tabName === 'cotizaciones' && typeof PacientesModule !== 'undefined') {
+        PacientesModule.cargarCotizacionesFicha();
+    }
 }
 
 function toggleClasificacionPaciente() {

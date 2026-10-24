@@ -7146,6 +7146,14 @@ tr.medicina-inactiva td {
 .cot-estado-anulada { background: #fdecec; color: #991b1b; }
 .cot-estado-vencida { background: #fff4e5; color: #92400e; }
 
+/* Pestaña Cotizaciones de la ficha del paciente */
+.ficha-cot-titulo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
 /* Resumen de cotizaciones en la ficha del paciente */
 .pac-cot-resumen {
     display: grid;

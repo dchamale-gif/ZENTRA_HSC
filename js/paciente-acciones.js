@@ -525,24 +525,35 @@ const PacienteAccionesModule = {
             paciente: p,
             acciones: '<button type="button" class="btn btn-primary btn-small" data-accion="nueva"><i class="fas fa-plus" aria-hidden="true"></i> Nueva cotización</button>'
         });
-        const irAlEditor = async (id = null) => {
-            this.cerrarPopup();
-            navigateToPage('cotizaciones');
-            await CotizacionesModule.abrirEditor(id);
-            if (!id) CotizacionesModule.seleccionarPaciente(p);
-        };
-        modal.querySelector('[data-accion="nueva"]').addEventListener('click', () => irAlEditor());
+        modal.querySelector('[data-accion="nueva"]').addEventListener('click', () => this.irACotizacion(p));
+        this.montarCotizaciones(cuerpo, p, { alSalir: () => this.cerrarPopup() });
+    },
 
-        cuerpo.addEventListener('click', e => {
+    // Abre el editor de cotizaciones; sin id, una nueva con los datos del paciente
+    async irACotizacion(p, id = null, alSalir = () => this.cerrarPopup()) {
+        alSalir();
+        navigateToPage('cotizaciones');
+        await CotizacionesModule.abrirEditor(id);
+        if (!id) CotizacionesModule.seleccionarPaciente(p);
+    },
+
+    // Resumen (cuántas veces ha cotizado) y listado de cotizaciones del paciente.
+    // La usan este popup y la pestaña Cotizaciones de la ficha del paciente.
+    montarCotizaciones(cuerpo, p, { alSalir = () => this.cerrarPopup() } = {}) {
+        cuerpo.innerHTML = '<p class="cot-sub" style="padding: 12px;">Cargando cotizaciones…</p>';
+        cuerpo.dataset.cotPaciente = String(p.id);
+        cuerpo.onclick = e => {
             const boton = e.target.closest('[data-cot]');
             if (!boton) return;
-            if (boton.dataset.accion === 'abrir') irAlEditor(boton.dataset.cot);
+            if (boton.dataset.accion === 'abrir') this.irACotizacion(p, boton.dataset.cot, alSalir);
             if (boton.dataset.accion === 'imprimir') CotizacionesModule.imprimirPorId(boton.dataset.cot);
-        });
+        };
 
         (async () => {
             try {
                 const { data = [] } = await this.api(`/api/cotizaciones?paciente_id=${encodeURIComponent(p.id)}`);
+                // La ficha pudo cambiar de paciente mientras se cargaba
+                if (cuerpo.dataset.cotPaciente !== String(p.id)) return;
                 // Cuántas veces ha cotizado el paciente (las anuladas no cuentan)
                 const vigentes = data.filter(c => c.estado !== 'anulada');
                 const anuladas = data.length - vigentes.length;
