@@ -498,9 +498,14 @@
                 <div id="page-pacientes" class="page">
                     <div class="page-header">
                         <h1>Gestión de Pacientes</h1>
-                        <button class="btn btn-primary" id="addPacientBtn">
-                            <i class="fas fa-user-plus"></i> Nuevo Paciente
-                        </button>
+                        <div class="button-group">
+                            <button type="button" class="btn btn-secondary" data-exportar-excel="pacientes">
+                                <i class="fas fa-file-excel" aria-hidden="true"></i> Exportar a Excel
+                            </button>
+                            <button class="btn btn-primary" id="addPacientBtn">
+                                <i class="fas fa-user-plus"></i> Nuevo Paciente
+                            </button>
+                        </div>
                     </div>
 
                     <div class="pacients-filters filter-grid">
@@ -1478,6 +1483,9 @@
                     <div class="page-header">
                         <h1>Sistema de Códigos de Artículos</h1>
                         <div class="button-group">
+                            <button type="button" class="btn btn-secondary" data-exportar-excel="articulos">
+                                <i class="fas fa-file-excel" aria-hidden="true"></i> Exportar a Excel
+                            </button>
                             <button class="btn btn-primary" id="addArticuloBtn">
                                 <i class="fas fa-plus"></i> Nuevo Artículo
                             </button>
@@ -1504,6 +1512,9 @@
                     <div class="page-header">
                         <h1>Gestión de Medicinas</h1>
                         <div class="button-group">
+                            <button type="button" class="btn btn-secondary" data-exportar-excel="medicinas">
+                                <i class="fas fa-file-excel" aria-hidden="true"></i> Exportar a Excel
+                            </button>
                             <button class="btn btn-primary" id="addMedicineBtn">
                                 <i class="fas fa-plus"></i> Nueva Medicina
                             </button>
@@ -5852,6 +5863,7 @@
     <!-- Módulos Administrativos -->
     <script src="js/live-search.js?v=20261023-1"></script>
     <script src="js/pacientes.js?v=20261023-2"></script>
+    <script src="js/exportar-excel.js?v=20261024-3"></script>
     <script src="js/pacientes-file-manager.js?v=20261015-21"></script>
     <script src="js/inventario-medicinas.js?v=20261023-1"></script>
     <script src="js/medicinas.js?v=20261023-2"></script>

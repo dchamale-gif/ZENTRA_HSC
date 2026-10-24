@@ -251,7 +251,39 @@ const deletePaciente = async (req, res) => {
   }
 };
 
+// Tablas con datos de la ficha además de pacientes (pestañas Lugar de trabajo, Emergencia, Familiares y Responsable)
+const TABLAS_FICHA = {
+  empresas: 'empresas',
+  contactos_emergencia: 'contactos_emergencia',
+  datos_familia: 'datos_familia',
+  responsables: 'responsables_paciente'
+};
+
+// EXPORTAR: todo lo de la ficha de todos los pacientes (activos e inactivos), sin la fotografía.
+// Solo administrador. Una tabla que aún no exista en esta instalación se devuelve vacía.
+const exportarPacientes = async (req, res) => {
+  try {
+    // row_to_json conserva el orden de las columnas de la tabla
+    const pacientes = await pool.query(
+      'SELECT row_to_json(p) AS fila FROM pacientes p ORDER BY p.apellido_paterno, p.nombre'
+    );
+    const relacionadas = {};
+    for (const [clave, tabla] of Object.entries(TABLAS_FICHA)) {
+      const existe = await pool.query('SELECT to_regclass($1) IS NOT NULL AS existe', [`public.${tabla}`]);
+      relacionadas[clave] = existe.rows[0].existe
+        ? (await pool.query(`SELECT row_to_json(t) AS fila FROM ${tabla} t ORDER BY t.paciente_id`)).rows.map(r => r.fila)
+        : [];
+    }
+    const filas = pacientes.rows.map(({ fila: { foto, ...paciente } }) => paciente);
+    res.status(200).json({ pacientes: filas, ...relacionadas });
+  } catch (error) {
+    console.error('Error en exportarPacientes:', error);
+    res.status(500).json({ error: 'Error exportando pacientes' });
+  }
+};
+
 module.exports = {
+  exportarPacientes,
   getPacientes,
   getPacienteById,
   createPaciente,
