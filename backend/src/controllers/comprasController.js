@@ -406,6 +406,68 @@ const deleteCompra = async (req, res) => {
   }
 };
 
+const ESTADOS = ['pendiente', 'ordenada', 'recibida', 'cancelada'];
+
+// PUT /api/compras/:id/estado { estado } (desde el listado). Recibida suma al inventario; al dejar de estarlo se resta.
+const cambiarEstado = async (req, res) => {
+  let client;
+  try {
+    const estado = req.body.estado;
+    if (!ESTADOS.includes(estado)) return res.status(400).json({ error: 'Estado no válido' });
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const conInventario = await inventario.disponible();
+    const existing = await client.query(
+      `SELECT id, estado${conInventario ? ', inventario_aplicado' : ''} FROM compras WHERE id = $1 FOR UPDATE`,
+      [req.params.id]
+    );
+    if (existing.rows.length === 0) throw errorConEstado('Compra no encontrada', 404);
+    const anterior = existing.rows[0];
+    if (anterior.inventario_aplicado && estado !== 'recibida') {
+      await revertirInventario(client, req.params.id, req, `Compra pasada a ${estado}`);
+    }
+    await client.query('UPDATE compras SET estado = $1, updated_at = NOW() WHERE id = $2', [estado, req.params.id]);
+    if (conInventario && estado === 'recibida' && !anterior.inventario_aplicado && anterior.estado !== 'recibida') {
+      await aplicarInventario(client, req.params.id, req);
+    }
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Estado de la compra actualizado' });
+  } catch (error) {
+    if (client) await client.query('ROLLBACK');
+    console.error('Error en cambiarEstado:', error);
+    res.status(error.status || 500).json({ error: error.status ? error.message : 'Error cambiando el estado de la compra' });
+  } finally {
+    if (client) client.release();
+  }
+};
+
+// PUT /api/compras/:id/pago { pagada, fecha_pago, forma_pago, referencia_pago } (desde el listado)
+const marcarPago = async (req, res) => {
+  try {
+    if (!(await pagosDisponibles())) return res.status(503).json({ error: MIGRACION_PAGOS });
+    let result;
+    if (req.body.pagada) {
+      const fechaPago = req.body.fecha_pago;
+      const forma = req.body.forma_pago;
+      if (!FECHA.test(fechaPago || '')) throw errorConEstado('Indique la fecha de pago');
+      if (!FORMAS_PAGO.includes(forma)) throw errorConEstado('Indique la forma de pago');
+      const referencia = String(req.body.referencia_pago || '').trim().slice(0, 60) || null;
+      result = await pool.query(
+        `UPDATE compras SET fecha_pago = $2, forma_pago = $3, referencia_pago = COALESCE($4, referencia_pago), updated_at = NOW()
+         WHERE id = $1`,
+        [req.params.id, fechaPago, forma, referencia]
+      );
+    } else {
+      result = await pool.query('UPDATE compras SET fecha_pago = NULL, updated_at = NOW() WHERE id = $1', [req.params.id]);
+    }
+    if (result.rowCount === 0) throw errorConEstado('Compra no encontrada', 404);
+    res.json({ success: true, message: req.body.pagada ? 'Compra marcada como pagada' : 'Pago marcado como pendiente' });
+  } catch (error) {
+    console.error('Error en marcarPago:', error.message);
+    res.status(error.status || 500).json({ error: error.status ? error.message : 'Error guardando el pago' });
+  }
+};
+
 // POST /api/compras/:id/vouchers?nombre= (cuerpo: el PDF o la imagen del voucher tal cual)
 const subirVoucher = async (req, res) => {
   const { tipoContenido, status, error: errorArchivo } = validarSubida(req.body);
@@ -463,6 +525,6 @@ const eliminarVoucher = async (req, res) => {
 };
 
 module.exports = {
-  getCompras, getCompraById, createCompra, updateCompra, deleteCompra,
+  getCompras, getCompraById, createCompra, updateCompra, deleteCompra, cambiarEstado, marcarPago,
   subirVoucher, verVoucher, eliminarVoucher, pagosDisponibles
 };

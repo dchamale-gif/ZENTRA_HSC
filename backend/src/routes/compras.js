@@ -15,6 +15,9 @@ router.get('/', comprasController.getCompras);
 router.get('/:id', comprasController.getCompraById);
 router.post('/', comprasController.createCompra);
 router.put('/:id', comprasController.updateCompra);
+// Cambios rápidos desde el listado
+router.put('/:id/estado', comprasController.cambiarEstado);
+router.put('/:id/pago', comprasController.marcarPago);
 router.delete('/:id', comprasController.deleteCompra);
 
 // Voucher de más de 10 MB: mensaje en español en lugar del error genérico

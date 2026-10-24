@@ -11068,6 +11068,31 @@ body.chat-abierto {
     color: var(--warning-color);
 }
 
+/* Estado y pago seleccionables en el listado de compras (el color va en variables
+   para que el tema oscuro, que repinta todos los select, lo respete) */
+.compras-select {
+    width: auto;
+    min-width: 118px;
+    border-color: transparent;
+    background-color: var(--compras-fondo);
+    color: var(--compras-texto);
+    font-weight: 600;
+}
+
+.compras-estado-pendiente,
+.compras-pago-pendiente { --compras-fondo: var(--warning-soft); --compras-texto: var(--warning-color); }
+.compras-estado-ordenada { --compras-fondo: var(--primary-soft); --compras-texto: var(--primary-color); }
+.compras-estado-recibida,
+.compras-pago-pagada { --compras-fondo: var(--success-soft); --compras-texto: var(--success-color); }
+.compras-estado-cancelada { --compras-fondo: var(--bg-light); --compras-texto: var(--text-gray); }
+.compras-pago-credito { --compras-fondo: var(--bg-light); --compras-texto: var(--text-dark); }
+.compras-pago-vencida { --compras-fondo: var(--danger-soft); --compras-texto: var(--danger-color); }
+
+.compras-select option {
+    background: var(--bg-white);
+    color: var(--text-dark);
+}
+
 @media (max-width: 640px) {
     .compra-vouchers li {
         grid-template-columns: auto minmax(0, 1fr) auto;

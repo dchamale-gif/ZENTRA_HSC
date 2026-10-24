@@ -23,6 +23,8 @@ const ComprasModule = {
         transferencia: { texto: 'Transferencia', referencia: 'No. de transferencia o boleta' }
     },
 
+    ESTADOS: { pendiente: 'Pendiente', ordenada: 'Ordenada', recibida: 'Recibida', cancelada: 'Cancelada' },
+
     init() {
         if (this.state.initialized) return;
         this.setupEventListeners();
@@ -46,6 +48,14 @@ const ComprasModule = {
             e.target.value = '';
         });
         document.getElementById('purchaseVoucherList')?.addEventListener('click', (e) => this.alClicVoucher(e));
+
+        // Estado y pago se cambian desde el listado
+        document.querySelector('#comprasTable tbody')?.addEventListener('change', (e) => {
+            const select = e.target.closest('select[data-compra]');
+            if (!select) return;
+            if (select.dataset.campo === 'estado') this.cambiarEstado(select);
+            if (select.dataset.campo === 'pago') this.cambiarPago(select);
+        });
     },
 
     async apiRequest(path, options = {}) {
@@ -127,7 +137,7 @@ const ComprasModule = {
                 <td>${this.formatDate(compra.fecha)}</td>
                 <td>${this.escapeHtml(compra.proveedor_nombre)}</td>
                 <td>${formatQ(compra.total || 0)}</td>
-                <td><span class="badge badge-${this.escapeHtml(compra.estado)}">${this.capitalize(compra.estado)}</span></td>
+                <td>${this.selectorEstado(compra)}</td>
                 ${this.state.pagos ? `<td class="compras-col-pago">${this.estadoPagoHTML(compra)}</td>` : ''}
                 <td class="actions">
                     <button class="btn-icon btn-edit" title="Editar compra" onclick="ComprasModule.editPurchase('${compra.id}')">
@@ -146,22 +156,167 @@ const ComprasModule = {
         return new Intl.DateTimeFormat('en-CA', { timeZone: CONFIG.REGION.timeZone }).format(new Date());
     },
 
-    // Resumen del pago para el listado: pagada, crédito por vencer o vencido, o pendiente
+    selectorEstado(compra) {
+        return `<select class="cuenta-select compras-select compras-estado-${this.escapeHtml(compra.estado)}" data-compra="${this.escapeHtml(compra.id)}" data-campo="estado"
+                    data-anterior="${this.escapeHtml(compra.estado)}" aria-label="Estado de la compra ${this.escapeHtml(compra.numero_compra)}">
+                ${Object.entries(this.ESTADOS).map(([valor, texto]) => `<option value="${valor}" ${valor === compra.estado ? 'selected' : ''}>${texto}</option>`).join('')}
+            </select>`;
+    },
+
+    // Pago en el listado: un selector Pendiente / Pagada con el detalle debajo
+    // (crédito por vencer o vencido, o la fecha y forma en que se pagó)
     estadoPagoHTML(compra) {
         const forma = this.FORMAS_PAGO[compra.forma_pago]?.texto;
         const vouchers = compra.vouchers?.length
             ? ` <i class="fas fa-paperclip" title="${compra.vouchers.length} voucher(s)" aria-label="${compra.vouchers.length} voucher(s)"></i>` : '';
+        if (compra.estado === 'cancelada' && !compra.fecha_pago) return '<small>—</small>';
+        let clase = 'pendiente';
+        let pendiente = 'Pendiente';
+        let detalle = vouchers;
         if (compra.fecha_pago) {
-            return `<span class="compra-pago-estado pagada">Pagada ${formatFecha(compra.fecha_pago)}</span>
-                <small>${this.escapeHtml(forma || '')}${vouchers}</small>`;
-        }
-        if (compra.estado === 'cancelada') return '<small>—</small>';
-        if (compra.condicion_pago === 'credito') {
+            clase = 'pagada';
+            detalle = `${formatFecha(compra.fecha_pago)}${forma ? ` · ${this.escapeHtml(forma)}` : ''}${vouchers}`;
+        } else if (compra.condicion_pago === 'credito') {
             const vencida = compra.fecha_vencimiento_pago && compra.fecha_vencimiento_pago < this.hoy();
-            return `<span class="compra-pago-estado ${vencida ? 'vencida' : 'credito'}">${vencida ? 'Crédito vencido' : `Crédito ${compra.dias_credito} días`}</span>
-                <small>Vence ${formatFecha(compra.fecha_vencimiento_pago)}${vouchers}</small>`;
+            clase = vencida ? 'vencida' : 'credito';
+            pendiente = vencida ? 'Crédito vencido' : `Crédito ${compra.dias_credito} días`;
+            detalle = `Vence ${formatFecha(compra.fecha_vencimiento_pago)}${vouchers}`;
         }
-        return `<span class="compra-pago-estado pendiente">Pago inmediato pendiente</span>${vouchers ? `<small>${vouchers}</small>` : ''}`;
+        return `<select class="cuenta-select compras-select compras-pago-${clase}" data-compra="${this.escapeHtml(compra.id)}" data-campo="pago"
+                    aria-label="Pago de la compra ${this.escapeHtml(compra.numero_compra)}">
+                <option value="pendiente" ${compra.fecha_pago ? '' : 'selected'}>${pendiente}</option>
+                <option value="pagada" ${compra.fecha_pago ? 'selected' : ''}>Pagada</option>
+            </select>${detalle ? `<small>${detalle}</small>` : ''}`;
+    },
+
+    async cambiarEstado(select) {
+        const compra = this.state.compras.find(c => String(c.id) === select.dataset.compra);
+        const estado = select.value;
+        if (!compra) return;
+        if (compra.estado === 'recibida' && !confirm(`La compra ${compra.numero_compra} dejará de estar recibida: lo que sumó al inventario se restará. ¿Continuar?`)) {
+            select.value = compra.estado;
+            return;
+        }
+        select.disabled = true;
+        try {
+            const data = await this.apiRequest(`/api/compras/${encodeURIComponent(compra.id)}/estado`, {
+                method: 'PUT',
+                body: JSON.stringify({ estado })
+            });
+            compra.estado = estado;
+            this.notify(estado === 'recibida' ? `${compra.numero_compra} recibida: sus conceptos se sumaron al inventario` : data.message, 'success');
+        } catch (error) {
+            this.notify(`No se pudo cambiar el estado: ${error.message}`, 'error');
+        }
+        this.render();
+    },
+
+    cambiarPago(select) {
+        const compra = this.state.compras.find(c => String(c.id) === select.dataset.compra);
+        if (!compra) return;
+        if (select.value === 'pagada') {
+            this.dialogoPago(compra);
+            return;
+        }
+        if (!confirm(`¿Marcar el pago de ${compra.numero_compra} como pendiente? Se borra la fecha de pago.`)) {
+            select.value = 'pagada';
+            return;
+        }
+        this.guardarPagoListado(compra, { pagada: false });
+    },
+
+    async guardarPagoListado(compra, datos) {
+        try {
+            const data = await this.apiRequest(`/api/compras/${encodeURIComponent(compra.id)}/pago`, {
+                method: 'PUT',
+                body: JSON.stringify(datos)
+            });
+            if (datos.pagada) {
+                Object.assign(compra, { fecha_pago: datos.fecha_pago, forma_pago: datos.forma_pago });
+                if (datos.referencia_pago) compra.referencia_pago = datos.referencia_pago;
+            } else {
+                compra.fecha_pago = null;
+            }
+            this.notify(data.message, 'success');
+            return true;
+        } catch (error) {
+            this.notify(`No se pudo guardar el pago: ${error.message}`, 'error');
+            throw error;
+        } finally {
+            this.render();
+        }
+    },
+
+    // Fecha, forma y referencia del pago al marcar una compra como pagada desde el listado
+    dialogoPago(compra) {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        const forma = compra.forma_pago || 'efectivo';
+        overlay.innerHTML = `
+            <div class="modal-dialog inv-dialogo" role="dialog" aria-modal="true" aria-labelledby="compraPagoTitulo">
+                <div class="modal-header">
+                    <h2 id="compraPagoTitulo">Pago de ${this.escapeHtml(compra.numero_compra)} · ${formatQ(compra.total || 0)}</h2>
+                    <button type="button" class="close-btn" aria-label="Cerrar">&times;</button>
+                </div>
+                <form class="modal-body" novalidate>
+                    <div class="form-group">
+                        <label for="compraPagoFecha">Fecha de pago <span class="required">*</span></label>
+                        <input type="date" id="compraPagoFecha" class="form-input" required max="${this.hoy()}" value="${this.hoy()}">
+                    </div>
+                    <div class="form-group">
+                        <label for="compraPagoForma">Forma de pago <span class="required">*</span></label>
+                        <select id="compraPagoForma" class="form-input">
+                            ${Object.entries(this.FORMAS_PAGO).map(([valor, f]) => `<option value="${valor}" ${valor === forma ? 'selected' : ''}>${f.texto}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="compraPagoReferencia" id="compraPagoReferenciaEtiqueta">${this.FORMAS_PAGO[forma].referencia}</label>
+                        <input type="text" id="compraPagoReferencia" class="form-input" maxlength="60" value="${this.escapeHtml(compra.referencia_pago || '')}" autocomplete="off">
+                    </div>
+                    <p class="form-hint">Los vouchers se adjuntan desde «Editar compra».</p>
+                    <div class="inv-dialogo-acciones">
+                        <button type="button" class="btn btn-secondary" data-cerrar>Cancelar</button>
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-check" aria-hidden="true"></i> Marcar como pagada</button>
+                    </div>
+                </form>
+            </div>`;
+        document.body.appendChild(overlay);
+        const cerrar = () => {
+            overlay.remove();
+            document.removeEventListener('keydown', alTeclear);
+            this.render(); // el selector vuelve a su valor si no se guardó
+        };
+        const alTeclear = (e) => { if (e.key === 'Escape') cerrar(); };
+        document.addEventListener('keydown', alTeclear);
+        overlay.querySelector('.close-btn').addEventListener('click', cerrar);
+        overlay.querySelector('[data-cerrar]').addEventListener('click', cerrar);
+        overlay.addEventListener('click', e => { if (e.target === overlay) cerrar(); });
+        overlay.querySelector('#compraPagoForma').addEventListener('change', e => {
+            overlay.querySelector('#compraPagoReferenciaEtiqueta').textContent = this.FORMAS_PAGO[e.target.value].referencia;
+        });
+        const form = overlay.querySelector('form');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fecha = form.querySelector('#compraPagoFecha').value;
+            if (!fecha) {
+                this.notify('Indique la fecha de pago', 'warning');
+                return;
+            }
+            const boton = form.querySelector('button[type="submit"]');
+            boton.disabled = true;
+            try {
+                await this.guardarPagoListado(compra, {
+                    pagada: true,
+                    fecha_pago: fecha,
+                    forma_pago: form.querySelector('#compraPagoForma').value,
+                    referencia_pago: form.querySelector('#compraPagoReferencia').value.trim()
+                });
+                cerrar();
+            } catch (error) {
+                boton.disabled = false;
+            }
+        });
+        setTimeout(() => overlay.querySelector('#compraPagoFecha').focus(), 0);
     },
 
     condicionPago() {

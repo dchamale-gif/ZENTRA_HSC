@@ -120,6 +120,13 @@
     border-color: #c94848;
 }
 
+/* Selectores de estado y pago del listado de compras: conservan su color */
+:root[data-theme="dark"] select.compras-select {
+    background-color: var(--compras-fondo);
+    color: var(--compras-texto);
+    border-color: transparent;
+}
+
 /* Pestañas tipo chip (tema-botengine.css): el bloque <style> de index.html no debe taparlas */
 :root[data-theme="dark"] .tabs-container .tab-btn {
     background: var(--bg-white);
