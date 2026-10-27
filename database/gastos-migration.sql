@@ -6,6 +6,7 @@
 -- Correlativo por año: GAS-0001-2026.
 -- Idempotente: se puede ejecutar varias veces.
 -- Uso: cd backend && npm run migrate:gastos
+-- __TIPO_USUARIO_ID__ lo reemplaza el script con el tipo real de users.id.
 -- ============================================
 
 BEGIN;
@@ -34,7 +35,7 @@ CREATE TABLE IF NOT EXISTS gastos (
     forma_pago VARCHAR(15),
     referencia_pago VARCHAR(60),
     motivo_anulacion TEXT,
-    registrado_por INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    registrado_por __TIPO_USUARIO_ID__ REFERENCES users(id) ON DELETE SET NULL,
     registrado_por_nombre VARCHAR(150) NOT NULL DEFAULT '',
     actualizado_por_nombre VARCHAR(150),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -48,6 +49,11 @@ CREATE TABLE IF NOT EXISTS gastos (
         AND (estado <> 'pagado' OR (fecha_cargo IS NOT NULL AND fecha_pago IS NOT NULL AND forma_pago IS NOT NULL))
     )
 );
+
+-- Pago marcado por el administrador: número que da el banco y número de autorización
+ALTER TABLE gastos ADD COLUMN IF NOT EXISTS numero_pago_banco VARCHAR(60);
+ALTER TABLE gastos ADD COLUMN IF NOT EXISTS numero_autorizacion VARCHAR(60);
+ALTER TABLE gastos ADD COLUMN IF NOT EXISTS pagado_por_nombre VARCHAR(150);
 
 CREATE INDEX IF NOT EXISTS idx_gastos_estado ON gastos (estado, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_gastos_creado ON gastos (created_at DESC);

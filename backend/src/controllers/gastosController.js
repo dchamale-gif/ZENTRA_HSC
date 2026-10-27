@@ -2,6 +2,8 @@
 // GASTOS (luz, agua, internet, teléfono…)
 // Flujo: pendiente (se registró la requisición) -> cargado (se procesó y espera
 // que el dueño pague) -> pagado. También puede anularse.
+// Marcar como pagado es del administrador, con el número de pago que da el banco
+// y el número de autorización (en efectivo no aplican).
 // Los días en espera se cuentan desde la fecha de carga hasta hoy o hasta el pago.
 // ============================================
 
@@ -16,6 +18,12 @@ const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 const HOY_GT = "(NOW() AT TIME ZONE 'America/Guatemala')::date";
 
 const errorConEstado = (message, status = 400) => Object.assign(new Error(message), { status });
+
+// Lo que se borra al regresar un gasto a pendiente o a esperando pago
+const SIN_PAGO = {
+  fecha_pago: null, forma_pago: null, referencia_pago: null, numero_pago_banco: null,
+  numero_autorizacion: null, pagado_por_nombre: null, motivo_anulacion: null
+};
 
 let migracionCache = { valor: false, hasta: 0 };
 const disponible = async () => {
@@ -93,7 +101,10 @@ const gastosController = {
                 COALESCE(MAX(${HOY_GT} - fecha_cargo), 0) AS dias_mas_antiguo
          FROM gastos WHERE estado = 'cargado'`);
       const categorias = await pool.query('SELECT DISTINCT categoria FROM gastos ORDER BY categoria');
-      res.json({ gastos: rows, resumen: resumen.rows[0], categorias: categorias.rows.map(r => r.categoria), disponible: true });
+      res.json({
+        gastos: rows, resumen: resumen.rows[0], categorias: categorias.rows.map(r => r.categoria),
+        esAdmin: Boolean(req.userRoles?.includes('admin')), disponible: true
+      });
     } catch (error) {
       responderError(res, error, 'listar los gastos');
     }
@@ -150,7 +161,7 @@ const gastosController = {
     }
   },
 
-  // PUT /api/gastos/:id/estado { estado, fecha, forma_pago, referencia, motivo }
+  // PUT /api/gastos/:id/estado { estado, fecha, forma_pago, numero_pago_banco, numero_autorizacion, motivo }
   // cargado: fecha de carga. pagado: fecha de pago y forma (la carga, si faltaba, es el mismo día).
   async cambiarEstado(req, res) {
     try {
@@ -159,21 +170,31 @@ const gastosController = {
       if (!ESTADOS.includes(estado)) throw errorConEstado('Estado no válido');
       const actual = await obtener(pool, req.params.id);
       if (!actual) throw errorConEstado('Gasto no encontrado', 404);
+      if (actual.estado === 'pagado' && !req.userRoles?.includes('admin')) {
+        throw errorConEstado('Solo el administrador cambia un gasto ya pagado', 403);
+      }
       const fecha = leerFecha(req.body.fecha, 'Fecha');
       let campos;
       if (estado === 'pendiente') {
-        campos = { fecha_cargo: null, fecha_pago: null, forma_pago: null, referencia_pago: null, motivo_anulacion: null };
+        campos = { fecha_cargo: null, ...SIN_PAGO };
       } else if (estado === 'cargado') {
         if (!fecha) throw errorConEstado('Indique la fecha en que se cargó el gasto');
-        campos = { fecha_cargo: fecha, fecha_pago: null, forma_pago: null, referencia_pago: null, motivo_anulacion: null };
+        campos = { fecha_cargo: fecha, ...SIN_PAGO };
       } else if (estado === 'pagado') {
+        if (!req.userRoles?.includes('admin')) throw errorConEstado('Solo el administrador marca un gasto como pagado', 403);
         if (!fecha) throw errorConEstado('Indique la fecha del pago');
         if (!FORMAS_PAGO.includes(req.body.forma_pago)) throw errorConEstado('Indique la forma de pago');
+        const numeroBanco = texto(req.body.numero_pago_banco, 60);
+        const autorizacion = texto(req.body.numero_autorizacion, 60);
+        if (req.body.forma_pago !== 'efectivo' && (!numeroBanco || !autorizacion)) {
+          throw errorConEstado('Registre el número de pago que da el banco y el número de autorización');
+        }
         const fechaCargo = actual.fecha_cargo || fecha;
         if (fecha < fechaCargo) throw errorConEstado('El pago no puede ser anterior a la fecha de carga');
         campos = {
           fecha_cargo: fechaCargo, fecha_pago: fecha, forma_pago: req.body.forma_pago,
-          referencia_pago: texto(req.body.referencia, 60), motivo_anulacion: null
+          numero_pago_banco: numeroBanco, numero_autorizacion: autorizacion,
+          pagado_por_nombre: nombreUsuario(req), motivo_anulacion: null
         };
       } else {
         const motivo = texto(req.body.motivo, 500);

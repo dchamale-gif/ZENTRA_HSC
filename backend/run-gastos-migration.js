@@ -17,7 +17,17 @@ const pool = new Pool({
 const run = async () => {
   try {
     const migrationPath = path.join(__dirname, '../database/gastos-migration.sql');
-    const migration = fs.readFileSync(migrationPath, 'utf8');
+    let migration = fs.readFileSync(migrationPath, 'utf8');
+    // Cada llave foránea usa el tipo real de la columna que referencia (INTEGER o VARCHAR según la instalación)
+    for (const [marcador, tabla] of [
+      ['__TIPO_USUARIO_ID__', 'users']
+    ]) {
+      const { rows } = await pool.query(
+        `SELECT format_type(a.atttypid, a.atttypmod) AS tipo FROM pg_attribute a
+         WHERE a.attrelid = $1::regclass AND a.attname = 'id'`, [tabla]);
+      if (!rows.length) throw new Error(`No se encontró la columna ${tabla}.id`);
+      migration = migration.split(marcador).join(rows[0].tipo);
+    }
     await pool.query(migration);
     console.log('Migración de gastos completada.');
   } catch (error) {

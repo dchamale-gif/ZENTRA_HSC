@@ -91,7 +91,7 @@ const SELECT_REQUERIMIENTO = `
          c.id AS compra_id, c.numero_compra,
          COALESCE((SELECT json_agg(json_build_object(
                      'tipo', CASE WHEN i.medicina_id IS NOT NULL THEN 'medicina' ELSE 'articulo' END,
-                     'concepto_id', COALESCE(i.medicina_id, i.articulo_id),
+                     'concepto_id', COALESCE(i.medicina_id::text, i.articulo_id::text),
                      'concepto_nombre', COALESCE(m.nombre, a.nombre_articulo),
                      'presentacion_id', i.presentacion_id,
                      'presentacion_nombre', i.presentacion_nombre,

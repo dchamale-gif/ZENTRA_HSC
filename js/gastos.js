@@ -2,7 +2,7 @@
 // GASTOS: REQUISICIONES QUE ESPERAN EL PAGO DEL DUEÑO
 // Luz, agua, internet, teléfono… Se registra la requisición (fecha de creación),
 // se carga para que el dueño la pague (fecha de carga) y queda en espera hasta
-// el pago. El listado muestra cuántos días lleva cada gasto esperando.
+// que el administrador la marca pagada con el número del banco y la autorización. El listado muestra cuántos días lleva cada gasto esperando.
 // Se guarda en la base de datos (/api/gastos), a diferencia de las pestañas
 // anteriores del módulo, que viven en el navegador.
 // ============================================
@@ -12,6 +12,7 @@ const GastosRequisiciones = {
         gastos: [],
         categorias: [],
         resumen: null,
+        esAdmin: false,
         disponible: true,
         estado: '',
         busqueda: ''
@@ -89,6 +90,7 @@ const GastosRequisiciones = {
                 gastos: data.gastos || [],
                 categorias: data.categorias || [],
                 resumen: data.resumen || null,
+                esAdmin: Boolean(data.esAdmin),
                 disponible: data.disponible !== false
             });
             this.render();
@@ -121,12 +123,24 @@ const GastosRequisiciones = {
         return '<small class="cot-sub">—</small>';
     },
 
+    // Marcar pagado (y cambiar uno ya pagado) es del administrador
     selectorEstado(g) {
-        if (!this.puedeEditar()) return `<span class="gasto-estado gasto-estado-${g.estado}">${this.ESTADOS[g.estado]}</span>`;
+        const fijo = !this.puedeEditar() || (g.estado === 'pagado' && !this.state.esAdmin);
+        if (fijo) return `<span class="gasto-estado gasto-estado-${g.estado}">${this.ESTADOS[g.estado]}</span>`;
         return `<select class="cuenta-select compras-select gasto-select-${g.estado}" data-gasto-estado data-id="${g.id}"
                     aria-label="Estado del gasto ${this.e(g.numero)}">
-                ${Object.entries(this.ESTADOS).map(([v, t]) => `<option value="${v}" ${v === g.estado ? 'selected' : ''}>${t}</option>`).join('')}
+                ${Object.entries(this.ESTADOS).map(([v, t]) => `<option value="${v}" ${v === g.estado ? 'selected' : ''}
+                    ${v === 'pagado' && !this.state.esAdmin ? 'disabled' : ''}>${v === 'pagado' && !this.state.esAdmin ? `${t} (administrador)` : t}</option>`).join('')}
             </select>`;
+    },
+
+    detallePago(g) {
+        const partes = [formatFecha(g.fecha_pago), this.FORMAS_PAGO[g.forma_pago] || ''];
+        if (g.numero_pago_banco) partes.push(`Banco ${this.e(g.numero_pago_banco)}`);
+        if (g.numero_autorizacion) partes.push(`Aut. ${this.e(g.numero_autorizacion)}`);
+        if (!g.numero_pago_banco && g.referencia_pago) partes.push(this.e(g.referencia_pago));
+        return `<small class="cot-sub">${partes.filter(Boolean).join(' · ')}</small>
+            ${g.pagado_por_nombre ? `<small class="cot-sub">Por ${this.e(g.pagado_por_nombre)}</small>` : ''}`;
     },
 
     render() {
@@ -161,7 +175,7 @@ const GastosRequisiciones = {
                         <td>${g.fecha_cargo ? formatFecha(g.fecha_cargo) : '<small class="cot-sub">—</small>'}</td>
                         <td>${this.celdaDias(g)}</td>
                         <td>${this.selectorEstado(g)}
-                            ${g.estado === 'pagado' ? `<small class="cot-sub">${formatFecha(g.fecha_pago)} · ${this.FORMAS_PAGO[g.forma_pago] || ''}${g.referencia_pago ? ` · ${this.e(g.referencia_pago)}` : ''}</small>` : ''}
+                            ${g.estado === 'pagado' ? this.detallePago(g) : ''}
                             ${g.estado === 'anulado' && g.motivo_anulacion ? `<small class="cot-sub" title="${this.e(g.motivo_anulacion)}">${this.e(g.motivo_anulacion)}</small>` : ''}</td>
                         <td><div class="acciones-saldo">
                             ${this.puedeEditar() && ['pendiente', 'cargado'].includes(g.estado) ? `<button type="button" class="btn-accion btn-accion-icono" data-gasto-accion="editar" data-id="${g.id}" title="Editar" aria-label="Editar gasto ${this.e(g.numero)}"><i class="fas fa-pen" aria-hidden="true"></i></button>` : ''}
@@ -301,21 +315,44 @@ const GastosRequisiciones = {
                 <div class="form-group">
                     <label for="gastoFormaPago">Forma de pago <span class="required">*</span></label>
                     <select id="gastoFormaPago" class="form-input">
-                        ${Object.entries(this.FORMAS_PAGO).map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}
+                        ${Object.entries(this.FORMAS_PAGO).map(([v, t]) => `<option value="${v}" ${v === 'transferencia' ? 'selected' : ''}>${t}</option>`).join('')}
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="gastoReferencia">Referencia (cheque, autorización, boleta)</label>
-                    <input id="gastoReferencia" class="form-input" maxlength="60" autocomplete="off">
-                </div>`,
+                    <label for="gastoNumeroBanco">No. de pago que da el banco <span class="required" data-gasto-banco>*</span></label>
+                    <input id="gastoNumeroBanco" class="form-input" maxlength="60" autocomplete="off" inputmode="numeric">
+                </div>
+                <div class="form-group">
+                    <label for="gastoAutorizacion">No. de autorización <span class="required" data-gasto-banco>*</span></label>
+                    <input id="gastoAutorizacion" class="form-input" maxlength="60" autocomplete="off" inputmode="numeric">
+                </div>
+                <p class="form-hint" id="gastoBancoAyuda" hidden>En efectivo no hay número del banco ni de autorización.</p>`,
                 '<i class="fas fa-check" aria-hidden="true"></i> Marcar como pagado',
-                (form) => this.enviarEstado(gasto, {
-                    estado,
-                    fecha: form.querySelector('#gastoFechaPago').value,
-                    forma_pago: form.querySelector('#gastoFormaPago').value,
-                    referencia: form.querySelector('#gastoReferencia').value
-                }),
+                (form) => {
+                    const forma = form.querySelector('#gastoFormaPago').value;
+                    const numeroBanco = form.querySelector('#gastoNumeroBanco').value.trim();
+                    const autorizacion = form.querySelector('#gastoAutorizacion').value.trim();
+                    if (forma !== 'efectivo' && (!numeroBanco || !autorizacion)) {
+                        throw new Error('Registre el número de pago que da el banco y el número de autorización.');
+                    }
+                    return this.enviarEstado(gasto, {
+                        estado,
+                        fecha: form.querySelector('#gastoFechaPago').value,
+                        forma_pago: forma,
+                        numero_pago_banco: numeroBanco,
+                        numero_autorizacion: autorizacion
+                    });
+                },
                 deshacer);
+            // En efectivo los números del banco no aplican
+            const forma = document.getElementById('gastoFormaPago');
+            const actualizar = () => {
+                const efectivo = forma.value === 'efectivo';
+                document.querySelectorAll('[data-gasto-banco]').forEach(el => { el.hidden = efectivo; });
+                document.getElementById('gastoBancoAyuda').hidden = !efectivo;
+            };
+            forma.addEventListener('change', actualizar);
+            actualizar();
         } else if (estado === 'anulado') {
             this.dialogo(`Anular ${this.e(gasto.numero)}`,
                 `<div class="form-group">

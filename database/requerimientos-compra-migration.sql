@@ -6,6 +6,8 @@
 -- requerimiento hecho en papel.
 -- Idempotente: se puede ejecutar varias veces.
 -- Uso: cd backend && npm run migrate:requerimientos
+-- Los __TIPO_…__ los reemplaza el script con el tipo real de cada id en esta base
+-- (medicinas.id, codigos_articulos.id y users.id no son iguales en todas las instalaciones).
 -- ============================================
 
 BEGIN;
@@ -23,7 +25,7 @@ CREATE TABLE IF NOT EXISTS requerimientos_compra (
     estado VARCHAR(12) NOT NULL DEFAULT 'pendiente',
     motivo_rechazo TEXT,
     total NUMERIC(14, 2) NOT NULL DEFAULT 0,
-    solicitado_por INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    solicitado_por __TIPO_USUARIO_ID__ REFERENCES users(id) ON DELETE SET NULL,
     solicitado_por_nombre VARCHAR(150) NOT NULL DEFAULT '',
     revisado_por_nombre VARCHAR(150),
     revisado_en TIMESTAMP,
@@ -41,8 +43,8 @@ CREATE TABLE IF NOT EXISTS requerimiento_compra_items (
     id SERIAL PRIMARY KEY,
     requerimiento_id INTEGER NOT NULL REFERENCES requerimientos_compra(id) ON DELETE CASCADE,
     orden INTEGER NOT NULL DEFAULT 0,
-    medicina_id VARCHAR(50) REFERENCES medicinas(id),
-    articulo_id VARCHAR(50) REFERENCES codigos_articulos(id),
+    medicina_id __TIPO_MEDICINA_ID__ REFERENCES medicinas(id),
+    articulo_id __TIPO_ARTICULO_ID__ REFERENCES codigos_articulos(id),
     presentacion_id INTEGER,
     presentacion_nombre VARCHAR(40),
     factor INTEGER NOT NULL DEFAULT 1,
