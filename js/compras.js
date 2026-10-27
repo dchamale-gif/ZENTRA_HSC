@@ -55,8 +55,6 @@ const ComprasModule = {
         });
         document.getElementById('purchaseVoucherList')?.addEventListener('click', (e) => this.alClicVoucher(e));
 
-        // Requerimientos: la categoría (medicinas o descartables) aplica a farmacia
-        document.getElementById('purchaseBodega')?.addEventListener('change', () => this.actualizarCategoria());
         document.getElementById('purchaseReqNumber')?.addEventListener('change', (e) => this.usarRequerimiento(e.target.value));
 
         // Estado y pago se cambian desde el listado
@@ -298,7 +296,15 @@ const ComprasModule = {
                         <label for="compraPagoReferencia" id="compraPagoReferenciaEtiqueta">${this.FORMAS_PAGO[forma].referencia}</label>
                         <input type="text" id="compraPagoReferencia" class="form-input" maxlength="60" value="${this.escapeHtml(compra.referencia_pago || '')}" autocomplete="off">
                     </div>
-                    <p class="form-hint">Los vouchers se adjuntan desde «Editar compra».</p>
+                    <div class="form-group">
+                        <div class="compra-pago-subtitulo">Voucher de pago (opcional)</div>
+                        <ul class="compra-vouchers" data-vouchers></ul>
+                        <label class="btn btn-secondary btn-small" for="compraPagoVoucher">
+                            <i class="fas fa-paperclip" aria-hidden="true"></i> Adjuntar voucher
+                        </label>
+                        <input type="file" id="compraPagoVoucher" accept="application/pdf,image/jpeg,image/png,image/webp" multiple hidden>
+                        <small class="form-hint">PDF, JPG, PNG o WEBP de hasta 10 MB.</small>
+                    </div>
                     <div class="inv-dialogo-acciones">
                         <button type="button" class="btn btn-secondary" data-cerrar>Cancelar</button>
                         <button type="submit" class="btn btn-primary"><i class="fas fa-check" aria-hidden="true"></i> Marcar como pagada</button>
@@ -319,6 +325,27 @@ const ComprasModule = {
         overlay.querySelector('#compraPagoForma').addEventListener('change', e => {
             overlay.querySelector('#compraPagoReferenciaEtiqueta').textContent = this.FORMAS_PAGO[e.target.value].referencia;
         });
+        const archivos = [];
+        const listaVouchers = overlay.querySelector('[data-vouchers]');
+        const renderArchivos = () => {
+            listaVouchers.innerHTML = archivos.map((archivo, i) => `
+                <li>
+                    <span>${this.escapeHtml(archivo.name)}</span>
+                    <small>${this.tamano(archivo.size)}</small>
+                    <button type="button" class="btn-icon btn-delete" data-quitar="${i}" title="Quitar" aria-label="Quitar ${this.escapeHtml(archivo.name)}"><i class="fas fa-times"></i></button>
+                </li>`).join('');
+        };
+        overlay.querySelector('#compraPagoVoucher').addEventListener('change', e => {
+            archivos.push(...this.vouchersValidos([...e.target.files]));
+            e.target.value = '';
+            renderArchivos();
+        });
+        listaVouchers.addEventListener('click', e => {
+            const quitar = e.target.closest('[data-quitar]');
+            if (!quitar) return;
+            archivos.splice(Number(quitar.dataset.quitar), 1);
+            renderArchivos();
+        });
         const form = overlay.querySelector('form');
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -336,6 +363,9 @@ const ComprasModule = {
                     forma_pago: form.querySelector('#compraPagoForma').value,
                     referencia_pago: form.querySelector('#compraPagoReferencia').value.trim()
                 });
+                // El pago ya quedó guardado: si un voucher falla solo se avisa
+                const fallidos = archivos.length ? await this.subirVouchers(compra.id, archivos) : [];
+                if (fallidos.length) this.notify(`No se subieron estos vouchers: ${fallidos.join(', ')}`, 'warning');
                 cerrar();
             } catch (error) {
                 boton.disabled = false;
@@ -446,16 +476,23 @@ const ComprasModule = {
         return bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
     },
 
-    agregarVouchers(archivos) {
-        for (const archivo of archivos) {
+    // Deja solo los PDF o imágenes de hasta 10 MB y avisa de los demás
+    vouchersValidos(archivos) {
+        return archivos.filter(archivo => {
             if (!/^(application\/pdf|image\/(jpeg|png|webp))$/.test(archivo.type)) {
                 this.notify(`"${archivo.name}" no es PDF, JPG, PNG o WEBP.`, 'warning');
-            } else if (archivo.size > 10 * 1024 * 1024) {
-                this.notify(`"${archivo.name}" pesa más de 10 MB.`, 'warning');
-            } else {
-                this.state.vouchersNuevos.push(archivo);
+                return false;
             }
-        }
+            if (archivo.size > 10 * 1024 * 1024) {
+                this.notify(`"${archivo.name}" pesa más de 10 MB.`, 'warning');
+                return false;
+            }
+            return true;
+        });
+    },
+
+    agregarVouchers(archivos) {
+        this.state.vouchersNuevos.push(...this.vouchersValidos(archivos));
         // Con voucher, la fecha del pago parte de hoy
         const fechaPago = document.getElementById('purchasePaymentDate');
         if (this.state.vouchersNuevos.length && !fechaPago.value) fechaPago.value = this.hoy();
@@ -518,24 +555,24 @@ const ComprasModule = {
     },
 
     // Sube los vouchers pendientes; devuelve los nombres de los que no se pudieron subir
-    async subirVouchers(compraId) {
+    async subirVouchers(compraId, archivos = this.state.vouchersNuevos) {
         const fallidos = [];
-        for (const archivo of this.state.vouchersNuevos) {
+        const compra = this.state.compras.find(c => String(c.id) === String(compraId));
+        for (const archivo of archivos) {
             try {
                 const response = await fetch(`${authManager.apiBaseUrl}/api/compras/${encodeURIComponent(compraId)}/vouchers?nombre=${encodeURIComponent(archivo.name)}`, {
                     method: 'POST',
                     headers: { Authorization: `Bearer ${authManager.getToken()}`, 'Content-Type': archivo.type },
                     body: archivo
                 });
-                if (!response.ok) {
-                    const data = await response.json().catch(() => ({}));
-                    throw new Error(data.error || `Error ${response.status}`);
-                }
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(data.error || `Error ${response.status}`);
+                if (compra && data.voucher) compra.vouchers = [...(compra.vouchers || []), data.voucher];
             } catch (error) {
                 fallidos.push(`${archivo.name} (${error.message})`);
             }
         }
-        this.state.vouchersNuevos = [];
+        if (archivos === this.state.vouchersNuevos) this.state.vouchersNuevos = [];
         return fallidos;
     },
 
@@ -598,7 +635,7 @@ const ComprasModule = {
         this.toggleProviderForm(this.state.proveedores.length === 0);
     },
 
-    // Formulario en modo requerimiento: almacén, qué se compra, forma de pago y conceptos con su costo
+    // Formulario en modo requerimiento: almacén, forma de pago y conceptos con su costo
     abrirRequerimiento(requerimiento = null) {
         const form = document.getElementById('purchaseForm');
         form.reset();
@@ -609,10 +646,8 @@ const ComprasModule = {
         document.getElementById('purchaseDate').value = requerimiento?.fecha || this.hoy();
         this.renderBodegas(requerimiento?.bodega_id, Boolean(requerimiento),
             requerimiento ? 'El número lleva el código de su bodega; para otra bodega haga un requerimiento nuevo.' : '');
-        document.getElementById('reqCategoria').value = requerimiento?.categoria || '';
         document.getElementById('reqFormaPago').value = requerimiento?.forma_pago || '';
         document.getElementById('purchaseObservations').value = requerimiento?.observaciones || '';
-        this.actualizarCategoria();
         this.state.items = this.itemsDeRequerimiento(requerimiento);
         this.renderItems();
         document.getElementById('purchaseModal').style.display = 'flex';
@@ -622,11 +657,6 @@ const ComprasModule = {
 
     bodega(id) {
         return this.state.bodegas.find(b => String(b.id) === String(id)) || null;
-    },
-
-    esFarmacia(id) {
-        const bodega = this.bodega(id);
-        return Boolean(bodega && (bodega.codigo === 'FAR' || /farmacia/i.test(bodega.nombre)));
     },
 
     // Bodegas activas (y la del documento aunque ya esté desactivada); bloqueada al editar
@@ -641,12 +671,6 @@ const ComprasModule = {
         select.value = seleccionada ? String(seleccionada) : '';
         select.disabled = bloqueada;
         document.getElementById('purchaseBodegaHint').textContent = ayuda;
-    },
-
-    actualizarCategoria() {
-        const farmacia = this.esFarmacia(document.getElementById('purchaseBodega').value);
-        document.getElementById('reqCategoriaGrupo').hidden = !farmacia;
-        if (!farmacia) document.getElementById('reqCategoria').value = '';
     },
 
     itemsDeRequerimiento(requerimiento) {
@@ -1038,17 +1062,12 @@ const ComprasModule = {
         const payload = {
             fecha: document.getElementById('purchaseDate').value,
             bodega_id: Number(document.getElementById('purchaseBodega').value) || null,
-            categoria: document.getElementById('reqCategoria').value || null,
             forma_pago: document.getElementById('reqFormaPago').value || null,
             observaciones: document.getElementById('purchaseObservations').value.trim() || null,
             items: this.leerConceptos()
         };
         if (!payload.bodega_id || !payload.fecha || this.conceptosIncompletos(payload.items)) {
             this.notify('Completa la bodega, la fecha y todos los artículos con su cantidad y costo.', 'warning');
-            return;
-        }
-        if (this.esFarmacia(payload.bodega_id) && !payload.categoria) {
-            this.notify('Indica si en farmacia se compran medicinas o descartables.', 'warning');
             return;
         }
         const boton = document.getElementById('savePurchaseBtn');

@@ -38,8 +38,8 @@ const leerDatos = async (client, body) => {
   if (!bodega) throw errorConEstado('Elija la bodega que hace el requerimiento');
   const fecha = body.fecha || null;
   if (fecha && !FECHA.test(fecha)) throw errorConEstado('Fecha no válida');
-  const categoria = esFarmacia(bodega) ? (body.categoria || null) : null;
-  if (esFarmacia(bodega) && !CATEGORIAS.includes(categoria)) throw errorConEstado('Indique si en farmacia se compran medicinas o descartables');
+  // Ya no se pide; se conserva en los requerimientos que la tienen
+  const categoria = esFarmacia(bodega) && CATEGORIAS.includes(body.categoria) ? body.categoria : null;
   const formaPago = body.forma_pago || null;
   if (formaPago && !FORMAS_PAGO.includes(formaPago)) throw errorConEstado('Forma de pago no válida');
   return {
@@ -224,7 +224,7 @@ const requerimientosController = {
       }
       await client.query(
         `UPDATE requerimientos_compra
-         SET fecha = COALESCE($1::date, fecha), almacen = $2, bodega_id = $8, categoria = $3, forma_pago = $4, observaciones = $5,
+         SET fecha = COALESCE($1::date, fecha), almacen = $2, bodega_id = $8, categoria = COALESCE($3, categoria), forma_pago = $4, observaciones = $5,
              total = $6, updated_at = NOW()
          WHERE id = $7`,
         [datos.fecha, datos.almacen, datos.categoria, datos.formaPago, datos.observaciones, total, req.params.id, datos.bodega.id]
