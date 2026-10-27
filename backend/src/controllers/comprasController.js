@@ -59,23 +59,56 @@ const guardarPago = (client, compraId, pago) => client.query(
 );
 
 // Requerimiento del que sale la compra: uno del sistema (por su número) o uno en papel (número y fecha a mano).
-// Uno del sistema debe estar confirmado y no haber generado ya otra compra.
-const leerRequerimiento = async (client, body, compraId = null) => {
+// Uno del sistema debe estar confirmado; sus conceptos se pueden repartir en varias compras.
+const leerRequerimiento = async (client, body) => {
   const numero = String(body.numero_requerimiento || '').trim().slice(0, 30);
   if (!numero) return { id: null, numero: null, fecha: null };
   const fechaManual = body.fecha_requerimiento || null;
   if (fechaManual && !FECHA.test(fechaManual)) throw errorConEstado('Fecha del requerimiento no válida');
   const { rows } = await client.query(
-    `SELECT r.id, r.numero, to_char(r.fecha, 'YYYY-MM-DD') AS fecha, r.estado, r.bodega_id, r.almacen, c.id AS compra_id, c.numero_compra
-     FROM requerimientos_compra r LEFT JOIN compras c ON c.requerimiento_id = r.id
-     WHERE UPPER(r.numero) = UPPER($1)`, [numero]);
+    `SELECT id, numero, to_char(fecha, 'YYYY-MM-DD') AS fecha, estado, bodega_id, almacen
+     FROM requerimientos_compra WHERE UPPER(numero) = UPPER($1)`, [numero]);
   const r = rows[0];
   if (!r) return { id: null, numero, fecha: fechaManual };
   if (r.estado !== 'confirmada') {
     throw errorConEstado(`El requerimiento ${r.numero} está ${r.estado === 'rechazada' ? 'rechazado' : 'pendiente'}: debe confirmarse antes de comprarlo`, 409);
   }
-  if (r.compra_id && r.compra_id !== compraId) throw errorConEstado(`El requerimiento ${r.numero} ya generó la compra ${r.numero_compra}`, 409);
   return { id: r.id, numero: r.numero, fecha: r.fecha, bodegaId: r.bodega_id, almacen: r.almacen };
+};
+
+// Cada concepto que sale de un renglón del requerimiento lo recuerda. Un renglón va en una sola
+// compra (no cancelada); si el concepto ya no es el del renglón, queda como concepto suelto.
+const enlazarRenglones = async (client, items, requerimiento, compraId) => {
+  const pedidos = items.filter(item => item.requerimientoItemId);
+  if (!pedidos.length) return;
+  if (!requerimiento?.id) {
+    pedidos.forEach(item => { item.requerimientoItemId = null; });
+    return;
+  }
+  const { rows } = await client.query(
+    `SELECT i.id, i.medicina_id::text AS medicina_id, i.articulo_id::text AS articulo_id,
+            COALESCE(m.nombre, a.nombre_articulo) AS nombre,
+            (SELECT c.numero_compra FROM compra_items ci JOIN compras c ON c.id = ci.compra_id
+             WHERE ci.requerimiento_item_id = i.id AND c.estado <> 'cancelada' AND c.id <> $2 LIMIT 1) AS otra_compra
+     FROM requerimiento_compra_items i
+     LEFT JOIN medicinas m ON m.id = i.medicina_id
+     LEFT JOIN codigos_articulos a ON a.id = i.articulo_id
+     WHERE i.requerimiento_id = $1
+     FOR UPDATE OF i`, [requerimiento.id, compraId || '']);
+  const renglones = new Map(rows.map(r => [r.id, r]));
+  const usados = new Set();
+  for (const item of pedidos) {
+    const renglon = renglones.get(item.requerimientoItemId);
+    const mismo = renglon && (item.tipo === 'medicina' ? renglon.medicina_id : renglon.articulo_id) === item.conceptoId;
+    if (!mismo || usados.has(renglon.id)) {
+      item.requerimientoItemId = null;
+      continue;
+    }
+    if (renglon.otra_compra) {
+      throw errorConEstado(`«${renglon.nombre}» del requerimiento ${requerimiento.numero} ya va en la compra ${renglon.otra_compra}`, 409);
+    }
+    usados.add(renglon.id);
+  }
 };
 
 // Bodega de la compra: la de su requerimiento del sistema o la elegida (deben coincidir)
@@ -89,9 +122,11 @@ const leerBodega = async (client, body, requerimiento) => {
   return bodega;
 };
 
-const guardarRequerimiento = (client, compraId, req) => client.query(
-  'UPDATE compras SET requerimiento_id = $2, numero_requerimiento = $3, fecha_requerimiento = $4 WHERE id = $1',
-  [compraId, req.id, req.numero, req.fecha]
+// Requerimiento de origen y número de factura del proveedor (llegaron con la misma migración)
+const guardarRequerimiento = (client, compraId, req, body) => client.query(
+  `UPDATE compras SET requerimiento_id = $2, numero_requerimiento = $3, fecha_requerimiento = $4, numero_factura = $5
+   WHERE id = $1`,
+  [compraId, req.id, req.numero, req.fecha, String(body.numero_factura || '').trim().slice(0, 60) || null]
 );
 
 const compraSelect = (conInventario, conPagos, conRequerimientos) => `
@@ -103,7 +138,7 @@ const compraSelect = (conInventario, conPagos, conRequerimientos) => `
          (SELECT r.revisado_por_nombre FROM requerimientos_compra r
            WHERE r.id = c.requerimiento_id AND r.estado = 'confirmada') AS confirmado_por_nombre,
          c.requerimiento_id, c.numero_requerimiento, to_char(c.fecha_requerimiento, 'YYYY-MM-DD') AS fecha_requerimiento,
-         c.bodega_id, (SELECT nombre FROM bodegas WHERE id = c.bodega_id) AS bodega_nombre,` : ''}${conPagos ? `
+         c.numero_factura, c.bodega_id, (SELECT nombre FROM bodegas WHERE id = c.bodega_id) AS bodega_nombre,` : ''}${conPagos ? `
          c.condicion_pago, c.dias_credito, to_char(c.fecha_vencimiento_pago, 'YYYY-MM-DD') AS fecha_vencimiento_pago,
          c.forma_pago, c.referencia_pago, to_char(c.fecha_pago, 'YYYY-MM-DD') AS fecha_pago,
          p.banco AS proveedor_banco, p.numero_cuenta AS proveedor_numero_cuenta, p.tipo_cuenta AS proveedor_tipo_cuenta,
@@ -124,7 +159,8 @@ const compraSelect = (conInventario, conPagos, conRequerimientos) => `
                'subtotal', ci.subtotal${conInventario ? `,
                'presentacion_id', ci.presentacion_id,
                'presentacion_nombre', ci.presentacion_nombre,
-               'factor', ci.factor` : ''}
+               'factor', ci.factor` : ''}${conRequerimientos ? `,
+               'requerimiento_item_id', ci.requerimiento_item_id` : ''}
              ) ORDER BY ci.created_at, ci.id
            ) FILTER (WHERE ci.id IS NOT NULL),
            '[]'::json
@@ -171,12 +207,14 @@ const normalizeItems = (items) => {
       error.status = 400;
       throw error;
     }
+    const renglon = Number(item.requerimiento_item_id);
     return {
       tipo,
       conceptoId,
       cantidad,
       precioUnitario,
       presentacionId,
+      requerimientoItemId: Number.isInteger(renglon) && renglon > 0 ? renglon : null,
       subtotal: Number((cantidad * precioUnitario).toFixed(2))
     };
   });
@@ -197,35 +235,29 @@ const getNextNumeroCompra = async (client) => {
 
 const insertItems = async (client, compraId, items) => {
   const conInventario = await inventario.disponible();
+  const conRequerimientos = await requerimientos.disponible();
   for (const item of items) {
-    const itemId = `CI-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-    const valores = [
-      itemId,
-      compraId,
-      item.tipo === 'medicina' ? item.conceptoId : null,
-      item.tipo === 'articulo' ? item.conceptoId : null,
-      item.cantidad,
-      item.precioUnitario,
-      item.subtotal
-    ];
+    const columnas = {
+      id: `CI-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+      compra_id: compraId,
+      medicina_id: item.tipo === 'medicina' ? item.conceptoId : null,
+      articulo_id: item.tipo === 'articulo' ? item.conceptoId : null,
+      cantidad: item.cantidad,
+      precio_unitario: item.precioUnitario,
+      subtotal: item.subtotal
+    };
     if (conInventario) {
       const pres = item.tipo === 'medicina'
         ? await inventario.presentacion(client, item.conceptoId, item.presentacionId)
         : { id: null, nombre: null, factor: 1 };
-      await client.query(
-        `INSERT INTO compra_items
-         (id, compra_id, medicina_id, articulo_id, cantidad, precio_unitario, subtotal, presentacion_id, presentacion_nombre, factor)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-        [...valores, pres.id, pres.nombre, pres.factor]
-      );
-    } else {
-      await client.query(
-        `INSERT INTO compra_items
-         (id, compra_id, medicina_id, articulo_id, cantidad, precio_unitario, subtotal)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        valores
-      );
+      Object.assign(columnas, { presentacion_id: pres.id, presentacion_nombre: pres.nombre, factor: pres.factor });
     }
+    if (conRequerimientos) columnas.requerimiento_item_id = item.requerimientoItemId;
+    const nombres = Object.keys(columnas);
+    await client.query(
+      `INSERT INTO compra_items (${nombres.join(', ')}) VALUES (${nombres.map((_, i) => `$${i + 1}`).join(', ')})`,
+      Object.values(columnas)
+    );
   }
 };
 
@@ -370,9 +402,10 @@ const createCompra = async (req, res) => {
         total, estado, observaciones || null]
     );
     if (bodega) await client.query('UPDATE compras SET bodega_id = $1 WHERE id = $2', [bodega.id, compraId]);
+    await enlazarRenglones(client, items, requerimiento, compraId);
     await insertItems(client, compraId, items);
     if (pago) await guardarPago(client, compraId, pago);
-    if (requerimiento) await guardarRequerimiento(client, compraId, requerimiento);
+    if (requerimiento) await guardarRequerimiento(client, compraId, requerimiento, req.body);
     if (estado === 'recibida' && await inventario.disponible()) await aplicarInventario(client, compraId, req);
     await client.query('COMMIT');
     res.status(201).json({ success: true, message: 'Compra creada exitosamente', compra: result.rows[0] });
@@ -419,11 +452,12 @@ const updateCompra = async (req, res) => {
        RETURNING *`,
       [proveedor_id, fecha, fecha_entrega || null, total, estado, observaciones || null, req.params.id]
     );
+    const requerimiento = (await requerimientos.disponible()) ? await leerRequerimiento(client, req.body) : null;
     await client.query('DELETE FROM compra_items WHERE compra_id = $1', [req.params.id]);
+    await enlazarRenglones(client, items, requerimiento, req.params.id);
     await insertItems(client, req.params.id, items);
     if (pago) await guardarPago(client, req.params.id, pago);
-    if (await requerimientos.disponible()) {
-      const requerimiento = await leerRequerimiento(client, req.body, req.params.id);
+    if (requerimiento) {
       // La bodega no cambia (va en el número); una compra anterior a las bodegas la toma ahora
       const { rows: [actual] } = await client.query('SELECT bodega_id, numero_compra FROM compras WHERE id = $1', [req.params.id]);
       if (actual.bodega_id) {
@@ -434,7 +468,7 @@ const updateCompra = async (req, res) => {
         const bodega = await leerBodega(client, req.body, requerimiento);
         await client.query('UPDATE compras SET bodega_id = $1 WHERE id = $2', [bodega.id, req.params.id]);
       }
-      await guardarRequerimiento(client, req.params.id, requerimiento);
+      await guardarRequerimiento(client, req.params.id, requerimiento, req.body);
     }
     if (conInventario && estado === 'recibida' && (anterior.inventario_aplicado || anterior.estado !== 'recibida')) {
       await aplicarInventario(client, req.params.id, req);
@@ -493,6 +527,15 @@ const cambiarEstado = async (req, res) => {
     );
     if (existing.rows.length === 0) throw errorConEstado('Compra no encontrada', 404);
     const anterior = existing.rows[0];
+    // Al cancelarla, sus conceptos del requerimiento quedaron libres: no se reactiva si ya van en otra compra
+    if (anterior.estado === 'cancelada' && estado !== 'cancelada' && await requerimientos.disponible()) {
+      const { rows: [ocupado] } = await client.query(
+        `SELECT otra.numero_compra FROM compra_items ci
+         JOIN compra_items oi ON oi.requerimiento_item_id = ci.requerimiento_item_id AND oi.compra_id <> ci.compra_id
+         JOIN compras otra ON otra.id = oi.compra_id AND otra.estado <> 'cancelada'
+         WHERE ci.compra_id = $1 LIMIT 1`, [req.params.id]);
+      if (ocupado) throw errorConEstado(`Parte de sus conceptos del requerimiento ya va en la compra ${ocupado.numero_compra}`, 409);
+    }
     if (anterior.inventario_aplicado && estado !== 'recibida') {
       await revertirInventario(client, req.params.id, req, `Compra pasada a ${estado}`);
     }

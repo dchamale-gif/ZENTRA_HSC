@@ -11147,6 +11147,42 @@ body.chat-abierto {
     width: min(760px, calc(100vw - 32px));
 }
 
+/* Un requerimiento en varias compras: sus números, lo que falta y el botón para otra compra */
+.req-tabla td.req-compras {
+    max-width: 220px;
+}
+
+.req-tabla td.req-compras .cot-tag {
+    display: inline-block;
+    margin: 0 4px 4px 0;
+}
+
+.req-tabla td.req-compras .btn-accion {
+    margin-top: 4px;
+}
+
+.req-compra-cancelada {
+    text-decoration: line-through;
+    opacity: 0.6;
+}
+
+/* Elegir los conceptos de un requerimiento que van en una compra */
+.req-elegir th:first-child,
+.req-elegir td:first-child {
+    width: 36px;
+    text-align: center;
+}
+
+.req-elegir input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.req-elegir tr.req-comprado td {
+    color: var(--text-gray);
+}
+
 /* Gastos: requisiciones que esperan el pago del dueño */
 .gastos-req-cabecera {
     display: flex;

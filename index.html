@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-    <link rel="stylesheet" href="css/style.css?v=20261027-3">
+    <link rel="stylesheet" href="css/style.css?v=20261027-4">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/tema-botengine.css?v=20261018-2">
     <link rel="stylesheet" href="css/tema-oscuro-auto.css?v=20261023-2">
@@ -3998,11 +3998,15 @@
                             <label for="purchaseReqNumber">No. de requerimiento</label>
                             <input type="text" id="purchaseReqNumber" class="form-input" list="purchaseReqList" maxlength="30" autocomplete="off" placeholder="FAR-0001-2026 o el número en papel">
                             <datalist id="purchaseReqList"></datalist>
-                            <small class="form-hint" id="purchaseReqHint">Un requerimiento confirmado del sistema carga sus conceptos.</small>
+                            <small class="form-hint" id="purchaseReqHint">Un requerimiento confirmado del sistema carga los conceptos que elija.</small>
                         </div>
                         <div class="form-group">
                             <label for="purchaseReqDate">Fecha del requerimiento</label>
                             <input type="date" id="purchaseReqDate" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label for="purchaseInvoiceNumber">No. de factura</label>
+                            <input type="text" id="purchaseInvoiceNumber" class="form-input" maxlength="60" autocomplete="off" placeholder="Factura del proveedor">
                         </div>
                     </div>
 
@@ -5985,8 +5989,8 @@
     <script src="js/control-medicamentos.js?v=20261023-2"></script>
     <script src="js/personal.js?v=20261023-2"></script>
     <script src="js/codigos-articulos.js?v=20261015-21"></script>
-    <script src="js/compras.js?v=20261027-4"></script>
-    <script src="js/requerimientos.js?v=20261027-2"></script>
+    <script src="js/compras.js?v=20261027-5"></script>
+    <script src="js/requerimientos.js?v=20261027-4"></script>
     <script src="js/inventario-activos.js?v=20261023-1"></script>
     <script src="js/alertas.js?v=20261015-21"></script>
     <script src="js/ventas.js?v=20261023-1"></script>

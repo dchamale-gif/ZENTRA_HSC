@@ -1,7 +1,7 @@
 -- ============================================
 -- REQUERIMIENTOS DE COMPRA
 -- Un almacén (farmacia, cocina…) pide artículos o medicinas; compras lo
--- confirma o lo rechaza y, confirmado, genera la compra a partir de él.
+-- confirma o lo rechaza y, confirmado, genera una o varias compras a partir de él.
 -- Una compra también puede anotar a mano el número y la fecha de un
 -- requerimiento hecho en papel.
 -- Idempotente: se puede ejecutar varias veces.
@@ -61,8 +61,6 @@ CREATE INDEX IF NOT EXISTS idx_requerimiento_items_req ON requerimiento_compra_i
 ALTER TABLE compras ADD COLUMN IF NOT EXISTS requerimiento_id INTEGER REFERENCES requerimientos_compra(id) ON DELETE SET NULL;
 ALTER TABLE compras ADD COLUMN IF NOT EXISTS numero_requerimiento VARCHAR(30);
 ALTER TABLE compras ADD COLUMN IF NOT EXISTS fecha_requerimiento DATE;
--- Un requerimiento genera una sola compra
-CREATE UNIQUE INDEX IF NOT EXISTS idx_compras_requerimiento_unico ON compras (requerimiento_id) WHERE requerimiento_id IS NOT NULL;
 
 -- ============================================
 -- BODEGAS Y CORRELATIVOS
@@ -133,6 +131,33 @@ END $$;
 UPDATE requerimientos_compra rc SET bodega_id = b.id
 FROM bodegas b
 WHERE rc.bodega_id IS NULL AND LOWER(b.nombre) = LOWER(TRIM(rc.almacen));
+
+-- ============================================
+-- UN REQUERIMIENTO, VARIAS COMPRAS
+-- Los conceptos de un requerimiento se reparten entre compras a distintos
+-- proveedores: cada concepto de la compra guarda de qué renglón del
+-- requerimiento sale, y lo que aún no está en una compra queda pendiente.
+-- La compra también lleva el número de factura del proveedor.
+-- ============================================
+
+DROP INDEX IF EXISTS idx_compras_requerimiento_unico;
+CREATE INDEX IF NOT EXISTS idx_compras_requerimiento ON compras (requerimiento_id) WHERE requerimiento_id IS NOT NULL;
+
+ALTER TABLE compra_items ADD COLUMN IF NOT EXISTS requerimiento_item_id INTEGER
+    REFERENCES requerimiento_compra_items(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_compra_items_requerimiento_item ON compra_items (requerimiento_item_id)
+    WHERE requerimiento_item_id IS NOT NULL;
+
+ALTER TABLE compras ADD COLUMN IF NOT EXISTS numero_factura VARCHAR(60);
+
+-- Compras ya generadas desde un requerimiento: cada concepto se enlaza con el renglón del mismo artículo o medicina
+UPDATE compra_items ci
+SET requerimiento_item_id = (
+    SELECT MIN(ri.id) FROM requerimiento_compra_items ri
+    WHERE ri.requerimiento_id = c.requerimiento_id
+      AND (ri.medicina_id::text = ci.medicina_id::text OR ri.articulo_id::text = ci.articulo_id::text))
+FROM compras c
+WHERE c.id = ci.compra_id AND c.requerimiento_id IS NOT NULL AND ci.requerimiento_item_id IS NULL;
 
 -- Permiso propio: quien pide (farmacia, cocina) no necesita ver compras
 INSERT INTO permissions (nombre, descripcion, modulo, accion)

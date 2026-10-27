@@ -158,7 +158,7 @@ const ComprasModule = {
                     ${compra.bodega_nombre ? `<small class="compras-req">${this.escapeHtml(compra.bodega_nombre)}</small>` : ''}
                     ${compra.numero_requerimiento ? `<small class="compras-req">Req. ${this.escapeHtml(compra.numero_requerimiento)}${compra.fecha_requerimiento ? ` · ${formatFecha(compra.fecha_requerimiento)}` : ''}</small>` : ''}</td>
                 <td>${this.formatDate(compra.fecha)}</td>
-                <td>${this.escapeHtml(compra.proveedor_nombre)}</td>
+                <td>${this.escapeHtml(compra.proveedor_nombre)}${compra.numero_factura ? `<small class="compras-req">Factura ${this.escapeHtml(compra.numero_factura)}</small>` : ''}</td>
                 ${this.responsablesHTML(compra)}
                 <td>${formatQ(compra.total || 0)}</td>
                 <td>${this.selectorEstado(compra)}</td>
@@ -611,8 +611,9 @@ const ComprasModule = {
         document.getElementById('purchaseReqRow').hidden = !(modo === 'compra' && this.state.requerimientosDisponible);
     },
 
-    // desdeRequerimiento: compra nueva con los conceptos y la forma de pago de un requerimiento confirmado
-    openPurchaseModal(compra = null, { desdeRequerimiento = null } = {}) {
+    // desdeRequerimiento: compra nueva con la forma de pago de un requerimiento confirmado y los
+    // conceptos elegidos de él (renglones); el resto queda pendiente para otra compra
+    openPurchaseModal(compra = null, { desdeRequerimiento = null, renglones = null } = {}) {
         const form = document.getElementById('purchaseForm');
         form.reset();
         document.getElementById('purchaseId').value = compra?.id || '';
@@ -620,6 +621,7 @@ const ComprasModule = {
         this.renderRequerimientosConfirmados(compra?.numero_requerimiento);
         document.getElementById('purchaseReqNumber').value = compra?.numero_requerimiento || '';
         document.getElementById('purchaseReqDate').value = compra?.fecha_requerimiento || '';
+        document.getElementById('purchaseInvoiceNumber').value = compra?.numero_factura || '';
         // La bodega va en el número de la compra: se elige al crearla y ya no cambia
         this.renderBodegas(compra?.bodega_id, Boolean(compra?.bodega_id),
             compra?.bodega_id ? 'El número de la compra lleva el código de su bodega; no se cambia.' : 'Cada bodega lleva su propio correlativo por año.');
@@ -635,12 +637,13 @@ const ComprasModule = {
                 presentacion_id: item.presentacion_id != null ? String(item.presentacion_id) : '',
                 cantidad: Number(item.cantidad),
                 precio_unitario: Number(item.precio_unitario),
+                requerimiento_item_id: item.requerimiento_item_id || null,
                 filtros: { seccion: '', familia: '', subfamilia: '' }
             }))
             : [{ tipo: 'articulo', concepto_id: '', presentacion_id: '', cantidad: 1, precio_unitario: 0, filtros: { seccion: '', familia: '', subfamilia: '' } }];
         this.renderItems();
         this.prepararPago(compra);
-        if (desdeRequerimiento) this.cargarRequerimiento(desdeRequerimiento);
+        if (desdeRequerimiento) this.cargarRequerimiento(desdeRequerimiento, renglones);
         document.getElementById('purchaseModal').style.display = 'flex';
         document.body.style.overflow = 'hidden';
         this.toggleProviderForm(this.state.proveedores.length === 0);
@@ -691,6 +694,7 @@ const ComprasModule = {
             presentacion_id: item.presentacion_id != null ? String(item.presentacion_id) : '',
             cantidad: Number(item.cantidad),
             precio_unitario: Number(item.precio_unitario),
+            requerimiento_item_id: item.id || null,
             filtros: { seccion: '', familia: '', subfamilia: '' }
         }));
         return items.length ? items : [{ tipo: 'articulo', concepto_id: '', presentacion_id: '', cantidad: 1, precio_unitario: 0, filtros: { seccion: '', familia: '', subfamilia: '' } }];
@@ -705,15 +709,94 @@ const ComprasModule = {
             .join('');
     },
 
-    // Llena la compra con un requerimiento confirmado: número, fecha, conceptos y forma de pago
-    cargarRequerimiento(requerimiento) {
+    // Un requerimiento se reparte entre proveedores: se eligen los conceptos que van en esta compra.
+    // Devuelve los renglones elegidos, o null si se cancela o ya no queda nada por comprar.
+    elegirConceptos(requerimiento) {
+        const pendientes = requerimiento.items.filter(item => !item.compra);
+        if (!pendientes.length) {
+            this.notify(`Todos los conceptos del requerimiento ${requerimiento.numero} ya están en una compra.`, 'warning');
+            return Promise.resolve(null);
+        }
+        return new Promise(resolve => {
+            const overlay = document.createElement('div');
+            overlay.className = 'modal-overlay';
+            overlay.innerHTML = `
+                <div class="modal-dialog req-detalle" role="dialog" aria-modal="true" aria-labelledby="reqElegirTitulo">
+                    <div class="modal-header">
+                        <h2 id="reqElegirTitulo">Compra del requerimiento ${this.escapeHtml(requerimiento.numero)}</h2>
+                        <button type="button" class="close-btn" aria-label="Cerrar">&times;</button>
+                    </div>
+                    <form class="modal-body" novalidate>
+                        <p class="form-hint">Marque los conceptos que van a este proveedor. Los demás quedan pendientes en el requerimiento para otra compra.</p>
+                        <div class="table-responsive">
+                            <table class="data-table req-elegir">
+                                <thead><tr>
+                                    <th><input type="checkbox" data-todos checked aria-label="Marcar todos los pendientes"></th>
+                                    <th>Artículo / medicina</th><th class="text-right">Cantidad</th><th class="text-right">Costo</th><th class="text-right">Total</th>
+                                </tr></thead>
+                                <tbody>${requerimiento.items.map((item, i) => `
+                                    <tr class="${item.compra ? 'req-comprado' : ''}">
+                                        <td>${item.compra ? '' : `<input type="checkbox" data-renglon="${i}" checked aria-label="Incluir ${this.escapeHtml(item.concepto_nombre || '')}">`}</td>
+                                        <td>${this.escapeHtml(item.concepto_nombre || '—')}${item.presentacion_nombre ? `<small class="cot-sub">${this.escapeHtml(item.presentacion_nombre)}</small>` : ''}
+                                            ${item.compra ? `<small class="cot-sub">Ya va en la compra ${this.escapeHtml(item.compra)}</small>` : ''}</td>
+                                        <td class="text-right">${Number(item.cantidad)}</td>
+                                        <td class="text-right">${formatQ(item.precio_unitario)}</td>
+                                        <td class="text-right">${formatQ(item.subtotal)}</td>
+                                    </tr>`).join('')}</tbody>
+                                <tfoot><tr><th colspan="4" class="text-right">Total de esta compra</th><th class="text-right" data-total></th></tr></tfoot>
+                            </table>
+                        </div>
+                        <div class="inv-dialogo-acciones">
+                            <button type="button" class="btn btn-secondary" data-cerrar>Cancelar</button>
+                            <button type="submit" class="btn btn-primary"><i class="fas fa-cart-plus" aria-hidden="true"></i> <span data-boton></span></button>
+                        </div>
+                    </form>
+                </div>`;
+            document.body.appendChild(overlay);
+            const casillas = [...overlay.querySelectorAll('[data-renglon]')];
+            const elegidos = () => casillas.filter(c => c.checked).map(c => requerimiento.items[Number(c.dataset.renglon)]);
+            const actualizar = () => {
+                const lista = elegidos();
+                overlay.querySelector('[data-total]').textContent = formatQ(lista.reduce((s, item) => s + Number(item.subtotal), 0));
+                overlay.querySelector('[data-boton]').textContent = `Continuar con ${lista.length} concepto${lista.length === 1 ? '' : 's'}`;
+                overlay.querySelector('button[type="submit"]').disabled = !lista.length;
+                const todos = overlay.querySelector('[data-todos]');
+                todos.checked = lista.length === casillas.length;
+                todos.indeterminate = lista.length > 0 && lista.length < casillas.length;
+            };
+            const cerrar = (resultado) => {
+                overlay.remove();
+                document.removeEventListener('keydown', alTeclear);
+                resolve(resultado);
+            };
+            const alTeclear = (e) => { if (e.key === 'Escape') cerrar(null); };
+            document.addEventListener('keydown', alTeclear);
+            overlay.querySelector('.close-btn').addEventListener('click', () => cerrar(null));
+            overlay.querySelector('[data-cerrar]').addEventListener('click', () => cerrar(null));
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) cerrar(null); });
+            overlay.querySelector('[data-todos]').addEventListener('change', (e) => {
+                casillas.forEach(c => { c.checked = e.target.checked; });
+                actualizar();
+            });
+            casillas.forEach(c => c.addEventListener('change', actualizar));
+            overlay.querySelector('form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                if (elegidos().length) cerrar(elegidos());
+            });
+            actualizar();
+            setTimeout(() => overlay.querySelector('button[type="submit"]').focus(), 0);
+        });
+    },
+
+    // Llena la compra con un requerimiento confirmado: número, fecha, los conceptos elegidos y forma de pago
+    cargarRequerimiento(requerimiento, renglones = null) {
         document.getElementById('purchaseReqNumber').value = requerimiento.numero;
         document.getElementById('purchaseReqDate').value = requerimiento.fecha;
         // La compra sale de la misma bodega del requerimiento
         if (requerimiento.bodega_id && !document.getElementById('purchaseId').value) {
             this.renderBodegas(requerimiento.bodega_id, true, `Bodega del requerimiento ${requerimiento.numero}.`);
         }
-        this.state.items = this.itemsDeRequerimiento(requerimiento);
+        this.state.items = this.itemsDeRequerimiento({ items: renglones || requerimiento.items.filter(item => !item.compra) });
         this.renderItems();
         if (requerimiento.forma_pago) {
             document.getElementById('purchasePaymentMethod').value = requerimiento.forma_pago;
@@ -727,15 +810,14 @@ const ComprasModule = {
     },
 
     // Número escrito en la compra: si es un requerimiento confirmado del sistema, trae sus datos
-    usarRequerimiento(numero) {
+    async usarRequerimiento(numero) {
         const requerimiento = this.state.requerimientosConfirmados.find(r => r.numero.toUpperCase() === String(numero).trim().toUpperCase());
         if (!requerimiento) return;
+        document.getElementById('purchaseReqDate').value = requerimiento.fecha;
         const hayConceptos = this.state.items.some(item => item.concepto_id);
-        if (hayConceptos && !confirm(`¿Reemplazar los conceptos de la compra por los del requerimiento ${requerimiento.numero}?`)) {
-            document.getElementById('purchaseReqDate').value = requerimiento.fecha;
-            return;
-        }
-        this.cargarRequerimiento(requerimiento);
+        if (hayConceptos && !confirm(`¿Reemplazar los conceptos de la compra por los del requerimiento ${requerimiento.numero}?`)) return;
+        const renglones = await this.elegirConceptos(requerimiento);
+        if (renglones) this.cargarRequerimiento(requerimiento, renglones);
     },
 
     renderProviderOptions(selectedId = '') {
@@ -1061,7 +1143,8 @@ const ComprasModule = {
             concepto_id: item.concepto_id,
             presentacion_id: item.tipo === 'medicina' && item.presentacion_id ? Number(item.presentacion_id) : null,
             cantidad: Number(item.cantidad),
-            precio_unitario: Number(item.precio_unitario)
+            precio_unitario: Number(item.precio_unitario),
+            requerimiento_item_id: item.requerimiento_item_id || null
         }));
     },
 
@@ -1112,6 +1195,7 @@ const ComprasModule = {
             bodega_id: Number(document.getElementById('purchaseBodega').value) || null,
             numero_requerimiento: document.getElementById('purchaseReqNumber').value.trim() || null,
             fecha_requerimiento: document.getElementById('purchaseReqDate').value || null,
+            numero_factura: document.getElementById('purchaseInvoiceNumber').value.trim() || null,
             items: this.leerConceptos()
         };
 

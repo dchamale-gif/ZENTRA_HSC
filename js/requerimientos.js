@@ -124,7 +124,7 @@ const RequerimientosModule = {
         const opciones = Object.entries(this.ESTADOS)
             .map(([valor, texto]) => `<option value="${valor}" ${valor === r.estado ? 'selected' : ''}>${texto}</option>`).join('');
         // Con compra generada el estado queda fijo; solo compras confirma o rechaza
-        if (!this.state.puedeRevisar || r.compra_id) {
+        if (!this.state.puedeRevisar || this.comprasActivas(r).length) {
             return `<span class="req-estado req-estado-${this.e(r.estado)}">${this.ESTADOS[r.estado] || this.e(r.estado)}</span>`;
         }
         return `<select class="cuenta-select compras-select req-select-${this.e(r.estado)}" data-req-estado data-id="${r.id}"
@@ -162,11 +162,7 @@ const RequerimientosModule = {
                         <td>${this.selectorEstado(r)}
                             ${r.estado === 'rechazada' && r.motivo_rechazo ? `<small class="cot-sub" title="${this.e(r.motivo_rechazo)}">${this.e(r.motivo_rechazo)}</small>` : ''}
                             ${r.revisado_por_nombre && r.estado !== 'pendiente' ? `<small class="cot-sub">Por ${this.e(r.revisado_por_nombre)}</small>` : ''}</td>
-                        <td>${r.numero_compra
-                            ? `<span class="cot-tag">${this.e(r.numero_compra)}</span>`
-                            : r.estado === 'confirmada' && puedeComprar
-                                ? `<button type="button" class="btn-accion btn-accion-primaria" data-req-accion="comprar" data-id="${r.id}"><i class="fas fa-cart-plus" aria-hidden="true"></i> Generar compra</button>`
-                                : '<small class="cot-sub">—</small>'}</td>
+                        <td class="req-compras">${this.celdaCompras(r, puedeComprar)}</td>
                         <td><div class="acciones-saldo">
                             <button type="button" class="btn-accion btn-accion-icono" data-req-accion="ver" data-id="${r.id}" title="Ver" aria-label="Ver requerimiento ${this.e(r.numero)}"><i class="fas fa-eye" aria-hidden="true"></i></button>
                             ${this.editable(r) ? `
@@ -194,9 +190,31 @@ const RequerimientosModule = {
         ComprasModule.abrirRequerimiento(requerimiento);
     },
 
+    // Cada compra lleva los conceptos elegidos; los demás quedan para otra compra (otro proveedor)
     async generarCompra(requerimiento) {
         await this.asegurarCatalogo();
-        ComprasModule.openPurchaseModal(null, { desdeRequerimiento: requerimiento });
+        const renglones = await ComprasModule.elegirConceptos(requerimiento);
+        if (renglones) ComprasModule.openPurchaseModal(null, { desdeRequerimiento: requerimiento, renglones });
+    },
+
+    // Compras que siguen en pie (las canceladas liberan sus conceptos)
+    comprasActivas(r) {
+        return (r.compras || []).filter(c => c.estado !== 'cancelada');
+    },
+
+    pendientes(r) {
+        return r.items.filter(item => !item.compra).length;
+    },
+
+    celdaCompras(r, puedeComprar) {
+        const etiquetas = (r.compras || []).map(c => `<span class="cot-tag${c.estado === 'cancelada' ? ' req-compra-cancelada' : ''}"
+                title="${this.e(`${c.proveedor}${c.numero_factura ? ` · factura ${c.numero_factura}` : ''}${c.estado === 'cancelada' ? ' · cancelada' : ''}`)}">${this.e(c.numero_compra)}</span>`).join(' ');
+        const pendientes = this.pendientes(r);
+        const parcial = this.comprasActivas(r).length && pendientes
+            ? `<small class="cot-sub" title="${pendientes} de ${r.items.length} conceptos aún no están en una compra">Faltan ${pendientes} de ${r.items.length}</small>` : '';
+        const boton = r.estado === 'confirmada' && puedeComprar && pendientes
+            ? `<button type="button" class="btn-accion btn-accion-primaria" data-req-accion="comprar" data-id="${r.id}"><i class="fas fa-cart-plus" aria-hidden="true"></i> ${this.comprasActivas(r).length ? 'Otra compra' : 'Generar compra'}</button>` : '';
+        return etiquetas || parcial || boton ? `${etiquetas}${parcial}${boton}` : '<small class="cot-sub">—</small>';
     },
 
     async cambiarEstado(select) {
@@ -345,18 +363,20 @@ const RequerimientosModule = {
                         <div><dt>Bodega</dt><dd>${this.e(r.almacen)}${r.categoria ? ` · ${this.CATEGORIAS[r.categoria]}` : ''}</dd></div>
                         <div><dt>Solicitado por</dt><dd>${this.e(r.solicitado_por_nombre || '—')}</dd></div>
                         <div><dt>Forma de pago</dt><dd>${this.FORMAS_PAGO[r.forma_pago] || '—'}</dd></div>
-                        <div><dt>Estado</dt><dd>${this.ESTADOS[r.estado]}${r.revisado_por_nombre && r.estado !== 'pendiente' ? ` · ${this.e(r.revisado_por_nombre)}` : ''}${r.numero_compra ? ` · compra ${this.e(r.numero_compra)}` : ''}</dd></div>
+                        <div><dt>Estado</dt><dd>${this.ESTADOS[r.estado]}${r.revisado_por_nombre && r.estado !== 'pendiente' ? ` · ${this.e(r.revisado_por_nombre)}` : ''}</dd></div>
                         ${r.motivo_rechazo ? `<div><dt>Motivo del rechazo</dt><dd>${this.e(r.motivo_rechazo)}</dd></div>` : ''}
+                        ${(r.compras || []).length ? `<div><dt>Compras</dt><dd>${r.compras.map(c => this.e(`${c.numero_compra} · ${c.proveedor}${c.numero_factura ? ` · factura ${c.numero_factura}` : ''}${c.estado === 'cancelada' ? ' (cancelada)' : ''}`)).join('<br>')}</dd></div>` : ''}
                     </dl>
                     <div class="table-responsive">
                         <table class="data-table">
-                            <thead><tr><th>Artículo / medicina</th><th class="text-right">Cantidad</th><th class="text-right">Costo unitario</th><th class="text-right">Total</th></tr></thead>
+                            <thead><tr><th>Artículo / medicina</th><th class="text-right">Cantidad</th><th class="text-right">Costo unitario</th><th class="text-right">Total</th><th>Compra</th></tr></thead>
                             <tbody>${r.items.map(i => `<tr>
                                 <td>${this.e(i.concepto_nombre || '—')}${i.presentacion_nombre ? `<small class="cot-sub">${this.e(i.presentacion_nombre)}</small>` : ''}</td>
                                 <td class="text-right">${Number(i.cantidad)}</td>
                                 <td class="text-right">${formatQ(i.precio_unitario)}</td>
-                                <td class="text-right">${formatQ(i.subtotal)}</td></tr>`).join('')}</tbody>
-                            <tfoot><tr><th colspan="3" class="text-right">Total</th><th class="text-right">${formatQ(r.total)}</th></tr></tfoot>
+                                <td class="text-right">${formatQ(i.subtotal)}</td>
+                                <td>${i.compra ? this.e(i.compra) : `<small class="cot-sub">${r.estado === 'confirmada' ? 'Pendiente' : '—'}</small>`}</td></tr>`).join('')}</tbody>
+                            <tfoot><tr><th colspan="3" class="text-right">Total</th><th class="text-right">${formatQ(r.total)}</th><th></th></tr></tfoot>
                         </table>
                     </div>
                     ${r.observaciones ? `<p class="req-observaciones"><strong>Observaciones:</strong> ${this.e(r.observaciones)}</p>` : ''}

@@ -1,8 +1,9 @@
 // ============================================
 // REQUERIMIENTOS DE COMPRA
 // Una bodega (farmacia, cocina…) pide artículos o medicinas con su costo; compras lo confirma o lo
-// rechaza y, confirmado, genera la compra con esos conceptos (la compra guarda
-// requerimiento_id; ver comprasController).
+// rechaza y, confirmado, genera una o varias compras (una por proveedor) con esos conceptos.
+// La compra guarda requerimiento_id y cada concepto suyo el renglón del que sale
+// (compra_items.requerimiento_item_id); ver comprasController.
 // ============================================
 
 const pool = require('../db/connection');
@@ -21,7 +22,11 @@ const errorConEstado = (message, status = 400) => Object.assign(new Error(messag
 let migracionCache = { valor: false, hasta: 0 };
 const disponible = async () => {
   if (Date.now() < migracionCache.hasta) return migracionCache.valor;
-  const { rows } = await pool.query("SELECT to_regclass('public.requerimientos_compra') IS NOT NULL AS listo");
+  // El reparto en varias compras es lo último de la migración
+  const { rows } = await pool.query(
+    `SELECT to_regclass('public.requerimientos_compra') IS NOT NULL
+        AND EXISTS (SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'compra_items' AND column_name = 'requerimiento_item_id') AS listo`);
   const valor = rows[0].listo && await correlativos.disponible();
   migracionCache = { valor, hasta: valor ? Infinity : Date.now() + 60000 };
   return valor;
@@ -85,11 +90,24 @@ const guardarItems = async (client, requerimientoId, items) => {
   }
 };
 
+// Compra (no cancelada) en la que va un renglón del requerimiento; sin ella, el renglón está pendiente
+const compraDelRenglon = (renglon) => `
+  SELECT c.numero_compra FROM compra_items ci JOIN compras c ON c.id = ci.compra_id
+  WHERE ci.requerimiento_item_id = ${renglon} AND c.estado <> 'cancelada'
+  ORDER BY c.created_at LIMIT 1`;
+
 const SELECT_REQUERIMIENTO = `
   SELECT r.*, to_char(r.fecha, 'YYYY-MM-DD') AS fecha,
          (SELECT codigo FROM bodegas WHERE id = r.bodega_id) AS bodega_codigo,
-         c.id AS compra_id, c.numero_compra,
          COALESCE((SELECT json_agg(json_build_object(
+                     'id', c.id, 'numero_compra', c.numero_compra, 'proveedor', p.nombre,
+                     'numero_factura', c.numero_factura, 'estado', c.estado, 'total', c.total
+                   ) ORDER BY c.created_at)
+                   FROM compras c JOIN proveedores p ON p.id = c.proveedor_id
+                   WHERE c.requerimiento_id = r.id), '[]'::json) AS compras,
+         COALESCE((SELECT json_agg(json_build_object(
+                     'id', i.id,
+                     'compra', (${compraDelRenglon('i.id')}),
                      'tipo', CASE WHEN i.medicina_id IS NOT NULL THEN 'medicina' ELSE 'articulo' END,
                      'concepto_id', COALESCE(i.medicina_id::text, i.articulo_id::text),
                      'concepto_nombre', COALESCE(m.nombre, a.nombre_articulo),
@@ -103,8 +121,7 @@ const SELECT_REQUERIMIENTO = `
                    LEFT JOIN medicinas m ON m.id = i.medicina_id
                    LEFT JOIN codigos_articulos a ON a.id = i.articulo_id
                    WHERE i.requerimiento_id = r.id), '[]'::json) AS items
-  FROM requerimientos_compra r
-  LEFT JOIN compras c ON c.requerimiento_id = r.id`;
+  FROM requerimientos_compra r`;
 
 const obtener = (db, id) => db.query(`${SELECT_REQUERIMIENTO} WHERE r.id = $1`, [id]).then(r => r.rows[0] || null);
 
@@ -132,6 +149,7 @@ const requerimientosController = {
   disponible,
 
   // GET /api/requerimientos-compra?estado=&almacen=&q=&confirmados_sin_compra=1
+  // (confirmados_sin_compra: confirmados con algún concepto que aún no está en una compra)
   async listar(req, res) {
     try {
       if (!(await disponible())) return res.json({ requerimientos: [], disponible: false });
@@ -146,7 +164,11 @@ const requerimientosController = {
         valores.push(Number(bodegaId));
         condiciones.push(`r.bodega_id = $${valores.length}`);
       }
-      if (req.query.confirmados_sin_compra) condiciones.push(`r.estado = 'confirmada' AND c.id IS NULL`);
+      if (req.query.confirmados_sin_compra) {
+        condiciones.push(`r.estado = 'confirmada' AND EXISTS (
+          SELECT 1 FROM requerimiento_compra_items i
+          WHERE i.requerimiento_id = r.id AND NOT EXISTS (${compraDelRenglon('i.id')}))`);
+      }
       if (String(q || '').trim()) {
         valores.push(`%${String(q).trim()}%`);
         condiciones.push(`(r.numero ILIKE $${valores.length} OR r.solicitado_por_nombre ILIKE $${valores.length} OR r.almacen ILIKE $${valores.length})`);
@@ -252,8 +274,9 @@ const requerimientosController = {
       if (estado === 'rechazada' && !motivo) throw errorConEstado('Indique el motivo del rechazo');
       const actual = await obtener(pool, req.params.id);
       if (!actual) throw errorConEstado('Requerimiento no encontrado', 404);
-      if (actual.compra_id && estado !== 'confirmada') {
-        throw errorConEstado(`El requerimiento ya generó la compra ${actual.numero_compra}; no puede cambiar de estado`, 409);
+      const compras = actual.compras.filter(c => c.estado !== 'cancelada');
+      if (compras.length && estado !== 'confirmada') {
+        throw errorConEstado(`El requerimiento ya generó ${compras.length === 1 ? 'la compra' : 'las compras'} ${compras.map(c => c.numero_compra).join(', ')}; no puede cambiar de estado`, 409);
       }
       await pool.query(
         `UPDATE requerimientos_compra
