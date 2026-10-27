@@ -57,3 +57,6 @@ coverage/
 !js/
 !data/
 !*.md
+
+# Archivos temporales de pruebas con Playwright
+.playwright-mcp/

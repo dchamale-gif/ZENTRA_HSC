@@ -13,6 +13,11 @@ const ComprasModule = {
         pagos: false,
         vouchers: [],
         vouchersNuevos: [],
+        // El mismo formulario sirve para compras y para requerimientos de compra
+        modo: 'compra',
+        requerimientoId: null,
+        requerimientosDisponible: false,
+        requerimientosConfirmados: [], // confirmados sin compra, para "No. de requerimiento"
         initialized: false
     },
 
@@ -49,6 +54,10 @@ const ComprasModule = {
         });
         document.getElementById('purchaseVoucherList')?.addEventListener('click', (e) => this.alClicVoucher(e));
 
+        // Requerimientos: la categoría (medicinas o descartables) aplica a farmacia
+        document.getElementById('reqAlmacen')?.addEventListener('input', () => this.actualizarCategoria());
+        document.getElementById('purchaseReqNumber')?.addEventListener('change', (e) => this.usarRequerimiento(e.target.value));
+
         // Estado y pago se cambian desde el listado
         document.querySelector('#comprasTable tbody')?.addEventListener('change', (e) => {
             const select = e.target.closest('select[data-compra]');
@@ -75,14 +84,25 @@ const ComprasModule = {
         return response.json();
     },
 
+    // Quien solo hace requerimientos (farmacia, cocina) no ve compras ni proveedores
+    puedeComprar(accion = 'view') {
+        return typeof Permisos === 'undefined' || Permisos.puede('compras', accion);
+    },
+
     async loadData() {
         try {
-            const [comprasData, proveedoresData, medicinasData, articulosData] = await Promise.all([
-                this.apiRequest('/api/compras'),
-                this.apiRequest('/api/proveedores'),
+            const vacio = (clave) => Promise.resolve({ [clave]: [] });
+            const [comprasData, proveedoresData, medicinasData, articulosData, requerimientosData] = await Promise.all([
+                this.puedeComprar() ? this.apiRequest('/api/compras') : vacio('compras'),
+                this.puedeComprar() ? this.apiRequest('/api/proveedores') : vacio('proveedores'),
                 this.apiRequest('/api/medicinas'),
-                this.apiRequest('/api/codigos-articulos')
+                this.apiRequest('/api/codigos-articulos'),
+                this.puedeComprar()
+                    ? this.apiRequest('/api/requerimientos-compra?confirmados_sin_compra=1').catch(() => ({ requerimientos: [] }))
+                    : vacio('requerimientos')
             ]);
+            this.state.requerimientosDisponible = Boolean(requerimientosData.disponible);
+            this.state.requerimientosConfirmados = requerimientosData.requerimientos || [];
             this.state.compras = comprasData.compras || [];
             this.state.pagos = Boolean(comprasData.pagos);
             this.state.proveedores = proveedoresData.proveedores || [];
@@ -133,7 +153,8 @@ const ComprasModule = {
 
         tbody.innerHTML = this.state.compras.map(compra => `
             <tr>
-                <td><strong>${this.escapeHtml(compra.numero_compra)}</strong></td>
+                <td><strong>${this.escapeHtml(compra.numero_compra)}</strong>
+                    ${compra.numero_requerimiento ? `<small class="compras-req">Req. ${this.escapeHtml(compra.numero_requerimiento)}${compra.fecha_requerimiento ? ` · ${formatFecha(compra.fecha_requerimiento)}` : ''}</small>` : ''}</td>
                 <td>${this.formatDate(compra.fecha)}</td>
                 <td>${this.escapeHtml(compra.proveedor_nombre)}</td>
                 <td>${formatQ(compra.total || 0)}</td>
@@ -529,11 +550,24 @@ const ComprasModule = {
         Object.assign(proveedor, data.proveedor);
     },
 
-    openPurchaseModal(compra = null) {
+    // Pone el formulario en modo compra o requerimiento (cada modo oculta los campos del otro)
+    prepararModo(modo, titulo, boton) {
+        this.state.modo = modo;
+        document.getElementById('purchaseModal').dataset.modo = modo;
+        document.getElementById('purchaseModalTitle').textContent = titulo;
+        document.getElementById('savePurchaseBtnText').textContent = boton;
+        document.getElementById('purchaseReqRow').hidden = !(modo === 'compra' && this.state.requerimientosDisponible);
+    },
+
+    // desdeRequerimiento: compra nueva con los conceptos y la forma de pago de un requerimiento confirmado
+    openPurchaseModal(compra = null, { desdeRequerimiento = null } = {}) {
         const form = document.getElementById('purchaseForm');
         form.reset();
         document.getElementById('purchaseId').value = compra?.id || '';
-        document.getElementById('purchaseModalTitle').textContent = compra ? 'Editar Compra' : 'Nueva Compra';
+        this.prepararModo('compra', compra ? 'Editar Compra' : 'Nueva Compra', 'Guardar Compra');
+        this.renderRequerimientosConfirmados(compra?.numero_requerimiento);
+        document.getElementById('purchaseReqNumber').value = compra?.numero_requerimiento || '';
+        document.getElementById('purchaseReqDate').value = compra?.fecha_requerimiento || '';
         this.renderProviderOptions(compra?.proveedor_id || '');
         document.getElementById('purchaseDate').value = compra ? this.dateValue(compra.fecha) : this.hoy();
         document.getElementById('purchaseDeliveryDate').value = compra?.fecha_entrega ? this.dateValue(compra.fecha_entrega) : '';
@@ -551,9 +585,87 @@ const ComprasModule = {
             : [{ tipo: 'articulo', concepto_id: '', presentacion_id: '', cantidad: 1, precio_unitario: 0, filtros: { seccion: '', familia: '', subfamilia: '' } }];
         this.renderItems();
         this.prepararPago(compra);
+        if (desdeRequerimiento) this.cargarRequerimiento(desdeRequerimiento);
         document.getElementById('purchaseModal').style.display = 'flex';
         document.body.style.overflow = 'hidden';
         this.toggleProviderForm(this.state.proveedores.length === 0);
+    },
+
+    // Formulario en modo requerimiento: almacén, qué se compra, forma de pago y conceptos con su costo
+    abrirRequerimiento(requerimiento = null) {
+        const form = document.getElementById('purchaseForm');
+        form.reset();
+        this.state.requerimientoId = requerimiento?.id || null;
+        this.prepararModo('requerimiento',
+            requerimiento ? `Requerimiento ${requerimiento.numero}` : 'Nuevo requerimiento de compra',
+            requerimiento ? 'Guardar requerimiento' : 'Enviar requerimiento');
+        document.getElementById('purchaseDate').value = requerimiento?.fecha || this.hoy();
+        document.getElementById('reqAlmacen').value = requerimiento?.almacen || '';
+        document.getElementById('reqCategoria').value = requerimiento?.categoria || '';
+        document.getElementById('reqFormaPago').value = requerimiento?.forma_pago || '';
+        document.getElementById('purchaseObservations').value = requerimiento?.observaciones || '';
+        this.actualizarCategoria();
+        this.state.items = this.itemsDeRequerimiento(requerimiento);
+        this.renderItems();
+        document.getElementById('purchaseModal').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        setTimeout(() => document.getElementById(requerimiento ? 'purchaseConceptSearch-0' : 'reqAlmacen')?.focus(), 50);
+    },
+
+    actualizarCategoria() {
+        const farmacia = /farmacia/i.test(document.getElementById('reqAlmacen').value);
+        document.getElementById('reqCategoriaGrupo').hidden = !farmacia;
+        if (!farmacia) document.getElementById('reqCategoria').value = '';
+    },
+
+    itemsDeRequerimiento(requerimiento) {
+        const items = (requerimiento?.items || []).map(item => ({
+            tipo: item.tipo,
+            concepto_id: String(item.concepto_id),
+            presentacion_id: item.presentacion_id != null ? String(item.presentacion_id) : '',
+            cantidad: Number(item.cantidad),
+            precio_unitario: Number(item.precio_unitario),
+            filtros: { seccion: '', familia: '', subfamilia: '' }
+        }));
+        return items.length ? items : [{ tipo: 'articulo', concepto_id: '', presentacion_id: '', cantidad: 1, precio_unitario: 0, filtros: { seccion: '', familia: '', subfamilia: '' } }];
+    },
+
+    renderRequerimientosConfirmados(actual = '') {
+        const lista = document.getElementById('purchaseReqList');
+        if (!lista) return;
+        lista.innerHTML = this.state.requerimientosConfirmados
+            .filter(r => r.numero !== actual)
+            .map(r => `<option value="${this.escapeHtml(r.numero)}">${this.escapeHtml(`${r.almacen} · ${formatFecha(r.fecha)} · ${formatQ(r.total)}`)}</option>`)
+            .join('');
+    },
+
+    // Llena la compra con un requerimiento confirmado: número, fecha, conceptos y forma de pago
+    cargarRequerimiento(requerimiento) {
+        document.getElementById('purchaseReqNumber').value = requerimiento.numero;
+        document.getElementById('purchaseReqDate').value = requerimiento.fecha;
+        this.state.items = this.itemsDeRequerimiento(requerimiento);
+        this.renderItems();
+        if (requerimiento.forma_pago) {
+            document.getElementById('purchasePaymentMethod').value = requerimiento.forma_pago;
+            this.actualizarPago();
+        }
+        const obs = document.getElementById('purchaseObservations');
+        if (!obs.value.trim()) {
+            obs.value = [`Requerimiento ${requerimiento.numero} · ${requerimiento.almacen}`, requerimiento.categoria, requerimiento.observaciones]
+                .filter(Boolean).join(' · ');
+        }
+    },
+
+    // Número escrito en la compra: si es un requerimiento confirmado del sistema, trae sus datos
+    usarRequerimiento(numero) {
+        const requerimiento = this.state.requerimientosConfirmados.find(r => r.numero.toUpperCase() === String(numero).trim().toUpperCase());
+        if (!requerimiento) return;
+        const hayConceptos = this.state.items.some(item => item.concepto_id);
+        if (hayConceptos && !confirm(`¿Reemplazar los conceptos de la compra por los del requerimiento ${requerimiento.numero}?`)) {
+            document.getElementById('purchaseReqDate').value = requerimiento.fecha;
+            return;
+        }
+        this.cargarRequerimiento(requerimiento);
     },
 
     renderProviderOptions(selectedId = '') {
@@ -621,6 +733,7 @@ const ComprasModule = {
         document.body.style.overflow = 'auto';
         this.state.items = [];
         this.state.vouchersNuevos = [];
+        this.state.requerimientoId = null;
     },
 
     addItem() {
@@ -872,7 +985,57 @@ const ComprasModule = {
             total + (Number(item.cantidad) || 0) * (Number(item.precio_unitario) || 0), 0);
     },
 
+    leerConceptos() {
+        return this.state.items.map(item => ({
+            tipo: item.tipo,
+            concepto_id: item.concepto_id,
+            presentacion_id: item.tipo === 'medicina' && item.presentacion_id ? Number(item.presentacion_id) : null,
+            cantidad: Number(item.cantidad),
+            precio_unitario: Number(item.precio_unitario)
+        }));
+    },
+
+    conceptosIncompletos(items) {
+        return items.some(item => !item.concepto_id || !Number.isInteger(item.cantidad) || item.cantidad <= 0 || item.precio_unitario < 0);
+    },
+
+    async guardarRequerimiento() {
+        const payload = {
+            fecha: document.getElementById('purchaseDate').value,
+            almacen: document.getElementById('reqAlmacen').value.trim(),
+            categoria: document.getElementById('reqCategoria').value || null,
+            forma_pago: document.getElementById('reqFormaPago').value || null,
+            observaciones: document.getElementById('purchaseObservations').value.trim() || null,
+            items: this.leerConceptos()
+        };
+        if (!payload.almacen || !payload.fecha || this.conceptosIncompletos(payload.items)) {
+            this.notify('Completa el almacén, la fecha y todos los artículos con su cantidad y costo.', 'warning');
+            return;
+        }
+        if (/farmacia/i.test(payload.almacen) && !payload.categoria) {
+            this.notify('Indica si en farmacia se compran medicinas o descartables.', 'warning');
+            return;
+        }
+        const boton = document.getElementById('savePurchaseBtn');
+        boton.disabled = true;
+        try {
+            const id = this.state.requerimientoId;
+            const data = await this.apiRequest(id ? `/api/requerimientos-compra/${id}` : '/api/requerimientos-compra', {
+                method: id ? 'PUT' : 'POST',
+                body: JSON.stringify(payload)
+            });
+            this.closePurchaseModal();
+            this.notify(data.message, 'success');
+            if (typeof RequerimientosModule !== 'undefined') RequerimientosModule.cargar();
+        } catch (error) {
+            this.notify(error.message, 'error');
+        } finally {
+            boton.disabled = false;
+        }
+    },
+
     async savePurchase() {
+        if (this.state.modo === 'requerimiento') return this.guardarRequerimiento();
         const id = document.getElementById('purchaseId').value;
         const payload = {
             proveedor_id: document.getElementById('purchaseProvider').value,
@@ -881,17 +1044,12 @@ const ComprasModule = {
             estado: document.getElementById('purchaseStatus').value,
             observaciones: document.getElementById('purchaseObservations').value.trim() || null,
             ...this.leerPago(),
-            items: this.state.items.map(item => ({
-                tipo: item.tipo,
-                concepto_id: item.concepto_id,
-                presentacion_id: item.tipo === 'medicina' && item.presentacion_id ? Number(item.presentacion_id) : null,
-                cantidad: Number(item.cantidad),
-                precio_unitario: Number(item.precio_unitario)
-            }))
+            numero_requerimiento: document.getElementById('purchaseReqNumber').value.trim() || null,
+            fecha_requerimiento: document.getElementById('purchaseReqDate').value || null,
+            items: this.leerConceptos()
         };
 
-        if (!payload.proveedor_id || !payload.fecha || payload.items.some(item =>
-            !item.concepto_id || !Number.isInteger(item.cantidad) || item.cantidad <= 0 || item.precio_unitario < 0)) {
+        if (!payload.proveedor_id || !payload.fecha || this.conceptosIncompletos(payload.items)) {
             this.notify('Completa el proveedor, la fecha y todos los conceptos de la compra.', 'warning');
             return;
         }
@@ -920,6 +1078,7 @@ const ComprasModule = {
             if (fallidos.length) avisos.push(`No se subieron estos vouchers: ${fallidos.join(', ')}`);
             this.closePurchaseModal();
             await this.loadData();
+            if (payload.numero_requerimiento && typeof RequerimientosModule !== 'undefined') RequerimientosModule.cargar();
             this.notify(id ? 'Compra actualizada correctamente.' : 'Compra registrada correctamente.', 'success');
             avisos.forEach(aviso => this.notify(aviso, 'warning'));
         } catch (error) {
@@ -969,6 +1128,8 @@ const ComprasModule = {
     notify(message, type) {
         if (window.NotificationsModule?.show) {
             window.NotificationsModule.show(message, type);
+        } else if (typeof showNotification === 'function') {
+            showNotification(message, type);
         } else {
             alert(message);
         }

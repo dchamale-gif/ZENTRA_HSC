@@ -19,7 +19,7 @@ const TODOS_LOS_MODULOS = [
   'caratula', 'historia_clinica', 'historia_clinica_cierre', 'ordenes_medicas', 'ordenes_enfermeria', 'evolucion', 'control_medicamentos', 'extras',
   'control_signos', 'notas_enfermeria', 'laboratorios', 'recepcion_articulos', 'cotizacion_paciente',
   'contrato_ingreso', 'hospitalizaciones', 'saldo_paciente', 'medicinas', 'personal', 'personal_general', 'codigos_articulos',
-  'compras', 'ventas', 'cotizaciones', 'caja', 'cxc', 'gastos', 'dashboard_ejecutivo', 'inventario',
+  'compras', 'requerimientos', 'ventas', 'cotizaciones', 'caja', 'cxc', 'gastos', 'dashboard_ejecutivo', 'inventario',
   'transacciones', 'reportes', 'agenda', 'alertas'
 ];
 
@@ -38,16 +38,18 @@ const PERMISOS_API = {
     ver: [
       'medicinas', 'historia_clinica', 'control_medicamentos', 'compras', 'ventas', 'cotizaciones',
       'codigos_articulos', 'inventario', 'hospitalizaciones', 'recepcion_articulos', 'extras',
-      'ordenes_enfermeria'
+      'ordenes_enfermeria', 'requerimientos'
     ],
     editar: ['medicinas']
   },
   codigosArticulos: {
-    ver: ['codigos_articulos', 'compras', 'ventas', 'cotizaciones', 'medicinas', 'inventario', 'ordenes_enfermeria'],
+    ver: ['codigos_articulos', 'compras', 'ventas', 'cotizaciones', 'medicinas', 'inventario', 'ordenes_enfermeria', 'requerimientos'],
     editar: ['codigos_articulos']
   },
   proveedores: { ver: ['compras', 'gastos'], editar: ['compras'] },
   compras: 'compras',
+  // Quien pide (farmacia, cocina) usa su propio permiso; compras los ve, confirma y rechaza
+  requerimientos: { ver: ['requerimientos', 'compras'], editar: ['requerimientos', 'compras'] },
   ventas: 'ventas',
   cotizaciones: { ver: ['cotizaciones', 'cotizacion_paciente'], editar: ['cotizaciones'] },
   billing: (req) => (RUTAS_CARGOS.test(req.path)

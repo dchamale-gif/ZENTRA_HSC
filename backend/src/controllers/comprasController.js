@@ -1,5 +1,6 @@
 const pool = require('../db/connection');
 const inventario = require('../services/inventarioMedicinas');
+const requerimientos = require('./requerimientosController');
 const { validarSubida, limpiarNombre, enviarArchivo } = require('../services/archivos');
 
 const MIGRACION_PAGOS = 'Falta preparar la base de datos para el pago de las compras (npm run migrate:compras-pagos).';
@@ -56,10 +57,36 @@ const guardarPago = (client, compraId, pago) => client.query(
   [compraId, pago.condicion, pago.dias, pago.vencimiento, pago.forma, pago.referencia, pago.fechaPago]
 );
 
-const compraSelect = (conInventario, conPagos) => `
+// Requerimiento del que sale la compra: uno del sistema (por su número) o uno en papel (número y fecha a mano).
+// Uno del sistema debe estar confirmado y no haber generado ya otra compra.
+const leerRequerimiento = async (client, body, compraId = null) => {
+  const numero = String(body.numero_requerimiento || '').trim().slice(0, 30);
+  if (!numero) return { id: null, numero: null, fecha: null };
+  const fechaManual = body.fecha_requerimiento || null;
+  if (fechaManual && !FECHA.test(fechaManual)) throw errorConEstado('Fecha del requerimiento no válida');
+  const { rows } = await client.query(
+    `SELECT r.id, r.numero, to_char(r.fecha, 'YYYY-MM-DD') AS fecha, r.estado, c.id AS compra_id, c.numero_compra
+     FROM requerimientos_compra r LEFT JOIN compras c ON c.requerimiento_id = r.id
+     WHERE UPPER(r.numero) = UPPER($1)`, [numero]);
+  const r = rows[0];
+  if (!r) return { id: null, numero, fecha: fechaManual };
+  if (r.estado !== 'confirmada') {
+    throw errorConEstado(`El requerimiento ${r.numero} está ${r.estado === 'rechazada' ? 'rechazado' : 'pendiente'}: debe confirmarse antes de comprarlo`, 409);
+  }
+  if (r.compra_id && r.compra_id !== compraId) throw errorConEstado(`El requerimiento ${r.numero} ya generó la compra ${r.numero_compra}`, 409);
+  return { id: r.id, numero: r.numero, fecha: r.fecha };
+};
+
+const guardarRequerimiento = (client, compraId, req) => client.query(
+  'UPDATE compras SET requerimiento_id = $2, numero_requerimiento = $3, fecha_requerimiento = $4 WHERE id = $1',
+  [compraId, req.id, req.numero, req.fecha]
+);
+
+const compraSelect = (conInventario, conPagos, conRequerimientos) => `
   SELECT c.id, c.numero_compra, c.proveedor_id, p.nombre AS proveedor_nombre,
          c.user_id, c.fecha, c.fecha_entrega, c.total, c.estado,
-         c.observaciones, c.created_at, c.updated_at,${conPagos ? `
+         c.observaciones, c.created_at, c.updated_at,${conRequerimientos ? `
+         c.requerimiento_id, c.numero_requerimiento, to_char(c.fecha_requerimiento, 'YYYY-MM-DD') AS fecha_requerimiento,` : ''}${conPagos ? `
          c.condicion_pago, c.dias_credito, to_char(c.fecha_vencimiento_pago, 'YYYY-MM-DD') AS fecha_vencimiento_pago,
          c.forma_pago, c.referencia_pago, to_char(c.fecha_pago, 'YYYY-MM-DD') AS fecha_pago,
          p.banco AS proveedor_banco, p.numero_cuenta AS proveedor_numero_cuenta, p.tipo_cuenta AS proveedor_tipo_cuenta,
@@ -265,7 +292,7 @@ const getCompras = async (req, res) => {
   try {
     const conPagos = await pagosDisponibles();
     const result = await pool.query(
-      `${compraSelect(await inventario.disponible(), conPagos)}
+      `${compraSelect(await inventario.disponible(), conPagos, await requerimientos.disponible())}
        GROUP BY c.id, p.id
        ORDER BY c.fecha DESC, c.created_at DESC`
     );
@@ -279,7 +306,7 @@ const getCompras = async (req, res) => {
 const getCompraById = async (req, res) => {
   try {
     const result = await pool.query(
-      `${compraSelect(await inventario.disponible(), await pagosDisponibles())}
+      `${compraSelect(await inventario.disponible(), await pagosDisponibles(), await requerimientos.disponible())}
        WHERE c.id = $1
        GROUP BY c.id, p.id`,
       [req.params.id]
@@ -317,6 +344,7 @@ const createCompra = async (req, res) => {
     );
     await insertItems(client, compraId, items);
     if (pago) await guardarPago(client, compraId, pago);
+    if (await requerimientos.disponible()) await guardarRequerimiento(client, compraId, await leerRequerimiento(client, req.body));
     if (estado === 'recibida' && await inventario.disponible()) await aplicarInventario(client, compraId, req);
     await client.query('COMMIT');
     res.status(201).json({ success: true, message: 'Compra creada exitosamente', compra: result.rows[0] });
@@ -366,6 +394,9 @@ const updateCompra = async (req, res) => {
     await client.query('DELETE FROM compra_items WHERE compra_id = $1', [req.params.id]);
     await insertItems(client, req.params.id, items);
     if (pago) await guardarPago(client, req.params.id, pago);
+    if (await requerimientos.disponible()) {
+      await guardarRequerimiento(client, req.params.id, await leerRequerimiento(client, req.body, req.params.id));
+    }
     if (conInventario && estado === 'recibida' && (anterior.inventario_aplicado || anterior.estado !== 'recibida')) {
       await aplicarInventario(client, req.params.id, req);
     }

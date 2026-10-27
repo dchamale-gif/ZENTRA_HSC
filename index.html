@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-    <link rel="stylesheet" href="css/style.css?v=20261024-1">
+    <link rel="stylesheet" href="css/style.css?v=20261027-1">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/tema-botengine.css?v=20261018-2">
     <link rel="stylesheet" href="css/tema-oscuro-auto.css?v=20261023-2">
@@ -88,6 +88,10 @@
                 <a href="#" class="nav-item" data-page="compras">
                     <i class="fas fa-shopping-cart"></i>
                     <span>Compras</span>
+                </a>
+                <a href="#" class="nav-item" data-page="requerimientos">
+                    <i class="fas fa-clipboard-list"></i>
+                    <span>Requerimientos</span>
                 </a>
                 <a href="#" class="nav-item" data-page="ventas">
                     <i class="fas fa-receipt"></i>
@@ -1987,6 +1991,41 @@
                     </div>
                 </div>
 
+                <!-- Requerimientos de compra -->
+                <div id="page-requerimientos" class="page">
+                    <div class="page-header">
+                        <h1>Requerimientos de compra</h1>
+                        <button class="btn btn-primary" id="reqNuevoBtn" type="button">
+                            <i class="fas fa-plus" aria-hidden="true"></i> Nuevo requerimiento
+                        </button>
+                    </div>
+                    <div class="agenda-filtros req-filtros">
+                        <div class="agenda-filtro agenda-filtro-busqueda">
+                            <label for="reqBusqueda">Buscar</label>
+                            <div class="agenda-input-icono">
+                                <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                                <input type="search" id="reqBusqueda" class="form-input" placeholder="Número, almacén o quién lo hizo" autocomplete="off">
+                            </div>
+                        </div>
+                        <div class="agenda-filtro">
+                            <label for="reqFiltroEstado">Estado</label>
+                            <select id="reqFiltroEstado" class="form-input">
+                                <option value="">Todos</option>
+                                <option value="pendiente">Pendientes</option>
+                                <option value="confirmada">Confirmados</option>
+                                <option value="rechazada">Rechazados</option>
+                            </select>
+                        </div>
+                        <div class="agenda-filtro">
+                            <label for="reqFiltroAlmacen">Almacén</label>
+                            <select id="reqFiltroAlmacen" class="form-input">
+                                <option value="">Todos</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="reqLista" class="table-container"><p class="cot-sub" style="padding: 20px;">Cargando requerimientos…</p></div>
+                </div>
+
                 <!-- Ventas Page -->
                 <div id="page-ventas" class="page">
                     <div class="page-header">
@@ -3870,7 +3909,7 @@
                 <form id="purchaseForm">
                     <input type="hidden" id="purchaseId">
                     <div class="form-row">
-                        <div class="form-group">
+                        <div class="form-group" data-solo-compra>
                             <div class="provider-field-header">
                                 <label>Proveedor <span class="required">*</span></label>
                                 <button class="btn-link" type="button" onclick="ComprasModule.toggleProviderForm()">
@@ -3883,11 +3922,11 @@
                             <label>Fecha <span class="required">*</span></label>
                             <input type="date" id="purchaseDate" class="form-input" required>
                         </div>
-                        <div class="form-group">
+                        <div class="form-group" data-solo-compra>
                             <label>Fecha de entrega</label>
                             <input type="date" id="purchaseDeliveryDate" class="form-input">
                         </div>
-                        <div class="form-group">
+                        <div class="form-group" data-solo-compra>
                             <label>Estado</label>
                             <select id="purchaseStatus" class="form-input">
                                 <option value="pendiente">Pendiente</option>
@@ -3897,9 +3936,52 @@
                             </select>
                             <small class="form-hint">Al marcarla «Recibida» suma sus conceptos al inventario.</small>
                         </div>
+                        <div class="form-group" data-solo-requerimiento>
+                            <label for="reqAlmacen">Almacén <span class="required">*</span></label>
+                            <input type="text" id="reqAlmacen" class="form-input" list="reqAlmacenes" maxlength="60" autocomplete="off" placeholder="Farmacia, Cocina…">
+                            <datalist id="reqAlmacenes">
+                                <option value="Farmacia"></option>
+                                <option value="Cocina"></option>
+                                <option value="Enfermería"></option>
+                                <option value="Limpieza"></option>
+                                <option value="Mantenimiento"></option>
+                                <option value="Administración"></option>
+                            </datalist>
+                        </div>
+                        <div class="form-group" data-solo-requerimiento id="reqCategoriaGrupo" hidden>
+                            <label for="reqCategoria">Qué se compra <span class="required">*</span></label>
+                            <select id="reqCategoria" class="form-input">
+                                <option value="">-- Selecciona --</option>
+                                <option value="medicinas">Medicinas</option>
+                                <option value="descartables">Descartables</option>
+                            </select>
+                        </div>
+                        <div class="form-group" data-solo-requerimiento>
+                            <label for="reqFormaPago">Forma de pago</label>
+                            <select id="reqFormaPago" class="form-input">
+                                <option value="">-- Selecciona --</option>
+                                <option value="tarjeta">Tarjeta de crédito</option>
+                                <option value="efectivo">Efectivo</option>
+                                <option value="transferencia">Transferencia</option>
+                                <option value="cheque">Cheque</option>
+                            </select>
+                        </div>
                     </div>
 
-                    <div id="quickProviderForm" class="quick-provider-form" hidden>
+                    <div class="form-row" data-solo-compra id="purchaseReqRow" hidden>
+                        <div class="form-group">
+                            <label for="purchaseReqNumber">No. de requerimiento</label>
+                            <input type="text" id="purchaseReqNumber" class="form-input" list="purchaseReqList" maxlength="30" autocomplete="off" placeholder="REQ-0001 o el número en papel">
+                            <datalist id="purchaseReqList"></datalist>
+                            <small class="form-hint" id="purchaseReqHint">Un requerimiento confirmado del sistema carga sus conceptos.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="purchaseReqDate">Fecha del requerimiento</label>
+                            <input type="date" id="purchaseReqDate" class="form-input">
+                        </div>
+                    </div>
+
+                    <div id="quickProviderForm" class="quick-provider-form" data-solo-compra hidden>
                         <div class="purchase-items-header">
                             <h3>Nuevo proveedor</h3>
                             <button class="btn-icon" type="button" title="Cerrar" onclick="ComprasModule.toggleProviderForm(false)">
@@ -3988,7 +4070,7 @@
 
                     <div class="purchase-total">Total: <strong id="purchaseCalculatedTotal">Q0.00</strong></div>
 
-                    <section id="purchasePaymentSection" class="compra-pago" aria-labelledby="purchasePaymentTitle" hidden>
+                    <section id="purchasePaymentSection" class="compra-pago" aria-labelledby="purchasePaymentTitle" data-solo-compra hidden>
                         <div class="purchase-items-header">
                             <h3 id="purchasePaymentTitle">Pago</h3>
                         </div>
@@ -4094,7 +4176,7 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" type="button" onclick="ComprasModule.closePurchaseModal()">Cancelar</button>
                 <button class="btn btn-primary" type="button" id="savePurchaseBtn">
-                    <i class="fas fa-save"></i> Guardar Compra
+                    <i class="fas fa-save"></i> <span id="savePurchaseBtnText">Guardar Compra</span>
                 </button>
             </div>
         </div>
@@ -5878,7 +5960,8 @@
     <script src="js/control-medicamentos.js?v=20261023-2"></script>
     <script src="js/personal.js?v=20261023-2"></script>
     <script src="js/codigos-articulos.js?v=20261015-21"></script>
-    <script src="js/compras.js?v=20261024-1"></script>
+    <script src="js/compras.js?v=20261027-1"></script>
+    <script src="js/requerimientos.js?v=20261027-1"></script>
     <script src="js/inventario-activos.js?v=20261023-1"></script>
     <script src="js/alertas.js?v=20261015-21"></script>
     <script src="js/ventas.js?v=20261023-1"></script>
@@ -5898,8 +5981,8 @@
     <script src="js/gastos-servicios.js?v=20261018-3"></script>
     
     <!-- App Principal -->
-    <script src="js/app.js?v=20261023-5"></script>
-    <script src="js/permisos.js?v=20261023-1"></script>
+    <script src="js/app.js?v=20261027-1"></script>
+    <script src="js/permisos.js?v=20261027-1"></script>
     <script src="js/comunicacion.js?v=20261019-1"></script>
     <script src="js/inicio.js?v=20261018-1"></script>
 </body>

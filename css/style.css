@@ -11088,6 +11088,88 @@ body.chat-abierto {
 .compras-pago-credito { --compras-fondo: var(--bg-light); --compras-texto: var(--text-dark); }
 .compras-pago-vencida { --compras-fondo: var(--danger-soft); --compras-texto: var(--danger-color); }
 
+/* Requerimientos de compra: estado seleccionable con el mismo color de las compras */
+.req-select-pendiente { --compras-fondo: var(--warning-soft); --compras-texto: var(--warning-color); }
+.req-select-confirmada { --compras-fondo: var(--success-soft); --compras-texto: var(--success-color); }
+.req-select-rechazada { --compras-fondo: var(--danger-soft); --compras-texto: var(--danger-color); }
+
+.req-estado {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.req-estado-pendiente { background: var(--warning-soft); color: var(--warning-color); }
+.req-estado-confirmada { background: var(--success-soft); color: var(--success-color); }
+.req-estado-rechazada { background: var(--danger-soft); color: var(--danger-color); }
+
+.req-filtros {
+    grid-template-columns: minmax(220px, 2fr) minmax(150px, 1fr) minmax(150px, 1fr);
+}
+
+@media (max-width: 640px) {
+    .req-filtros {
+        grid-template-columns: 1fr;
+    }
+}
+
+.req-tabla td:first-child strong,
+.req-tabla .cot-tag,
+.req-tabla .btn-accion {
+    white-space: nowrap;
+}
+
+.req-tabla td small.cot-sub {
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.compras-req {
+    display: block;
+    margin-top: 2px;
+    color: var(--text-gray);
+    font-size: 12px;
+    font-weight: 400;
+}
+
+/* El formulario de compras en modo requerimiento oculta proveedor, estado y pago, y al revés */
+#purchaseModal[data-modo="requerimiento"] [data-solo-compra],
+#purchaseModal:not([data-modo="requerimiento"]) [data-solo-requerimiento] {
+    display: none !important;
+}
+
+.req-detalle {
+    width: min(760px, calc(100vw - 32px));
+}
+
+.req-datos {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px 20px;
+    margin-bottom: 16px;
+}
+
+.req-datos dt {
+    color: var(--text-gray);
+    font-size: 12px;
+}
+
+.req-datos dd {
+    margin: 2px 0 0;
+    color: var(--text-dark);
+    font-weight: 500;
+}
+
+.req-observaciones {
+    margin-top: 12px;
+    color: var(--text-body);
+}
+
 .compras-select option {
     background: var(--bg-white);
     color: var(--text-dark);

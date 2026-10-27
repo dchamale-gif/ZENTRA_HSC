@@ -28,6 +28,7 @@ const Permisos = {
         'personal-general': 'personal_general',
         'codigos-articulos': 'codigos_articulos',
         'compras': 'compras',
+        'requerimientos': ['requerimientos', 'compras'],
         'ventas': 'ventas',
         'cotizaciones': 'cotizaciones',
         'caja': 'caja',
@@ -70,7 +71,8 @@ const Permisos = {
         ] },
         { seccion: 'Módulo contable', modulos: [
             { clave: 'codigos_articulos', texto: 'Códigos de artículos' },
-            { clave: 'compras', texto: 'Compras y proveedores' },
+            { clave: 'compras', texto: 'Compras y proveedores (confirma requerimientos)' },
+            { clave: 'requerimientos', texto: 'Requerimientos de compra (farmacia, cocina…)' },
             { clave: 'ventas', texto: 'Ventas' },
             { clave: 'cotizaciones', texto: 'Cotizaciones' },
             { clave: 'caja', texto: 'Caja' },

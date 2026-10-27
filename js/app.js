@@ -133,7 +133,8 @@ async function initializeApp() {
     // PASO 4: Inicializar otros módulos
     console.log('🔄 Inicializando módulos adicionales...');
     try { if (typeof CodigosArticulosModule !== 'undefined' && moduloVisible('codigos-articulos')) CodigosArticulosModule.init(); } catch(e) { console.warn('CodigosArticulosModule error:', e); }
-    try { if (typeof ComprasModule !== 'undefined' && moduloVisible('compras')) ComprasModule.init(); } catch(e) { console.warn('ComprasModule error:', e); }
+    // El formulario de compras también sirve a los requerimientos
+    try { if (typeof ComprasModule !== 'undefined' && moduloVisible('compras', 'requerimientos')) ComprasModule.init(); } catch(e) { console.warn('ComprasModule error:', e); }
     try { if (typeof AlertasModule !== 'undefined') AlertasModule.init(); } catch(e) { console.warn('AlertasModule error:', e); }
     try { if (typeof VentasModule !== 'undefined' && moduloVisible('ventas')) VentasModule.init(); } catch(e) { console.warn('VentasModule error:', e); }
     try { if (typeof CajaModule !== 'undefined' && moduloVisible('caja')) CajaModule.init(); } catch(e) { console.warn('CajaModule error:', e); }
@@ -263,6 +264,7 @@ function navigateToPage(pageId) {
         'dashboard': 'Inicio',
         'inventory': 'Inventario',
         'compras': 'Gestión de Compras',
+        'requerimientos': 'Requerimientos de compra',
         'ventas': 'Gestión de Ventas',
         'cotizaciones': 'Cotizaciones',
         'caja': 'Gestión de Caja',
@@ -312,6 +314,9 @@ function navigateToPage(pageId) {
     // Refresh module data on navigation
     if (pageId === 'compras') {
         ComprasModule.refreshTable();
+    }
+    if (pageId === 'requerimientos' && typeof RequerimientosModule !== 'undefined') {
+        RequerimientosModule.cargar();
     }
     if (pageId === 'ventas') {
         VentasModule.refreshTable();
