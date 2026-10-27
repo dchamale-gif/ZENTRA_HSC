@@ -97,7 +97,11 @@ const guardarRequerimiento = (client, compraId, req) => client.query(
 const compraSelect = (conInventario, conPagos, conRequerimientos) => `
   SELECT c.id, c.numero_compra, c.proveedor_id, p.nombre AS proveedor_nombre,
          c.user_id, c.fecha, c.fecha_entrega, c.total, c.estado,
-         c.observaciones, c.created_at, c.updated_at,${conRequerimientos ? `
+         c.observaciones, c.created_at, c.updated_at,
+         (SELECT TRIM(CONCAT(u.nombre, ' ', u.apellido)) FROM users u WHERE u.id::text = c.user_id::text) AS registrado_por_nombre,${conRequerimientos ? `
+         (SELECT r.solicitado_por_nombre FROM requerimientos_compra r WHERE r.id = c.requerimiento_id) AS solicitado_por_nombre,
+         (SELECT r.revisado_por_nombre FROM requerimientos_compra r
+           WHERE r.id = c.requerimiento_id AND r.estado = 'confirmada') AS confirmado_por_nombre,
          c.requerimiento_id, c.numero_requerimiento, to_char(c.fecha_requerimiento, 'YYYY-MM-DD') AS fecha_requerimiento,
          c.bodega_id, (SELECT nombre FROM bodegas WHERE id = c.bodega_id) AS bodega_nombre,` : ''}${conPagos ? `
          c.condicion_pago, c.dias_credito, to_char(c.fecha_vencimiento_pago, 'YYYY-MM-DD') AS fecha_vencimiento_pago,

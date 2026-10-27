@@ -148,7 +148,7 @@ const ComprasModule = {
         if (columnaPago) columnaPago.hidden = !this.state.pagos;
 
         if (this.state.compras.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="${this.state.pagos ? 7 : 6}" class="text-center">No hay compras registradas</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="${this.state.pagos ? 9 : 8}" class="text-center">No hay compras registradas</td></tr>`;
             return;
         }
 
@@ -159,6 +159,7 @@ const ComprasModule = {
                     ${compra.numero_requerimiento ? `<small class="compras-req">Req. ${this.escapeHtml(compra.numero_requerimiento)}${compra.fecha_requerimiento ? ` · ${formatFecha(compra.fecha_requerimiento)}` : ''}</small>` : ''}</td>
                 <td>${this.formatDate(compra.fecha)}</td>
                 <td>${this.escapeHtml(compra.proveedor_nombre)}</td>
+                ${this.responsablesHTML(compra)}
                 <td>${formatQ(compra.total || 0)}</td>
                 <td>${this.selectorEstado(compra)}</td>
                 ${this.state.pagos ? `<td class="compras-col-pago">${this.estadoPagoHTML(compra)}</td>` : ''}
@@ -172,6 +173,16 @@ const ComprasModule = {
                 </td>
             </tr>
         `).join('');
+    },
+
+    // Solicitó: quien hizo el requerimiento del sistema o, sin él, quien registró la compra.
+    // Confirmó: quien confirmó ese requerimiento.
+    responsablesHTML(compra) {
+        const solicito = compra.solicitado_por_nombre || compra.registrado_por_nombre;
+        const nota = compra.solicitado_por_nombre ? '' : '<small class="compras-req">Registró la compra</small>';
+        return `<td>${solicito ? `${this.escapeHtml(solicito)}${nota}` : '—'}</td>
+                <td>${compra.confirmado_por_nombre ? this.escapeHtml(compra.confirmado_por_nombre)
+                    : '<span title="Solo las compras que salen de un requerimiento del sistema tienen quién lo confirmó">—</span>'}</td>`;
     },
 
     // ---------- Pago ----------
