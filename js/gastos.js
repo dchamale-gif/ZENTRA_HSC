@@ -41,6 +41,11 @@ const GastosRequisiciones = {
             if (select) this.cambiarEstado(select);
         });
         lista?.addEventListener('click', (e) => {
+            const voucher = e.target.closest('[data-gasto-voucher]');
+            if (voucher) {
+                this.verVoucher(voucher.dataset.gastoVoucher, voucher.dataset.nombre);
+                return;
+            }
             const boton = e.target.closest('[data-gasto-accion]');
             const gasto = boton && this.state.gastos.find(g => String(g.id) === boton.dataset.id);
             if (!gasto) return;
@@ -108,9 +113,9 @@ const GastosRequisiciones = {
         const caja = document.getElementById('gastosResumen');
         if (!caja) return;
         caja.innerHTML = r && r.cantidad
-            ? `<strong>${r.cantidad} gasto${r.cantidad === 1 ? '' : 's'} esperando pago del dueño · ${formatQ(r.total)}</strong>
+            ? `<strong>${r.cantidad} gasto${r.cantidad === 1 ? '' : 's'} esperando pago · ${formatQ(r.total)}</strong>
                <span>El más antiguo lleva ${this.textoDias(r.dias_mas_antiguo)}.</span>`
-            : '<span>No hay gastos esperando pago del dueño.</span>';
+            : '<span>No hay gastos esperando pago.</span>';
     },
 
     // Días en espera: desde la carga hasta hoy (esperando) o hasta el pago (pagado)
@@ -139,8 +144,58 @@ const GastosRequisiciones = {
         if (g.numero_pago_banco) partes.push(`Banco ${this.e(g.numero_pago_banco)}`);
         if (g.numero_autorizacion) partes.push(`Aut. ${this.e(g.numero_autorizacion)}`);
         if (!g.numero_pago_banco && g.referencia_pago) partes.push(this.e(g.referencia_pago));
+        const vouchers = (g.vouchers || []).map(v => `
+            <button type="button" class="btn-link gasto-voucher" data-gasto-voucher="${v.id}" data-nombre="${this.e(v.nombre)}"
+                    title="Ver ${this.e(v.nombre)}"><i class="fas fa-paperclip" aria-hidden="true"></i> ${this.e(v.nombre)}</button>`).join('');
         return `<small class="cot-sub">${partes.filter(Boolean).join(' · ')}</small>
-            ${g.pagado_por_nombre ? `<small class="cot-sub">Por ${this.e(g.pagado_por_nombre)}</small>` : ''}`;
+            ${g.pagado_por_nombre ? `<small class="cot-sub">Por ${this.e(g.pagado_por_nombre)}</small>` : ''}${vouchers}`;
+    },
+
+    // Abre el voucher en una pestaña nueva (se pide con el token, por eso no es un enlace directo)
+    async verVoucher(id, nombre) {
+        const ventana = window.open('', '_blank');
+        try {
+            const response = await authManager.fetchWithAuth(`/api/gastos/vouchers/${encodeURIComponent(id)}`);
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                throw new Error(data.error || `Error ${response.status}`);
+            }
+            const url = URL.createObjectURL(await response.blob());
+            if (ventana) {
+                ventana.location.href = url;
+            } else {
+                // Si el navegador bloqueó la pestaña, se descarga
+                const enlace = document.createElement('a');
+                enlace.href = url;
+                enlace.download = nombre || 'voucher';
+                enlace.click();
+            }
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+        } catch (error) {
+            ventana?.close();
+            this.notificar(`No se pudo abrir el voucher: ${error.message}`, 'error');
+        }
+    },
+
+    // Sube los vouchers del pago; devuelve los nombres de los que no se pudieron subir
+    async subirVouchers(gasto, archivos) {
+        const fallidos = [];
+        for (const archivo of archivos) {
+            try {
+                const response = await authManager.fetchWithAuth(`/api/gastos/${gasto.id}/vouchers?nombre=${encodeURIComponent(archivo.name)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': archivo.type },
+                    body: archivo
+                });
+                if (!response.ok) {
+                    const data = await response.json().catch(() => ({}));
+                    throw new Error(data.error || `Error ${response.status}`);
+                }
+            } catch (error) {
+                fallidos.push(`${archivo.name} (${error.message})`);
+            }
+        }
+        return fallidos;
     },
 
     render() {
@@ -326,24 +381,70 @@ const GastosRequisiciones = {
                     <label for="gastoAutorizacion">No. de autorización <span class="required" data-gasto-banco>*</span></label>
                     <input id="gastoAutorizacion" class="form-input" maxlength="60" autocomplete="off" inputmode="numeric">
                 </div>
-                <p class="form-hint" id="gastoBancoAyuda" hidden>En efectivo no hay número del banco ni de autorización.</p>`,
+                <p class="form-hint" id="gastoBancoAyuda" hidden>En efectivo no hay número del banco ni de autorización.</p>
+                <div class="form-group">
+                    <div class="compra-pago-subtitulo">Voucher de pago (opcional)</div>
+                    <ul class="compra-vouchers" id="gastoVoucherLista"></ul>
+                    <label class="btn btn-secondary btn-small" for="gastoVoucher">
+                        <i class="fas fa-paperclip" aria-hidden="true"></i> Adjuntar voucher
+                    </label>
+                    <input type="file" id="gastoVoucher" accept="application/pdf,image/jpeg,image/png,image/webp" multiple hidden>
+                    <small class="form-hint">PDF, JPG, PNG o WEBP de hasta 10 MB.</small>
+                </div>`,
                 '<i class="fas fa-check" aria-hidden="true"></i> Marcar como pagado',
-                (form) => {
+                async (form) => {
                     const forma = form.querySelector('#gastoFormaPago').value;
                     const numeroBanco = form.querySelector('#gastoNumeroBanco').value.trim();
                     const autorizacion = form.querySelector('#gastoAutorizacion').value.trim();
                     if (forma !== 'efectivo' && (!numeroBanco || !autorizacion)) {
                         throw new Error('Registre el número de pago que da el banco y el número de autorización.');
                     }
-                    return this.enviarEstado(gasto, {
-                        estado,
-                        fecha: form.querySelector('#gastoFechaPago').value,
-                        forma_pago: forma,
-                        numero_pago_banco: numeroBanco,
-                        numero_autorizacion: autorizacion
+                    const data = await this.api(`/${gasto.id}/estado`, {
+                        method: 'PUT',
+                        body: JSON.stringify({
+                            estado,
+                            fecha: form.querySelector('#gastoFechaPago').value,
+                            forma_pago: forma,
+                            numero_pago_banco: numeroBanco,
+                            numero_autorizacion: autorizacion
+                        })
                     });
+                    // El pago ya quedó guardado: si un voucher falla solo se avisa
+                    const fallidos = archivos.length ? await this.subirVouchers(gasto, archivos) : [];
+                    this.notificar(data.message, 'success');
+                    if (fallidos.length) this.notificar(`No se subieron estos vouchers: ${fallidos.join(', ')}`, 'warning');
+                    await this.cargar();
                 },
                 deshacer);
+            const archivos = [];
+            const lista = document.getElementById('gastoVoucherLista');
+            const renderArchivos = () => {
+                lista.innerHTML = archivos.map((archivo, i) => `
+                    <li>
+                        <span>${this.e(archivo.name)}</span>
+                        <small>${Math.max(1, Math.round(archivo.size / 1024))} KB</small>
+                        <button type="button" class="btn-icon btn-delete" data-quitar="${i}" title="Quitar" aria-label="Quitar ${this.e(archivo.name)}"><i class="fas fa-times"></i></button>
+                    </li>`).join('');
+            };
+            document.getElementById('gastoVoucher').addEventListener('change', (e) => {
+                for (const archivo of e.target.files) {
+                    if (!/^(application\/pdf|image\/(jpeg|png|webp))$/.test(archivo.type)) {
+                        this.notificar(`"${archivo.name}" no es PDF, JPG, PNG o WEBP.`, 'warning');
+                    } else if (archivo.size > 10 * 1024 * 1024) {
+                        this.notificar(`"${archivo.name}" pesa más de 10 MB.`, 'warning');
+                    } else {
+                        archivos.push(archivo);
+                    }
+                }
+                e.target.value = '';
+                renderArchivos();
+            });
+            lista.addEventListener('click', (e) => {
+                const quitar = e.target.closest('[data-quitar]');
+                if (!quitar) return;
+                archivos.splice(Number(quitar.dataset.quitar), 1);
+                renderArchivos();
+            });
             // En efectivo los números del banco no aplican
             const forma = document.getElementById('gastoFormaPago');
             const actualizar = () => {

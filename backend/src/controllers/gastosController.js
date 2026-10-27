@@ -10,6 +10,7 @@
 const pool = require('../db/connection');
 const correlativos = require('../services/correlativos');
 const { nombreUsuario } = require('../services/historiaSincronizada');
+const { validarSubida, limpiarNombre, enviarArchivo } = require('../services/archivos');
 
 const MIGRACION = 'Falta preparar la base de datos para los gastos (npm run migrate:gastos).';
 const ESTADOS = ['pendiente', 'cargado', 'pagado', 'anulado'];
@@ -32,6 +33,29 @@ const disponible = async () => {
   const valor = rows[0].listo;
   migracionCache = { valor, hasta: valor ? Infinity : Date.now() + 60000 };
   return valor;
+};
+
+// Los vouchers llegaron después: sin su tabla el resto de gastos sigue funcionando
+let vouchersCache = { valor: false, hasta: 0 };
+const vouchersDisponibles = async () => {
+  if (Date.now() < vouchersCache.hasta) return vouchersCache.valor;
+  const { rows } = await pool.query("SELECT to_regclass('public.gasto_vouchers') IS NOT NULL AS listo");
+  const valor = rows[0].listo;
+  vouchersCache = { valor, hasta: valor ? Infinity : Date.now() + 60000 };
+  return valor;
+};
+
+// Agrega a cada gasto la lista de sus vouchers (sin el contenido)
+const agregarVouchers = async (gastos) => {
+  gastos.forEach(g => { g.vouchers = []; });
+  if (!gastos.length || !(await vouchersDisponibles())) return;
+  const { rows } = await pool.query(
+    `SELECT id, gasto_id, nombre_archivo AS nombre, tipo_contenido, tamano, subido_por_nombre AS subido_por, created_at AS fecha
+     FROM gasto_vouchers WHERE gasto_id = ANY($1::int[]) ORDER BY created_at, id`,
+    [gastos.map(g => g.id)]
+  );
+  const porGasto = new Map(gastos.map(g => [g.id, g]));
+  rows.forEach(({ gasto_id: gastoId, ...voucher }) => porGasto.get(gastoId)?.vouchers.push(voucher));
 };
 
 const texto = (valor, max) => String(valor ?? '').trim().slice(0, max) || null;
@@ -95,6 +119,7 @@ const gastosController = {
          ${condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : ''}
          ORDER BY g.created_at DESC, g.id DESC
          LIMIT 500`, valores);
+      await agregarVouchers(rows);
       // Lo que el dueño aún debe pagar: los cargados
       const resumen = await pool.query(
         `SELECT COUNT(*)::int AS cantidad, COALESCE(SUM(monto), 0) AS total,
@@ -212,6 +237,41 @@ const gastosController = {
       res.json({ message: `Gasto ${actual.numero} ${textos[estado]}`, gasto: await obtener(pool, req.params.id) });
     } catch (error) {
       responderError(res, error, 'cambiar el estado del gasto');
+    }
+  },
+
+  // POST /api/gastos/:id/vouchers?nombre= (cuerpo: el PDF o la imagen del voucher tal cual)
+  async subirVoucher(req, res) {
+    try {
+      const { tipoContenido, status, error: errorArchivo } = validarSubida(req.body);
+      if (errorArchivo) throw errorConEstado(errorArchivo, status);
+      if (!(await vouchersDisponibles())) throw errorConEstado(MIGRACION, 503);
+      const { rows } = await pool.query(
+        `INSERT INTO gasto_vouchers (gasto_id, nombre_archivo, tipo_contenido, tamano, contenido, subido_por, subido_por_nombre)
+         SELECT g.id, $2, $3, $4, $5, $6, $7 FROM gastos g WHERE g.id = $1
+         RETURNING id, nombre_archivo AS nombre, tipo_contenido, tamano, subido_por_nombre AS subido_por, created_at AS fecha`,
+        [req.params.id, limpiarNombre(req.query.nombre, tipoContenido, 'voucher'), tipoContenido,
+          req.body.length, req.body, req.user.id, nombreUsuario(req)]
+      );
+      if (!rows.length) throw errorConEstado('Gasto no encontrado', 404);
+      res.status(201).json({ message: 'Voucher guardado', voucher: rows[0] });
+    } catch (error) {
+      responderError(res, error, 'guardar el voucher');
+    }
+  },
+
+  // GET /api/gastos/vouchers/:voucherId - el voucher para verlo o descargarlo
+  async verVoucher(req, res) {
+    try {
+      if (!Number.isInteger(Number(req.params.voucherId))) throw errorConEstado('Voucher no válido');
+      if (!(await vouchersDisponibles())) throw errorConEstado(MIGRACION, 503);
+      const { rows } = await pool.query(
+        'SELECT nombre_archivo, tipo_contenido, contenido FROM gasto_vouchers WHERE id = $1', [req.params.voucherId]);
+      if (!rows.length) throw errorConEstado('Voucher no encontrado', 404);
+      const { nombre_archivo: nombre, tipo_contenido: tipoContenido, contenido } = rows[0];
+      enviarArchivo(res, { nombre, tipoContenido, contenido });
+    } catch (error) {
+      responderError(res, error, 'abrir el voucher');
     }
   },
 

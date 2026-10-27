@@ -58,4 +58,20 @@ ALTER TABLE gastos ADD COLUMN IF NOT EXISTS pagado_por_nombre VARCHAR(150);
 CREATE INDEX IF NOT EXISTS idx_gastos_estado ON gastos (estado, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_gastos_creado ON gastos (created_at DESC);
 
+-- Voucher del pago (opcional): PDF o imagen guardado en la base, como en compras
+CREATE TABLE IF NOT EXISTS gasto_vouchers (
+    id SERIAL PRIMARY KEY,
+    gasto_id INTEGER NOT NULL REFERENCES gastos(id) ON DELETE CASCADE,
+    nombre_archivo VARCHAR(255) NOT NULL,
+    tipo_contenido VARCHAR(40) NOT NULL
+        CHECK (tipo_contenido IN ('application/pdf', 'image/jpeg', 'image/png', 'image/webp')),
+    tamano INTEGER NOT NULL,
+    contenido BYTEA NOT NULL,
+    subido_por __TIPO_USUARIO_ID__ REFERENCES users(id) ON DELETE SET NULL,
+    subido_por_nombre VARCHAR(150) NOT NULL DEFAULT '',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_gasto_vouchers_gasto ON gasto_vouchers (gasto_id);
+
 COMMIT;

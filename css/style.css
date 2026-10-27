@@ -11186,6 +11186,16 @@ body.chat-abierto {
     white-space: nowrap;
 }
 
+.gastos-tabla .gasto-voucher {
+    display: block;
+    max-width: 220px;
+    overflow: hidden;
+    font-size: 12px;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .gasto-select-pendiente { --compras-fondo: var(--bg-light); --compras-texto: var(--text-dark); }
 .gasto-select-cargado { --compras-fondo: var(--warning-soft); --compras-texto: var(--warning-color); }
 .gasto-select-pagado { --compras-fondo: var(--success-soft); --compras-texto: var(--success-color); }
