@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-    <link rel="stylesheet" href="css/style.css?v=20261027-1">
+    <link rel="stylesheet" href="css/style.css?v=20261027-2">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/tema-botengine.css?v=20261018-2">
     <link rel="stylesheet" href="css/tema-oscuro-auto.css?v=20261023-2">
@@ -1995,16 +1995,21 @@
                 <div id="page-requerimientos" class="page">
                     <div class="page-header">
                         <h1>Requerimientos de compra</h1>
-                        <button class="btn btn-primary" id="reqNuevoBtn" type="button">
-                            <i class="fas fa-plus" aria-hidden="true"></i> Nuevo requerimiento
-                        </button>
+                        <div class="button-group">
+                            <button class="btn btn-secondary" id="reqBodegasBtn" type="button" hidden>
+                                <i class="fas fa-warehouse" aria-hidden="true"></i> Bodegas
+                            </button>
+                            <button class="btn btn-primary" id="reqNuevoBtn" type="button">
+                                <i class="fas fa-plus" aria-hidden="true"></i> Nuevo requerimiento
+                            </button>
+                        </div>
                     </div>
                     <div class="agenda-filtros req-filtros">
                         <div class="agenda-filtro agenda-filtro-busqueda">
                             <label for="reqBusqueda">Buscar</label>
                             <div class="agenda-input-icono">
                                 <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
-                                <input type="search" id="reqBusqueda" class="form-input" placeholder="Número, almacén o quién lo hizo" autocomplete="off">
+                                <input type="search" id="reqBusqueda" class="form-input" placeholder="Número, bodega o quién lo hizo" autocomplete="off">
                             </div>
                         </div>
                         <div class="agenda-filtro">
@@ -2017,7 +2022,7 @@
                             </select>
                         </div>
                         <div class="agenda-filtro">
-                            <label for="reqFiltroAlmacen">Almacén</label>
+                            <label for="reqFiltroAlmacen">Bodega</label>
                             <select id="reqFiltroAlmacen" class="form-input">
                                 <option value="">Todos</option>
                             </select>
@@ -2592,7 +2597,10 @@
 
                     <!-- Tabs de navegación -->
                     <div class="tabs-container">
-                        <button class="tab-button active" onclick="switchGastosTab('pagos')">
+                        <button class="tab-button active" onclick="switchGastosTab('requisiciones')">
+                            <i class="fas fa-clipboard-list" aria-hidden="true"></i> Requisiciones de gasto
+                        </button>
+                        <button class="tab-button" onclick="switchGastosTab('pagos')">
                             <i class="fas fa-coins"></i> Pagos
                         </button>
                         <button class="tab-button" onclick="switchGastosTab('cuentaspagar')">
@@ -2606,8 +2614,38 @@
                         </button>
                     </div>
 
+                    <!-- Tab: Requisiciones de gasto (luz, internet, teléfono…) que esperan el pago del dueño -->
+                    <div id="tab-requisiciones" class="tab-content active">
+                        <div class="gastos-req-cabecera">
+                            <p id="gastosResumen" class="gastos-req-resumen" aria-live="polite"></p>
+                            <button class="btn btn-primary" id="gastoNuevoBtn" type="button">
+                                <i class="fas fa-plus" aria-hidden="true"></i> Nuevo gasto
+                            </button>
+                        </div>
+                        <div class="agenda-filtros gastos-filtros">
+                            <div class="agenda-filtro agenda-filtro-busqueda">
+                                <label for="gastosBusqueda">Buscar</label>
+                                <div class="agenda-input-icono">
+                                    <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                                    <input type="search" id="gastosBusqueda" class="form-input" placeholder="Número, gasto, proveedor, factura o quién lo hizo" autocomplete="off">
+                                </div>
+                            </div>
+                            <div class="agenda-filtro">
+                                <label for="gastosFiltroEstado">Estado</label>
+                                <select id="gastosFiltroEstado" class="form-input">
+                                    <option value="">Todos</option>
+                                    <option value="pendiente">Pendientes</option>
+                                    <option value="cargado">Esperando pago</option>
+                                    <option value="pagado">Pagados</option>
+                                    <option value="anulado">Anulados</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="gastosLista" class="table-container"><p class="cot-sub" style="padding: 20px;">Cargando gastos…</p></div>
+                    </div>
+
                     <!-- Tab: Registrar Pago -->
-                    <div id="tab-pagos" class="tab-content active">
+                    <div id="tab-pagos" class="tab-content">
                         <div class="form-container">
                             <h2><i class="fas fa-credit-card"></i> Registrar Nuevo Pago</h2>
                             <div class="form-row">
@@ -3936,17 +3974,10 @@
                             </select>
                             <small class="form-hint">Al marcarla «Recibida» suma sus conceptos al inventario.</small>
                         </div>
-                        <div class="form-group" data-solo-requerimiento>
-                            <label for="reqAlmacen">Almacén <span class="required">*</span></label>
-                            <input type="text" id="reqAlmacen" class="form-input" list="reqAlmacenes" maxlength="60" autocomplete="off" placeholder="Farmacia, Cocina…">
-                            <datalist id="reqAlmacenes">
-                                <option value="Farmacia"></option>
-                                <option value="Cocina"></option>
-                                <option value="Enfermería"></option>
-                                <option value="Limpieza"></option>
-                                <option value="Mantenimiento"></option>
-                                <option value="Administración"></option>
-                            </datalist>
+                        <div class="form-group">
+                            <label for="purchaseBodega">Bodega <span class="required">*</span></label>
+                            <select id="purchaseBodega" class="form-input"></select>
+                            <small class="form-hint" id="purchaseBodegaHint"></small>
                         </div>
                         <div class="form-group" data-solo-requerimiento id="reqCategoriaGrupo" hidden>
                             <label for="reqCategoria">Qué se compra <span class="required">*</span></label>
@@ -3971,7 +4002,7 @@
                     <div class="form-row" data-solo-compra id="purchaseReqRow" hidden>
                         <div class="form-group">
                             <label for="purchaseReqNumber">No. de requerimiento</label>
-                            <input type="text" id="purchaseReqNumber" class="form-input" list="purchaseReqList" maxlength="30" autocomplete="off" placeholder="REQ-0001 o el número en papel">
+                            <input type="text" id="purchaseReqNumber" class="form-input" list="purchaseReqList" maxlength="30" autocomplete="off" placeholder="FAR-0001-2026 o el número en papel">
                             <datalist id="purchaseReqList"></datalist>
                             <small class="form-hint" id="purchaseReqHint">Un requerimiento confirmado del sistema carga sus conceptos.</small>
                         </div>
@@ -5960,8 +5991,8 @@
     <script src="js/control-medicamentos.js?v=20261023-2"></script>
     <script src="js/personal.js?v=20261023-2"></script>
     <script src="js/codigos-articulos.js?v=20261015-21"></script>
-    <script src="js/compras.js?v=20261027-1"></script>
-    <script src="js/requerimientos.js?v=20261027-1"></script>
+    <script src="js/compras.js?v=20261027-2"></script>
+    <script src="js/requerimientos.js?v=20261027-2"></script>
     <script src="js/inventario-activos.js?v=20261023-1"></script>
     <script src="js/alertas.js?v=20261015-21"></script>
     <script src="js/ventas.js?v=20261023-1"></script>
@@ -5979,9 +6010,10 @@
     <script src="js/google-calendar.js?v=20261015-21"></script>
     <script src="js/agenda-api.js?v=20261015-21"></script>
     <script src="js/gastos-servicios.js?v=20261018-3"></script>
+    <script src="js/gastos.js?v=20261027-1"></script>
     
     <!-- App Principal -->
-    <script src="js/app.js?v=20261027-1"></script>
+    <script src="js/app.js?v=20261027-2"></script>
     <script src="js/permisos.js?v=20261027-1"></script>
     <script src="js/comunicacion.js?v=20261019-1"></script>
     <script src="js/inicio.js?v=20261018-1"></script>

@@ -315,7 +315,10 @@ function navigateToPage(pageId) {
     if (pageId === 'compras') {
         ComprasModule.refreshTable();
     }
-    if (pageId === 'requerimientos' && typeof RequerimientosModule !== 'undefined') {
+    if (pageId === 'gastos-servicios' && typeof GastosRequisiciones !== 'undefined') {
+        GastosRequisiciones.cargar();
+    }
+        if (pageId === 'requerimientos' && typeof RequerimientosModule !== 'undefined') {
         RequerimientosModule.cargar();
     }
     if (pageId === 'ventas') {
@@ -2170,6 +2173,9 @@ function switchGastosTab(tabName) {
     event.target.closest('.tab-button').classList.add('active');
 
     // Cargar datos específicos según el tab
+    if (tabName === 'requisiciones' && typeof GastosRequisiciones !== 'undefined') {
+        GastosRequisiciones.cargar();
+    }
     if (tabName === 'cuentaspagar') {
         populateSelectsCuentasPorPagar();
         gastosModule.renderCuentasPorPagar();

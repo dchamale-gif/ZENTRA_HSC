@@ -1,6 +1,7 @@
 // ============================================
 // REQUERIMIENTOS DE COMPRA
-// Un almacén (farmacia, cocina…) pide artículos o medicinas con su costo.
+// Una bodega (farmacia, cocina…) pide artículos o medicinas con su costo.
+// Cada bodega lleva su correlativo por año (FAR-0001-2026); compras administra las bodegas.
 // Compras los confirma o rechaza desde el listado y, confirmados, genera la compra.
 // El formulario es el mismo de compras en modo requerimiento (ComprasModule.abrirRequerimiento).
 // ============================================
@@ -8,11 +9,11 @@
 const RequerimientosModule = {
     state: {
         requerimientos: [],
-        almacenes: [],
+        bodegas: [],
         puedeRevisar: false,
         disponible: true,
         estado: '',
-        almacen: '',
+        bodega: '',
         busqueda: ''
     },
 
@@ -24,6 +25,7 @@ const RequerimientosModule = {
         if (this._iniciado) return;
         this._iniciado = true;
         document.getElementById('reqNuevoBtn')?.addEventListener('click', () => this.nuevo());
+        document.getElementById('reqBodegasBtn')?.addEventListener('click', () => this.administrarBodegas());
         document.getElementById('reqBusqueda')?.addEventListener('input', (e) => {
             this.state.busqueda = e.target.value;
             clearTimeout(this._busquedaTimer);
@@ -34,7 +36,7 @@ const RequerimientosModule = {
             this.cargar();
         });
         document.getElementById('reqFiltroAlmacen')?.addEventListener('change', (e) => {
-            this.state.almacen = e.target.value;
+            this.state.bodega = e.target.value;
             this.cargar();
         });
         const lista = document.getElementById('reqLista');
@@ -83,27 +85,31 @@ const RequerimientosModule = {
         try {
             const params = new URLSearchParams();
             if (this.state.estado) params.set('estado', this.state.estado);
-            if (this.state.almacen) params.set('almacen', this.state.almacen);
+            if (this.state.bodega) params.set('bodega_id', this.state.bodega);
             if (this.state.busqueda.trim()) params.set('q', this.state.busqueda.trim());
-            const data = await this.api(`?${params}`);
+            const [data, bodegas] = await Promise.all([
+                this.api(`?${params}`),
+                authManager.fetchWithAuth('/api/bodegas').then(r => r.json()).catch(() => ({ bodegas: [] }))
+            ]);
             Object.assign(this.state, {
                 requerimientos: data.requerimientos || [],
-                almacenes: data.almacenes || [],
+                bodegas: bodegas.bodegas || [],
                 puedeRevisar: Boolean(data.puedeRevisar),
                 disponible: data.disponible !== false
             });
-            this.renderAlmacenes();
+            this.renderBodegas();
+            document.getElementById('reqBodegasBtn').hidden = !Permisos.puede('compras', 'edit');
             this.render();
         } catch (error) {
             contenedor.innerHTML = `<div class="cot-vacio"><p>No se pudieron cargar los requerimientos.</p><small>${this.e(error.message)}</small></div>`;
         }
     },
 
-    renderAlmacenes() {
+    renderBodegas() {
         const select = document.getElementById('reqFiltroAlmacen');
         if (!select) return;
-        select.innerHTML = '<option value="">Todos</option>' + this.state.almacenes
-            .map(a => `<option value="${this.e(a)}" ${a === this.state.almacen ? 'selected' : ''}>${this.e(a)}</option>`).join('');
+        select.innerHTML = '<option value="">Todas</option>' + this.state.bodegas
+            .map(b => `<option value="${b.id}" ${String(b.id) === String(this.state.bodega) ? 'selected' : ''}>${this.e(b.nombre)}</option>`).join('');
     },
 
     esMio(requerimiento) {
@@ -133,7 +139,7 @@ const RequerimientosModule = {
         }
         const lista = this.state.requerimientos;
         if (!lista.length) {
-            const filtrado = this.state.estado || this.state.almacen || this.state.busqueda.trim();
+            const filtrado = this.state.estado || this.state.bodega || this.state.busqueda.trim();
             contenedor.innerHTML = `<div class="cot-vacio"><p>${filtrado ? 'Ningún requerimiento coincide con los filtros.' : 'Aún no hay requerimientos de compra.'}</p>
                 ${filtrado ? '' : '<button type="button" class="btn btn-primary" onclick="RequerimientosModule.nuevo()"><i class="fas fa-plus" aria-hidden="true"></i> Nuevo requerimiento</button>'}</div>`;
             return;
@@ -142,7 +148,7 @@ const RequerimientosModule = {
         contenedor.innerHTML = `
             <table class="data-table req-tabla">
                 <thead><tr>
-                    <th>Número</th><th>Fecha</th><th>Almacén</th><th>Solicitado por</th>
+                    <th>Número</th><th>Fecha</th><th>Bodega</th><th>Solicitado por</th>
                     <th class="text-right">Total</th><th>Forma de pago</th><th>Estado</th><th>Compra</th><th class="text-center">Acciones</th>
                 </tr></thead>
                 <tbody>${lista.map(r => `
@@ -228,6 +234,101 @@ const RequerimientosModule = {
         }
     },
 
+    // ---------- Bodegas (solo compras) ----------
+    async administrarBodegas() {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal-dialog req-bodegas" role="dialog" aria-modal="true" aria-labelledby="reqBodegasTitulo">
+                <div class="modal-header">
+                    <h2 id="reqBodegasTitulo">Bodegas</h2>
+                    <button type="button" class="close-btn" aria-label="Cerrar">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p class="form-hint">Cada bodega lleva su propio correlativo por año en requerimientos y compras, encabezado por su código (FAR-0001-2026). El código no se cambia después de crearla.</p>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead><tr><th>Nombre</th><th>Código</th><th>Activa</th><th></th></tr></thead>
+                            <tbody data-bodegas></tbody>
+                        </table>
+                    </div>
+                    <form class="req-bodega-nueva" novalidate>
+                        <div class="form-group">
+                            <label for="reqBodegaNombre">Nueva bodega</label>
+                            <input id="reqBodegaNombre" class="form-input" maxlength="60" placeholder="Ej.: Lavandería" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="reqBodegaCodigo">Código</label>
+                            <input id="reqBodegaCodigo" class="form-input" maxlength="6" placeholder="LAV" autocomplete="off" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-plus" aria-hidden="true"></i> Agregar</button>
+                    </form>
+                </div>
+            </div>`;
+        document.body.appendChild(overlay);
+        const cuerpo = overlay.querySelector('[data-bodegas]');
+        const render = () => {
+            cuerpo.innerHTML = this.state.bodegas.map(b => `<tr>
+                <td><input class="form-input" value="${this.e(b.nombre)}" maxlength="60" data-bodega-nombre="${b.id}" aria-label="Nombre de la bodega ${this.e(b.codigo)}"></td>
+                <td><strong>${this.e(b.codigo)}</strong></td>
+                <td><input type="checkbox" ${b.activo ? 'checked' : ''} data-bodega-activa="${b.id}" aria-label="Bodega ${this.e(b.nombre)} activa"></td>
+                <td><button type="button" class="btn btn-secondary btn-small" data-bodega-guardar="${b.id}">Guardar</button></td>
+            </tr>`).join('');
+        };
+        render();
+        const recargar = async () => {
+            const data = await authManager.fetchWithAuth('/api/bodegas').then(r => r.json());
+            this.state.bodegas = data.bodegas || [];
+            if (typeof ComprasModule !== 'undefined') ComprasModule.state.bodegas = this.state.bodegas;
+            render();
+            this.renderBodegas();
+        };
+        const pedir = async (url, method, body) => {
+            const response = await authManager.fetchWithAuth(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.error || `Error ${response.status}`);
+            return data;
+        };
+        overlay.addEventListener('click', async (e) => {
+            const boton = e.target.closest('[data-bodega-guardar]');
+            if (!boton) return;
+            const id = boton.dataset.bodegaGuardar;
+            try {
+                const data = await pedir(`/api/bodegas/${id}`, 'PUT', {
+                    nombre: overlay.querySelector(`[data-bodega-nombre="${id}"]`).value,
+                    activo: overlay.querySelector(`[data-bodega-activa="${id}"]`).checked
+                });
+                this.notificar(data.message, 'success');
+                await recargar();
+            } catch (error) {
+                this.notificar(error.message, 'error');
+            }
+        });
+        overlay.querySelector('.req-bodega-nueva').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                const data = await pedir('/api/bodegas', 'POST', {
+                    nombre: overlay.querySelector('#reqBodegaNombre').value,
+                    codigo: overlay.querySelector('#reqBodegaCodigo').value
+                });
+                this.notificar(data.message, 'success');
+                e.target.reset();
+                await recargar();
+            } catch (error) {
+                this.notificar(error.message, 'error');
+            }
+        });
+        const cerrar = () => {
+            overlay.remove();
+            document.removeEventListener('keydown', alTeclear);
+        };
+        const alTeclear = (e) => { if (e.key === 'Escape') cerrar(); };
+        document.addEventListener('keydown', alTeclear);
+        overlay.querySelector('.close-btn').addEventListener('click', cerrar);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) cerrar(); });
+        overlay.querySelector('#reqBodegaNombre').focus();
+    },
+
     // Detalle de solo lectura: conceptos, costos y total
     ver(r) {
         const overlay = document.createElement('div');
@@ -241,7 +342,7 @@ const RequerimientosModule = {
                 <div class="modal-body">
                     <dl class="req-datos">
                         <div><dt>Fecha</dt><dd>${formatFecha(r.fecha)}</dd></div>
-                        <div><dt>Almacén</dt><dd>${this.e(r.almacen)}${r.categoria ? ` · ${this.CATEGORIAS[r.categoria]}` : ''}</dd></div>
+                        <div><dt>Bodega</dt><dd>${this.e(r.almacen)}${r.categoria ? ` · ${this.CATEGORIAS[r.categoria]}` : ''}</dd></div>
                         <div><dt>Solicitado por</dt><dd>${this.e(r.solicitado_por_nombre || '—')}</dd></div>
                         <div><dt>Forma de pago</dt><dd>${this.FORMAS_PAGO[r.forma_pago] || '—'}</dd></div>
                         <div><dt>Estado</dt><dd>${this.ESTADOS[r.estado]}${r.revisado_por_nombre && r.estado !== 'pendiente' ? ` · ${this.e(r.revisado_por_nombre)}` : ''}${r.numero_compra ? ` · compra ${this.e(r.numero_compra)}` : ''}</dd></div>

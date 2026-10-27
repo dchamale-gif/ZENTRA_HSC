@@ -24,6 +24,7 @@
     "migrate:preferencias-usuario": "node run-preferencias-usuario-migration.js",
     "migrate:cotizaciones": "node run-cotizaciones-migration.js",
     "migrate:requerimientos": "node run-requerimientos-migration.js",
+    "migrate:gastos": "node run-gastos-migration.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": ["hospital", "medical", "api"],

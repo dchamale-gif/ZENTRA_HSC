@@ -1,6 +1,7 @@
 const pool = require('../db/connection');
 const inventario = require('../services/inventarioMedicinas');
 const requerimientos = require('./requerimientosController');
+const correlativos = require('../services/correlativos');
 const { validarSubida, limpiarNombre, enviarArchivo } = require('../services/archivos');
 
 const MIGRACION_PAGOS = 'Falta preparar la base de datos para el pago de las compras (npm run migrate:compras-pagos).';
@@ -65,7 +66,7 @@ const leerRequerimiento = async (client, body, compraId = null) => {
   const fechaManual = body.fecha_requerimiento || null;
   if (fechaManual && !FECHA.test(fechaManual)) throw errorConEstado('Fecha del requerimiento no válida');
   const { rows } = await client.query(
-    `SELECT r.id, r.numero, to_char(r.fecha, 'YYYY-MM-DD') AS fecha, r.estado, c.id AS compra_id, c.numero_compra
+    `SELECT r.id, r.numero, to_char(r.fecha, 'YYYY-MM-DD') AS fecha, r.estado, r.bodega_id, r.almacen, c.id AS compra_id, c.numero_compra
      FROM requerimientos_compra r LEFT JOIN compras c ON c.requerimiento_id = r.id
      WHERE UPPER(r.numero) = UPPER($1)`, [numero]);
   const r = rows[0];
@@ -74,7 +75,18 @@ const leerRequerimiento = async (client, body, compraId = null) => {
     throw errorConEstado(`El requerimiento ${r.numero} está ${r.estado === 'rechazada' ? 'rechazado' : 'pendiente'}: debe confirmarse antes de comprarlo`, 409);
   }
   if (r.compra_id && r.compra_id !== compraId) throw errorConEstado(`El requerimiento ${r.numero} ya generó la compra ${r.numero_compra}`, 409);
-  return { id: r.id, numero: r.numero, fecha: r.fecha };
+  return { id: r.id, numero: r.numero, fecha: r.fecha, bodegaId: r.bodega_id, almacen: r.almacen };
+};
+
+// Bodega de la compra: la de su requerimiento del sistema o la elegida (deben coincidir)
+const leerBodega = async (client, body, requerimiento) => {
+  const elegida = body.bodega_id ? Number(body.bodega_id) : null;
+  if (requerimiento?.bodegaId && elegida && elegida !== Number(requerimiento.bodegaId)) {
+    throw errorConEstado(`El requerimiento ${requerimiento.numero} es de ${requerimiento.almacen}: la compra debe ser de la misma bodega`);
+  }
+  const bodega = await correlativos.bodega(client, requerimiento?.bodegaId || elegida);
+  if (!bodega) throw errorConEstado('Elija la bodega de la compra');
+  return bodega;
 };
 
 const guardarRequerimiento = (client, compraId, req) => client.query(
@@ -86,7 +98,8 @@ const compraSelect = (conInventario, conPagos, conRequerimientos) => `
   SELECT c.id, c.numero_compra, c.proveedor_id, p.nombre AS proveedor_nombre,
          c.user_id, c.fecha, c.fecha_entrega, c.total, c.estado,
          c.observaciones, c.created_at, c.updated_at,${conRequerimientos ? `
-         c.requerimiento_id, c.numero_requerimiento, to_char(c.fecha_requerimiento, 'YYYY-MM-DD') AS fecha_requerimiento,` : ''}${conPagos ? `
+         c.requerimiento_id, c.numero_requerimiento, to_char(c.fecha_requerimiento, 'YYYY-MM-DD') AS fecha_requerimiento,
+         c.bodega_id, (SELECT nombre FROM bodegas WHERE id = c.bodega_id) AS bodega_nombre,` : ''}${conPagos ? `
          c.condicion_pago, c.dias_credito, to_char(c.fecha_vencimiento_pago, 'YYYY-MM-DD') AS fecha_vencimiento_pago,
          c.forma_pago, c.referencia_pago, to_char(c.fecha_pago, 'YYYY-MM-DD') AS fecha_pago,
          p.banco AS proveedor_banco, p.numero_cuenta AS proveedor_numero_cuenta, p.tipo_cuenta AS proveedor_tipo_cuenta,
@@ -330,9 +343,19 @@ const createCompra = async (req, res) => {
     const pago = (await pagosDisponibles()) ? leerPago(req.body, fecha) : null;
     client = await pool.connect();
     await client.query('BEGIN');
-    await client.query("SELECT pg_advisory_xact_lock(hashtext('compras_numero_correlativo'))");
-    const numeroCompra = await getNextNumeroCompra(client);
+    const requerimiento = (await requerimientos.disponible()) ? await leerRequerimiento(client, req.body) : null;
     const compraId = `COM-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+    let numeroCompra;
+    let bodega = null;
+    if (await correlativos.disponible()) {
+      // Correlativo propio de la bodega y del año de la compra: FAR-0001-2026
+      bodega = await leerBodega(client, req.body, requerimiento);
+      if (!bodega.activo) throw errorConEstado(`La bodega ${bodega.nombre} está desactivada`);
+      numeroCompra = await correlativos.siguiente(client, 'compra', bodega.codigo, fecha);
+    } else {
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('compras_numero_correlativo'))");
+      numeroCompra = await getNextNumeroCompra(client);
+    }
 
     const result = await client.query(
       `INSERT INTO compras
@@ -342,9 +365,10 @@ const createCompra = async (req, res) => {
       [compraId, numeroCompra, proveedor_id, req.user.id, fecha, fecha_entrega || null,
         total, estado, observaciones || null]
     );
+    if (bodega) await client.query('UPDATE compras SET bodega_id = $1 WHERE id = $2', [bodega.id, compraId]);
     await insertItems(client, compraId, items);
     if (pago) await guardarPago(client, compraId, pago);
-    if (await requerimientos.disponible()) await guardarRequerimiento(client, compraId, await leerRequerimiento(client, req.body));
+    if (requerimiento) await guardarRequerimiento(client, compraId, requerimiento);
     if (estado === 'recibida' && await inventario.disponible()) await aplicarInventario(client, compraId, req);
     await client.query('COMMIT');
     res.status(201).json({ success: true, message: 'Compra creada exitosamente', compra: result.rows[0] });
@@ -395,7 +419,18 @@ const updateCompra = async (req, res) => {
     await insertItems(client, req.params.id, items);
     if (pago) await guardarPago(client, req.params.id, pago);
     if (await requerimientos.disponible()) {
-      await guardarRequerimiento(client, req.params.id, await leerRequerimiento(client, req.body, req.params.id));
+      const requerimiento = await leerRequerimiento(client, req.body, req.params.id);
+      // La bodega no cambia (va en el número); una compra anterior a las bodegas la toma ahora
+      const { rows: [actual] } = await client.query('SELECT bodega_id, numero_compra FROM compras WHERE id = $1', [req.params.id]);
+      if (actual.bodega_id) {
+        if (requerimiento.bodegaId && Number(requerimiento.bodegaId) !== Number(actual.bodega_id)) {
+          throw errorConEstado(`El requerimiento ${requerimiento.numero} es de ${requerimiento.almacen}, otra bodega que la compra ${actual.numero_compra}`);
+        }
+      } else if (requerimiento.bodegaId || req.body.bodega_id) {
+        const bodega = await leerBodega(client, req.body, requerimiento);
+        await client.query('UPDATE compras SET bodega_id = $1 WHERE id = $2', [bodega.id, req.params.id]);
+      }
+      await guardarRequerimiento(client, req.params.id, requerimiento);
     }
     if (conInventario && estado === 'recibida' && (anterior.inventario_aplicado || anterior.estado !== 'recibida')) {
       await aplicarInventario(client, req.params.id, req);

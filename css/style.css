@@ -11147,6 +11147,102 @@ body.chat-abierto {
     width: min(760px, calc(100vw - 32px));
 }
 
+/* Gastos: requisiciones que esperan el pago del dueño */
+.gastos-req-cabecera {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+
+.gastos-req-resumen {
+    margin: 0;
+    color: var(--text-body);
+}
+
+.gastos-req-resumen strong {
+    display: block;
+    color: var(--text-dark);
+}
+
+.gastos-req-resumen span {
+    color: var(--text-gray);
+    font-size: 13px;
+}
+
+.gastos-filtros {
+    grid-template-columns: minmax(220px, 2fr) minmax(160px, 1fr);
+}
+
+.gastos-tabla td:first-child strong {
+    white-space: nowrap;
+}
+
+.gastos-tabla td small.cot-sub {
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.gasto-select-pendiente { --compras-fondo: var(--bg-light); --compras-texto: var(--text-dark); }
+.gasto-select-cargado { --compras-fondo: var(--warning-soft); --compras-texto: var(--warning-color); }
+.gasto-select-pagado { --compras-fondo: var(--success-soft); --compras-texto: var(--success-color); }
+.gasto-select-anulado { --compras-fondo: var(--danger-soft); --compras-texto: var(--danger-color); }
+
+.gasto-estado {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: var(--compras-fondo);
+    color: var(--compras-texto);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.gasto-estado-pendiente { --compras-fondo: var(--bg-light); --compras-texto: var(--text-dark); }
+.gasto-estado-cargado { --compras-fondo: var(--warning-soft); --compras-texto: var(--warning-color); }
+.gasto-estado-pagado { --compras-fondo: var(--success-soft); --compras-texto: var(--success-color); }
+.gasto-estado-anulado { --compras-fondo: var(--danger-soft); --compras-texto: var(--danger-color); }
+
+@media (max-width: 640px) {
+    .gastos-req-cabecera {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .gastos-filtros {
+        grid-template-columns: 1fr;
+    }
+}
+
+.req-bodegas {
+    width: min(620px, calc(100vw - 32px));
+}
+
+.req-bodegas td .form-input {
+    min-width: 160px;
+}
+
+.req-bodega-nueva {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: end;
+    margin-top: 16px;
+}
+
+.req-bodega-nueva .form-group {
+    margin-bottom: 0;
+}
+
+@media (max-width: 640px) {
+    .req-bodega-nueva {
+        grid-template-columns: 1fr;
+    }
+}
+
 .req-datos {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));

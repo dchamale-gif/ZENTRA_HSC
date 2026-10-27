@@ -18,6 +18,7 @@ const ComprasModule = {
         requerimientoId: null,
         requerimientosDisponible: false,
         requerimientosConfirmados: [], // confirmados sin compra, para "No. de requerimiento"
+        bodegas: [],                   // farmacia, cocina…: cada una lleva su correlativo por año
         initialized: false
     },
 
@@ -55,7 +56,7 @@ const ComprasModule = {
         document.getElementById('purchaseVoucherList')?.addEventListener('click', (e) => this.alClicVoucher(e));
 
         // Requerimientos: la categoría (medicinas o descartables) aplica a farmacia
-        document.getElementById('reqAlmacen')?.addEventListener('input', () => this.actualizarCategoria());
+        document.getElementById('purchaseBodega')?.addEventListener('change', () => this.actualizarCategoria());
         document.getElementById('purchaseReqNumber')?.addEventListener('change', (e) => this.usarRequerimiento(e.target.value));
 
         // Estado y pago se cambian desde el listado
@@ -92,15 +93,17 @@ const ComprasModule = {
     async loadData() {
         try {
             const vacio = (clave) => Promise.resolve({ [clave]: [] });
-            const [comprasData, proveedoresData, medicinasData, articulosData, requerimientosData] = await Promise.all([
+            const [comprasData, proveedoresData, medicinasData, articulosData, requerimientosData, bodegasData] = await Promise.all([
                 this.puedeComprar() ? this.apiRequest('/api/compras') : vacio('compras'),
                 this.puedeComprar() ? this.apiRequest('/api/proveedores') : vacio('proveedores'),
                 this.apiRequest('/api/medicinas'),
                 this.apiRequest('/api/codigos-articulos'),
                 this.puedeComprar()
                     ? this.apiRequest('/api/requerimientos-compra?confirmados_sin_compra=1').catch(() => ({ requerimientos: [] }))
-                    : vacio('requerimientos')
+                    : vacio('requerimientos'),
+                this.apiRequest('/api/bodegas').catch(() => ({ bodegas: [] }))
             ]);
+            this.state.bodegas = bodegasData.bodegas || [];
             this.state.requerimientosDisponible = Boolean(requerimientosData.disponible);
             this.state.requerimientosConfirmados = requerimientosData.requerimientos || [];
             this.state.compras = comprasData.compras || [];
@@ -154,6 +157,7 @@ const ComprasModule = {
         tbody.innerHTML = this.state.compras.map(compra => `
             <tr>
                 <td><strong>${this.escapeHtml(compra.numero_compra)}</strong>
+                    ${compra.bodega_nombre ? `<small class="compras-req">${this.escapeHtml(compra.bodega_nombre)}</small>` : ''}
                     ${compra.numero_requerimiento ? `<small class="compras-req">Req. ${this.escapeHtml(compra.numero_requerimiento)}${compra.fecha_requerimiento ? ` · ${formatFecha(compra.fecha_requerimiento)}` : ''}</small>` : ''}</td>
                 <td>${this.formatDate(compra.fecha)}</td>
                 <td>${this.escapeHtml(compra.proveedor_nombre)}</td>
@@ -568,6 +572,9 @@ const ComprasModule = {
         this.renderRequerimientosConfirmados(compra?.numero_requerimiento);
         document.getElementById('purchaseReqNumber').value = compra?.numero_requerimiento || '';
         document.getElementById('purchaseReqDate').value = compra?.fecha_requerimiento || '';
+        // La bodega va en el número de la compra: se elige al crearla y ya no cambia
+        this.renderBodegas(compra?.bodega_id, Boolean(compra?.bodega_id),
+            compra?.bodega_id ? 'El número de la compra lleva el código de su bodega; no se cambia.' : 'Cada bodega lleva su propio correlativo por año.');
         this.renderProviderOptions(compra?.proveedor_id || '');
         document.getElementById('purchaseDate').value = compra ? this.dateValue(compra.fecha) : this.hoy();
         document.getElementById('purchaseDeliveryDate').value = compra?.fecha_entrega ? this.dateValue(compra.fecha_entrega) : '';
@@ -600,7 +607,8 @@ const ComprasModule = {
             requerimiento ? `Requerimiento ${requerimiento.numero}` : 'Nuevo requerimiento de compra',
             requerimiento ? 'Guardar requerimiento' : 'Enviar requerimiento');
         document.getElementById('purchaseDate').value = requerimiento?.fecha || this.hoy();
-        document.getElementById('reqAlmacen').value = requerimiento?.almacen || '';
+        this.renderBodegas(requerimiento?.bodega_id, Boolean(requerimiento),
+            requerimiento ? 'El número lleva el código de su bodega; para otra bodega haga un requerimiento nuevo.' : '');
         document.getElementById('reqCategoria').value = requerimiento?.categoria || '';
         document.getElementById('reqFormaPago').value = requerimiento?.forma_pago || '';
         document.getElementById('purchaseObservations').value = requerimiento?.observaciones || '';
@@ -609,11 +617,34 @@ const ComprasModule = {
         this.renderItems();
         document.getElementById('purchaseModal').style.display = 'flex';
         document.body.style.overflow = 'hidden';
-        setTimeout(() => document.getElementById(requerimiento ? 'purchaseConceptSearch-0' : 'reqAlmacen')?.focus(), 50);
+        setTimeout(() => document.getElementById(requerimiento ? 'purchaseConceptSearch-0' : 'purchaseBodega')?.focus(), 50);
+    },
+
+    bodega(id) {
+        return this.state.bodegas.find(b => String(b.id) === String(id)) || null;
+    },
+
+    esFarmacia(id) {
+        const bodega = this.bodega(id);
+        return Boolean(bodega && (bodega.codigo === 'FAR' || /farmacia/i.test(bodega.nombre)));
+    },
+
+    // Bodegas activas (y la del documento aunque ya esté desactivada); bloqueada al editar
+    renderBodegas(seleccionada = '', bloqueada = false, ayuda = '') {
+        const select = document.getElementById('purchaseBodega');
+        if (!select) return;
+        const grupo = select.closest('.form-group');
+        grupo.hidden = this.state.bodegas.length === 0;
+        const opciones = this.state.bodegas.filter(b => b.activo || String(b.id) === String(seleccionada));
+        select.innerHTML = '<option value="">Selecciona una bodega</option>' + opciones
+            .map(b => `<option value="${b.id}">${this.escapeHtml(b.nombre)} (${this.escapeHtml(b.codigo)})</option>`).join('');
+        select.value = seleccionada ? String(seleccionada) : '';
+        select.disabled = bloqueada;
+        document.getElementById('purchaseBodegaHint').textContent = ayuda;
     },
 
     actualizarCategoria() {
-        const farmacia = /farmacia/i.test(document.getElementById('reqAlmacen').value);
+        const farmacia = this.esFarmacia(document.getElementById('purchaseBodega').value);
         document.getElementById('reqCategoriaGrupo').hidden = !farmacia;
         if (!farmacia) document.getElementById('reqCategoria').value = '';
     },
@@ -643,6 +674,10 @@ const ComprasModule = {
     cargarRequerimiento(requerimiento) {
         document.getElementById('purchaseReqNumber').value = requerimiento.numero;
         document.getElementById('purchaseReqDate').value = requerimiento.fecha;
+        // La compra sale de la misma bodega del requerimiento
+        if (requerimiento.bodega_id && !document.getElementById('purchaseId').value) {
+            this.renderBodegas(requerimiento.bodega_id, true, `Bodega del requerimiento ${requerimiento.numero}.`);
+        }
         this.state.items = this.itemsDeRequerimiento(requerimiento);
         this.renderItems();
         if (requerimiento.forma_pago) {
@@ -1002,17 +1037,17 @@ const ComprasModule = {
     async guardarRequerimiento() {
         const payload = {
             fecha: document.getElementById('purchaseDate').value,
-            almacen: document.getElementById('reqAlmacen').value.trim(),
+            bodega_id: Number(document.getElementById('purchaseBodega').value) || null,
             categoria: document.getElementById('reqCategoria').value || null,
             forma_pago: document.getElementById('reqFormaPago').value || null,
             observaciones: document.getElementById('purchaseObservations').value.trim() || null,
             items: this.leerConceptos()
         };
-        if (!payload.almacen || !payload.fecha || this.conceptosIncompletos(payload.items)) {
-            this.notify('Completa el almacén, la fecha y todos los artículos con su cantidad y costo.', 'warning');
+        if (!payload.bodega_id || !payload.fecha || this.conceptosIncompletos(payload.items)) {
+            this.notify('Completa la bodega, la fecha y todos los artículos con su cantidad y costo.', 'warning');
             return;
         }
-        if (/farmacia/i.test(payload.almacen) && !payload.categoria) {
+        if (this.esFarmacia(payload.bodega_id) && !payload.categoria) {
             this.notify('Indica si en farmacia se compran medicinas o descartables.', 'warning');
             return;
         }
@@ -1044,11 +1079,16 @@ const ComprasModule = {
             estado: document.getElementById('purchaseStatus').value,
             observaciones: document.getElementById('purchaseObservations').value.trim() || null,
             ...this.leerPago(),
+            bodega_id: Number(document.getElementById('purchaseBodega').value) || null,
             numero_requerimiento: document.getElementById('purchaseReqNumber').value.trim() || null,
             fecha_requerimiento: document.getElementById('purchaseReqDate').value || null,
             items: this.leerConceptos()
         };
 
+        if (this.state.bodegas.length && !id && !payload.bodega_id) {
+            this.notify('Elige la bodega de la compra: cada bodega lleva su propio correlativo.', 'warning');
+            return;
+        }
         if (!payload.proveedor_id || !payload.fecha || this.conceptosIncompletos(payload.items)) {
             this.notify('Completa el proveedor, la fecha y todos los conceptos de la compra.', 'warning');
             return;

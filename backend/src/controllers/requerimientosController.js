@@ -1,6 +1,6 @@
 // ============================================
 // REQUERIMIENTOS DE COMPRA
-// Un almacén pide artículos o medicinas con su costo; compras lo confirma o lo
+// Una bodega (farmacia, cocina…) pide artículos o medicinas con su costo; compras lo confirma o lo
 // rechaza y, confirmado, genera la compra con esos conceptos (la compra guarda
 // requerimiento_id; ver comprasController).
 // ============================================
@@ -8,8 +8,9 @@
 const pool = require('../db/connection');
 const inventario = require('../services/inventarioMedicinas');
 const { nombreUsuario } = require('../services/historiaSincronizada');
+const correlativos = require('../services/correlativos');
 
-const MIGRACION = 'Falta preparar la base de datos para los requerimientos de compra (npm run migrate:requerimientos).';
+const MIGRACION = 'Falta preparar la base de datos para los requerimientos de compra y las bodegas (npm run migrate:requerimientos).';
 const ESTADOS = ['pendiente', 'confirmada', 'rechazada'];
 const FORMAS_PAGO = ['efectivo', 'tarjeta', 'cheque', 'transferencia'];
 const CATEGORIAS = ['medicinas', 'descartables'];
@@ -21,7 +22,7 @@ let migracionCache = { valor: false, hasta: 0 };
 const disponible = async () => {
   if (Date.now() < migracionCache.hasta) return migracionCache.valor;
   const { rows } = await pool.query("SELECT to_regclass('public.requerimientos_compra') IS NOT NULL AS listo");
-  const valor = rows[0].listo;
+  const valor = rows[0].listo && await correlativos.disponible();
   migracionCache = { valor, hasta: valor ? Infinity : Date.now() + 60000 };
   return valor;
 };
@@ -29,18 +30,21 @@ const disponible = async () => {
 // Confirmar, rechazar y editar requerimientos ajenos es de compras (o del administrador)
 const esDeCompras = (req) => req.userRoles?.includes('admin') || req.userPermissions?.includes('compras_edit');
 
-const leerDatos = (body) => {
-  const almacen = String(body.almacen || '').trim().slice(0, 60);
-  if (!almacen) throw errorConEstado('Indique el almacén que hace el requerimiento');
+// La farmacia indica si compra medicinas o descartables
+const esFarmacia = (bodega) => bodega.codigo === 'FAR' || /farmacia/i.test(bodega.nombre);
+
+const leerDatos = async (client, body) => {
+  const bodega = await correlativos.bodega(client, body.bodega_id);
+  if (!bodega) throw errorConEstado('Elija la bodega que hace el requerimiento');
   const fecha = body.fecha || null;
   if (fecha && !FECHA.test(fecha)) throw errorConEstado('Fecha no válida');
-  // En farmacia se indica si se compran medicinas o descartables; en los demás almacenes no aplica
-  const categoria = /farmacia/i.test(almacen) ? (body.categoria || null) : null;
-  if (/farmacia/i.test(almacen) && !CATEGORIAS.includes(categoria)) throw errorConEstado('Indique si en farmacia se compran medicinas o descartables');
+  const categoria = esFarmacia(bodega) ? (body.categoria || null) : null;
+  if (esFarmacia(bodega) && !CATEGORIAS.includes(categoria)) throw errorConEstado('Indique si en farmacia se compran medicinas o descartables');
   const formaPago = body.forma_pago || null;
   if (formaPago && !FORMAS_PAGO.includes(formaPago)) throw errorConEstado('Forma de pago no válida');
   return {
-    almacen,
+    bodega,
+    almacen: bodega.nombre,
     fecha,
     categoria,
     formaPago,
@@ -83,6 +87,7 @@ const guardarItems = async (client, requerimientoId, items) => {
 
 const SELECT_REQUERIMIENTO = `
   SELECT r.*, to_char(r.fecha, 'YYYY-MM-DD') AS fecha,
+         (SELECT codigo FROM bodegas WHERE id = r.bodega_id) AS bodega_codigo,
          c.id AS compra_id, c.numero_compra,
          COALESCE((SELECT json_agg(json_build_object(
                      'tipo', CASE WHEN i.medicina_id IS NOT NULL THEN 'medicina' ELSE 'articulo' END,
@@ -130,16 +135,16 @@ const requerimientosController = {
   async listar(req, res) {
     try {
       if (!(await disponible())) return res.json({ requerimientos: [], disponible: false });
-      const { estado, almacen, q } = req.query;
+      const { estado, bodega_id: bodegaId, q } = req.query;
       const valores = [];
       const condiciones = [];
       if (ESTADOS.includes(estado)) {
         valores.push(estado);
         condiciones.push(`r.estado = $${valores.length}`);
       }
-      if (almacen) {
-        valores.push(almacen);
-        condiciones.push(`r.almacen = $${valores.length}`);
+      if (bodegaId) {
+        valores.push(Number(bodegaId));
+        condiciones.push(`r.bodega_id = $${valores.length}`);
       }
       if (req.query.confirmados_sin_compra) condiciones.push(`r.estado = 'confirmada' AND c.id IS NULL`);
       if (String(q || '').trim()) {
@@ -151,8 +156,7 @@ const requerimientosController = {
          ${condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : ''}
          ORDER BY r.fecha DESC, r.id DESC
          LIMIT 500`, valores);
-      const almacenes = await pool.query('SELECT DISTINCT almacen FROM requerimientos_compra ORDER BY almacen');
-      res.json({ requerimientos: rows, almacenes: almacenes.rows.map(r => r.almacen), puedeRevisar: esDeCompras(req), disponible: true });
+      res.json({ requerimientos: rows, puedeRevisar: esDeCompras(req), disponible: true });
     } catch (error) {
       responderError(res, error, 'listar los requerimientos');
     }
@@ -174,19 +178,21 @@ const requerimientosController = {
     let client;
     try {
       if (!(await disponible())) throw errorConEstado(MIGRACION, 503);
-      const datos = leerDatos(req.body);
       const items = leerItems(req.body.items);
       const total = Number(items.reduce((s, i) => s + i.subtotal, 0).toFixed(2));
       client = await pool.connect();
       await client.query('BEGIN');
+      const datos = await leerDatos(client, req.body);
+      if (!datos.bodega.activo) throw errorConEstado(`La bodega ${datos.bodega.nombre} está desactivada`);
+      // Correlativo propio de la bodega y del año del requerimiento: FAR-0001-2026
+      const numero = await correlativos.siguiente(client, 'requerimiento', datos.bodega.codigo, datos.fecha);
       const { rows } = await client.query(
         `INSERT INTO requerimientos_compra
-           (numero, fecha, almacen, categoria, forma_pago, observaciones, total, solicitado_por, solicitado_por_nombre)
-         SELECT 'REQ-' || LPAD(n::text, GREATEST(4, LENGTH(n::text)), '0'),
-                COALESCE($1::date, (NOW() AT TIME ZONE 'America/Guatemala')::date), $2, $3, $4, $5, $6, $7, $8
-         FROM (SELECT nextval('requerimientos_compra_numero_seq') AS n) s
+           (numero, fecha, almacen, bodega_id, categoria, forma_pago, observaciones, total, solicitado_por, solicitado_por_nombre)
+         VALUES ($1, COALESCE($2::date, (NOW() AT TIME ZONE 'America/Guatemala')::date), $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING id`,
-        [datos.fecha, datos.almacen, datos.categoria, datos.formaPago, datos.observaciones, total, req.user.id, nombreUsuario(req)]
+        [numero, datos.fecha, datos.almacen, datos.bodega.id, datos.categoria, datos.formaPago, datos.observaciones,
+          total, req.user.id, nombreUsuario(req)]
       );
       await guardarItems(client, rows[0].id, items);
       const requerimiento = await obtener(client, rows[0].id);
@@ -205,19 +211,23 @@ const requerimientosController = {
     let client;
     try {
       if (!(await disponible())) throw errorConEstado(MIGRACION, 503);
-      const datos = leerDatos(req.body);
       const items = leerItems(req.body.items);
       const total = Number(items.reduce((s, i) => s + i.subtotal, 0).toFixed(2));
       client = await pool.connect();
       await client.query('BEGIN');
       const actual = await client.query('SELECT * FROM requerimientos_compra WHERE id = $1 FOR UPDATE', [req.params.id]);
       exigirEditable(req, actual.rows[0]);
+      const datos = await leerDatos(client, req.body);
+      // El número lleva el código de la bodega: cambiarla exige otro requerimiento
+      if (actual.rows[0].bodega_id && Number(actual.rows[0].bodega_id) !== datos.bodega.id) {
+        throw errorConEstado(`El requerimiento ${actual.rows[0].numero} es de ${actual.rows[0].almacen}; para otra bodega cree uno nuevo`);
+      }
       await client.query(
         `UPDATE requerimientos_compra
-         SET fecha = COALESCE($1::date, fecha), almacen = $2, categoria = $3, forma_pago = $4, observaciones = $5,
+         SET fecha = COALESCE($1::date, fecha), almacen = $2, bodega_id = $8, categoria = $3, forma_pago = $4, observaciones = $5,
              total = $6, updated_at = NOW()
          WHERE id = $7`,
-        [datos.fecha, datos.almacen, datos.categoria, datos.formaPago, datos.observaciones, total, req.params.id]
+        [datos.fecha, datos.almacen, datos.categoria, datos.formaPago, datos.observaciones, total, req.params.id, datos.bodega.id]
       );
       await guardarItems(client, req.params.id, items);
       const requerimiento = await obtener(client, req.params.id);

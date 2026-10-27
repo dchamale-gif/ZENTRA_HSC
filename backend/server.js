@@ -36,6 +36,8 @@ const personalGeneralRoutes = require('./src/routes/personalGeneralRoutes');
 const inventarioActivosRoutes = require('./src/routes/inventarioActivosRoutes');
 const comprasRoutes = require('./src/routes/compras');
 const requerimientosRoutes = require('./src/routes/requerimientosRoutes');
+const bodegasRoutes = require('./src/routes/bodegasRoutes');
+const gastosRoutes = require('./src/routes/gastosRoutes');
 const ventasRoutes = require('./src/routes/ventas');
 const cajaRoutes = require('./src/routes/caja');
 const hospitalizacionesRoutes = require('./src/routes/hospitalizaciones');
@@ -116,6 +118,8 @@ app.use('/api/compras', authMiddleware, requireModule(PERMISOS.compras), compras
 
 // Requerimientos de compra (los pide cualquier almacén; los confirma compras)
 app.use('/api/requerimientos-compra', authMiddleware, requireModule(PERMISOS.requerimientos), requerimientosRoutes);
+// Bodegas (farmacia, cocina…): cada una lleva su correlativo por año
+app.use('/api/bodegas', authMiddleware, requireModule(PERMISOS.bodegas), bodegasRoutes);
 
 // Ventas e inventario
 app.use('/api/ventas', authMiddleware, requireModule(PERMISOS.ventas), ventasRoutes);
@@ -146,6 +150,8 @@ app.use('/api/appointments', authMiddleware, requireModule(PERMISOS.agenda), app
 
 // Gastos y servicios
 app.use('/api/expenses', authMiddleware, requireModule(PERMISOS.gastos), expensesRoutes);
+// Gastos (luz, internet, teléfono…): requisición -> cargado -> pagado por el dueño
+app.use('/api/gastos', authMiddleware, requireModule(PERMISOS.gastos), gastosRoutes);
 
 // Cuentas por cobrar
 app.use('/api/receivables', authMiddleware, requireModule(PERMISOS.cxc), receivablesRoutes);

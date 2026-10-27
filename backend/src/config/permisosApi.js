@@ -50,6 +50,7 @@ const PERMISOS_API = {
   compras: 'compras',
   // Quien pide (farmacia, cocina) usa su propio permiso; compras los ve, confirma y rechaza
   requerimientos: { ver: ['requerimientos', 'compras'], editar: ['requerimientos', 'compras'] },
+  bodegas: { ver: ['requerimientos', 'compras', 'gastos'], editar: ['compras'] },
   ventas: 'ventas',
   cotizaciones: { ver: ['cotizaciones', 'cotizacion_paciente'], editar: ['cotizaciones'] },
   billing: (req) => (RUTAS_CARGOS.test(req.path)

@@ -62,6 +62,76 @@ ALTER TABLE compras ADD COLUMN IF NOT EXISTS fecha_requerimiento DATE;
 -- Un requerimiento genera una sola compra
 CREATE UNIQUE INDEX IF NOT EXISTS idx_compras_requerimiento_unico ON compras (requerimiento_id) WHERE requerimiento_id IS NOT NULL;
 
+-- ============================================
+-- BODEGAS Y CORRELATIVOS
+-- Cada bodega tiene un código corto y su propio contador por año, distinto
+-- para requerimientos y para compras: FAR-0001-2026, COC-0001-2026…
+-- Los números anteriores (REQ-0001, COMP-001) se conservan.
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS bodegas (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(60) NOT NULL,
+    codigo VARCHAR(6) NOT NULL,
+    activo BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT bodegas_codigo_valido CHECK (codigo ~ '^[A-Z0-9]{2,6}$')
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_bodegas_nombre ON bodegas (LOWER(nombre));
+CREATE UNIQUE INDEX IF NOT EXISTS idx_bodegas_codigo ON bodegas (codigo);
+
+INSERT INTO bodegas (nombre, codigo) VALUES
+    ('Farmacia', 'FAR'), ('Cocina', 'COC'), ('Enfermería', 'ENF'),
+    ('Limpieza', 'LIM'), ('Mantenimiento', 'MAN'), ('Administración', 'ADM')
+ON CONFLICT DO NOTHING;
+
+-- Último número usado por tipo de documento, ámbito (código de bodega) y año
+CREATE TABLE IF NOT EXISTS correlativos (
+    tipo VARCHAR(20) NOT NULL,
+    ambito VARCHAR(10) NOT NULL,
+    anio INTEGER NOT NULL,
+    ultimo INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (tipo, ambito, anio)
+);
+
+ALTER TABLE requerimientos_compra ADD COLUMN IF NOT EXISTS bodega_id INTEGER REFERENCES bodegas(id);
+ALTER TABLE compras ADD COLUMN IF NOT EXISTS bodega_id INTEGER REFERENCES bodegas(id);
+ALTER TABLE requerimientos_compra ALTER COLUMN numero TYPE VARCHAR(30);
+
+-- Requerimientos hechos antes del catálogo: su almacén escrito pasa a ser una bodega
+DO $$
+DECLARE
+    r RECORD;
+    base TEXT;
+    cod TEXT;
+    i INTEGER;
+BEGIN
+    FOR r IN
+        SELECT DISTINCT TRIM(almacen) AS almacen FROM requerimientos_compra rc
+        WHERE TRIM(COALESCE(almacen, '')) <> ''
+          AND NOT EXISTS (SELECT 1 FROM bodegas b WHERE LOWER(b.nombre) = LOWER(TRIM(rc.almacen)))
+    LOOP
+        base := REGEXP_REPLACE(UPPER(TRANSLATE(r.almacen, 'áéíóúüñÁÉÍÓÚÜÑ', 'aeiouunAEIOUUN')), '[^A-Z0-9]', '', 'g');
+        base := LEFT(base, 3);
+        IF LENGTH(base) < 2 THEN
+            base := RPAD(base, 2, 'X');
+        END IF;
+        cod := base;
+        i := 1;
+        WHILE EXISTS (SELECT 1 FROM bodegas WHERE codigo = cod) LOOP
+            i := i + 1;
+            cod := LEFT(base, 2) || i;
+        END LOOP;
+        INSERT INTO bodegas (nombre, codigo) VALUES (r.almacen, cod);
+    END LOOP;
+END $$;
+
+UPDATE requerimientos_compra rc SET bodega_id = b.id
+FROM bodegas b
+WHERE rc.bodega_id IS NULL AND LOWER(b.nombre) = LOWER(TRIM(rc.almacen));
+
 -- Permiso propio: quien pide (farmacia, cocina) no necesita ver compras
 INSERT INTO permissions (nombre, descripcion, modulo, accion)
 VALUES ('requerimientos_view', 'Ver requerimientos de compra', 'requerimientos', 'view'),
