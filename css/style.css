@@ -11129,6 +11129,11 @@ body.chat-abierto {
     white-space: nowrap;
 }
 
+.compras-sin-factura {
+    color: var(--text-gray);
+    font-style: italic;
+}
+
 .compras-req {
     display: block;
     margin-top: 2px;

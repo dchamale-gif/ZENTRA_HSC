@@ -154,11 +154,11 @@ const ComprasModule = {
 
         tbody.innerHTML = this.state.compras.map(compra => `
             <tr>
-                <td><strong>${this.escapeHtml(compra.numero_compra)}</strong>
-                    ${compra.bodega_nombre ? `<small class="compras-req">${this.escapeHtml(compra.bodega_nombre)}</small>` : ''}
+                <td>${compra.numero_factura ? `<strong>${this.escapeHtml(compra.numero_factura)}</strong>` : '<span class="compras-sin-factura">Sin factura</span>'}
+                    <small class="compras-req">Compra ${this.escapeHtml(compra.numero_compra)}${compra.bodega_nombre ? ` · ${this.escapeHtml(compra.bodega_nombre)}` : ''}</small>
                     ${compra.numero_requerimiento ? `<small class="compras-req">Req. ${this.escapeHtml(compra.numero_requerimiento)}${compra.fecha_requerimiento ? ` · ${formatFecha(compra.fecha_requerimiento)}` : ''}</small>` : ''}</td>
                 <td>${this.formatDate(compra.fecha)}</td>
-                <td>${this.escapeHtml(compra.proveedor_nombre)}${compra.numero_factura ? `<small class="compras-req">Factura ${this.escapeHtml(compra.numero_factura)}</small>` : ''}</td>
+                <td>${this.escapeHtml(compra.proveedor_nombre)}</td>
                 ${this.responsablesHTML(compra)}
                 <td>${formatQ(compra.total || 0)}</td>
                 <td>${this.selectorEstado(compra)}</td>
@@ -609,6 +609,8 @@ const ComprasModule = {
         document.getElementById('purchaseModalTitle').textContent = titulo;
         document.getElementById('savePurchaseBtnText').textContent = boton;
         document.getElementById('purchaseReqRow').hidden = !(modo === 'compra' && this.state.requerimientosDisponible);
+        // La factura llegó con la migración de requerimientos
+        document.getElementById('purchaseInvoiceGroup').hidden = !this.state.requerimientosDisponible;
     },
 
     // desdeRequerimiento: compra nueva con la forma de pago de un requerimiento confirmado y los
