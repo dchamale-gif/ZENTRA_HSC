@@ -705,6 +705,8 @@ const ComprasModule = {
     prepararModo(modo, titulo, boton) {
         this.state.modo = modo;
         document.getElementById('purchaseModal').dataset.modo = modo;
+        // Quien solo pide (bodegas) elige conceptos y cantidades: los costos y la forma de pago son de compras
+        document.getElementById('purchaseModal').toggleAttribute('data-sin-precios', modo === 'requerimiento' && !this.puedeComprar('edit'));
         document.getElementById('purchaseModalTitle').textContent = titulo;
         document.getElementById('savePurchaseBtnText').textContent = boton;
         // Requisición y factura llegan con la migración de requerimientos: sin ella se ven, pero bloqueadas y con el aviso
@@ -1222,8 +1224,8 @@ const ComprasModule = {
                         ${this.htmlPresentacion(item, index)}
                     </td>
                     <td><input class="form-input" type="number" min="1" step="1" value="${item.cantidad}" data-compra-cantidad onchange="ComprasModule.updateItem(${index}, 'cantidad', this.value)"></td>
-                    <td><input id="purchaseItemPrice-${index}" class="form-input" type="number" min="0" step="0.01" value="${item.precio_unitario}" onchange="ComprasModule.updateItem(${index}, 'precio_unitario', this.value)"></td>
-                    <td><strong id="purchaseItemSubtotal-${index}">${formatQ(subtotal)}</strong></td>
+                    <td data-precio><input id="purchaseItemPrice-${index}" class="form-input" type="number" min="0" step="0.01" value="${item.precio_unitario}" onchange="ComprasModule.updateItem(${index}, 'precio_unitario', this.value)"></td>
+                    <td data-precio><strong id="purchaseItemSubtotal-${index}">${formatQ(subtotal)}</strong></td>
                     <td>
                         <button class="btn-icon btn-delete" type="button" title="Quitar concepto" onclick="ComprasModule.removeItem(${index})" ${this.state.items.length === 1 ? 'disabled' : ''}>
                             <i class="fas fa-trash"></i>
@@ -1267,7 +1269,9 @@ const ComprasModule = {
             items: this.leerConceptos()
         };
         if (!payload.bodega_id || !payload.fecha || this.conceptosIncompletos(payload.items)) {
-            this.notify('Completa la bodega, la fecha y todos los artículos con su cantidad y costo.', 'warning');
+            this.notify(this.puedeComprar('edit')
+                ? 'Completa la bodega, la fecha y todos los artículos con su cantidad y costo.'
+                : 'Completa la bodega, la fecha y todos los artículos con su cantidad.', 'warning');
             return;
         }
         const boton = document.getElementById('savePurchaseBtn');

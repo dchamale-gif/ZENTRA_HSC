@@ -1261,6 +1261,18 @@ select:disabled {
     min-width: 300px;
 }
 
+/* Sin costos (bodegas que piden) la tabla tiene menos columnas: el concepto toma el espacio que queda */
+#purchaseModal[data-sin-precios] .purchase-items-table th:nth-child(2),
+#purchaseModal[data-sin-precios] .purchase-items-table td:nth-child(2) {
+    min-width: 0;
+    width: 100%;
+}
+
+#purchaseModal[data-sin-precios] .purchase-items-table input[data-compra-cantidad] {
+    width: 90px;
+    min-width: 80px;
+}
+
 .concept-search-input {
     position: relative;
 }
@@ -11241,6 +11253,7 @@ body.chat-abierto {
 }
 
 /* El formulario de compras en modo requerimiento oculta proveedor, estado y pago, y al revés */
+#purchaseModal[data-sin-precios] [data-precio],
 #purchaseModal[data-modo="requerimiento"] [data-solo-compra],
 #purchaseModal:not([data-modo="requerimiento"]) [data-solo-requerimiento] {
     display: none !important;

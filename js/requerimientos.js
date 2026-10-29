@@ -146,11 +146,13 @@ const RequerimientosModule = {
             return;
         }
         const puedeComprar = Permisos.puede('compras', 'edit');
+        // Quien solo pide no ve costos ni forma de pago (el servidor tampoco se los manda)
+        const precios = this.state.puedeRevisar;
         contenedor.innerHTML = `
             <table class="data-table req-tabla">
                 <thead><tr>
                     <th>Número</th><th>Fecha</th><th>Bodega</th><th>Solicitado por</th>
-                    <th class="text-right">Total</th><th>Forma de pago</th><th>Estado</th><th>Compra</th><th class="text-center">Acciones</th>
+                    ${precios ? '<th class="text-right">Total</th><th>Forma de pago</th>' : '<th class="text-right">Artículos</th>'}<th>Estado</th><th>Compra</th><th class="text-center">Acciones</th>
                 </tr></thead>
                 <tbody>${lista.map(r => `
                     <tr>
@@ -158,8 +160,9 @@ const RequerimientosModule = {
                         <td>${formatFecha(r.fecha)}</td>
                         <td>${this.e(r.almacen)}${r.categoria ? `<small class="cot-sub">${this.CATEGORIAS[r.categoria] || this.e(r.categoria)}</small>` : ''}</td>
                         <td>${this.e(r.solicitado_por_nombre || '—')}</td>
-                        <td class="text-right"><strong>${formatQ(r.total)}</strong><small class="cot-sub">${r.items.length} artículo${r.items.length === 1 ? '' : 's'}</small></td>
-                        <td>${this.FORMAS_PAGO[r.forma_pago] || '<small class="cot-sub">—</small>'}</td>
+                        ${precios ? `<td class="text-right"><strong>${formatQ(r.total)}</strong><small class="cot-sub">${r.items.length} artículo${r.items.length === 1 ? '' : 's'}</small></td>
+                        <td>${this.FORMAS_PAGO[r.forma_pago] || '<small class="cot-sub">—</small>'}</td>`
+                        : `<td class="text-right">${r.items.length}</td>`}
                         <td>${this.selectorEstado(r)}
                             ${r.estado === 'rechazada' && r.motivo_rechazo ? `<small class="cot-sub" title="${this.e(r.motivo_rechazo)}">${this.e(r.motivo_rechazo)}</small>` : ''}
                             ${r.revisado_por_nombre && r.estado !== 'pendiente' ? `<small class="cot-sub">Por ${this.e(r.revisado_por_nombre)}</small>` : ''}</td>
@@ -363,8 +366,9 @@ const RequerimientosModule = {
         overlay.querySelector('#reqBodegaNombre').focus();
     },
 
-    // Detalle de solo lectura: conceptos, costos y total
+    // Detalle de solo lectura: conceptos y, para compras, costos y total
     ver(r) {
+        const precios = this.state.puedeRevisar;
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay';
         overlay.innerHTML = `
@@ -378,21 +382,21 @@ const RequerimientosModule = {
                         <div><dt>Fecha</dt><dd>${formatFecha(r.fecha)}</dd></div>
                         <div><dt>Bodega</dt><dd>${this.e(r.almacen)}${r.categoria ? ` · ${this.CATEGORIAS[r.categoria]}` : ''}</dd></div>
                         <div><dt>Solicitado por</dt><dd>${this.e(r.solicitado_por_nombre || '—')}</dd></div>
-                        <div><dt>Forma de pago</dt><dd>${this.FORMAS_PAGO[r.forma_pago] || '—'}</dd></div>
+                        ${precios ? `<div><dt>Forma de pago</dt><dd>${this.FORMAS_PAGO[r.forma_pago] || '—'}</dd></div>` : ''}
                         <div><dt>Estado</dt><dd>${this.ESTADOS[r.estado]}${r.revisado_por_nombre && r.estado !== 'pendiente' ? ` · ${this.e(r.revisado_por_nombre)}` : ''}</dd></div>
                         ${r.motivo_rechazo ? `<div><dt>Motivo del rechazo</dt><dd>${this.e(r.motivo_rechazo)}</dd></div>` : ''}
                         ${(r.compras || []).length ? `<div><dt>Compras</dt><dd>${r.compras.map(c => this.e(`${c.numero_compra} · ${c.proveedor}${c.numero_factura ? ` · factura ${c.numero_factura}` : ''}${c.estado === 'cancelada' ? ' (cancelada)' : ''}`)).join('<br>')}</dd></div>` : ''}
                     </dl>
                     <div class="table-responsive">
                         <table class="data-table">
-                            <thead><tr><th>Artículo / medicina</th><th class="text-right">Cantidad</th><th class="text-right">Costo unitario</th><th class="text-right">Total</th><th>Compra</th></tr></thead>
+                            <thead><tr><th>Artículo / medicina</th><th class="text-right">Cantidad</th>${precios ? '<th class="text-right">Costo unitario</th><th class="text-right">Total</th>' : ''}<th>Compra</th></tr></thead>
                             <tbody>${r.items.map(i => `<tr>
                                 <td>${this.e(i.concepto_nombre || '—')}${i.presentacion_nombre ? `<small class="cot-sub">${this.e(i.presentacion_nombre)}</small>` : ''}</td>
                                 <td class="text-right">${Number(i.cantidad)}</td>
-                                <td class="text-right">${formatQ(i.precio_unitario)}</td>
-                                <td class="text-right">${formatQ(i.subtotal)}</td>
+                                ${precios ? `<td class="text-right">${formatQ(i.precio_unitario)}</td>
+                                <td class="text-right">${formatQ(i.subtotal)}</td>` : ''}
                                 <td>${i.compra ? this.e(i.compra) : `<small class="cot-sub">${r.estado === 'confirmada' ? 'Pendiente' : '—'}</small>`}</td></tr>`).join('')}</tbody>
-                            <tfoot><tr><th colspan="3" class="text-right">Total</th><th class="text-right">${formatQ(r.total)}</th><th></th></tr></tfoot>
+                            ${precios ? `<tfoot><tr><th colspan="3" class="text-right">Total</th><th class="text-right">${formatQ(r.total)}</th><th></th></tr></tfoot>` : ''}
                         </table>
                     </div>
                     ${r.observaciones ? `<p class="req-observaciones"><strong>Observaciones:</strong> ${this.e(r.observaciones)}</p>` : ''}

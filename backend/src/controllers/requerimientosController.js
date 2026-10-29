@@ -57,29 +57,41 @@ const leerDatos = async (client, body) => {
   };
 };
 
-const leerItems = (items) => {
+// conPrecios: compras escribe el costo; quien pide no lo ve y se toma del catálogo (precio null)
+const leerItems = (items, conPrecios = true) => {
   if (!Array.isArray(items) || items.length === 0) throw errorConEstado('Agregue al menos un artículo o medicina');
   return items.map((item, index) => {
     const tipo = item.tipo;
     const conceptoId = String(item.concepto_id || '').trim();
     const cantidad = Number(item.cantidad);
-    const precio = Number(item.precio_unitario);
+    const precio = conPrecios ? Number(item.precio_unitario) : null;
     if (!['articulo', 'medicina'].includes(tipo) || !conceptoId) throw errorConEstado(`Concepto ${index + 1}: elija el artículo o la medicina`);
     if (!Number.isInteger(cantidad) || cantidad <= 0) throw errorConEstado(`Concepto ${index + 1}: la cantidad debe ser un entero mayor a cero`);
-    if (!Number.isFinite(precio) || precio < 0) throw errorConEstado(`Concepto ${index + 1}: el costo no es válido`);
+    if (conPrecios && (!Number.isFinite(precio) || precio < 0)) throw errorConEstado(`Concepto ${index + 1}: el costo no es válido`);
     const presentacionId = tipo === 'medicina' && item.presentacion_id ? Number(item.presentacion_id) : null;
     if (presentacionId !== null && !Number.isInteger(presentacionId)) throw errorConEstado(`Concepto ${index + 1}: presentación no válida`);
-    return { orden: index, tipo, conceptoId, cantidad, precio, presentacionId, subtotal: Number((cantidad * precio).toFixed(2)) };
+    return { orden: index, tipo, conceptoId, cantidad, precio, presentacionId };
   });
 };
 
+// Guarda los conceptos y devuelve el total. Sin costo (lo pidió una bodega) se usa el del catálogo:
+// el de la medicina es por unidad base, así que se multiplica por la presentación.
 const guardarItems = async (client, requerimientoId, items) => {
   await client.query('DELETE FROM requerimiento_compra_items WHERE requerimiento_id = $1', [requerimientoId]);
   const conPresentaciones = await inventario.disponible();
+  let total = 0;
   for (const item of items) {
     const pres = item.tipo === 'medicina' && conPresentaciones
       ? await inventario.presentacion(client, item.conceptoId, item.presentacionId)
       : { id: null, nombre: null, factor: 1 };
+    if (item.precio === null) {
+      const { rows } = await client.query(
+        item.tipo === 'medicina' ? 'SELECT precio_costo FROM medicinas WHERE id = $1' : 'SELECT precio_costo FROM codigos_articulos WHERE id = $1',
+        [item.conceptoId]);
+      item.precio = Number(((Number(rows[0]?.precio_costo) || 0) * (item.tipo === 'medicina' ? pres.factor : 1)).toFixed(2));
+    }
+    item.subtotal = Number((item.cantidad * item.precio).toFixed(2));
+    total += item.subtotal;
     await client.query(
       `INSERT INTO requerimiento_compra_items
          (requerimiento_id, orden, medicina_id, articulo_id, presentacion_id, presentacion_nombre, factor, cantidad, precio_unitario, subtotal)
@@ -88,6 +100,20 @@ const guardarItems = async (client, requerimientoId, items) => {
         pres.id, pres.nombre, pres.factor, item.cantidad, item.precio, item.subtotal]
     );
   }
+  total = Number(total.toFixed(2));
+  await client.query('UPDATE requerimientos_compra SET total = $1 WHERE id = $2', [total, requerimientoId]);
+  return total;
+};
+
+// Quien solo pide (no es de compras) no recibe costos, totales ni forma de pago
+const sinPrecios = (req, requerimiento) => {
+  if (!requerimiento || esDeCompras(req)) return requerimiento;
+  const { total, forma_pago: formaPago, ...resto } = requerimiento;
+  return {
+    ...resto,
+    items: (requerimiento.items || []).map(({ precio_unitario: precio, subtotal, ...item }) => item),
+    compras: (requerimiento.compras || []).map(({ total: totalCompra, ...compra }) => compra)
+  };
 };
 
 // Compra (no cancelada) en la que va un renglón del requerimiento; sin ella, el renglón está pendiente
@@ -178,7 +204,7 @@ const requerimientosController = {
          ${condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : ''}
          ORDER BY r.fecha DESC, r.id DESC
          LIMIT 500`, valores);
-      res.json({ requerimientos: rows, puedeRevisar: esDeCompras(req), disponible: true });
+      res.json({ requerimientos: rows.map(r => sinPrecios(req, r)), puedeRevisar: esDeCompras(req), disponible: true });
     } catch (error) {
       responderError(res, error, 'listar los requerimientos');
     }
@@ -189,7 +215,7 @@ const requerimientosController = {
       if (!(await disponible())) throw errorConEstado(MIGRACION, 503);
       const requerimiento = await obtener(pool, req.params.id);
       if (!requerimiento) throw errorConEstado('Requerimiento no encontrado', 404);
-      res.json({ requerimiento });
+      res.json({ requerimiento: sinPrecios(req, requerimiento) });
     } catch (error) {
       responderError(res, error, 'obtener el requerimiento');
     }
@@ -200,8 +226,8 @@ const requerimientosController = {
     let client;
     try {
       if (!(await disponible())) throw errorConEstado(MIGRACION, 503);
-      const items = leerItems(req.body.items);
-      const total = Number(items.reduce((s, i) => s + i.subtotal, 0).toFixed(2));
+      const conPrecios = esDeCompras(req);
+      const items = leerItems(req.body.items, conPrecios);
       client = await pool.connect();
       await client.query('BEGIN');
       const datos = await leerDatos(client, req.body);
@@ -213,13 +239,13 @@ const requerimientosController = {
            (numero, fecha, almacen, bodega_id, categoria, forma_pago, observaciones, total, solicitado_por, solicitado_por_nombre)
          VALUES ($1, COALESCE($2::date, (NOW() AT TIME ZONE 'America/Guatemala')::date), $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING id`,
-        [numero, datos.fecha, datos.almacen, datos.bodega.id, datos.categoria, datos.formaPago, datos.observaciones,
-          total, req.user.id, nombreUsuario(req)]
+        [numero, datos.fecha, datos.almacen, datos.bodega.id, datos.categoria, conPrecios ? datos.formaPago : null, datos.observaciones,
+          0, req.user.id, nombreUsuario(req)]
       );
       await guardarItems(client, rows[0].id, items);
       const requerimiento = await obtener(client, rows[0].id);
       await client.query('COMMIT');
-      res.status(201).json({ message: `Requerimiento ${requerimiento.numero} registrado`, requerimiento });
+      res.status(201).json({ message: `Requerimiento ${requerimiento.numero} registrado`, requerimiento: sinPrecios(req, requerimiento) });
     } catch (error) {
       if (client) await client.query('ROLLBACK');
       responderError(res, error, 'crear el requerimiento');
@@ -233,8 +259,9 @@ const requerimientosController = {
     let client;
     try {
       if (!(await disponible())) throw errorConEstado(MIGRACION, 503);
-      const items = leerItems(req.body.items);
-      const total = Number(items.reduce((s, i) => s + i.subtotal, 0).toFixed(2));
+      // Quien pide no ve costos ni forma de pago: los costos salen del catálogo y la forma de pago no cambia
+      const conPrecios = esDeCompras(req);
+      const items = leerItems(req.body.items, conPrecios);
       client = await pool.connect();
       await client.query('BEGIN');
       const actual = await client.query('SELECT * FROM requerimientos_compra WHERE id = $1 FOR UPDATE', [req.params.id]);
@@ -246,15 +273,15 @@ const requerimientosController = {
       }
       await client.query(
         `UPDATE requerimientos_compra
-         SET fecha = COALESCE($1::date, fecha), almacen = $2, bodega_id = $8, categoria = COALESCE($3, categoria), forma_pago = $4, observaciones = $5,
-             total = $6, updated_at = NOW()
-         WHERE id = $7`,
-        [datos.fecha, datos.almacen, datos.categoria, datos.formaPago, datos.observaciones, total, req.params.id, datos.bodega.id]
+         SET fecha = COALESCE($1::date, fecha), almacen = $2, bodega_id = $7, categoria = COALESCE($3, categoria),
+             forma_pago = CASE WHEN $8 THEN $4 ELSE forma_pago END, observaciones = $5, updated_at = NOW()
+         WHERE id = $6`,
+        [datos.fecha, datos.almacen, datos.categoria, datos.formaPago, datos.observaciones, req.params.id, datos.bodega.id, conPrecios]
       );
       await guardarItems(client, req.params.id, items);
       const requerimiento = await obtener(client, req.params.id);
       await client.query('COMMIT');
-      res.json({ message: `Requerimiento ${requerimiento.numero} actualizado`, requerimiento });
+      res.json({ message: `Requerimiento ${requerimiento.numero} actualizado`, requerimiento: sinPrecios(req, requerimiento) });
     } catch (error) {
       if (client) await client.query('ROLLBACK');
       responderError(res, error, 'actualizar el requerimiento');

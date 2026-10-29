@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-    <link rel="stylesheet" href="css/style.css?v=20261029-3">
+    <link rel="stylesheet" href="css/style.css?v=20261029-5">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/tema-botengine.css?v=20261018-2">
     <link rel="stylesheet" href="css/tema-oscuro-auto.css?v=20261023-2">
@@ -4042,7 +4042,7 @@
                             <select id="purchaseBodega" class="form-input"></select>
                             <small class="form-hint" id="purchaseBodegaHint"></small>
                         </div>
-                        <div class="form-group" data-solo-requerimiento>
+                        <div class="form-group" data-solo-requerimiento data-precio>
                             <label for="reqFormaPago">Forma de pago</label>
                             <select id="reqFormaPago" class="form-input">
                                 <option value="">-- Selecciona --</option>
@@ -4145,8 +4145,8 @@
                                     <th>Tipo</th>
                                     <th>Artículo / Medicina</th>
                                     <th>Cantidad</th>
-                                    <th>Costo unitario</th>
-                                    <th>Subtotal</th>
+                                    <th data-precio>Costo unitario</th>
+                                    <th data-precio>Subtotal</th>
                                     <th></th>
                                 </tr>
                             </thead>
@@ -4154,7 +4154,7 @@
                         </table>
                     </div>
 
-                    <div class="purchase-total">Total: <strong id="purchaseCalculatedTotal">Q0.00</strong></div>
+                    <div class="purchase-total" data-precio>Total: <strong id="purchaseCalculatedTotal">Q0.00</strong></div>
 
                     <section id="purchasePaymentSection" class="compra-pago" aria-labelledby="purchasePaymentTitle" data-solo-compra hidden>
                         <div class="purchase-items-header">
@@ -6046,8 +6046,8 @@
     <script src="js/control-medicamentos.js?v=20261023-2"></script>
     <script src="js/personal.js?v=20261023-2"></script>
     <script src="js/codigos-articulos.js?v=20261015-21"></script>
-    <script src="js/compras.js?v=20261029-4"></script>
-    <script src="js/requerimientos.js?v=20261029-1"></script>
+    <script src="js/compras.js?v=20261029-5"></script>
+    <script src="js/requerimientos.js?v=20261029-2"></script>
     <script src="js/requisiciones.js?v=20261029-1"></script>
     <script src="js/inventario-activos.js?v=20261023-1"></script>
     <script src="js/alertas.js?v=20261015-21"></script>
