@@ -745,8 +745,8 @@ const ComprasModule = {
     prepararModo(modo, titulo, boton) {
         this.state.modo = modo;
         document.getElementById('purchaseModal').dataset.modo = modo;
-        // Quien solo pide (bodegas) elige conceptos y cantidades: los costos y la forma de pago son de compras
-        document.getElementById('purchaseModal').toggleAttribute('data-sin-precios', modo === 'requerimiento' && !this.puedeComprar('edit'));
+        // Un requerimiento solo lleva conceptos y cantidades: los costos y la forma de pago se ponen en la compra
+        document.getElementById('purchaseModal').toggleAttribute('data-sin-precios', modo === 'requerimiento');
         document.getElementById('purchaseModalTitle').textContent = titulo;
         document.getElementById('savePurchaseBtnText').textContent = boton;
         // Requisición y factura llegan con la migración de requerimientos: sin ella se ven, pero bloqueadas y con el aviso
@@ -875,12 +875,12 @@ const ComprasModule = {
                         <button type="button" class="close-btn" aria-label="Cerrar">&times;</button>
                     </div>
                     <form class="modal-body" novalidate>
-                        <p class="form-hint">Marque los conceptos que van a este proveedor. Los demás quedan pendientes en el requerimiento para otra compra.</p>
+                        <p class="form-hint">Marque los conceptos que van a este proveedor. Los demás quedan pendientes en el requerimiento para otra compra. Los costos se ponen en la compra.</p>
                         <div class="table-responsive">
                             <table class="data-table req-elegir">
                                 <thead><tr>
                                     <th><input type="checkbox" data-todos checked aria-label="Marcar todos los pendientes"></th>
-                                    <th>Artículo / medicina</th><th class="text-right">Cantidad</th><th class="text-right">Costo</th><th class="text-right">Total</th>
+                                    <th>Artículo / medicina</th><th class="text-right">Cantidad</th>
                                 </tr></thead>
                                 <tbody>${requerimiento.items.map((item, i) => `
                                     <tr class="${item.compra ? 'req-comprado' : ''}">
@@ -888,10 +888,7 @@ const ComprasModule = {
                                         <td>${this.escapeHtml(item.concepto_nombre || '—')}${item.presentacion_nombre ? `<small class="cot-sub">${this.escapeHtml(item.presentacion_nombre)}</small>` : ''}
                                             ${item.compra ? `<small class="cot-sub">Ya va en la compra ${this.escapeHtml(item.compra)}</small>` : ''}</td>
                                         <td class="text-right">${Number(item.cantidad)}</td>
-                                        <td class="text-right">${formatQ(item.precio_unitario)}</td>
-                                        <td class="text-right">${formatQ(item.subtotal)}</td>
                                     </tr>`).join('')}</tbody>
-                                <tfoot><tr><th colspan="4" class="text-right">Total de esta compra</th><th class="text-right" data-total></th></tr></tfoot>
                             </table>
                         </div>
                         <div class="inv-dialogo-acciones">
@@ -905,7 +902,6 @@ const ComprasModule = {
             const elegidos = () => casillas.filter(c => c.checked).map(c => requerimiento.items[Number(c.dataset.renglon)]);
             const actualizar = () => {
                 const lista = elegidos();
-                overlay.querySelector('[data-total]').textContent = formatQ(lista.reduce((s, item) => s + Number(item.subtotal), 0));
                 overlay.querySelector('[data-boton]').textContent = `Continuar con ${lista.length} concepto${lista.length === 1 ? '' : 's'}`;
                 overlay.querySelector('button[type="submit"]').disabled = !lista.length;
                 const todos = overlay.querySelector('[data-todos]');
@@ -1309,9 +1305,7 @@ const ComprasModule = {
             items: this.leerConceptos()
         };
         if (!payload.bodega_id || !payload.fecha || this.conceptosIncompletos(payload.items)) {
-            this.notify(this.puedeComprar('edit')
-                ? 'Completa la bodega, la fecha y todos los artículos con su cantidad y costo.'
-                : 'Completa la bodega, la fecha y todos los artículos con su cantidad.', 'warning');
+            this.notify('Completa la bodega, la fecha y todos los artículos con su cantidad.', 'warning');
             return;
         }
         const boton = document.getElementById('savePurchaseBtn');
