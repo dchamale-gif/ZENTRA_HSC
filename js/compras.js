@@ -608,9 +608,14 @@ const ComprasModule = {
         document.getElementById('purchaseModal').dataset.modo = modo;
         document.getElementById('purchaseModalTitle').textContent = titulo;
         document.getElementById('savePurchaseBtnText').textContent = boton;
-        document.getElementById('purchaseReqRow').hidden = !(modo === 'compra' && this.state.requerimientosDisponible);
-        // La factura llegó con la migración de requerimientos
-        document.getElementById('purchaseInvoiceGroup').hidden = !this.state.requerimientosDisponible;
+        // Requisición y factura llegan con la migración de requerimientos: sin ella se ven, pero bloqueadas y con el aviso
+        const listo = this.state.requerimientosDisponible;
+        const aviso = 'Falta preparar la base de datos: en el servidor, cd backend && npm run migrate:requerimientos';
+        ['purchaseReqNumber', 'purchaseReqDate', 'purchaseInvoiceNumber'].forEach(id => {
+            document.getElementById(id).disabled = !listo;
+        });
+        document.getElementById('purchaseReqHint').textContent = listo ? 'Un requerimiento confirmado del sistema carga los conceptos que elija.' : aviso;
+        document.getElementById('purchaseInvoiceHint').textContent = listo ? '' : aviso;
     },
 
     // desdeRequerimiento: compra nueva con la forma de pago de un requerimiento confirmado y los
