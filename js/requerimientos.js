@@ -53,6 +53,7 @@ const RequerimientosModule = {
                 ver: () => this.ver(requerimiento),
                 editar: () => this.editar(requerimiento),
                 comprar: () => this.generarCompra(requerimiento),
+                facturas: () => this.verFacturas(requerimiento),
                 eliminar: () => this.eliminar(requerimiento)
             };
             acciones[boton.dataset.reqAccion]?.();
@@ -197,6 +198,13 @@ const RequerimientosModule = {
         if (renglones) ComprasModule.openPurchaseModal(null, { desdeRequerimiento: requerimiento, renglones });
     },
 
+    // Abre Gestión de Compras filtrada por las facturas que salen de este requerimiento
+    async verFacturas(requerimiento) {
+        ComprasModule.state.filtroRequerimiento = ComprasModule.clave(requerimiento.numero);
+        navigateToPage('compras');
+        if (!ComprasModule.state.compras.length) await ComprasModule.loadData();
+    },
+
     // Compras que siguen en pie (las canceladas liberan sus conceptos)
     comprasActivas(r) {
         return (r.compras || []).filter(c => c.estado !== 'cancelada');
@@ -207,8 +215,16 @@ const RequerimientosModule = {
     },
 
     celdaCompras(r, puedeComprar) {
-        const etiquetas = (r.compras || []).map(c => `<span class="cot-tag${c.estado === 'cancelada' ? ' req-compra-cancelada' : ''}"
-                title="${this.e(`${c.proveedor}${c.numero_factura ? ` · factura ${c.numero_factura}` : ''}${c.estado === 'cancelada' ? ' · cancelada' : ''}`)}">${this.e(c.numero_compra)}</span>`).join(' ');
+        // Con acceso a compras, cada número lleva a las facturas de este requerimiento
+        const verCompras = Permisos.puede('compras', 'view');
+        const etiquetas = (r.compras || []).map(c => {
+            const titulo = this.e(`${c.proveedor}${c.numero_factura ? ` · factura ${c.numero_factura}` : ''}${c.estado === 'cancelada' ? ' · cancelada' : ''}`);
+            const clase = `cot-tag${c.estado === 'cancelada' ? ' req-compra-cancelada' : ''}`;
+            const texto = this.e(c.numero_factura || c.numero_compra);
+            return verCompras
+                ? `<button type="button" class="${clase} req-compra-enlace" data-req-accion="facturas" data-id="${r.id}" title="${titulo} · ver en Gestión de Compras">${texto}</button>`
+                : `<span class="${clase}" title="${titulo}">${texto}</span>`;
+        }).join(' ');
         const pendientes = this.pendientes(r);
         const parcial = this.comprasActivas(r).length && pendientes
             ? `<small class="cot-sub" title="${pendientes} de ${r.items.length} conceptos aún no están en una compra">Faltan ${pendientes} de ${r.items.length}</small>` : '';

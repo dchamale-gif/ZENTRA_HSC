@@ -19,6 +19,9 @@ const ComprasModule = {
         requerimientosDisponible: false,
         requerimientosConfirmados: [], // confirmados sin compra, para "No. de requerimiento"
         bodegas: [],                   // farmacia, cocina…: cada una lleva su correlativo por año
+        // Filtros del listado: texto y requerimiento de origen ('' todos, '-' sin requerimiento)
+        busqueda: '',
+        filtroRequerimiento: '',
         initialized: false
     },
 
@@ -56,6 +59,20 @@ const ComprasModule = {
         document.getElementById('purchaseVoucherList')?.addEventListener('click', (e) => this.alClicVoucher(e));
 
         document.getElementById('purchaseReqNumber')?.addEventListener('change', (e) => this.usarRequerimiento(e.target.value));
+
+        document.getElementById('comprasBusqueda')?.addEventListener('input', (e) => {
+            this.state.busqueda = e.target.value;
+            this.render();
+        });
+        document.getElementById('comprasFiltroReq')?.addEventListener('change', (e) => {
+            this.state.filtroRequerimiento = e.target.value;
+            this.render();
+        });
+        // El número de requerimiento de una fila filtra por él
+        document.querySelector('#comprasTable tbody')?.addEventListener('click', (e) => {
+            const boton = e.target.closest('[data-filtrar-req]');
+            if (boton) this.filtrarPorRequerimiento(boton.dataset.filtrarReq);
+        });
 
         // Estado y pago se cambian desde el listado
         document.querySelector('#comprasTable tbody')?.addEventListener('change', (e) => {
@@ -147,16 +164,25 @@ const ComprasModule = {
         const columnaPago = document.querySelector('#comprasTable th.compras-col-pago');
         if (columnaPago) columnaPago.hidden = !this.state.pagos;
 
+        this.renderFiltroRequerimientos();
+        const columnas = this.state.pagos ? 9 : 8;
         if (this.state.compras.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="${this.state.pagos ? 9 : 8}" class="text-center">No hay compras registradas</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="${columnas}" class="text-center">No hay compras registradas</td></tr>`;
+            return;
+        }
+        const lista = this.comprasFiltradas();
+        this.renderResumenFiltro(lista);
+        if (lista.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="${columnas}" class="text-center">Ninguna compra coincide con los filtros</td></tr>`;
             return;
         }
 
-        tbody.innerHTML = this.state.compras.map(compra => `
+        tbody.innerHTML = lista.map(compra => `
             <tr>
                 <td>${compra.numero_factura ? `<strong>${this.escapeHtml(compra.numero_factura)}</strong>` : '<span class="compras-sin-factura">Sin factura</span>'}
                     <small class="compras-req">Compra ${this.escapeHtml(compra.numero_compra)}${compra.bodega_nombre ? ` · ${this.escapeHtml(compra.bodega_nombre)}` : ''}</small>
-                    ${compra.numero_requerimiento ? `<small class="compras-req">Req. ${this.escapeHtml(compra.numero_requerimiento)}${compra.fecha_requerimiento ? ` · ${formatFecha(compra.fecha_requerimiento)}` : ''}</small>` : ''}</td>
+                    ${compra.numero_requerimiento ? `<button type="button" class="btn-link compras-req compras-req-filtro" data-filtrar-req="${this.escapeHtml(compra.numero_requerimiento)}"
+                        title="Ver todas las facturas de este requerimiento">Req. ${this.escapeHtml(compra.numero_requerimiento)}${compra.fecha_requerimiento ? ` · ${formatFecha(compra.fecha_requerimiento)}` : ''}</button>` : ''}</td>
                 <td>${this.formatDate(compra.fecha)}</td>
                 <td>${this.escapeHtml(compra.proveedor_nombre)}</td>
                 ${this.responsablesHTML(compra)}
@@ -173,6 +199,72 @@ const ComprasModule = {
                 </td>
             </tr>
         `).join('');
+    },
+
+    // ---------- Filtros del listado ----------
+    clave(texto) {
+        return String(texto || '').trim().toUpperCase();
+    },
+
+    comprasFiltradas() {
+        const req = this.state.filtroRequerimiento;
+        const texto = this.state.busqueda.trim().toLowerCase();
+        return this.state.compras.filter(compra => {
+            if (req === '-' && compra.numero_requerimiento) return false;
+            if (req && req !== '-' && this.clave(compra.numero_requerimiento) !== req) return false;
+            if (!texto) return true;
+            return [compra.numero_factura, compra.numero_compra, compra.proveedor_nombre, compra.numero_requerimiento]
+                .some(valor => String(valor || '').toLowerCase().includes(texto));
+        });
+    },
+
+    // Un requerimiento por opción, con cuántas facturas (compras) salen de él
+    renderFiltroRequerimientos() {
+        const select = document.getElementById('comprasFiltroReq');
+        if (!select) return;
+        const conteo = new Map();
+        this.state.compras.forEach(compra => {
+            const clave = this.clave(compra.numero_requerimiento);
+            if (clave) {
+                const previo = conteo.get(clave);
+                conteo.set(clave, { numero: previo?.numero || compra.numero_requerimiento.trim(), n: (previo?.n || 0) + 1 });
+            }
+        });
+        const sinReq = this.state.compras.filter(c => !c.numero_requerimiento).length;
+        // Si el requerimiento elegido ya no tiene compras, el filtro vuelve a "Todos"
+        if (this.state.filtroRequerimiento && this.state.filtroRequerimiento !== '-' && !conteo.has(this.state.filtroRequerimiento)) {
+            this.state.filtroRequerimiento = '';
+        }
+        const plural = (n) => `${n} factura${n === 1 ? '' : 's'}`;
+        select.innerHTML = '<option value="">Todos</option>'
+            + `<option value="-">Sin requerimiento (${plural(sinReq)})</option>`
+            + [...conteo.entries()].sort((a, b) => b[0].localeCompare(a[0]))
+                .map(([clave, r]) => `<option value="${this.escapeHtml(clave)}">${this.escapeHtml(r.numero)} (${plural(r.n)})</option>`).join('');
+        select.value = this.state.filtroRequerimiento;
+    },
+
+    // Con un requerimiento elegido: cuántas facturas, su total y lo que aún falta comprar de él
+    renderResumenFiltro(lista) {
+        const resumen = document.getElementById('comprasFiltroResumen');
+        if (!resumen) return;
+        const req = this.state.filtroRequerimiento;
+        if (!req || req === '-') {
+            resumen.hidden = true;
+            return;
+        }
+        const activas = lista.filter(c => c.estado !== 'cancelada');
+        const total = activas.reduce((s, c) => s + Number(c.total || 0), 0);
+        const numero = lista[0]?.numero_requerimiento || req;
+        resumen.innerHTML = `Requerimiento <strong>${this.escapeHtml(numero)}</strong>: ${lista.length} factura${lista.length === 1 ? '' : 's'}
+            · total ${formatQ(total)}${activas.length < lista.length ? ' (sin las canceladas)' : ''}
+            <button type="button" class="btn-link" onclick="ComprasModule.filtrarPorRequerimiento('')">Quitar filtro</button>`;
+        resumen.hidden = false;
+    },
+
+    filtrarPorRequerimiento(numero) {
+        this.state.filtroRequerimiento = this.clave(numero);
+        this.render();
+        document.getElementById('comprasFiltroReq')?.focus();
     },
 
     // Solicitó: quien hizo el requerimiento del sistema o, sin él, quien registró la compra.

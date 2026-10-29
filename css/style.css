@@ -11129,6 +11129,36 @@ body.chat-abierto {
     white-space: nowrap;
 }
 
+.compras-filtros {
+    grid-template-columns: minmax(220px, 2fr) minmax(200px, 1fr);
+}
+
+@media (max-width: 640px) {
+    .compras-filtros {
+        grid-template-columns: 1fr;
+    }
+}
+
+.compras-filtro-resumen {
+    margin: 0 0 12px;
+    color: var(--text-gray);
+    font-size: 14px;
+}
+
+.compras-filtro-resumen .btn-link {
+    margin-left: 8px;
+}
+
+.compras-req-filtro {
+    padding: 0;
+    text-align: left;
+    color: var(--primary-color);
+}
+
+.compras-req-filtro:hover {
+    text-decoration: underline;
+}
+
 .compras-sin-factura {
     color: var(--text-gray);
     font-style: italic;
@@ -11164,6 +11194,16 @@ body.chat-abierto {
 
 .req-tabla td.req-compras .btn-accion {
     margin-top: 4px;
+}
+
+.req-compra-enlace {
+    border: 0;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.req-compra-enlace:hover {
+    text-decoration: underline;
 }
 
 .req-compra-cancelada {
