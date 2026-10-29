@@ -4,16 +4,17 @@
 // le manda al proveedor y se paga de una vez: al pagarla, todas sus facturas quedan
 // pagadas (fecha, forma y número de pago de la compra). Una factura va en una sola
 // requisición, y una ya pagada por su cuenta no entra en ninguna.
-// Estados: pendiente -> pagada (y de vuelta), o anulada (libera sus facturas).
+// Se paga en uno o varios abonos (services/abonos): pendiente -> parcial -> pagada; o anulada
+// (solo sin abonos; libera sus facturas). Sus facturas quedan pagadas cuando se completa el pago.
 // ============================================
 
 const pool = require('../db/connection');
 const correlativos = require('../services/correlativos');
 const { nombreUsuario } = require('../services/historiaSincronizada');
 const { validarSubida, limpiarNombre, enviarArchivo } = require('../services/archivos');
+const abonos = require('../services/abonos');
 
 const MIGRACION = 'Falta preparar la base de datos para las requisiciones (npm run migrate:requisiciones).';
-const FORMAS_PAGO = ['efectivo', 'tarjeta', 'cheque', 'transferencia'];
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 const MES = /^\d{4}-(0[1-9]|1[0-2])$/;
 
@@ -64,7 +65,7 @@ const leerDatos = (body) => {
 };
 
 // El total es la suma de sus facturas no canceladas (cambia si se edita una factura)
-const SELECT_REQUISICION = `
+const selectRequisicion = (conAbonos) => `
   SELECT r.id, r.numero, r.proveedor_id, p.nombre AS proveedor_nombre,
          to_char(r.periodo, 'YYYY-MM') AS periodo, to_char(r.fecha, 'YYYY-MM-DD') AS fecha,
          r.observaciones, r.estado, to_char(r.fecha_pago, 'YYYY-MM-DD') AS fecha_pago, r.forma_pago,
@@ -79,11 +80,46 @@ const SELECT_REQUISICION = `
          COALESCE((SELECT json_agg(json_build_object(
                      'id', v.id, 'nombre', v.nombre_archivo, 'subido_por', v.subido_por_nombre, 'fecha', v.created_at
                    ) ORDER BY v.created_at)
-                   FROM requisicion_vouchers v WHERE v.requisicion_id = r.id), '[]'::json) AS vouchers
+                   FROM requisicion_vouchers v WHERE v.requisicion_id = r.id), '[]'::json) AS vouchers${conAbonos ? `,
+         ${abonos.columnas('requisicion', 'r.id', 'requisicion_vouchers')}` : ''}
   FROM requisiciones r
   JOIN proveedores p ON p.id = r.proveedor_id`;
 
-const obtener = (db, id) => db.query(`${SELECT_REQUISICION} WHERE r.id = $1`, [id]).then(r => r.rows[0] || null);
+const obtener = async (db, id) =>
+  db.query(`${selectRequisicion(await abonos.disponible())} WHERE r.id = $1`, [id]).then(r => r.rows[0] || null);
+
+const totalDe = async (db, id) => {
+  const { rows } = await db.query(
+    "SELECT COALESCE(SUM(total), 0) AS total FROM compras WHERE requisicion_id = $1 AND estado <> 'cancelada'", [id]);
+  return Number(rows[0].total);
+};
+
+// Estado según lo abonado. Completa: queda pagada con la fecha y forma del último abono y sus
+// facturas quedan pagadas; si no, sus facturas vuelven a quedar pendientes de pago.
+const recalcular = async (client, id, req) => {
+  const { rows: [actual] } = await client.query('SELECT estado FROM requisiciones WHERE id = $1', [id]);
+  if (!actual || actual.estado === 'anulada') return;
+  const total = await totalDe(client, id);
+  const ultimo = await abonos.resumen(client, 'requisicion', id);
+  const estado = { pendiente: 'pendiente', parcial: 'parcial', pagado: 'pagada' }[abonos.estado(ultimo.pagado, total)];
+  const pagada = estado === 'pagada';
+  await client.query(
+    `UPDATE requisiciones SET estado = $1, fecha_pago = $2, forma_pago = $3, numero_pago_banco = $4, numero_autorizacion = $5,
+            pagado_por_nombre = $6, actualizado_por_nombre = $7, updated_at = NOW()
+     WHERE id = $8`,
+    [estado, pagada ? ultimo.fecha : null, pagada ? ultimo.forma_pago : null, pagada ? ultimo.numero_pago_banco : null,
+      pagada ? ultimo.numero_autorizacion : null, pagada ? ultimo.registrado_por_nombre : null, nombreUsuario(req), id]);
+  if (await pagosCompras()) {
+    if (pagada) {
+      await client.query(
+        `UPDATE compras SET fecha_pago = $1, forma_pago = $2, referencia_pago = COALESCE($3, referencia_pago), updated_at = NOW()
+         WHERE requisicion_id = $4 AND estado <> 'cancelada'`,
+        [ultimo.fecha, ultimo.forma_pago, ultimo.numero_pago_banco || ultimo.numero_autorizacion || ultimo.referencia, id]);
+    } else {
+      await client.query('UPDATE compras SET fecha_pago = NULL, updated_at = NOW() WHERE requisicion_id = $1', [id]);
+    }
+  }
+};
 
 const responderError = (res, error, accion) => {
   if (!error.status) console.error(`Error al ${accion}:`, error);
@@ -121,10 +157,11 @@ const enTransaccion = async (res, accion, id, trabajo) => {
     await client.query('BEGIN');
     const { rows: [actual] } = await client.query('SELECT * FROM requisiciones WHERE id = $1 FOR UPDATE', [id]);
     if (!actual) throw errorConEstado('Requisición no encontrada', 404);
-    const mensaje = await trabajo(client, actual);
+    const resultado = await trabajo(client, actual);
+    const { mensaje, ...extra } = typeof resultado === 'string' ? { mensaje: resultado } : resultado;
     const requisicion = await obtener(client, id);
     await client.query('COMMIT');
-    res.json({ message: mensaje, requisicion });
+    res.json({ message: mensaje, requisicion, ...extra });
   } catch (error) {
     if (client) await client.query('ROLLBACK');
     responderError(res, error, accion);
@@ -142,7 +179,7 @@ const requisicionesController = {
       if (!(await disponible())) return res.json({ requisiciones: [], disponible: false });
       const valores = [];
       const condiciones = [];
-      if (['pendiente', 'pagada', 'anulada'].includes(req.query.estado)) {
+      if (['pendiente', 'parcial', 'pagada', 'anulada'].includes(req.query.estado)) {
         valores.push(req.query.estado);
         condiciones.push(`r.estado = $${valores.length}`);
       }
@@ -157,7 +194,7 @@ const requisicionesController = {
           SELECT 1 FROM compras c WHERE c.requisicion_id = r.id AND (c.numero_factura ILIKE ${p} OR c.numero_compra ILIKE ${p})))`);
       }
       const { rows } = await pool.query(
-        `${SELECT_REQUISICION}
+        `${selectRequisicion(await abonos.disponible())}
          ${condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : ''}
          ORDER BY r.periodo DESC, r.created_at DESC
          LIMIT 500`, valores);
@@ -231,57 +268,62 @@ const requisicionesController = {
     });
   },
 
-  // PUT /api/requisiciones/:id/pago { fecha, forma_pago, numero_pago_banco, numero_autorizacion }
-  // Paga la requisición y, con ella, todas sus facturas
-  async pagar(req, res) {
-    await enTransaccion(res, 'registrar el pago de la requisición', req.params.id, async (client, actual) => {
-      if (actual.estado !== 'pendiente') throw errorConEstado(`La requisición ${actual.numero} ya está ${actual.estado}`, 409);
-      const fecha = leerFecha(req.body.fecha, 'Fecha del pago');
-      if (!fecha) throw errorConEstado('Indique la fecha del pago');
-      const forma = req.body.forma_pago;
-      if (!FORMAS_PAGO.includes(forma)) throw errorConEstado('Indique la forma de pago');
-      const numeroBanco = texto(req.body.numero_pago_banco, 60);
-      const autorizacion = texto(req.body.numero_autorizacion, 60);
-      if (forma !== 'efectivo' && (!numeroBanco || !autorizacion)) {
-        throw errorConEstado('Registre el número de pago que da el banco y el número de autorización');
-      }
-      const { rows: [{ n }] } = await client.query(
-        "SELECT COUNT(*)::int AS n FROM compras WHERE requisicion_id = $1 AND estado <> 'cancelada'", [actual.id]);
-      if (!n) throw errorConEstado('La requisición no tiene facturas por pagar');
-      await client.query(
-        `UPDATE requisiciones SET estado = 'pagada', fecha_pago = $1, forma_pago = $2, numero_pago_banco = $3,
-                numero_autorizacion = $4, pagado_por_nombre = $5, actualizado_por_nombre = $5, updated_at = NOW()
-         WHERE id = $6`,
-        [fecha, forma, numeroBanco, autorizacion, nombreUsuario(req), actual.id]);
-      if (await pagosCompras()) {
-        await client.query(
-          `UPDATE compras SET fecha_pago = $1, forma_pago = $2,
-                  referencia_pago = COALESCE($3, referencia_pago), updated_at = NOW()
-           WHERE requisicion_id = $4 AND estado <> 'cancelada'`,
-          [fecha, forma, numeroBanco || autorizacion, actual.id]);
-      }
-      return `Requisición ${actual.numero} pagada: sus ${n} factura${n === 1 ? '' : 's'} quedan pagadas`;
+  // POST /api/requisiciones/:id/abonos { fecha, monto, forma_pago, numero_pago_banco, numero_autorizacion }
+  // Un abono al pago; al completar el total, la requisición y sus facturas quedan pagadas
+  async registrarAbono(req, res) {
+    await enTransaccion(res, 'registrar el abono', req.params.id, async (client, actual) => {
+      await abonos.exigirDisponible();
+      if (!['pendiente', 'parcial'].includes(actual.estado)) throw errorConEstado(`La requisición ${actual.numero} ya está ${actual.estado}`, 409);
+      const abono = abonos.leer(req.body, { exigirBanco: true });
+      const total = await totalDe(client, actual.id);
+      if (total <= 0) throw errorConEstado('La requisición no tiene facturas por pagar');
+      const abonoId = await abonos.registrar(client, 'requisicion', actual.id, abono, total, req);
+      await recalcular(client, actual.id, req);
+      const { pagado } = await abonos.resumen(client, 'requisicion', actual.id);
+      const saldo = total - pagado;
+      return {
+        mensaje: saldo > abonos.CENTAVO
+          ? `Abono registrado en ${actual.numero}: queda un saldo de Q ${saldo.toFixed(2)}`
+          : `Requisición ${actual.numero} pagada: sus facturas quedan pagadas`,
+        abono_id: abonoId
+      };
+    });
+  },
+
+  // DELETE /api/requisiciones/abonos/:abonoId
+  async eliminarAbono(req, res) {
+    let id;
+    try {
+      await abonos.exigirDisponible();
+      const { rows } = await pool.query("SELECT documento_id FROM abonos WHERE id = $1 AND documento = 'requisicion'", [Number(req.params.abonoId) || 0]);
+      if (!rows.length) throw errorConEstado('Abono no encontrado', 404);
+      id = rows[0].documento_id;
+    } catch (error) {
+      return responderError(res, error, 'quitar el abono');
+    }
+    await enTransaccion(res, 'quitar el abono', id, async (client, actual) => {
+      if (actual.estado === 'anulada') throw errorConEstado(`La requisición ${actual.numero} está anulada`, 409);
+      await abonos.eliminar(client, 'requisicion', req.params.abonoId);
+      await recalcular(client, actual.id, req);
+      return `Abono quitado de ${actual.numero}`;
     });
   },
 
   // PUT /api/requisiciones/:id/estado { estado: 'pendiente' | 'anulada', motivo }
-  // pendiente: quita el pago (y el de sus facturas). anulada: solo pendientes; libera sus facturas.
+  // pendiente: quita todos sus abonos (y el pago de sus facturas). anulada: solo sin abonos; libera sus facturas.
   async cambiarEstado(req, res) {
     await enTransaccion(res, 'cambiar el estado de la requisición', req.params.id, async (client, actual) => {
       const estado = req.body.estado;
       if (estado === 'pendiente') {
-        if (actual.estado !== 'pagada') throw errorConEstado(`La requisición ${actual.numero} no está pagada`, 409);
-        await client.query(
-          `UPDATE requisiciones SET estado = 'pendiente', fecha_pago = NULL, forma_pago = NULL, numero_pago_banco = NULL,
-                  numero_autorizacion = NULL, pagado_por_nombre = NULL, actualizado_por_nombre = $1, updated_at = NOW()
-           WHERE id = $2`, [nombreUsuario(req), actual.id]);
-        if (await pagosCompras()) {
-          await client.query('UPDATE compras SET fecha_pago = NULL, updated_at = NOW() WHERE requisicion_id = $1', [actual.id]);
-        }
+        // Quita todos sus abonos
+        if (!['parcial', 'pagada'].includes(actual.estado)) throw errorConEstado(`La requisición ${actual.numero} no tiene pagos`, 409);
+        await abonos.exigirDisponible();
+        await abonos.eliminarTodos(client, 'requisicion', actual.id);
+        await recalcular(client, actual.id, req);
         return `Requisición ${actual.numero} vuelve a pendiente de pago`;
       }
       if (estado === 'anulada') {
-        if (actual.estado !== 'pendiente') throw errorConEstado('Solo se anula una requisición pendiente; si está pagada, quite primero el pago', 409);
+        if (actual.estado !== 'pendiente') throw errorConEstado('Solo se anula una requisición sin pagos; quite primero sus abonos', 409);
         const motivo = texto(req.body.motivo, 500);
         if (!motivo) throw errorConEstado('Indique el motivo de la anulación');
         await client.query(
@@ -311,18 +353,20 @@ const requisicionesController = {
     }
   },
 
-  // POST /api/requisiciones/:id/vouchers?nombre= (cuerpo: el PDF o la imagen del voucher tal cual)
+  // POST /api/requisiciones/:id/vouchers?nombre=&abono_id= (cuerpo: el PDF o la imagen del voucher tal cual)
   async subirVoucher(req, res) {
     try {
       const { tipoContenido, status, error: errorArchivo } = validarSubida(req.body);
       if (errorArchivo) throw errorConEstado(errorArchivo, status);
       if (!(await disponible())) throw errorConEstado(MIGRACION, 503);
+      const abonoId = await abonos.abonoDelVoucher(pool, 'requisicion', req.params.id, req.query.abono_id);
       const { rows } = await pool.query(
-        `INSERT INTO requisicion_vouchers (requisicion_id, nombre_archivo, tipo_contenido, tamano, contenido, subido_por, subido_por_nombre)
-         SELECT r.id, $2, $3, $4, $5, $6, $7 FROM requisiciones r WHERE r.id = $1
+        `INSERT INTO requisicion_vouchers (requisicion_id, nombre_archivo, tipo_contenido, tamano, contenido, subido_por, subido_por_nombre
+                                           ${abonoId ? ', abono_id' : ''})
+         SELECT r.id, $2, $3, $4, $5, $6, $7 ${abonoId ? ', $8' : ''} FROM requisiciones r WHERE r.id = $1
          RETURNING id, nombre_archivo AS nombre, subido_por_nombre AS subido_por, created_at AS fecha`,
         [req.params.id, limpiarNombre(req.query.nombre, tipoContenido, 'voucher'), tipoContenido,
-          req.body.length, req.body, req.user.id, nombreUsuario(req)]
+          req.body.length, req.body, req.user.id, nombreUsuario(req), ...(abonoId ? [abonoId] : [])]
       );
       if (!rows.length) throw errorConEstado('Requisición no encontrada', 404);
       res.status(201).json({ message: 'Voucher guardado', voucher: rows[0] });

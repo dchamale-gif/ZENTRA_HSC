@@ -1,9 +1,9 @@
 // ============================================
 // GASTOS (luz, agua, internet, teléfono…)
 // Flujo: pendiente (se registró la requisición) -> cargado (se procesó y espera
-// que el dueño pague) -> pagado. También puede anularse.
-// Marcar como pagado es del administrador, con el número de pago que da el banco
-// y el número de autorización (en efectivo no aplican).
+// que el dueño pague) -> parcial -> pagado. También puede anularse (sin abonos).
+// El pago es del administrador, en uno o varios abonos (services/abonos), cada uno con
+// el número de pago que da el banco y el de autorización (en efectivo no aplican).
 // Los días en espera se cuentan desde la fecha de carga hasta hoy o hasta el pago.
 // ============================================
 
@@ -11,9 +11,10 @@ const pool = require('../db/connection');
 const correlativos = require('../services/correlativos');
 const { nombreUsuario } = require('../services/historiaSincronizada');
 const { validarSubida, limpiarNombre, enviarArchivo } = require('../services/archivos');
+const abonos = require('../services/abonos');
 
 const MIGRACION = 'Falta preparar la base de datos para los gastos (npm run migrate:gastos).';
-const ESTADOS = ['pendiente', 'cargado', 'pagado', 'anulado'];
+const ESTADOS = ['pendiente', 'cargado', 'parcial', 'pagado', 'anulado'];
 const FORMAS_PAGO = ['efectivo', 'tarjeta', 'cheque', 'transferencia'];
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 const HOY_GT = "(NOW() AT TIME ZONE 'America/Guatemala')::date";
@@ -82,15 +83,51 @@ const leerDatos = (body) => {
 };
 
 // Días de espera: desde la carga hasta hoy (cargado) o hasta el pago (pagado)
-const SELECT_GASTO = `
+// (con pago parcial sigue esperando el resto)
+const selectGasto = (conAbonos) => `
   SELECT g.*, to_char(g.fecha_factura, 'YYYY-MM-DD') AS fecha_factura,
          to_char(g.fecha_cargo, 'YYYY-MM-DD') AS fecha_cargo, to_char(g.fecha_pago, 'YYYY-MM-DD') AS fecha_pago,
-         CASE WHEN g.estado = 'cargado' THEN ${HOY_GT} - g.fecha_cargo
+         CASE WHEN g.estado IN ('cargado', 'parcial') THEN ${HOY_GT} - g.fecha_cargo
               WHEN g.estado = 'pagado' THEN g.fecha_pago - g.fecha_cargo END AS dias_espera,
-         ${HOY_GT} - (g.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guatemala')::date AS dias_desde_creacion
+         ${HOY_GT} - (g.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guatemala')::date AS dias_desde_creacion${conAbonos ? `,
+         ${abonos.columnas('gasto', 'g.id', 'gasto_vouchers')}` : ''}
   FROM gastos g`;
 
-const obtener = (db, id) => db.query(`${SELECT_GASTO} WHERE g.id = $1`, [id]).then(r => r.rows[0] || null);
+const obtener = async (db, id) =>
+  db.query(`${selectGasto(await abonos.disponible())} WHERE g.id = $1`, [id]).then(r => r.rows[0] || null);
+
+const esAdmin = (req) => Boolean(req.userRoles?.includes('admin'));
+
+// Estado según lo abonado. Sin abonos vuelve a esperar el pago (o a pendiente si no se había cargado);
+// el primer abono fija la carga si faltaba; completo queda pagado con la fecha y forma del último.
+const recalcular = async (client, id, req) => {
+  const { rows: [g] } = await client.query(
+    "SELECT estado, monto, to_char(fecha_cargo, 'YYYY-MM-DD') AS fecha_cargo FROM gastos WHERE id = $1", [id]);
+  if (!g || g.estado === 'anulado') return;
+  const ultimo = await abonos.resumen(client, 'gasto', id);
+  const segun = abonos.estado(ultimo.pagado, g.monto);
+  let campos;
+  if (segun === 'pendiente') {
+    campos = { estado: g.fecha_cargo ? 'cargado' : 'pendiente', ...SIN_PAGO };
+  } else {
+    const { rows: [primero] } = await client.query(
+      "SELECT to_char(MIN(fecha), 'YYYY-MM-DD') AS fecha FROM abonos WHERE documento = 'gasto' AND documento_id = $1::text", [String(id)]);
+    const fechaCargo = g.fecha_cargo && g.fecha_cargo <= primero.fecha ? g.fecha_cargo : primero.fecha;
+    campos = segun === 'parcial'
+      ? { estado: 'parcial', fecha_cargo: fechaCargo, ...SIN_PAGO }
+      : {
+          estado: 'pagado', fecha_cargo: fechaCargo, fecha_pago: ultimo.fecha, forma_pago: ultimo.forma_pago,
+          referencia_pago: ultimo.referencia, numero_pago_banco: ultimo.numero_pago_banco,
+          numero_autorizacion: ultimo.numero_autorizacion, pagado_por_nombre: ultimo.registrado_por_nombre, motivo_anulacion: null
+        };
+  }
+  const nombres = Object.keys(campos);
+  await client.query(
+    `UPDATE gastos SET ${nombres.map((n, i) => `${n} = $${i + 1}`).join(', ')},
+            actualizado_por_nombre = $${nombres.length + 1}, updated_at = NOW()
+     WHERE id = $${nombres.length + 2}`,
+    [...Object.values(campos), nombreUsuario(req), id]);
+};
 
 const responderError = (res, error, accion) => {
   if (!error.status) console.error(`Error al ${accion}:`, error);
@@ -114,17 +151,20 @@ const gastosController = {
         condiciones.push(`(g.numero ILIKE ${p} OR g.categoria ILIKE ${p} OR g.proveedor ILIKE ${p}
           OR g.descripcion ILIKE ${p} OR g.numero_factura ILIKE ${p} OR g.registrado_por_nombre ILIKE ${p})`);
       }
+      const conAbonos = await abonos.disponible();
       const { rows } = await pool.query(
-        `${SELECT_GASTO}
+        `${selectGasto(conAbonos)}
          ${condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : ''}
          ORDER BY g.created_at DESC, g.id DESC
          LIMIT 500`, valores);
       await agregarVouchers(rows);
-      // Lo que el dueño aún debe pagar: los cargados
+      // Lo que el dueño aún debe pagar: los cargados y el saldo de los pagados en parte
       const resumen = await pool.query(
-        `SELECT COUNT(*)::int AS cantidad, COALESCE(SUM(monto), 0) AS total,
-                COALESCE(MAX(${HOY_GT} - fecha_cargo), 0) AS dias_mas_antiguo
-         FROM gastos WHERE estado = 'cargado'`);
+        `SELECT COUNT(*)::int AS cantidad,
+                COALESCE(SUM(g.monto ${conAbonos ? `- COALESCE((SELECT SUM(a.monto) FROM abonos a
+                                                           WHERE a.documento = 'gasto' AND a.documento_id = g.id::text), 0)` : ''}), 0) AS total,
+                COALESCE(MAX(${HOY_GT} - g.fecha_cargo), 0) AS dias_mas_antiguo
+         FROM gastos g WHERE g.estado IN ('cargado', 'parcial')`);
       const categorias = await pool.query('SELECT DISTINCT categoria FROM gastos ORDER BY categoria');
       res.json({
         gastos: rows, resumen: resumen.rows[0], categorias: categorias.rows.map(r => r.categoria),
@@ -195,9 +235,16 @@ const gastosController = {
       if (!ESTADOS.includes(estado)) throw errorConEstado('Estado no válido');
       const actual = await obtener(pool, req.params.id);
       if (!actual) throw errorConEstado('Gasto no encontrado', 404);
-      if (actual.estado === 'pagado' && !req.userRoles?.includes('admin')) {
-        throw errorConEstado('Solo el administrador cambia un gasto ya pagado', 403);
+      if (['parcial', 'pagado'].includes(actual.estado) && !esAdmin(req)) {
+        throw errorConEstado('Solo el administrador cambia un gasto con pagos', 403);
       }
+      const conAbonos = await abonos.disponible();
+      if (conAbonos && ['pagado', 'parcial'].includes(estado)) throw errorConEstado('El pago se registra con abonos');
+      if (conAbonos && estado === 'anulado' && ['parcial', 'pagado'].includes(actual.estado)) {
+        throw errorConEstado(`El gasto ${actual.numero} tiene pagos: quítelos antes de anularlo`, 409);
+      }
+      // Volver a pendiente o a esperando pago quita sus abonos
+      if (conAbonos && ['pendiente', 'cargado'].includes(estado)) await abonos.eliminarTodos(pool, 'gasto', actual.id);
       const fecha = leerFecha(req.body.fecha, 'Fecha');
       let campos;
       if (estado === 'pendiente') {
@@ -240,18 +287,20 @@ const gastosController = {
     }
   },
 
-  // POST /api/gastos/:id/vouchers?nombre= (cuerpo: el PDF o la imagen del voucher tal cual)
+  // POST /api/gastos/:id/vouchers?nombre=&abono_id= (cuerpo: el PDF o la imagen del voucher tal cual)
   async subirVoucher(req, res) {
     try {
       const { tipoContenido, status, error: errorArchivo } = validarSubida(req.body);
       if (errorArchivo) throw errorConEstado(errorArchivo, status);
       if (!(await vouchersDisponibles())) throw errorConEstado(MIGRACION, 503);
+      const abonoId = await abonos.abonoDelVoucher(pool, 'gasto', req.params.id, req.query.abono_id);
       const { rows } = await pool.query(
-        `INSERT INTO gasto_vouchers (gasto_id, nombre_archivo, tipo_contenido, tamano, contenido, subido_por, subido_por_nombre)
-         SELECT g.id, $2, $3, $4, $5, $6, $7 FROM gastos g WHERE g.id = $1
+        `INSERT INTO gasto_vouchers (gasto_id, nombre_archivo, tipo_contenido, tamano, contenido, subido_por, subido_por_nombre
+                                     ${abonoId ? ', abono_id' : ''})
+         SELECT g.id, $2, $3, $4, $5, $6, $7 ${abonoId ? ', $8' : ''} FROM gastos g WHERE g.id = $1
          RETURNING id, nombre_archivo AS nombre, tipo_contenido, tamano, subido_por_nombre AS subido_por, created_at AS fecha`,
         [req.params.id, limpiarNombre(req.query.nombre, tipoContenido, 'voucher'), tipoContenido,
-          req.body.length, req.body, req.user.id, nombreUsuario(req)]
+          req.body.length, req.body, req.user.id, nombreUsuario(req), ...(abonoId ? [abonoId] : [])]
       );
       if (!rows.length) throw errorConEstado('Gasto no encontrado', 404);
       res.status(201).json({ message: 'Voucher guardado', voucher: rows[0] });
@@ -272,6 +321,59 @@ const gastosController = {
       enviarArchivo(res, { nombre, tipoContenido, contenido });
     } catch (error) {
       responderError(res, error, 'abrir el voucher');
+    }
+  },
+
+  // POST /api/gastos/:id/abonos { fecha, monto, forma_pago, numero_pago_banco, numero_autorizacion } (administrador)
+  async registrarAbono(req, res) {
+    let client;
+    try {
+      await abonos.exigirDisponible();
+      if (!esAdmin(req)) throw errorConEstado('Solo el administrador registra el pago de un gasto', 403);
+      const abono = abonos.leer(req.body, { exigirBanco: true });
+      client = await pool.connect();
+      await client.query('BEGIN');
+      const { rows: [actual] } = await client.query(
+        "SELECT id, numero, estado, monto, to_char(fecha_cargo, 'YYYY-MM-DD') AS fecha_cargo FROM gastos WHERE id = $1 FOR UPDATE", [req.params.id]);
+      if (!actual) throw errorConEstado('Gasto no encontrado', 404);
+      if (!['pendiente', 'cargado', 'parcial'].includes(actual.estado)) throw errorConEstado(`El gasto ${actual.numero} ya está ${actual.estado}`, 409);
+      if (actual.fecha_cargo && abono.fecha < actual.fecha_cargo) throw errorConEstado('El pago no puede ser anterior a la fecha de carga');
+      const abonoId = await abonos.registrar(client, 'gasto', actual.id, abono, actual.monto, req);
+      await recalcular(client, actual.id, req);
+      const gasto = await obtener(client, actual.id);
+      await client.query('COMMIT');
+      const saldo = Number(gasto.monto) - Number(gasto.pagado);
+      res.status(201).json({
+        message: saldo > abonos.CENTAVO ? `Abono registrado en ${gasto.numero}: queda un saldo de Q ${saldo.toFixed(2)}` : `Gasto ${gasto.numero} pagado`,
+        gasto, abono_id: abonoId
+      });
+    } catch (error) {
+      if (client) await client.query('ROLLBACK');
+      responderError(res, error, 'registrar el abono');
+    } finally {
+      if (client) client.release();
+    }
+  },
+
+  // DELETE /api/gastos/abonos/:abonoId (administrador)
+  async eliminarAbono(req, res) {
+    let client;
+    try {
+      await abonos.exigirDisponible();
+      if (!esAdmin(req)) throw errorConEstado('Solo el administrador quita pagos de un gasto', 403);
+      client = await pool.connect();
+      await client.query('BEGIN');
+      const id = await abonos.eliminar(client, 'gasto', req.params.abonoId);
+      if (id === null) throw errorConEstado('Abono no encontrado', 404);
+      await recalcular(client, id, req);
+      const gasto = await obtener(client, id);
+      await client.query('COMMIT');
+      res.json({ message: `Abono quitado de ${gasto.numero}`, gasto });
+    } catch (error) {
+      if (client) await client.query('ROLLBACK');
+      responderError(res, error, 'quitar el abono');
+    } finally {
+      if (client) client.release();
     }
   },
 

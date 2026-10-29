@@ -4,6 +4,7 @@ const requerimientos = require('./requerimientosController');
 const requisiciones = require('./requisicionesController');
 const correlativos = require('../services/correlativos');
 const { validarSubida, limpiarNombre, enviarArchivo } = require('../services/archivos');
+const abonos = require('../services/abonos');
 
 const MIGRACION_PAGOS = 'Falta preparar la base de datos para el pago de las compras (npm run migrate:compras-pagos).';
 const FORMAS_PAGO = ['efectivo', 'tarjeta', 'cheque', 'transferencia'];
@@ -52,12 +53,50 @@ const leerPago = (body, fechaCompra) => {
   };
 };
 
-const guardarPago = (client, compraId, pago) => client.query(
-  `UPDATE compras SET condicion_pago = $2, dias_credito = $3, fecha_vencimiento_pago = $4,
-          forma_pago = $5, referencia_pago = $6, fecha_pago = $7
-   WHERE id = $1`,
-  [compraId, pago.condicion, pago.dias, pago.vencimiento, pago.forma, pago.referencia, pago.fechaPago]
-);
+// Con abonos la fecha de pago no se escribe aquí: la pone recalcularPago según lo abonado
+const guardarPago = async (client, compraId, pago) => {
+  const conAbonos = await abonos.disponible();
+  await client.query(
+    `UPDATE compras SET condicion_pago = $2, dias_credito = $3, fecha_vencimiento_pago = $4,
+            forma_pago = $5, referencia_pago = $6${conAbonos ? '' : ', fecha_pago = $7'}
+     WHERE id = $1`,
+    [compraId, pago.condicion, pago.dias, pago.vencimiento, pago.forma, pago.referencia, ...(conAbonos ? [] : [pago.fechaPago])]
+  );
+};
+
+// Pago de una compra suelta en abonos: pagada (fecha y forma del último abono) cuando cubren el total
+const recalcularPago = async (client, compraId) => {
+  const { rows: [compra] } = await client.query('SELECT total FROM compras WHERE id = $1', [compraId]);
+  if (!compra) return;
+  const ultimo = await abonos.resumen(client, 'compra', compraId);
+  if (abonos.estado(ultimo.pagado, compra.total) === 'pagado') {
+    await client.query(
+      `UPDATE compras SET fecha_pago = $2, forma_pago = $3,
+              referencia_pago = COALESCE($4, referencia_pago), updated_at = NOW()
+       WHERE id = $1`,
+      [compraId, ultimo.fecha, ultimo.forma_pago, ultimo.referencia || ultimo.numero_pago_banco || ultimo.numero_autorizacion]);
+  } else {
+    await client.query('UPDATE compras SET fecha_pago = NULL, updated_at = NOW() WHERE id = $1', [compraId]);
+  }
+};
+
+// La fecha de pago escrita en el formulario de una compra sin abonos es un abono por el total
+const pagoDelFormulario = async (client, compraId, pago, req) => {
+  if (!(await abonos.disponible())) return;
+  if (pago?.fechaPago) {
+    const { pagado } = await abonos.resumen(client, 'compra', compraId);
+    if (pagado === 0) {
+      const { rows: [compra] } = await client.query('SELECT total FROM compras WHERE id = $1', [compraId]);
+      if (Number(compra.total) > 0) {
+        await abonos.registrar(client, 'compra', compraId, {
+          fecha: pago.fechaPago, monto: Number(compra.total), forma: pago.forma || 'efectivo',
+          numeroBanco: null, autorizacion: null, referencia: pago.referencia
+        }, compra.total, req);
+      }
+    }
+  }
+  await recalcularPago(client, compraId);
+};
 
 // Requerimiento del que sale la compra: uno del sistema (por su número) o uno en papel (número y fecha a mano).
 // Uno del sistema debe estar confirmado; sus conceptos se pueden repartir en varias compras.
@@ -139,13 +178,14 @@ const guardarRequerimiento = (client, compraId, req, body) => client.query(
   [compraId, req.id, req.numero, req.fecha, String(body.numero_factura || '').trim().slice(0, 60) || null]
 );
 
-const compraSelect = (conInventario, conPagos, conRequerimientos, conRequisiciones) => `
+const compraSelect = (conInventario, conPagos, conRequerimientos, conRequisiciones, conAbonos) => `
   SELECT c.id, c.numero_compra, c.proveedor_id, p.nombre AS proveedor_nombre,
          c.user_id, c.fecha, c.fecha_entrega, c.total, c.estado,
          c.observaciones, c.created_at, c.updated_at,
          (SELECT TRIM(CONCAT(u.nombre, ' ', u.apellido)) FROM users u WHERE u.id::text = c.user_id::text) AS registrado_por_nombre,${conRequisiciones ? `
          c.requisicion_id, (SELECT numero FROM requisiciones WHERE id = c.requisicion_id) AS requisicion_numero,
-         (SELECT estado FROM requisiciones WHERE id = c.requisicion_id) AS requisicion_estado,` : ''}${conRequerimientos ? `
+         (SELECT estado FROM requisiciones WHERE id = c.requisicion_id) AS requisicion_estado,` : ''}${conAbonos && conPagos ? `
+         ${abonos.columnas('compra', 'c.id', 'compra_vouchers')},` : ''}${conRequerimientos ? `
          (SELECT r.solicitado_por_nombre FROM requerimientos_compra r WHERE r.id = c.requerimiento_id) AS solicitado_por_nombre,
          (SELECT r.revisado_por_nombre FROM requerimientos_compra r
            WHERE r.id = c.requerimiento_id AND r.estado = 'confirmada') AS confirmado_por_nombre,
@@ -353,7 +393,7 @@ const getCompras = async (req, res) => {
   try {
     const conPagos = await pagosDisponibles();
     const result = await pool.query(
-      `${compraSelect(await inventario.disponible(), conPagos, await requerimientos.disponible(), await requisiciones.disponible())}
+      `${compraSelect(await inventario.disponible(), conPagos, await requerimientos.disponible(), await requisiciones.disponible(), await abonos.disponible())}
        GROUP BY c.id, p.id
        ORDER BY c.fecha DESC, c.created_at DESC`
     );
@@ -367,7 +407,7 @@ const getCompras = async (req, res) => {
 const getCompraById = async (req, res) => {
   try {
     const result = await pool.query(
-      `${compraSelect(await inventario.disponible(), await pagosDisponibles(), await requerimientos.disponible(), await requisiciones.disponible())}
+      `${compraSelect(await inventario.disponible(), await pagosDisponibles(), await requerimientos.disponible(), await requisiciones.disponible(), await abonos.disponible())}
        WHERE c.id = $1
        GROUP BY c.id, p.id`,
       [req.params.id]
@@ -416,7 +456,10 @@ const createCompra = async (req, res) => {
     if (bodega) await client.query('UPDATE compras SET bodega_id = $1 WHERE id = $2', [bodega.id, compraId]);
     await enlazarRenglones(client, items, requerimiento, compraId);
     await insertItems(client, compraId, items);
-    if (pago) await guardarPago(client, compraId, pago);
+    if (pago) {
+      await guardarPago(client, compraId, pago);
+      await pagoDelFormulario(client, compraId, pago, req);
+    }
     if (requerimiento) await guardarRequerimiento(client, compraId, requerimiento, req.body);
     if (estado === 'recibida' && await inventario.disponible()) await aplicarInventario(client, compraId, req);
     await client.query('COMMIT');
@@ -473,7 +516,10 @@ const updateCompra = async (req, res) => {
     await client.query('DELETE FROM compra_items WHERE compra_id = $1', [req.params.id]);
     await enlazarRenglones(client, items, requerimiento, req.params.id);
     await insertItems(client, req.params.id, items);
-    if (pago && !requisicion) await guardarPago(client, req.params.id, pago);
+    if (pago && !requisicion) {
+      await guardarPago(client, req.params.id, pago);
+      await pagoDelFormulario(client, req.params.id, pago, req);
+    }
     if (requerimiento) {
       // La bodega no cambia (va en el número); una compra anterior a las bodegas la toma ahora
       const { rows: [actual] } = await client.query('SELECT bodega_id, numero_compra FROM compras WHERE id = $1', [req.params.id]);
@@ -512,6 +558,7 @@ const deleteCompra = async (req, res) => {
       if (existing.rows[0]?.inventario_aplicado) await revertirInventario(client, req.params.id, req, 'Compra eliminada');
     }
     const result = await client.query('DELETE FROM compras WHERE id = $1 RETURNING id, numero_compra', [req.params.id]);
+    if (result.rows.length && await abonos.disponible()) await abonos.eliminarTodos(client, 'compra', req.params.id);
     if (result.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Compra no encontrada' });
@@ -577,6 +624,7 @@ const marcarPago = async (req, res) => {
     if (!(await pagosDisponibles())) return res.status(503).json({ error: MIGRACION_PAGOS });
     const requisicion = await requisicionDe(pool, req.params.id);
     if (requisicion) throw errorConEstado(`Esta factura va en la requisición ${requisicion.numero}: el pago se registra en la requisición`, 409);
+    if (await abonos.disponible()) return marcarPagoConAbonos(req, res);
     let result;
     if (req.body.pagada) {
       const fechaPago = req.body.fecha_pago;
@@ -600,19 +648,91 @@ const marcarPago = async (req, res) => {
   }
 };
 
-// POST /api/compras/:id/vouchers?nombre= (cuerpo: el PDF o la imagen del voucher tal cual)
+// Compra suelta (no cancelada ni en una requisición) bloqueada para registrar o quitar abonos
+const compraParaAbonos = async (client, compraId) => {
+  const { rows: [compra] } = await client.query(
+    'SELECT id, numero_compra, numero_factura, estado, total FROM compras WHERE id = $1 FOR UPDATE', [compraId]);
+  if (!compra) throw errorConEstado('Compra no encontrada', 404);
+  const requisicion = await requisicionDe(client, compraId);
+  if (requisicion) throw errorConEstado(`Esta factura va en la requisición ${requisicion.numero}: el pago se registra en la requisición`, 409);
+  return compra;
+};
+
+const enTransaccion = async (res, accion, trabajo) => {
+  let client;
+  try {
+    if (!(await pagosDisponibles())) throw errorConEstado(MIGRACION_PAGOS, 503);
+    await abonos.exigirDisponible();
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const respuesta = await trabajo(client);
+    await client.query('COMMIT');
+    res.json({ success: true, ...respuesta });
+  } catch (error) {
+    if (client) await client.query('ROLLBACK');
+    if (!error.status) console.error(`Error al ${accion}:`, error);
+    res.status(error.status || 500).json({ error: error.status ? error.message : `Error al ${accion}` });
+  } finally {
+    if (client) client.release();
+  }
+};
+
+// PUT /api/compras/:id/pago con abonos: pagada = un abono por el saldo; pendiente = quita sus abonos
+const marcarPagoConAbonos = (req, res) => enTransaccion(res, 'guardar el pago', async (client) => {
+  const compra = await compraParaAbonos(client, req.params.id);
+  if (req.body.pagada) {
+    const { pagado } = await abonos.resumen(client, 'compra', compra.id);
+    const abono = abonos.leer({ ...req.body, fecha: req.body.fecha_pago, monto: Number(compra.total) - pagado, referencia: req.body.referencia_pago }, { exigirBanco: false });
+    await abonos.registrar(client, 'compra', compra.id, abono, compra.total, req);
+  } else {
+    await abonos.eliminarTodos(client, 'compra', compra.id);
+  }
+  await recalcularPago(client, compra.id);
+  return { message: req.body.pagada ? 'Compra marcada como pagada' : 'Pago marcado como pendiente' };
+});
+
+// POST /api/compras/:id/abonos { fecha, monto, forma_pago, referencia }
+const registrarAbono = (req, res) => enTransaccion(res, 'registrar el abono', async (client) => {
+  const compra = await compraParaAbonos(client, req.params.id);
+  if (compra.estado === 'cancelada') throw errorConEstado(`La compra ${compra.numero_compra} está cancelada`, 409);
+  const abono = abonos.leer(req.body, { exigirBanco: false });
+  const abonoId = await abonos.registrar(client, 'compra', compra.id, abono, compra.total, req);
+  await recalcularPago(client, compra.id);
+  const { pagado } = await abonos.resumen(client, 'compra', compra.id);
+  const saldo = Number(compra.total) - pagado;
+  const nombre = compra.numero_factura ? `la factura ${compra.numero_factura}` : `la compra ${compra.numero_compra}`;
+  return {
+    message: saldo > abonos.CENTAVO ? `Abono registrado en ${nombre}: queda un saldo de Q ${saldo.toFixed(2)}` : `Quedó pagada ${nombre}`,
+    abono_id: abonoId
+  };
+});
+
+// DELETE /api/compras/abonos/:abonoId
+const eliminarAbono = (req, res) => enTransaccion(res, 'quitar el abono', async (client) => {
+  const { rows: [abono] } = await client.query(
+    "SELECT documento_id FROM abonos WHERE id = $1 AND documento = 'compra'", [Number(req.params.abonoId) || 0]);
+  if (!abono) throw errorConEstado('Abono no encontrado', 404);
+  await compraParaAbonos(client, abono.documento_id);
+  await abonos.eliminar(client, 'compra', req.params.abonoId);
+  await recalcularPago(client, abono.documento_id);
+  return { message: 'Abono quitado' };
+});
+
+// POST /api/compras/:id/vouchers?nombre=&abono_id= (cuerpo: el PDF o la imagen del voucher tal cual)
 const subirVoucher = async (req, res) => {
   const { tipoContenido, status, error: errorArchivo } = validarSubida(req.body);
   if (errorArchivo) return res.status(status).json({ error: errorArchivo });
   const autor = `${req.user.nombre || ''} ${req.user.apellido || ''}`.trim() || req.user.email;
   try {
     if (!(await pagosDisponibles())) return res.status(503).json({ error: MIGRACION_PAGOS });
+    const abonoId = await abonos.abonoDelVoucher(pool, 'compra', req.params.id, req.query.abono_id);
     const result = await pool.query(
-      `INSERT INTO compra_vouchers (compra_id, nombre_archivo, tipo_contenido, tamano, contenido, subido_por, subido_por_nombre)
-       SELECT c.id, $2, $3, $4, $5, $6, $7 FROM compras c WHERE c.id = $1
+      `INSERT INTO compra_vouchers (compra_id, nombre_archivo, tipo_contenido, tamano, contenido, subido_por, subido_por_nombre
+                                    ${abonoId ? ', abono_id' : ''})
+       SELECT c.id, $2, $3, $4, $5, $6, $7 ${abonoId ? ', $8' : ''} FROM compras c WHERE c.id = $1
        RETURNING id, nombre_archivo AS nombre, tipo_contenido, tamano, subido_por_nombre AS subido_por, created_at AS fecha`,
       [req.params.id, limpiarNombre(req.query.nombre, tipoContenido, 'voucher'), tipoContenido,
-        req.body.length, req.body, req.user.id, autor]
+        req.body.length, req.body, req.user.id, autor, ...(abonoId ? [abonoId] : [])]
     );
     if (result.rowCount === 0) return res.status(404).json({ error: 'Compra no encontrada' });
     res.status(201).json({ success: true, voucher: result.rows[0] });
@@ -658,5 +778,5 @@ const eliminarVoucher = async (req, res) => {
 
 module.exports = {
   getCompras, getCompraById, createCompra, updateCompra, deleteCompra, cambiarEstado, marcarPago,
-  subirVoucher, verVoucher, eliminarVoucher, pagosDisponibles
+  registrarAbono, eliminarAbono, subirVoucher, verVoucher, eliminarVoucher, pagosDisponibles
 };

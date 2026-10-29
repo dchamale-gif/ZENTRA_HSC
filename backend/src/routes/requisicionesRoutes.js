@@ -7,13 +7,15 @@ const router = express.Router();
 // Antes de /:id para que no se confundan
 router.get('/facturas', requisicionesController.facturasDisponibles);
 router.get('/vouchers/:voucherId', requisicionesController.verVoucher);
+router.delete('/abonos/:abonoId', requisicionesController.eliminarAbono);
 router.post('/:id/vouchers', recibirArchivo(express), requisicionesController.subirVoucher);
 
 router.get('/', requisicionesController.listar);
 router.post('/', requisicionesController.crear);
 router.put('/:id', requisicionesController.actualizar);
-router.put('/:id/pago', requisicionesController.pagar);
-// Quitar el pago (vuelve a pendiente) o anular
+// El pago va en uno o varios abonos
+router.post('/:id/abonos', requisicionesController.registrarAbono);
+// Quitar todos los abonos (vuelve a pendiente) o anular
 router.put('/:id/estado', requisicionesController.cambiarEstado);
 router.delete('/:id', requisicionesController.eliminar);
 

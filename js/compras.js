@@ -72,6 +72,8 @@ const ComprasModule = {
         document.querySelector('#comprasTable tbody')?.addEventListener('click', (e) => {
             const boton = e.target.closest('[data-filtrar-req]');
             if (boton) this.filtrarPorRequerimiento(boton.dataset.filtrarReq);
+            const pagos = e.target.closest('[data-pagos-compra]');
+            if (pagos) this.pagosCompra(this.state.compras.find(c => String(c.id) === pagos.dataset.pagosCompra));
         });
 
         // Estado y pago se cambian desde el listado
@@ -315,11 +317,43 @@ const ComprasModule = {
             pendiente = vencida ? 'Crédito vencido' : `Crédito ${compra.dias_credito} días`;
             detalle = `Vence ${formatFecha(compra.fecha_vencimiento_pago)}${vouchers}`;
         }
+        // Con abonos: un botón que abre los pagos (pago parcial con su saldo)
+        if (Array.isArray(compra.abonos)) {
+            const parcial = !compra.fecha_pago && compra.abonos.length > 0;
+            if (parcial) {
+                clase = 'parcial';
+                pendiente = 'Pago parcial';
+                detalle = `${Abonos.resumenTexto(compra.total, compra.abonos)}${vouchers}`;
+            }
+            if (compra.fecha_pago && compra.abonos.length > 1) detalle += ` · ${compra.abonos.length} abonos`;
+            return `<button type="button" class="compras-pago-boton compras-pago-${clase}" data-pagos-compra="${this.escapeHtml(compra.id)}"
+                        title="Ver o registrar los pagos" aria-label="Pagos de la compra ${this.escapeHtml(compra.numero_compra)}">
+                    ${compra.fecha_pago ? 'Pagada' : pendiente} <i class="fas fa-chevron-right" aria-hidden="true"></i></button>${detalle ? `<small>${detalle}</small>` : ''}`;
+        }
         return `<select class="cuenta-select compras-select compras-pago-${clase}" data-compra="${this.escapeHtml(compra.id)}" data-campo="pago"
                     aria-label="Pago de la compra ${this.escapeHtml(compra.numero_compra)}">
                 <option value="pendiente" ${compra.fecha_pago ? '' : 'selected'}>${pendiente}</option>
                 <option value="pagada" ${compra.fecha_pago ? 'selected' : ''}>Pagada</option>
             </select>${detalle ? `<small>${detalle}</small>` : ''}`;
+    },
+
+    // Abonos del pago de una compra suelta (la referencia va en vez de los números del banco)
+    pagosCompra(compra) {
+        if (!compra) return;
+        const nombre = compra.numero_factura ? `factura ${compra.numero_factura}` : `compra ${compra.numero_compra}`;
+        Abonos.dialogo({
+            titulo: `Pagos de la ${this.escapeHtml(nombre)}`,
+            subtitulo: `${this.escapeHtml(compra.proveedor_nombre)} · compra ${this.escapeHtml(compra.numero_compra)}`,
+            total: compra.total,
+            abonos: compra.abonos || [],
+            puedeEditar: this.puedeComprar('edit') && compra.estado !== 'cancelada',
+            exigirBanco: false,
+            registrar: (datos) => this.apiRequest(`/api/compras/${encodeURIComponent(compra.id)}/abonos`, { method: 'POST', body: JSON.stringify(datos) }),
+            eliminar: (abono) => this.apiRequest(`/api/compras/abonos/${abono.id}`, { method: 'DELETE' }),
+            subirVoucher: (abonoId, archivo) => Abonos.subirVoucher(`/api/compras/${encodeURIComponent(compra.id)}/vouchers`, abonoId, archivo),
+            verVoucher: (id, nombre) => this.verVoucher({ id, nombre }),
+            alTerminar: () => this.loadData()
+        });
     },
 
     async cambiarEstado(select) {
@@ -534,6 +568,12 @@ const ComprasModule = {
         document.getElementById('purchasePaymentMethod').value = compra?.forma_pago || '';
         document.getElementById('purchasePaymentRef').value = compra?.referencia_pago || '';
         document.getElementById('purchasePaymentDate').value = compra?.fecha_pago || '';
+        // Con abonos, los pagos se registran desde el listado (botón Pago)
+        const conAbonos = (compra?.abonos || []).length > 0;
+        document.getElementById('purchasePaymentDate').disabled = conAbonos;
+        document.getElementById('purchasePaymentDateHint').textContent = conAbonos
+            ? `Tiene ${compra.abonos.length} abono${compra.abonos.length === 1 ? '' : 's'}: los pagos se registran desde el listado, en la columna Pago.`
+            : 'Déjela vacía mientras no se haya pagado. Para pagar en partes, use la columna Pago del listado.';
         this.llenarCuentaProveedor(compra?.proveedor_id || '');
         this.renderVouchers();
         this.actualizarPago();

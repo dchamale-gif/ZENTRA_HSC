@@ -15,7 +15,7 @@ const RequisicionesModule = {
         busqueda: ''
     },
 
-    ESTADOS: { pendiente: 'Por pagar', pagada: 'Pagada', anulada: 'Anulada' },
+    ESTADOS: { pendiente: 'Por pagar', parcial: 'Pago parcial', pagada: 'Pagada', anulada: 'Anulada' },
     FORMAS_PAGO: { efectivo: 'Efectivo', tarjeta: 'Tarjeta de crédito', transferencia: 'Transferencia', cheque: 'Cheque' },
 
     init() {
@@ -47,7 +47,7 @@ const RequisicionesModule = {
             const acciones = {
                 ver: () => this.ver(requisicion),
                 editar: () => this.formulario(requisicion),
-                pagar: () => this.pagar(requisicion),
+                pagar: () => this.pagos(requisicion),
                 quitarPago: () => this.quitarPago(requisicion),
                 anular: () => this.anular(requisicion),
                 eliminar: () => this.eliminar(requisicion)
@@ -130,8 +130,8 @@ const RequisicionesModule = {
     renderResumen() {
         const caja = document.getElementById('rqsResumen');
         if (!caja) return;
-        const porPagar = this.state.requisiciones.filter(r => r.estado === 'pendiente');
-        const total = porPagar.reduce((s, r) => s + Number(r.total || 0), 0);
+        const porPagar = this.state.requisiciones.filter(r => ['pendiente', 'parcial'].includes(r.estado));
+        const total = porPagar.reduce((s, r) => s + Abonos.saldo(r.total, r.abonos), 0);
         caja.innerHTML = porPagar.length
             ? `<strong>${porPagar.length} requisición${porPagar.length === 1 ? '' : 'es'} por pagar · ${formatQ(total)}</strong>`
             : '<span>No hay requisiciones por pagar.</span>';
@@ -145,7 +145,8 @@ const RequisicionesModule = {
         const vouchers = (r.vouchers || []).map(v => `
             <button type="button" class="btn-link gasto-voucher" data-rqs-voucher="${v.id}" data-nombre="${this.e(v.nombre)}"
                     title="Ver ${this.e(v.nombre)}"><i class="fas fa-paperclip" aria-hidden="true"></i> ${this.e(v.nombre)}</button>`).join('');
-        return `<small class="cot-sub">${partes.filter(Boolean).join(' · ')}</small>
+        const varios = (r.abonos || []).length > 1 ? `<small class="cot-sub">En ${r.abonos.length} abonos</small>` : '';
+        return `<small class="cot-sub">${partes.filter(Boolean).join(' · ')}</small>${varios}
             ${r.pagado_por_nombre ? `<small class="cot-sub">Por ${this.e(r.pagado_por_nombre)}</small>` : ''}${vouchers}`;
     },
 
@@ -183,15 +184,18 @@ const RequisicionesModule = {
                         <td class="text-right">${r.estado === 'anulada' ? '<small class="cot-sub">—</small>' : `<strong>${formatQ(r.total)}</strong>`}${r.facturas.length ? `<small class="cot-sub">${r.facturas.length} factura${r.facturas.length === 1 ? '' : 's'}</small>` : ''}</td>
                         <td><span class="rqs-estado rqs-estado-${this.e(r.estado)}">${this.ESTADOS[r.estado] || this.e(r.estado)}</span>
                             ${r.estado === 'pagada' ? this.detallePago(r) : ''}
+                            ${r.estado === 'parcial' ? `<small class="cot-sub">${Abonos.resumenTexto(r.total, r.abonos)}</small>` : ''}
                             ${r.estado === 'anulada' && r.motivo_anulacion ? `<small class="cot-sub" title="${this.e(r.motivo_anulacion)}">${this.e(r.motivo_anulacion)}</small>` : ''}</td>
                         <td><div class="acciones-saldo">
                             ${boton('ver', r, 'fa-eye', 'Ver')}
+                            ${editar && ['pendiente', 'parcial'].includes(r.estado) ? `
+                                <button type="button" class="btn-accion btn-accion-primaria" data-rqs-accion="pagar" data-id="${r.id}"><i class="fas fa-money-check-dollar" aria-hidden="true"></i> ${r.estado === 'parcial' ? 'Abonar' : 'Pagar'}</button>` : ''}
+                            ${r.estado === 'pagada' ? boton('pagar', r, 'fa-receipt', 'Ver los pagos') : ''}
                             ${editar && r.estado === 'pendiente' ? `
-                                <button type="button" class="btn-accion btn-accion-primaria" data-rqs-accion="pagar" data-id="${r.id}"><i class="fas fa-money-check-dollar" aria-hidden="true"></i> Pagar</button>
                                 ${boton('editar', r, 'fa-pen', 'Editar')}
                                 ${boton('anular', r, 'fa-ban', 'Anular')}
                                 ${boton('eliminar', r, 'fa-trash', 'Eliminar', 'btn-accion-peligro')}` : ''}
-                            ${editar && r.estado === 'pagada' ? boton('quitarPago', r, 'fa-rotate-left', 'Quitar el pago') : ''}
+                            ${editar && ['parcial', 'pagada'].includes(r.estado) ? boton('quitarPago', r, 'fa-rotate-left', 'Quitar todos los pagos') : ''}
                         </div></td>
                     </tr>`).join('')}
                 </tbody>
@@ -356,113 +360,21 @@ const RequisicionesModule = {
         }
     },
 
-    pagar(r) {
-        const archivos = [];
-        const form = this.dialogo(`Pago de ${this.e(r.numero)} · ${formatQ(r.total)}`,
-            `<p class="form-hint">${this.e(r.proveedor_nombre)} · ${this.e(this.textoMes(r.periodo))} · al pagarla, sus ${r.facturas.length} factura${r.facturas.length === 1 ? '' : 's'} quedan pagadas.</p>
-            <div class="form-group">
-                <label for="rqsFechaPago">Fecha del pago <span class="required">*</span></label>
-                <input id="rqsFechaPago" type="date" class="form-input" required max="${this.hoy()}" value="${this.hoy()}">
-            </div>
-            <div class="form-group">
-                <label for="rqsFormaPago">Forma de pago <span class="required">*</span></label>
-                <select id="rqsFormaPago" class="form-input">
-                    ${Object.entries(this.FORMAS_PAGO).map(([v, t]) => `<option value="${v}" ${v === 'transferencia' ? 'selected' : ''}>${t}</option>`).join('')}
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="rqsNumeroBanco">No. de pago que da el banco <span class="required" data-rqs-banco>*</span></label>
-                <input id="rqsNumeroBanco" class="form-input" maxlength="60" autocomplete="off" inputmode="numeric">
-            </div>
-            <div class="form-group">
-                <label for="rqsAutorizacion">No. de autorización <span class="required" data-rqs-banco>*</span></label>
-                <input id="rqsAutorizacion" class="form-input" maxlength="60" autocomplete="off" inputmode="numeric">
-            </div>
-            <p class="form-hint" id="rqsBancoAyuda" hidden>En efectivo no hay número del banco ni de autorización.</p>
-            <div class="form-group">
-                <div class="compra-pago-subtitulo">Voucher de pago (opcional)</div>
-                <ul class="compra-vouchers" id="rqsVoucherLista"></ul>
-                <label class="btn btn-secondary btn-small" for="rqsVoucher">
-                    <i class="fas fa-paperclip" aria-hidden="true"></i> Adjuntar voucher
-                </label>
-                <input type="file" id="rqsVoucher" accept="application/pdf,image/jpeg,image/png,image/webp" multiple hidden>
-                <small class="form-hint">PDF, JPG, PNG o WEBP de hasta 10 MB.</small>
-            </div>`,
-            '<i class="fas fa-check" aria-hidden="true"></i> Marcar como pagada',
-            async (f) => {
-                const forma = f.querySelector('#rqsFormaPago').value;
-                const numeroBanco = f.querySelector('#rqsNumeroBanco').value.trim();
-                const autorizacion = f.querySelector('#rqsAutorizacion').value.trim();
-                if (forma !== 'efectivo' && (!numeroBanco || !autorizacion)) {
-                    throw new Error('Registre el número de pago que da el banco y el número de autorización.');
-                }
-                const data = await this.api(`/${r.id}/pago`, {
-                    method: 'PUT',
-                    body: JSON.stringify({ fecha: f.querySelector('#rqsFechaPago').value, forma_pago: forma, numero_pago_banco: numeroBanco, numero_autorizacion: autorizacion })
-                });
-                // El pago ya quedó guardado: si un voucher falla solo se avisa
-                const fallidos = await this.subirVouchers(r, archivos);
-                this.notificar(data.message, 'success');
-                if (fallidos.length) this.notificar(`No se subieron estos vouchers: ${fallidos.join(', ')}`, 'warning');
-                await this.cargar();
-            });
-        // En efectivo los números del banco no aplican
-        const forma = form.querySelector('#rqsFormaPago');
-        const actualizar = () => {
-            const efectivo = forma.value === 'efectivo';
-            form.querySelectorAll('[data-rqs-banco]').forEach(el => { el.hidden = efectivo; });
-            form.querySelector('#rqsBancoAyuda').hidden = !efectivo;
-        };
-        forma.addEventListener('change', actualizar);
-        actualizar();
-        const lista = form.querySelector('#rqsVoucherLista');
-        const renderArchivos = () => {
-            lista.innerHTML = archivos.map((archivo, i) => `
-                <li>
-                    <span>${this.e(archivo.name)}</span>
-                    <small>${Math.max(1, Math.round(archivo.size / 1024))} KB</small>
-                    <button type="button" class="btn-icon btn-delete" data-quitar="${i}" title="Quitar" aria-label="Quitar ${this.e(archivo.name)}"><i class="fas fa-times"></i></button>
-                </li>`).join('');
-        };
-        form.querySelector('#rqsVoucher').addEventListener('change', (e) => {
-            for (const archivo of e.target.files) {
-                if (!/^(application\/pdf|image\/(jpeg|png|webp))$/.test(archivo.type)) {
-                    this.notificar(`"${archivo.name}" no es PDF, JPG, PNG o WEBP.`, 'warning');
-                } else if (archivo.size > 10 * 1024 * 1024) {
-                    this.notificar(`"${archivo.name}" pesa más de 10 MB.`, 'warning');
-                } else {
-                    archivos.push(archivo);
-                }
-            }
-            e.target.value = '';
-            renderArchivos();
+    // Abonos del pago: ver lo pagado y registrar uno más (o el pago completo)
+    pagos(r) {
+        Abonos.dialogo({
+            titulo: `Pagos de ${this.e(r.numero)}`,
+            subtitulo: `${this.e(r.proveedor_nombre)} · ${this.e(this.textoMes(r.periodo))} · al completar el pago, sus ${r.facturas.length} factura${r.facturas.length === 1 ? '' : 's'} quedan pagadas.`,
+            total: r.total,
+            abonos: r.abonos || [],
+            puedeEditar: this.puedeEditar() && r.estado !== 'anulada',
+            exigirBanco: true,
+            registrar: (datos) => this.api(`/${r.id}/abonos`, { method: 'POST', body: JSON.stringify(datos) }),
+            eliminar: (abono) => this.api(`/abonos/${abono.id}`, { method: 'DELETE' }),
+            subirVoucher: (abonoId, archivo) => Abonos.subirVoucher(`/api/requisiciones/${r.id}/vouchers`, abonoId, archivo),
+            verVoucher: (id, nombre) => this.verVoucher(id, nombre),
+            alTerminar: () => this.cargar()
         });
-        lista.addEventListener('click', (e) => {
-            const quitar = e.target.closest('[data-quitar]');
-            if (!quitar) return;
-            archivos.splice(Number(quitar.dataset.quitar), 1);
-            renderArchivos();
-        });
-    },
-
-    async subirVouchers(r, archivos) {
-        const fallidos = [];
-        for (const archivo of archivos) {
-            try {
-                const response = await authManager.fetchWithAuth(`/api/requisiciones/${r.id}/vouchers?nombre=${encodeURIComponent(archivo.name)}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': archivo.type },
-                    body: archivo
-                });
-                if (!response.ok) {
-                    const data = await response.json().catch(() => ({}));
-                    throw new Error(data.error || `Error ${response.status}`);
-                }
-            } catch (error) {
-                fallidos.push(`${archivo.name} (${error.message})`);
-            }
-        }
-        return fallidos;
     },
 
     // Abre el voucher en una pestaña nueva (se pide con el token, por eso no es un enlace directo)
@@ -491,7 +403,7 @@ const RequisicionesModule = {
     },
 
     async quitarPago(r) {
-        if (!confirm(`¿Quitar el pago de ${r.numero}? Sus facturas vuelven a quedar pendientes de pago.`)) return;
+        if (!confirm(`¿Quitar todos los pagos de ${r.numero}? Sus facturas vuelven a quedar pendientes de pago.`)) return;
         try {
             const data = await this.api(`/${r.id}/estado`, { method: 'PUT', body: JSON.stringify({ estado: 'pendiente' }) });
             this.notificar(data.message, 'success');

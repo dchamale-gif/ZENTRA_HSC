@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-    <link rel="stylesheet" href="css/style.css?v=20261029-5">
+    <link rel="stylesheet" href="css/style.css?v=20261029-6">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/tema-botengine.css?v=20261018-2">
     <link rel="stylesheet" href="css/tema-oscuro-auto.css?v=20261023-2">
@@ -2035,6 +2035,7 @@
                             <select id="rqsFiltroEstado" class="form-input">
                                 <option value="">Todas</option>
                                 <option value="pendiente">Por pagar</option>
+                                <option value="parcial">Pago parcial</option>
                                 <option value="pagada">Pagadas</option>
                                 <option value="anulada">Anuladas</option>
                             </select>
@@ -2694,6 +2695,7 @@
                                     <option value="">Todos</option>
                                     <option value="pendiente">Pendientes</option>
                                     <option value="cargado">Esperando pago</option>
+                                    <option value="parcial">Pago parcial</option>
                                     <option value="pagado">Pagados</option>
                                     <option value="anulado">Anulados</option>
                                 </select>
@@ -4203,7 +4205,7 @@
                             <div class="form-group">
                                 <label for="purchasePaymentDate">Fecha del pago</label>
                                 <input type="date" id="purchasePaymentDate" class="form-input">
-                                <small class="form-hint">Déjela vacía mientras no se haya pagado.</small>
+                                <small class="form-hint" id="purchasePaymentDateHint">Déjela vacía mientras no se haya pagado.</small>
                             </div>
                         </div>
 
@@ -6046,9 +6048,10 @@
     <script src="js/control-medicamentos.js?v=20261023-2"></script>
     <script src="js/personal.js?v=20261023-2"></script>
     <script src="js/codigos-articulos.js?v=20261015-21"></script>
-    <script src="js/compras.js?v=20261029-5"></script>
+    <script src="js/abonos.js?v=20261029-1"></script>
+    <script src="js/compras.js?v=20261029-6"></script>
     <script src="js/requerimientos.js?v=20261029-2"></script>
-    <script src="js/requisiciones.js?v=20261029-1"></script>
+    <script src="js/requisiciones.js?v=20261029-2"></script>
     <script src="js/inventario-activos.js?v=20261023-1"></script>
     <script src="js/alertas.js?v=20261015-21"></script>
     <script src="js/ventas.js?v=20261023-1"></script>
@@ -6066,7 +6069,7 @@
     <script src="js/google-calendar.js?v=20261015-21"></script>
     <script src="js/agenda-api.js?v=20261015-21"></script>
     <script src="js/gastos-servicios.js?v=20261018-3"></script>
-    <script src="js/gastos.js?v=20261027-4"></script>
+    <script src="js/gastos.js?v=20261029-1"></script>
     
     <!-- App Principal -->
     <script src="js/app.js?v=20261029-1"></script>

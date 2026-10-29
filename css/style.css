@@ -11099,6 +11099,72 @@ body.chat-abierto {
 .compras-estado-cancelada { --compras-fondo: var(--bg-light); --compras-texto: var(--text-gray); }
 .compras-pago-credito { --compras-fondo: var(--bg-light); --compras-texto: var(--text-dark); }
 .compras-pago-vencida { --compras-fondo: var(--danger-soft); --compras-texto: var(--danger-color); }
+.compras-pago-parcial { --compras-fondo: var(--primary-soft); --compras-texto: var(--primary-color); }
+
+/* Pago de una compra suelta: botón que abre sus abonos */
+.compras-pago-boton {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 118px;
+    padding: 8px 12px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--compras-fondo);
+    color: var(--compras-texto);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.compras-pago-boton i {
+    margin-left: auto;
+    font-size: 11px;
+}
+
+.compras-pago-boton:hover {
+    filter: brightness(0.97);
+}
+
+/* Abonos: pagos en partes (requisiciones, gastos y compras) */
+.abonos-resumen {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 0 0 16px;
+}
+
+.abonos-resumen div {
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+.abonos-resumen dt {
+    color: var(--text-gray);
+    font-size: 12px;
+}
+
+.abonos-resumen dd {
+    margin: 2px 0 0;
+    font-size: 17px;
+    font-weight: 700;
+}
+
+.abonos-resumen .abonos-saldo dd { color: var(--warning-color); }
+.abonos-resumen .abonos-saldado dd { color: var(--success-color); }
+
+.abonos-tabla .gasto-voucher {
+    display: block;
+    font-size: 12px;
+    text-align: left;
+}
+
+@media (max-width: 640px) {
+    .abonos-resumen {
+        grid-template-columns: 1fr;
+    }
+}
 
 /* Requerimientos de compra: estado seleccionable con el mismo color de las compras */
 .req-select-pendiente { --compras-fondo: var(--warning-soft); --compras-texto: var(--warning-color); }
@@ -11129,6 +11195,7 @@ body.chat-abierto {
 }
 
 .rqs-estado-pendiente { background: var(--warning-soft); color: var(--warning-color); }
+.rqs-estado-parcial { background: var(--primary-soft); color: var(--primary-color); }
 .rqs-estado-pagada { background: var(--success-soft); color: var(--success-color); }
 .rqs-estado-anulada { background: var(--bg-light); color: var(--text-gray); }
 
@@ -11360,6 +11427,8 @@ body.chat-abierto {
 
 .gasto-select-pendiente { --compras-fondo: var(--bg-light); --compras-texto: var(--text-dark); }
 .gasto-select-cargado { --compras-fondo: var(--warning-soft); --compras-texto: var(--warning-color); }
+.gasto-select-parcial,
+.gasto-estado-parcial { --compras-fondo: var(--primary-soft); --compras-texto: var(--primary-color); }
 .gasto-select-pagado { --compras-fondo: var(--success-soft); --compras-texto: var(--success-color); }
 .gasto-select-anulado { --compras-fondo: var(--danger-soft); --compras-texto: var(--danger-color); }
 

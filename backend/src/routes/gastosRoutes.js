@@ -6,6 +6,7 @@ const router = express.Router();
 
 // Voucher del pago (antes de /:id para que no se confundan)
 router.get('/vouchers/:voucherId', gastosController.verVoucher);
+router.delete('/abonos/:abonoId', gastosController.eliminarAbono);
 router.post('/:id/vouchers', recibirArchivo(express), gastosController.subirVoucher);
 
 router.get('/', gastosController.listar);
@@ -13,6 +14,8 @@ router.post('/', gastosController.crear);
 router.put('/:id', gastosController.actualizar);
 // Cargar (espera pago del dueño), pagar, anular o volver a pendiente
 router.put('/:id/estado', gastosController.cambiarEstado);
+// El pago va en uno o varios abonos (administrador)
+router.post('/:id/abonos', gastosController.registrarAbono);
 router.delete('/:id', gastosController.eliminar);
 
 // Voucher de más de 10 MB: mensaje en español en lugar del error genérico

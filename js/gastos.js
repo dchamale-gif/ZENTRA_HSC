@@ -18,7 +18,7 @@ const GastosRequisiciones = {
         busqueda: ''
     },
 
-    ESTADOS: { pendiente: 'Pendiente', cargado: 'Esperando pago', pagado: 'Pagado', anulado: 'Anulado' },
+    ESTADOS: { pendiente: 'Pendiente', cargado: 'Esperando pago', parcial: 'Pago parcial', pagado: 'Pagado', anulado: 'Anulado' },
     FORMAS_PAGO: { efectivo: 'Efectivo', tarjeta: 'Tarjeta de crédito', transferencia: 'Transferencia', cheque: 'Cheque' },
     CATEGORIAS: ['Luz', 'Agua', 'Internet', 'Teléfono', 'Alquiler', 'Mantenimiento', 'Seguridad', 'Otro'],
 
@@ -51,6 +51,7 @@ const GastosRequisiciones = {
             if (!gasto) return;
             if (boton.dataset.gastoAccion === 'editar') this.formulario(gasto);
             if (boton.dataset.gastoAccion === 'eliminar') this.eliminar(gasto);
+            if (boton.dataset.gastoAccion === 'pagos') this.pagos(gasto);
         });
     },
 
@@ -120,7 +121,7 @@ const GastosRequisiciones = {
 
     // Días en espera: desde la carga hasta hoy (esperando) o hasta el pago (pagado)
     celdaDias(g) {
-        if (g.estado === 'cargado') {
+        if (['cargado', 'parcial'].includes(g.estado)) {
             const clase = g.dias_espera > 30 ? 'vencida' : g.dias_espera > 15 ? 'pendiente' : 'credito';
             return `<span class="compra-pago-estado ${clase}">${this.textoDias(g.dias_espera)}</span>`;
         }
@@ -128,15 +129,35 @@ const GastosRequisiciones = {
         return '<small class="cot-sub">—</small>';
     },
 
-    // Marcar pagado (y cambiar uno ya pagado) es del administrador
+    // El pago (y cambiar un gasto con pagos) es del administrador. Elegir «Pagado» o «Pago parcial»
+    // abre los abonos; «Pago parcial» solo aparece cuando ya lo está.
     selectorEstado(g) {
-        const fijo = !this.puedeEditar() || (g.estado === 'pagado' && !this.state.esAdmin);
+        const conPagos = ['parcial', 'pagado'].includes(g.estado);
+        const fijo = !this.puedeEditar() || (conPagos && !this.state.esAdmin);
         if (fijo) return `<span class="gasto-estado gasto-estado-${g.estado}">${this.ESTADOS[g.estado]}</span>`;
+        const opciones = Object.entries(this.ESTADOS).filter(([v]) => v !== 'parcial' || g.estado === 'parcial');
         return `<select class="cuenta-select compras-select gasto-select-${g.estado}" data-gasto-estado data-id="${g.id}"
                     aria-label="Estado del gasto ${this.e(g.numero)}">
-                ${Object.entries(this.ESTADOS).map(([v, t]) => `<option value="${v}" ${v === g.estado ? 'selected' : ''}
+                ${opciones.map(([v, t]) => `<option value="${v}" ${v === g.estado ? 'selected' : ''}
                     ${v === 'pagado' && !this.state.esAdmin ? 'disabled' : ''}>${v === 'pagado' && !this.state.esAdmin ? `${t} (administrador)` : t}</option>`).join('')}
             </select>`;
+    },
+
+    // Abonos del pago: el administrador registra uno más o los quita; los demás solo los ven
+    pagos(g) {
+        Abonos.dialogo({
+            titulo: `Pagos de ${this.e(g.numero)}`,
+            subtitulo: `${this.e(g.categoria)}${g.proveedor ? ` · ${this.e(g.proveedor)}` : ''}`,
+            total: g.monto,
+            abonos: g.abonos || [],
+            puedeEditar: this.state.esAdmin && g.estado !== 'anulado',
+            exigirBanco: true,
+            registrar: (datos) => this.api(`/${g.id}/abonos`, { method: 'POST', body: JSON.stringify(datos) }),
+            eliminar: (abono) => this.api(`/abonos/${abono.id}`, { method: 'DELETE' }),
+            subirVoucher: (abonoId, archivo) => Abonos.subirVoucher(`/api/gastos/${g.id}/vouchers`, abonoId, archivo),
+            verVoucher: (id, nombre) => this.verVoucher(id, nombre),
+            alTerminar: () => this.cargar()
+        });
     },
 
     detallePago(g) {
@@ -147,7 +168,8 @@ const GastosRequisiciones = {
         const vouchers = (g.vouchers || []).map(v => `
             <button type="button" class="btn-link gasto-voucher" data-gasto-voucher="${v.id}" data-nombre="${this.e(v.nombre)}"
                     title="Ver ${this.e(v.nombre)}"><i class="fas fa-paperclip" aria-hidden="true"></i> ${this.e(v.nombre)}</button>`).join('');
-        return `<small class="cot-sub">${partes.filter(Boolean).join(' · ')}</small>
+        const varios = (g.abonos || []).length > 1 ? `<small class="cot-sub">En ${g.abonos.length} abonos</small>` : '';
+        return `<small class="cot-sub">${partes.filter(Boolean).join(' · ')}</small>${varios}
             ${g.pagado_por_nombre ? `<small class="cot-sub">Por ${this.e(g.pagado_por_nombre)}</small>` : ''}${vouchers}`;
     },
 
@@ -175,27 +197,6 @@ const GastosRequisiciones = {
             ventana?.close();
             this.notificar(`No se pudo abrir el voucher: ${error.message}`, 'error');
         }
-    },
-
-    // Sube los vouchers del pago; devuelve los nombres de los que no se pudieron subir
-    async subirVouchers(gasto, archivos) {
-        const fallidos = [];
-        for (const archivo of archivos) {
-            try {
-                const response = await authManager.fetchWithAuth(`/api/gastos/${gasto.id}/vouchers?nombre=${encodeURIComponent(archivo.name)}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': archivo.type },
-                    body: archivo
-                });
-                if (!response.ok) {
-                    const data = await response.json().catch(() => ({}));
-                    throw new Error(data.error || `Error ${response.status}`);
-                }
-            } catch (error) {
-                fallidos.push(`${archivo.name} (${error.message})`);
-            }
-        }
-        return fallidos;
     },
 
     render() {
@@ -231,9 +232,11 @@ const GastosRequisiciones = {
                         <td>${this.celdaDias(g)}</td>
                         <td>${this.selectorEstado(g)}
                             ${g.estado === 'pagado' ? this.detallePago(g) : ''}
+                            ${g.estado === 'parcial' ? `<small class="cot-sub">${Abonos.resumenTexto(g.monto, g.abonos)}</small>` : ''}
                             ${g.estado === 'anulado' && g.motivo_anulacion ? `<small class="cot-sub" title="${this.e(g.motivo_anulacion)}">${this.e(g.motivo_anulacion)}</small>` : ''}</td>
                         <td><div class="acciones-saldo">
                             ${this.puedeEditar() && ['pendiente', 'cargado'].includes(g.estado) ? `<button type="button" class="btn-accion btn-accion-icono" data-gasto-accion="editar" data-id="${g.id}" title="Editar" aria-label="Editar gasto ${this.e(g.numero)}"><i class="fas fa-pen" aria-hidden="true"></i></button>` : ''}
+                            ${(g.abonos || []).length || (this.state.esAdmin && g.estado === 'cargado') ? `<button type="button" class="btn-accion btn-accion-icono" data-gasto-accion="pagos" data-id="${g.id}" title="Pagos" aria-label="Pagos del gasto ${this.e(g.numero)}"><i class="fas fa-receipt" aria-hidden="true"></i></button>` : ''}
                             ${this.puedeEditar() && g.estado === 'pendiente' ? `<button type="button" class="btn-accion btn-accion-icono btn-accion-peligro" data-gasto-accion="eliminar" data-id="${g.id}" title="Eliminar" aria-label="Eliminar gasto ${this.e(g.numero)}"><i class="fas fa-trash" aria-hidden="true"></i></button>` : ''}
                         </div></td>
                     </tr>`).join('')}
@@ -351,6 +354,12 @@ const GastosRequisiciones = {
         if (!gasto) return;
         const estado = select.value;
         const deshacer = () => { select.value = gasto.estado; };
+        const conPagos = (gasto.abonos || []).length > 0;
+        if (conPagos && ['pendiente', 'cargado'].includes(estado)
+            && !confirm(`${gasto.numero} tiene ${gasto.abonos.length} abono${gasto.abonos.length === 1 ? '' : 's'} registrado${gasto.abonos.length === 1 ? '' : 's'}: se quitarán. ¿Continuar?`)) {
+            deshacer();
+            return;
+        }
         if (estado === 'cargado') {
             this.dialogo(`Cargar ${this.e(gasto.numero)} · ${formatQ(gasto.monto)}`,
                 `<div class="form-group">
@@ -361,99 +370,10 @@ const GastosRequisiciones = {
                 '<i class="fas fa-check" aria-hidden="true"></i> Cargar',
                 (form) => this.enviarEstado(gasto, { estado, fecha: form.querySelector('#gastoFechaCargo').value }),
                 deshacer);
-        } else if (estado === 'pagado') {
-            this.dialogo(`Pago de ${this.e(gasto.numero)} · ${formatQ(gasto.monto)}`,
-                `<div class="form-group">
-                    <label for="gastoFechaPago">Fecha del pago <span class="required">*</span></label>
-                    <input id="gastoFechaPago" type="date" class="form-input" required max="${this.hoy()}" value="${this.hoy()}">
-                </div>
-                <div class="form-group">
-                    <label for="gastoFormaPago">Forma de pago <span class="required">*</span></label>
-                    <select id="gastoFormaPago" class="form-input">
-                        ${Object.entries(this.FORMAS_PAGO).map(([v, t]) => `<option value="${v}" ${v === 'transferencia' ? 'selected' : ''}>${t}</option>`).join('')}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="gastoNumeroBanco">No. de pago que da el banco <span class="required" data-gasto-banco>*</span></label>
-                    <input id="gastoNumeroBanco" class="form-input" maxlength="60" autocomplete="off" inputmode="numeric">
-                </div>
-                <div class="form-group">
-                    <label for="gastoAutorizacion">No. de autorización <span class="required" data-gasto-banco>*</span></label>
-                    <input id="gastoAutorizacion" class="form-input" maxlength="60" autocomplete="off" inputmode="numeric">
-                </div>
-                <p class="form-hint" id="gastoBancoAyuda" hidden>En efectivo no hay número del banco ni de autorización.</p>
-                <div class="form-group">
-                    <div class="compra-pago-subtitulo">Voucher de pago (opcional)</div>
-                    <ul class="compra-vouchers" id="gastoVoucherLista"></ul>
-                    <label class="btn btn-secondary btn-small" for="gastoVoucher">
-                        <i class="fas fa-paperclip" aria-hidden="true"></i> Adjuntar voucher
-                    </label>
-                    <input type="file" id="gastoVoucher" accept="application/pdf,image/jpeg,image/png,image/webp" multiple hidden>
-                    <small class="form-hint">PDF, JPG, PNG o WEBP de hasta 10 MB.</small>
-                </div>`,
-                '<i class="fas fa-check" aria-hidden="true"></i> Marcar como pagado',
-                async (form) => {
-                    const forma = form.querySelector('#gastoFormaPago').value;
-                    const numeroBanco = form.querySelector('#gastoNumeroBanco').value.trim();
-                    const autorizacion = form.querySelector('#gastoAutorizacion').value.trim();
-                    if (forma !== 'efectivo' && (!numeroBanco || !autorizacion)) {
-                        throw new Error('Registre el número de pago que da el banco y el número de autorización.');
-                    }
-                    const data = await this.api(`/${gasto.id}/estado`, {
-                        method: 'PUT',
-                        body: JSON.stringify({
-                            estado,
-                            fecha: form.querySelector('#gastoFechaPago').value,
-                            forma_pago: forma,
-                            numero_pago_banco: numeroBanco,
-                            numero_autorizacion: autorizacion
-                        })
-                    });
-                    // El pago ya quedó guardado: si un voucher falla solo se avisa
-                    const fallidos = archivos.length ? await this.subirVouchers(gasto, archivos) : [];
-                    this.notificar(data.message, 'success');
-                    if (fallidos.length) this.notificar(`No se subieron estos vouchers: ${fallidos.join(', ')}`, 'warning');
-                    await this.cargar();
-                },
-                deshacer);
-            const archivos = [];
-            const lista = document.getElementById('gastoVoucherLista');
-            const renderArchivos = () => {
-                lista.innerHTML = archivos.map((archivo, i) => `
-                    <li>
-                        <span>${this.e(archivo.name)}</span>
-                        <small>${Math.max(1, Math.round(archivo.size / 1024))} KB</small>
-                        <button type="button" class="btn-icon btn-delete" data-quitar="${i}" title="Quitar" aria-label="Quitar ${this.e(archivo.name)}"><i class="fas fa-times"></i></button>
-                    </li>`).join('');
-            };
-            document.getElementById('gastoVoucher').addEventListener('change', (e) => {
-                for (const archivo of e.target.files) {
-                    if (!/^(application\/pdf|image\/(jpeg|png|webp))$/.test(archivo.type)) {
-                        this.notificar(`"${archivo.name}" no es PDF, JPG, PNG o WEBP.`, 'warning');
-                    } else if (archivo.size > 10 * 1024 * 1024) {
-                        this.notificar(`"${archivo.name}" pesa más de 10 MB.`, 'warning');
-                    } else {
-                        archivos.push(archivo);
-                    }
-                }
-                e.target.value = '';
-                renderArchivos();
-            });
-            lista.addEventListener('click', (e) => {
-                const quitar = e.target.closest('[data-quitar]');
-                if (!quitar) return;
-                archivos.splice(Number(quitar.dataset.quitar), 1);
-                renderArchivos();
-            });
-            // En efectivo los números del banco no aplican
-            const forma = document.getElementById('gastoFormaPago');
-            const actualizar = () => {
-                const efectivo = forma.value === 'efectivo';
-                document.querySelectorAll('[data-gasto-banco]').forEach(el => { el.hidden = efectivo; });
-                document.getElementById('gastoBancoAyuda').hidden = !efectivo;
-            };
-            forma.addEventListener('change', actualizar);
-            actualizar();
+        } else if (estado === 'pagado' || estado === 'parcial') {
+            // El pago va en abonos: el selector vuelve a su estado y se abre el recuadro de pagos
+            deshacer();
+            this.pagos(gasto);
         } else if (estado === 'anulado') {
             this.dialogo(`Anular ${this.e(gasto.numero)}`,
                 `<div class="form-group">
@@ -464,7 +384,7 @@ const GastosRequisiciones = {
                 (form) => this.enviarEstado(gasto, { estado, motivo: form.querySelector('#gastoMotivo').value }),
                 deshacer);
         } else {
-            if (!confirm(`¿Regresar ${gasto.numero} a pendiente? Se borran sus fechas de carga y de pago.`)) {
+            if (!conPagos && !confirm(`¿Regresar ${gasto.numero} a pendiente? Se borran sus fechas de carga y de pago.`)) {
                 deshacer();
                 return;
             }
