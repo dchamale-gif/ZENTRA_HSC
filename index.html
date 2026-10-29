@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-    <link rel="stylesheet" href="css/style.css?v=20261029-2">
+    <link rel="stylesheet" href="css/style.css?v=20261029-3">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/tema-botengine.css?v=20261018-2">
     <link rel="stylesheet" href="css/tema-oscuro-auto.css?v=20261023-2">
@@ -92,6 +92,10 @@
                 <a href="#" class="nav-item" data-page="requerimientos">
                     <i class="fas fa-clipboard-list"></i>
                     <span>Requerimientos</span>
+                </a>
+                <a href="#" class="nav-item" data-page="requisiciones">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                    <span>Requisiciones</span>
                 </a>
                 <a href="#" class="nav-item" data-page="ventas">
                     <i class="fas fa-receipt"></i>
@@ -1978,7 +1982,7 @@
                             <label for="comprasBusqueda">Buscar</label>
                             <div class="agenda-input-icono">
                                 <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
-                                <input type="search" id="comprasBusqueda" class="form-input" placeholder="Factura, compra o proveedor" autocomplete="off">
+                                <input type="search" id="comprasBusqueda" class="form-input" placeholder="Factura, compra, proveedor o requisición" autocomplete="off">
                             </div>
                         </div>
                         <div class="agenda-filtro">
@@ -2007,6 +2011,42 @@
                             <tbody></tbody>
                         </table>
                     </div>
+                </div>
+
+                <!-- Requisiciones a proveedores: las facturas de un proveedor de un mes, pagadas de una vez -->
+                <div id="page-requisiciones" class="page">
+                    <div class="page-header">
+                        <h1>Requisiciones a proveedores</h1>
+                        <button class="btn btn-primary" id="rqsNuevaBtn" type="button">
+                            <i class="fas fa-plus" aria-hidden="true"></i> Nueva requisición
+                        </button>
+                    </div>
+                    <p id="rqsResumen" class="gastos-req-resumen rqs-resumen" aria-live="polite"></p>
+                    <div class="agenda-filtros rqs-filtros">
+                        <div class="agenda-filtro agenda-filtro-busqueda">
+                            <label for="rqsBusqueda">Buscar</label>
+                            <div class="agenda-input-icono">
+                                <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                                <input type="search" id="rqsBusqueda" class="form-input" placeholder="Número, proveedor o factura" autocomplete="off">
+                            </div>
+                        </div>
+                        <div class="agenda-filtro">
+                            <label for="rqsFiltroEstado">Estado</label>
+                            <select id="rqsFiltroEstado" class="form-input">
+                                <option value="">Todas</option>
+                                <option value="pendiente">Por pagar</option>
+                                <option value="pagada">Pagadas</option>
+                                <option value="anulada">Anuladas</option>
+                            </select>
+                        </div>
+                        <div class="agenda-filtro">
+                            <label for="rqsFiltroProveedor">Proveedor</label>
+                            <select id="rqsFiltroProveedor" class="form-input">
+                                <option value="">Todos</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="rqsLista" class="table-container"><p class="cot-sub" style="padding: 20px;">Cargando requisiciones…</p></div>
                 </div>
 
                 <!-- Requerimientos de compra -->
@@ -6006,8 +6046,9 @@
     <script src="js/control-medicamentos.js?v=20261023-2"></script>
     <script src="js/personal.js?v=20261023-2"></script>
     <script src="js/codigos-articulos.js?v=20261015-21"></script>
-    <script src="js/compras.js?v=20261029-3"></script>
+    <script src="js/compras.js?v=20261029-4"></script>
     <script src="js/requerimientos.js?v=20261029-1"></script>
+    <script src="js/requisiciones.js?v=20261029-1"></script>
     <script src="js/inventario-activos.js?v=20261023-1"></script>
     <script src="js/alertas.js?v=20261015-21"></script>
     <script src="js/ventas.js?v=20261023-1"></script>
@@ -6028,8 +6069,8 @@
     <script src="js/gastos.js?v=20261027-4"></script>
     
     <!-- App Principal -->
-    <script src="js/app.js?v=20261027-2"></script>
-    <script src="js/permisos.js?v=20261027-1"></script>
+    <script src="js/app.js?v=20261029-1"></script>
+    <script src="js/permisos.js?v=20261029-1"></script>
     <script src="js/comunicacion.js?v=20261019-1"></script>
     <script src="js/inicio.js?v=20261018-1"></script>
 </body>

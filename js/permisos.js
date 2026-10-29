@@ -29,6 +29,7 @@ const Permisos = {
         'codigos-articulos': 'codigos_articulos',
         'compras': 'compras',
         'requerimientos': ['requerimientos', 'compras'],
+        'requisiciones': 'compras',
         'ventas': 'ventas',
         'cotizaciones': 'cotizaciones',
         'caja': 'caja',

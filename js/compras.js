@@ -213,7 +213,7 @@ const ComprasModule = {
             if (req === '-' && compra.numero_requerimiento) return false;
             if (req && req !== '-' && this.clave(compra.numero_requerimiento) !== req) return false;
             if (!texto) return true;
-            return [compra.numero_factura, compra.numero_compra, compra.proveedor_nombre, compra.numero_requerimiento]
+            return [compra.numero_factura, compra.numero_compra, compra.proveedor_nombre, compra.numero_requerimiento, compra.requisicion_numero]
                 .some(valor => String(valor || '').toLowerCase().includes(texto));
         });
     },
@@ -296,6 +296,13 @@ const ComprasModule = {
         const vouchers = compra.vouchers?.length
             ? ` <i class="fas fa-paperclip" title="${compra.vouchers.length} voucher(s)" aria-label="${compra.vouchers.length} voucher(s)"></i>` : '';
         if (compra.estado === 'cancelada' && !compra.fecha_pago) return '<small>—</small>';
+        // En una requisición (no anulada) el pago lo registra la requisición
+        if (compra.requisicion_numero && compra.requisicion_estado !== 'anulada') {
+            const pagada = Boolean(compra.fecha_pago);
+            return `<span class="compras-pago-requisicion ${pagada ? 'pagada' : 'pendiente'}"
+                    title="El pago se registra en la requisición ${this.escapeHtml(compra.requisicion_numero)}">${pagada ? 'Pagada' : 'Pendiente'}</span>
+                <small>${pagada ? `${formatFecha(compra.fecha_pago)}${forma ? ` · ${this.escapeHtml(forma)}` : ''} · ` : ''}Requisición ${this.escapeHtml(compra.requisicion_numero)}${vouchers}</small>`;
+        }
         let clase = 'pendiente';
         let pendiente = 'Pendiente';
         let detalle = vouchers;

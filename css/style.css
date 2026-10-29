@@ -11106,6 +11106,74 @@ body.chat-abierto {
 .req-estado-confirmada { background: var(--success-soft); color: var(--success-color); }
 .req-estado-rechazada { background: var(--danger-soft); color: var(--danger-color); }
 
+/* Requisiciones a proveedores: las facturas de un mes, pagadas de una vez */
+.rqs-estado {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.rqs-estado-pendiente { background: var(--warning-soft); color: var(--warning-color); }
+.rqs-estado-pagada { background: var(--success-soft); color: var(--success-color); }
+.rqs-estado-anulada { background: var(--bg-light); color: var(--text-gray); }
+
+.rqs-resumen {
+    margin: 0 0 14px;
+}
+
+.rqs-filtros {
+    grid-template-columns: minmax(220px, 2fr) minmax(150px, 1fr) minmax(180px, 1fr);
+}
+
+@media (max-width: 640px) {
+    .rqs-filtros {
+        grid-template-columns: 1fr;
+    }
+}
+
+.rqs-tabla td:first-child strong,
+.rqs-tabla .btn-accion {
+    white-space: nowrap;
+}
+
+.rqs-tabla .rqs-mes {
+    white-space: nowrap;
+}
+
+.rqs-tabla td.rqs-facturas {
+    max-width: 260px;
+}
+
+.rqs-tabla td.rqs-facturas .cot-tag {
+    display: inline-block;
+    margin: 0 4px 4px 0;
+}
+
+.rqs-tabla .gasto-voucher {
+    display: block;
+    max-width: 220px;
+    overflow: hidden;
+    font-size: 12px;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Compra cuyo pago lo registra su requisición */
+.compras-pago-requisicion {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.compras-pago-requisicion.pagada { background: var(--success-soft); color: var(--success-color); }
+.compras-pago-requisicion.pendiente { background: var(--warning-soft); color: var(--warning-color); }
+
 .req-filtros {
     grid-template-columns: minmax(220px, 2fr) minmax(150px, 1fr) minmax(150px, 1fr);
 }

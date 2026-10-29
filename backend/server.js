@@ -38,6 +38,7 @@ const comprasRoutes = require('./src/routes/compras');
 const requerimientosRoutes = require('./src/routes/requerimientosRoutes');
 const bodegasRoutes = require('./src/routes/bodegasRoutes');
 const gastosRoutes = require('./src/routes/gastosRoutes');
+const requisicionesRoutes = require('./src/routes/requisicionesRoutes');
 const ventasRoutes = require('./src/routes/ventas');
 const cajaRoutes = require('./src/routes/caja');
 const hospitalizacionesRoutes = require('./src/routes/hospitalizaciones');
@@ -118,6 +119,8 @@ app.use('/api/compras', authMiddleware, requireModule(PERMISOS.compras), compras
 
 // Requerimientos de compra (los pide cualquier almacén; los confirma compras)
 app.use('/api/requerimientos-compra', authMiddleware, requireModule(PERMISOS.requerimientos), requerimientosRoutes);
+// Requisiciones a proveedores: las facturas de un mes en un solo pago (las maneja compras)
+app.use('/api/requisiciones', authMiddleware, requireModule(PERMISOS.compras), requisicionesRoutes);
 // Bodegas (farmacia, cocina…): cada una lleva su correlativo por año
 app.use('/api/bodegas', authMiddleware, requireModule(PERMISOS.bodegas), bodegasRoutes);
 

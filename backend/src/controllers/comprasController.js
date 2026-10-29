@@ -1,6 +1,7 @@
 const pool = require('../db/connection');
 const inventario = require('../services/inventarioMedicinas');
 const requerimientos = require('./requerimientosController');
+const requisiciones = require('./requisicionesController');
 const correlativos = require('../services/correlativos');
 const { validarSubida, limpiarNombre, enviarArchivo } = require('../services/archivos');
 
@@ -111,6 +112,15 @@ const enlazarRenglones = async (client, items, requerimiento, compraId) => {
   }
 };
 
+// Requisición (no anulada) en la que va la compra: su pago lo maneja la requisición
+const requisicionDe = async (db, compraId) => {
+  if (!(await requisiciones.disponible())) return null;
+  const { rows } = await db.query(
+    `SELECT r.numero, r.proveedor_id::text AS proveedor_id FROM compras c JOIN requisiciones r ON r.id = c.requisicion_id
+     WHERE c.id = $1 AND r.estado <> 'anulada'`, [compraId]);
+  return rows[0] || null;
+};
+
 // Bodega de la compra: la de su requerimiento del sistema o la elegida (deben coincidir)
 const leerBodega = async (client, body, requerimiento) => {
   const elegida = body.bodega_id ? Number(body.bodega_id) : null;
@@ -129,11 +139,13 @@ const guardarRequerimiento = (client, compraId, req, body) => client.query(
   [compraId, req.id, req.numero, req.fecha, String(body.numero_factura || '').trim().slice(0, 60) || null]
 );
 
-const compraSelect = (conInventario, conPagos, conRequerimientos) => `
+const compraSelect = (conInventario, conPagos, conRequerimientos, conRequisiciones) => `
   SELECT c.id, c.numero_compra, c.proveedor_id, p.nombre AS proveedor_nombre,
          c.user_id, c.fecha, c.fecha_entrega, c.total, c.estado,
          c.observaciones, c.created_at, c.updated_at,
-         (SELECT TRIM(CONCAT(u.nombre, ' ', u.apellido)) FROM users u WHERE u.id::text = c.user_id::text) AS registrado_por_nombre,${conRequerimientos ? `
+         (SELECT TRIM(CONCAT(u.nombre, ' ', u.apellido)) FROM users u WHERE u.id::text = c.user_id::text) AS registrado_por_nombre,${conRequisiciones ? `
+         c.requisicion_id, (SELECT numero FROM requisiciones WHERE id = c.requisicion_id) AS requisicion_numero,
+         (SELECT estado FROM requisiciones WHERE id = c.requisicion_id) AS requisicion_estado,` : ''}${conRequerimientos ? `
          (SELECT r.solicitado_por_nombre FROM requerimientos_compra r WHERE r.id = c.requerimiento_id) AS solicitado_por_nombre,
          (SELECT r.revisado_por_nombre FROM requerimientos_compra r
            WHERE r.id = c.requerimiento_id AND r.estado = 'confirmada') AS confirmado_por_nombre,
@@ -341,7 +353,7 @@ const getCompras = async (req, res) => {
   try {
     const conPagos = await pagosDisponibles();
     const result = await pool.query(
-      `${compraSelect(await inventario.disponible(), conPagos, await requerimientos.disponible())}
+      `${compraSelect(await inventario.disponible(), conPagos, await requerimientos.disponible(), await requisiciones.disponible())}
        GROUP BY c.id, p.id
        ORDER BY c.fecha DESC, c.created_at DESC`
     );
@@ -355,7 +367,7 @@ const getCompras = async (req, res) => {
 const getCompraById = async (req, res) => {
   try {
     const result = await pool.query(
-      `${compraSelect(await inventario.disponible(), await pagosDisponibles(), await requerimientos.disponible())}
+      `${compraSelect(await inventario.disponible(), await pagosDisponibles(), await requerimientos.disponible(), await requisiciones.disponible())}
        WHERE c.id = $1
        GROUP BY c.id, p.id`,
       [req.params.id]
@@ -442,6 +454,11 @@ const updateCompra = async (req, res) => {
     // Lo recibido se deshace y, si sigue recibida, se vuelve a sumar con los conceptos nuevos.
     // Una compra marcada recibida antes de este control no había sumado: solo suma si pasa a recibida ahora.
     const anterior = existing.rows[0];
+    // En una requisición: el proveedor es el de la requisición y el pago lo registra ella
+    const requisicion = await requisicionDe(client, req.params.id);
+    if (requisicion && requisicion.proveedor_id !== String(proveedor_id)) {
+      throw errorConEstado(`Esta factura va en la requisición ${requisicion.numero}, de otro proveedor: sáquela de la requisición antes de cambiarlo`, 409);
+    }
     if (anterior.inventario_aplicado) await revertirInventario(client, req.params.id, req, 'Compra editada');
 
     const result = await client.query(
@@ -456,7 +473,7 @@ const updateCompra = async (req, res) => {
     await client.query('DELETE FROM compra_items WHERE compra_id = $1', [req.params.id]);
     await enlazarRenglones(client, items, requerimiento, req.params.id);
     await insertItems(client, req.params.id, items);
-    if (pago) await guardarPago(client, req.params.id, pago);
+    if (pago && !requisicion) await guardarPago(client, req.params.id, pago);
     if (requerimiento) {
       // La bodega no cambia (va en el número); una compra anterior a las bodegas la toma ahora
       const { rows: [actual] } = await client.query('SELECT bodega_id, numero_compra FROM compras WHERE id = $1', [req.params.id]);
@@ -558,6 +575,8 @@ const cambiarEstado = async (req, res) => {
 const marcarPago = async (req, res) => {
   try {
     if (!(await pagosDisponibles())) return res.status(503).json({ error: MIGRACION_PAGOS });
+    const requisicion = await requisicionDe(pool, req.params.id);
+    if (requisicion) throw errorConEstado(`Esta factura va en la requisición ${requisicion.numero}: el pago se registra en la requisición`, 409);
     let result;
     if (req.body.pagada) {
       const fechaPago = req.body.fecha_pago;
