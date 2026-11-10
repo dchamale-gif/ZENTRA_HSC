@@ -533,34 +533,34 @@
 
 /* ---------- bloques <style> de index.html ---------- */
 
-:root[data-theme="dark"] .tabs-container {
+:root[data-theme="dark"] #page-saldo-paciente .tabs-container {
     background: #171c23;
 }
 
-:root[data-theme="dark"] .tab-btn {
+:root[data-theme="dark"] #page-saldo-paciente .tab-btn {
     background: #232a35;
     color: #afc1d3;
 }
 
-:root[data-theme="dark"] .tab-content {
+:root[data-theme="dark"] #page-saldo-paciente .tab-content {
     background: #171c23;
 }
 
-:root[data-theme="dark"] .info-box {
+:root[data-theme="dark"] #page-saldo-paciente .info-box {
     background: rgba(60, 174, 195, 0.16);
     color: #9fe7f3;
 }
 
-:root[data-theme="dark"] .modal-content {
+:root[data-theme="dark"] #page-saldo-paciente .modal-content {
     background-color: #181d24;
 }
 
-:root[data-theme="dark"] .modal-footer {
+:root[data-theme="dark"] #page-saldo-paciente .modal-footer {
     background: #1c212a;
     border-top: 1px solid #3d4552;
 }
 
-:root[data-theme="dark"] .close-btn:hover {
+:root[data-theme="dark"] #page-saldo-paciente .close-btn:hover {
     color: #ededed;
 }
 

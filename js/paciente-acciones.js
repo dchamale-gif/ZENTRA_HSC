@@ -1,7 +1,8 @@
 // ============================================
 // ACCIONES RÁPIDAS DEL PACIENTE
 // En Gestión de Pacientes, al hacer clic en un paciente aparece un menú con
-// sus registros clínicos; cada opción abre su popup sin entrar a la ficha.
+// sus registros clínicos; cada opción abre su popup sin entrar a la ficha, salvo la
+// historia clínica, que lleva al módulo Historia Clínica con el paciente ya abierto.
 // ============================================
 
 const PacienteAccionesModule = {
@@ -208,29 +209,14 @@ const PacienteAccionesModule = {
     },
 
     // ---------- Historia clínica ----------
+    // Lleva al módulo Historia Clínica filtrado por el paciente y con su historia abierta
     abrirHistoria(p) {
-        if (!this.seleccionarEnHistoria(p)) return;
-        const { modal, cuerpo } = this.abrirPopup({
-            titulo: 'Historia clínica',
-            icono: 'fa-notes-medical',
-            paciente: p,
-            acciones: `
-                <button type="button" class="btn btn-secondary btn-small" data-accion="imprimir"><i class="fas fa-print" aria-hidden="true"></i> Imprimir</button>
-                <button type="button" class="btn btn-primary btn-small" data-accion="nota"><i class="fas fa-plus" aria-hidden="true"></i> Nueva nota</button>`
-        });
-        modal.querySelector('[data-accion="imprimir"]').addEventListener('click', () => {
-            this.seleccionarEnHistoria(p);
-            HistoriaClinicaModule.imprimirHistoriaClinica();
-        });
-        modal.querySelector('[data-accion="nota"]').addEventListener('click', () => {
-            this.seleccionarEnHistoria(p);
-            HistoriaClinicaModule.openNoteModal();
-        });
-        this._refrescar = () => {
-            HistoriaClinicaModule.state.pacienteSeleccionado = JSON.parse(JSON.stringify(p));
-            HistoriaClinicaModule.renderHistoriaClinica(cuerpo);
-        };
-        this._refrescar();
+        if (typeof HistoriaPanelModule === 'undefined' || typeof navigateToPage !== 'function') {
+            this.notificar('El módulo de Historia Clínica no está disponible', 'error');
+            return;
+        }
+        HistoriaPanelModule.prepararPaciente(p);
+        navigateToPage('historia-clinica');
     },
 
     // ---------- Evolución ----------

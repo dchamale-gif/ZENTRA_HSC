@@ -266,6 +266,7 @@ function navigateToPage(pageId) {
         'compras': 'Gestión de Compras',
         'requerimientos': 'Requerimientos de compra',
         'requisiciones': 'Requisiciones a proveedores',
+        'regulaciones': 'Regulaciones de inventario',
         'ventas': 'Gestión de Ventas',
         'cotizaciones': 'Cotizaciones',
         'caja': 'Gestión de Caja',
@@ -318,6 +319,9 @@ function navigateToPage(pageId) {
     }
     if (pageId === 'requisiciones' && typeof RequisicionesModule !== 'undefined') {
         RequisicionesModule.cargar();
+    }
+    if (pageId === 'regulaciones' && typeof RegulacionesModule !== 'undefined') {
+        RegulacionesModule.cargar();
     }
     if (pageId === 'gastos-servicios' && typeof GastosRequisiciones !== 'undefined') {
         GastosRequisiciones.cargar();

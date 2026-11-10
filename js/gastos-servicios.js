@@ -783,7 +783,7 @@ class GastosServiciosModule {
         const modal = document.createElement('div');
         modal.className = 'modal-overlay';
         modal.innerHTML = `
-            <div class="modal-dialog" style="max-width: 500px;">
+            <div class="modal-dialog dialogo-sm">
                 <div class="modal-header">
                     <h2><i class="fas fa-money-bill"></i> Registrar Pago</h2>
                     <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button>

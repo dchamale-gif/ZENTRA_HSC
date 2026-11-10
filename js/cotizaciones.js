@@ -782,7 +782,7 @@ const CotizacionesModule = {
         modal.className = 'modal';
         modal.style.display = 'flex';
         modal.innerHTML = `
-            <div class="modal-content" style="max-width: 520px;">
+            <div class="modal-content dialogo-sm">
                 <div class="modal-header">
                     <h2><i class="fas fa-folder-plus" aria-hidden="true"></i> Guardar en la ficha del paciente</h2>
                     <button type="button" class="modal-close" aria-label="Cerrar" onclick="document.getElementById('cotIngresoModal').remove()">&times;</button>
@@ -993,7 +993,7 @@ const CotizacionesModule = {
                 : '<li class="cot-vacio"><p>No hay plantillas.</p><small>Crea una cotización, agrega sus conceptos y usa "Guardar como plantilla".</small></li>';
         };
         modal.innerHTML = `
-            <div class="modal-content" style="max-width: 640px;">
+            <div class="modal-content dialogo-md">
                 <div class="modal-header">
                     <h2><i class="fas fa-layer-group" aria-hidden="true"></i> Plantillas de cotización</h2>
                     <button type="button" class="modal-close" aria-label="Cerrar" onclick="document.getElementById('cotPlantillasModal').remove()">&times;</button>

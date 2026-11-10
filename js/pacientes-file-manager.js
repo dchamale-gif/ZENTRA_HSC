@@ -184,7 +184,7 @@ const PacientesFileManager = {
         const modal = document.createElement('div');
         modal.className = 'modal-overlay';
         modal.innerHTML = `
-            <div class="modal-dialog" style="max-width: 700px;">
+            <div class="modal-dialog dialogo-lg">
                 <div class="modal-header">
                     <h2><i class="fas fa-file-word"></i> Selecciona un Template</h2>
                     <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button>

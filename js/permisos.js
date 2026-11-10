@@ -30,6 +30,8 @@ const Permisos = {
         'compras': 'compras',
         'requerimientos': ['requerimientos', 'compras'],
         'requisiciones': 'compras',
+        // Solo administrador: ningún rol recibe este permiso
+        'regulaciones': 'regulaciones_inventario',
         'ventas': 'ventas',
         'cotizaciones': 'cotizaciones',
         'caja': 'caja',

@@ -1,5 +1,6 @@
 const pool = require('../db/connection');
 const inventario = require('../services/inventarioMedicinas');
+const inventarioArticulos = require('../services/inventarioArticulos');
 const requerimientos = require('./requerimientosController');
 const requisiciones = require('./requisicionesController');
 const correlativos = require('../services/correlativos');
@@ -339,10 +340,15 @@ const aplicarInventario = async (client, compraId, req) => {
       // El costo de la medicina queda con el de la última compra, por unidad base
       await client.query('UPDATE medicinas SET precio_costo = $1 WHERE id = $2', [Number(costo.toFixed(4)), item.medicina_id]);
     } else if (item.articulo_id) {
-      await client.query(
-        'UPDATE codigos_articulos SET cantidad_disponible = COALESCE(cantidad_disponible, 0) + $1, updated_at = NOW() WHERE id = $2',
-        [item.cantidad, item.articulo_id]
-      );
+      await inventarioArticulos.mover(client, {
+        articuloId: item.articulo_id,
+        cantidad: item.cantidad,
+        tipo: 'ingreso_compra',
+        costoUnitario: Number(item.precio_unitario),
+        referencia: compra.rows[0].numero_compra,
+        motivo: 'Compra recibida',
+        req
+      });
     }
   }
   await client.query('UPDATE compras SET inventario_aplicado = true WHERE id = $1', [compraId]);
@@ -374,16 +380,15 @@ const revertirInventario = async (client, compraId, req, motivo) => {
         throw error;
       }
     } else if (item.articulo_id) {
-      const result = await client.query(
-        `UPDATE codigos_articulos SET cantidad_disponible = cantidad_disponible - $1, updated_at = NOW()
-         WHERE id = $2 AND cantidad_disponible >= $1`,
-        [item.cantidad, item.articulo_id]
-      );
-      if (!result.rowCount) {
-        const error = new Error('No se puede deshacer la compra: parte de los artículos recibidos ya salió del inventario.');
-        error.status = 409;
-        throw error;
-      }
+      await inventarioArticulos.mover(client, {
+        articuloId: item.articulo_id,
+        cantidad: -item.cantidad,
+        tipo: 'reversion_compra',
+        referencia: compra.rows[0].numero_compra,
+        motivo,
+        req,
+        mensajeFaltante: 'No se puede deshacer la compra: parte de lo recibido ya salió del inventario.'
+      });
     }
   }
   await client.query('UPDATE compras SET inventario_aplicado = false WHERE id = $1', [compraId]);

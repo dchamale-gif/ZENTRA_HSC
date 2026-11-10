@@ -398,7 +398,7 @@ const ControlMedicamentosModule = {
             const capa = document.createElement('div');
             capa.className = 'modal-overlay cm-dialogo';
             capa.innerHTML = `
-                <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="cmSuspenderTitulo" style="max-width: 460px;">
+                <div class="modal-dialog dialogo-sm" role="dialog" aria-modal="true" aria-labelledby="cmSuspenderTitulo">
                     <div class="modal-header"><h2 id="cmSuspenderTitulo"><i class="fas fa-ban" aria-hidden="true"></i> Suspender medicamento</h2></div>
                     <div class="modal-body">
                         <p><strong>${this.e(m.nombre)}</strong>${m.dosis ? ` · ${this.e(m.dosis)}` : ''}</p>

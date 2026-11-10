@@ -11771,3 +11771,239 @@ body.chat-abierto {
         white-space: normal;
     }
 }
+
+/* ============================================
+   REGULACIONES DE INVENTARIO
+   ============================================ */
+.reg-intro {
+    margin: -6px 0 12px;
+    max-width: 760px;
+}
+
+.reg-filtros {
+    grid-template-columns: minmax(220px, 2fr) repeat(5, minmax(130px, 1fr));
+}
+
+@media (max-width: 1100px) {
+    .reg-filtros {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .reg-filtros {
+        grid-template-columns: 1fr;
+    }
+}
+
+.reg-numero {
+    white-space: nowrap;
+}
+
+.reg-tabla tr.reg-anulada td {
+    color: var(--text-gray);
+}
+
+.reg-items {
+    max-width: 320px;
+}
+
+.reg-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.reg-item > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.reg-mov {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.reg-mov-salida { color: var(--danger-color); }
+.reg-mov-entrada { color: var(--success-color); }
+
+.reg-obs {
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.reg-estado {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.reg-estado-aplicada { background: var(--success-soft); color: var(--success-color); }
+.reg-estado-anulada { background: var(--bg-light); color: var(--text-gray); }
+
+/* Formulario: más ancho que un requerimiento para la tabla de renglones */
+.modal-dialog.reg-dialogo {
+    width: min(980px, calc(100vw - 32px));
+    max-width: none;
+}
+
+.reg-campos {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 640px) {
+    .reg-campos {
+        grid-template-columns: 1fr;
+    }
+}
+
+.reg-renglones td {
+    vertical-align: top;
+}
+
+.reg-renglones select[data-campo="tipo"] {
+    min-width: 110px;
+}
+
+.reg-concepto {
+    min-width: 260px;
+}
+
+.reg-elegido {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.reg-cantidad {
+    width: 90px;
+}
+
+.reg-existencia {
+    min-width: 130px;
+    white-space: nowrap;
+}
+
+.reg-existencia small {
+    display: block;
+}
+
+.reg-falta {
+    color: var(--danger-color);
+    font-weight: 600;
+}
+
+.reg-pie {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.reg-datos {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px 16px;
+    margin: 0 0 16px;
+}
+
+.reg-datos dt {
+    color: var(--text-gray);
+    font-size: 12px;
+}
+
+.reg-datos dd {
+    margin: 2px 0 0;
+}
+
+.reg-datos-ancho {
+    grid-column: 1 / -1;
+}
+
+/* ============================================
+   CUADROS DE DIÁLOGO MÁS AMPLIOS EN COMPUTADORA
+   En pantallas de escritorio los diálogos aprovechan el espacio; en celular y tableta
+   siguen igual (ocupan casi todo el ancho).
+   ============================================ */
+@media (min-width: 1024px) {
+    .modal-content {
+        max-width: 680px;
+        max-height: 90vh;
+        max-height: 90dvh;
+    }
+
+    .modal-content.modal-content-md {
+        max-width: 820px;
+    }
+
+    .modal-content.modal-content-lg {
+        max-width: 960px;
+    }
+
+    .modal-content.modal-content-xl {
+        max-width: min(1280px, 92vw);
+    }
+
+    .modal-overlay .modal-dialog {
+        max-height: 90vh;
+        max-height: 90dvh;
+    }
+
+    .modal-overlay .modal-dialog.inv-dialogo {
+        max-width: 780px;
+    }
+
+    .modal-overlay .modal-dialog.inv-dialogo-historial {
+        max-width: 720px;
+    }
+
+    .modal-overlay .modal-dialog.hc2-imprimir {
+        max-width: 640px;
+    }
+
+    .modal-overlay .modal-dialog.personal-docs {
+        max-width: 820px;
+    }
+
+    .inv-kardex .modal-dialog {
+        max-width: min(1280px, 92vw);
+    }
+
+    .modal-overlay .modal-dialog.req-detalle {
+        width: min(1040px, 92vw);
+    }
+
+    .modal-overlay .modal-dialog.req-bodegas {
+        width: min(780px, 92vw);
+    }
+
+    .modal-dialog.reg-dialogo {
+        width: min(1200px, 92vw);
+    }
+}
+
+/* Tamaños de diálogo (antes estaban fijos en el HTML): compactos en celular, más amplios en computadora */
+.modal-content.dialogo-sm,
+.modal-overlay .modal-dialog.dialogo-sm { max-width: 520px; }
+.modal-content.dialogo-md,
+.modal-overlay .modal-dialog.dialogo-md { max-width: 640px; }
+.modal-content.dialogo-lg,
+.modal-overlay .modal-dialog.dialogo-lg { max-width: 900px; }
+
+@media (min-width: 1024px) {
+    .modal-content.dialogo-sm,
+    .modal-overlay .modal-dialog.dialogo-sm { max-width: 680px; }
+    .modal-content.dialogo-md,
+    .modal-overlay .modal-dialog.dialogo-md { max-width: 820px; }
+    .modal-content.dialogo-lg,
+    .modal-overlay .modal-dialog.dialogo-lg { max-width: min(1200px, 92vw); }
+}

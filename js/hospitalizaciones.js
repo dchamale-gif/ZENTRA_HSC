@@ -267,7 +267,7 @@ const HospitalizacionesModule = {
         const modal = document.createElement('div');
         modal.className = 'modal-overlay';
         modal.innerHTML = `
-            <div class="modal-dialog" style="max-width: 500px;">
+            <div class="modal-dialog dialogo-sm">
                 <div class="modal-header">
                     <h2><i class="fas fa-exchange-alt"></i> Traslado de Paciente</h2>
                     <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button>
@@ -632,7 +632,7 @@ const HospitalizacionesModule = {
         const modal = document.createElement('div');
         modal.className = 'modal-overlay';
         modal.innerHTML = `
-            <div class="modal-dialog" style="max-width: 600px;">
+            <div class="modal-dialog dialogo-md">
                 <div class="modal-header">
                     <h2><i class="fas fa-bed"></i> Piso ${piso} - Habitación ${habNumero} - Seleccionar Cama</h2>
                     <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button>
@@ -695,7 +695,7 @@ const HospitalizacionesModule = {
         const modal = document.createElement('div');
         modal.className = 'modal-overlay';
         modal.innerHTML = `
-            <div class="modal-dialog" style="max-width: 900px;">
+            <div class="modal-dialog dialogo-lg">
                 <div class="modal-header">
                     <h2><i class="fas fa-user-check"></i> Seleccionar Paciente para Hospitalización</h2>
                     <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button>
@@ -969,7 +969,7 @@ const HospitalizacionesModule = {
         modal.className = 'modal-overlay';
         const apellido = paciente.apellido || `${paciente.apellido_paterno || ''} ${paciente.apellido_materno || ''}`.trim();
         modal.innerHTML = `
-            <div class="modal-dialog" style="max-width: 500px;">
+            <div class="modal-dialog dialogo-sm">
                 <div class="modal-header">
                     <h2><i class="fas fa-hospital-user"></i> Registrar Hospitalización</h2>
                     <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button>
@@ -1218,7 +1218,7 @@ const HospitalizacionesModule = {
         const modal = document.createElement('div');
         modal.className = 'modal-overlay';
         modal.innerHTML = `
-            <div class="modal-dialog" style="max-width: 500px;">
+            <div class="modal-dialog dialogo-sm">
                 <div class="modal-header">
                     <h2><i class="fas fa-hospital-user"></i> Detalles de Hospitalización</h2>
                     <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button>

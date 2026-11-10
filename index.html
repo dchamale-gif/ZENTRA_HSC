@@ -8,10 +8,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-    <link rel="stylesheet" href="css/style.css?v=20261110-1">
+    <link rel="stylesheet" href="css/style.css?v=20261110-4">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/tema-botengine.css?v=20261018-2">
-    <link rel="stylesheet" href="css/tema-oscuro-auto.css?v=20261023-2">
+    <link rel="stylesheet" href="css/tema-oscuro-auto.css?v=20261110-1">
     <link rel="stylesheet" href="css/tema-oscuro.css?v=20261024-1">
     <script>
         // Tema del perfil antes de pintar, para que no destelle en claro (js/tema.js hace el resto)
@@ -127,6 +127,10 @@
                 <a href="#" class="nav-item" data-page="inventory">
                     <i class="fas fa-boxes"></i>
                     <span>Inventario</span>
+                </a>
+                <a href="#" class="nav-item" data-page="regulaciones">
+                    <i class="fas fa-scale-balanced"></i>
+                    <span>Regulaciones de inventario</span>
                 </a>
 
                 <!-- FINANZAS -->
@@ -688,7 +692,8 @@
                 <!-- Saldo del Paciente Page -->
                 <div id="page-saldo-paciente" class="page">
                     <style>
-                        .tabs-container {
+                        /* Solo para esta página: antes estas reglas (.modal, .modal-content…) achicaban todos los diálogos del sistema */
+                        #page-saldo-paciente .tabs-container {
                             display: flex;
                             gap: 10px;
                             margin-bottom: 20px;
@@ -699,7 +704,7 @@
                             overflow-x: auto;
                         }
 
-                        .tab-btn {
+                        #page-saldo-paciente .tab-btn {
                             padding: 12px 24px;
                             border: none;
                             background: #ecf0f1;
@@ -712,17 +717,17 @@
                             transition: all 0.3s;
                         }
 
-                        .tab-btn.active {
+                        #page-saldo-paciente .tab-btn.active {
                             background: #3498db;
                             color: white;
                         }
 
-                        .tab-btn:hover {
+                        #page-saldo-paciente .tab-btn:hover {
                             background: #3498db;
                             color: white;
                         }
 
-                        .tab-content {
+                        #page-saldo-paciente .tab-content {
                             display: none;
                             background: white;
                             border-radius: 8px;
@@ -730,11 +735,11 @@
                             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
                         }
 
-                        .tab-content.active {
+                        #page-saldo-paciente .tab-content.active {
                             display: block;
                         }
 
-                        .info-box {
+                        #page-saldo-paciente .info-box {
                             background: #d1ecf1;
                             border-left: 4px solid #0c5460;
                             padding: 15px;
@@ -743,10 +748,10 @@
                             color: #0c5460;
                         }
 
-                        .modal {
+                        #page-saldo-paciente .modal {
                             display: none;
                             position: fixed;
-                            z-index: 1;
+                            z-index: 1000;
                             left: 0;
                             top: 0;
                             width: 100%;
@@ -754,11 +759,11 @@
                             background-color: rgba(0,0,0,0.4);
                         }
 
-                        .modal.active {
+                        #page-saldo-paciente .modal.active {
                             display: block;
                         }
 
-                        .modal-content {
+                        #page-saldo-paciente .modal-content {
                             background-color: #fefefe;
                             margin: 5% auto;
                             padding: 0;
@@ -769,7 +774,7 @@
                             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
                         }
 
-                        .modal-header {
+                        #page-saldo-paciente .modal-header {
                             background: #3498db;
                             color: white;
                             padding: 20px;
@@ -778,11 +783,11 @@
                             font-size: 16px;
                         }
 
-                        .modal-body {
+                        #page-saldo-paciente .modal-body {
                             padding: 20px;
                         }
 
-                        .modal-footer {
+                        #page-saldo-paciente .modal-footer {
                             background: #f9f9f9;
                             padding: 15px 20px;
                             border-top: 1px solid #ddd;
@@ -792,7 +797,7 @@
                             justify-content: flex-end;
                         }
 
-                        .close-btn {
+                        #page-saldo-paciente .close-btn {
                             color: #aaa;
                             float: right;
                             font-size: 28px;
@@ -802,7 +807,7 @@
                             margin-top: -5px;
                         }
 
-                        .close-btn:hover {
+                        #page-saldo-paciente .close-btn:hover {
                             color: #000;
                         }
                     </style>
@@ -1419,7 +1424,7 @@
 
                     <!-- MODAL DESCUENTO -->
                     <div id="modalDescuento" class="modal">
-                        <div class="modal-content" style="max-width: 500px;">
+                        <div class="modal-content dialogo-sm">
                             <span class="close-btn" onclick="document.getElementById('modalDescuento').classList.remove('active')">&times;</span>
                             <div class="modal-header">Agregar Descuento General</div>
                             <div class="modal-body">
@@ -2048,6 +2053,52 @@
                         </div>
                     </div>
                     <div id="rqsLista" class="table-container"><p class="cot-sub" style="padding: 20px;">Cargando requisiciones…</p></div>
+                </div>
+
+                <!-- Regulaciones de inventario: lo que sale sin ser venta (solo administrador) -->
+                <div id="page-regulaciones" class="page">
+                    <div class="page-header">
+                        <h1>Regulaciones de inventario</h1>
+                        <button class="btn btn-primary" id="regNuevaBtn" type="button">
+                            <i class="fas fa-plus" aria-hidden="true"></i> Nueva regulación
+                        </button>
+                    </div>
+                    <p class="form-hint reg-intro">Consumo interno, merma, vencimiento, donación o ajuste por conteo: todo lo que sale del inventario sin ser venta. Se descuenta al guardar y queda en el kárdex de cada medicina o artículo.</p>
+                    <p id="regResumen" class="gastos-req-resumen rqs-resumen" aria-live="polite"></p>
+                    <div class="agenda-filtros reg-filtros">
+                        <div class="agenda-filtro agenda-filtro-busqueda">
+                            <label for="regBuscar">Buscar</label>
+                            <div class="agenda-input-icono">
+                                <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                                <input type="search" id="regBuscar" class="form-input" placeholder="Número, medicina, artículo u observación" autocomplete="off">
+                            </div>
+                        </div>
+                        <div class="agenda-filtro">
+                            <label for="regDesde">Desde</label>
+                            <input type="date" id="regDesde" class="form-input">
+                        </div>
+                        <div class="agenda-filtro">
+                            <label for="regHasta">Hasta</label>
+                            <input type="date" id="regHasta" class="form-input">
+                        </div>
+                        <div class="agenda-filtro">
+                            <label for="regFiltroMotivo">Motivo</label>
+                            <select id="regFiltroMotivo" class="form-input"><option value="">Todos</option></select>
+                        </div>
+                        <div class="agenda-filtro">
+                            <label for="regFiltroBodega">Bodega</label>
+                            <select id="regFiltroBodega" class="form-input"><option value="">Todas</option></select>
+                        </div>
+                        <div class="agenda-filtro">
+                            <label for="regFiltroEstado">Estado</label>
+                            <select id="regFiltroEstado" class="form-input">
+                                <option value="">Todas</option>
+                                <option value="aplicada">Aplicadas</option>
+                                <option value="anulada">Anuladas</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="regLista" class="table-container"><p class="cot-sub" style="padding: 20px;">Cargando regulaciones…</p></div>
                 </div>
 
                 <!-- Requerimientos de compra -->
@@ -6040,29 +6091,30 @@
     <script src="js/live-search.js?v=20261023-1"></script>
     <script src="js/pacientes.js?v=20261023-2"></script>
     <script src="js/exportar-excel.js?v=20261024-3"></script>
-    <script src="js/pacientes-file-manager.js?v=20261015-21"></script>
+    <script src="js/pacientes-file-manager.js?v=20261110-1"></script>
     <script src="js/inventario-medicinas.js?v=20261110-1"></script>
     <script src="js/medicinas.js?v=20261110-1"></script>
     <script src="js/sincronizacion.js?v=20261023-2"></script>
-    <script src="js/historia-clinica-panel.js?v=20261023-7"></script>
-    <script src="js/historia-clinica.js?v=20261022-1"></script>
+    <script src="js/historia-clinica-panel.js?v=20261110-1"></script>
+    <script src="js/historia-clinica.js?v=20261110-1"></script>
     <script src="js/saldo-paciente.js?v=20261018-2"></script>
     <script src="js/saldo-paciente-facturacion-integrado.js?v=20261019-2"></script>
-    <script src="js/hospitalizaciones.js?v=20261019-1"></script>
-    <script src="js/ordenes-medicas.js?v=20261023-3"></script>
+    <script src="js/hospitalizaciones.js?v=20261110-1"></script>
+    <script src="js/ordenes-medicas.js?v=20261110-1"></script>
     <script src="js/ordenes-enfermeria.js?v=20261023-2"></script>
-    <script src="js/control-medicamentos.js?v=20261023-2"></script>
-    <script src="js/personal.js?v=20261023-2"></script>
-    <script src="js/codigos-articulos.js?v=20261015-21"></script>
+    <script src="js/control-medicamentos.js?v=20261110-1"></script>
+    <script src="js/personal.js?v=20261110-1"></script>
+    <script src="js/codigos-articulos.js?v=20261110-1"></script>
     <script src="js/abonos.js?v=20261029-1"></script>
     <script src="js/compras.js?v=20261110-1"></script>
     <script src="js/requerimientos.js?v=20261029-3"></script>
     <script src="js/requisiciones.js?v=20261029-2"></script>
+    <script src="js/regulaciones.js?v=20261110-1"></script>
     <script src="js/inventario-activos.js?v=20261023-1"></script>
     <script src="js/alertas.js?v=20261015-21"></script>
     <script src="js/ventas.js?v=20261023-1"></script>
-    <script src="js/cotizaciones.js?v=20261023-1"></script>
-    <script src="js/paciente-acciones.js?v=20261023-2"></script>
+    <script src="js/cotizaciones.js?v=20261110-1"></script>
+    <script src="js/paciente-acciones.js?v=20261110-1"></script>
     <script src="js/caja.js?v=20261015-21"></script>
     <script src="js/cuentas-por-cobrar.js?v=20261015-21"></script>
     <script src="js/dashboard-financiero.js?v=20261015-21"></script>
@@ -6074,12 +6126,12 @@
     <script src="js/confirmaciones.js?v=20261015-21"></script>
     <script src="js/google-calendar.js?v=20261015-21"></script>
     <script src="js/agenda-api.js?v=20261015-21"></script>
-    <script src="js/gastos-servicios.js?v=20261018-3"></script>
+    <script src="js/gastos-servicios.js?v=20261110-1"></script>
     <script src="js/gastos.js?v=20261029-1"></script>
     
     <!-- App Principal -->
-    <script src="js/app.js?v=20261029-1"></script>
-    <script src="js/permisos.js?v=20261029-1"></script>
+    <script src="js/app.js?v=20261110-1"></script>
+    <script src="js/permisos.js?v=20261110-1"></script>
     <script src="js/comunicacion.js?v=20261019-1"></script>
     <script src="js/inicio.js?v=20261018-1"></script>
 </body>

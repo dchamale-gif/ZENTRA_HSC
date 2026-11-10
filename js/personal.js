@@ -1082,7 +1082,7 @@ const crearModuloPersonal = (cfg) => {
         const modal = document.createElement('div');
         modal.className = 'modal-overlay';
         modal.innerHTML = `
-            <div class="modal-dialog" style="max-width: 600px;">
+            <div class="modal-dialog dialogo-md">
                 <div class="modal-header">
                     <h2><i class="fas fa-user-md"></i> Detalles del Personal</h2>
                     <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button>
@@ -1256,7 +1256,7 @@ const crearModuloPersonal = (cfg) => {
         const modal = document.createElement('div');
         modal.className = 'modal-overlay';
         modal.innerHTML = `
-            <div class="modal-dialog" style="max-width: 600px;">
+            <div class="modal-dialog dialogo-md">
                 <div class="modal-header">
                     <h2><i class="fas fa-calendar-alt"></i> Disponibilidad - ${this.escapeHTML(personal.nombre)}</h2>
                     <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button>

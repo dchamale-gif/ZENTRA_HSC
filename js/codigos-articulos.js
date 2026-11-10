@@ -326,6 +326,9 @@ const CodigosArticulosModule = {
                     <button class="btn-icon btn-view" title="Ver Detalles" onclick="CodigosArticulosModule.viewArticuloDetails('${articulo.id}')">
                         <i class="fas fa-eye"></i>
                     </button>
+                    <button class="btn-icon btn-view" title="Kárdex: entradas y salidas" aria-label="Kárdex de ${escapeHtml(articulo.concepto || '')}" onclick="CodigosArticulosModule.verKardex('${articulo.id}')">
+                        <i class="fas fa-clock-rotate-left"></i>
+                    </button>
                     <button class="btn-icon btn-edit" title="Editar" onclick="CodigosArticulosModule.editArticulo('${articulo.id}')">
                         <i class="fas fa-edit"></i>
                     </button>
@@ -448,6 +451,41 @@ const CodigosArticulosModule = {
 
         document.body.appendChild(overlay);
         document.body.style.overflow = 'hidden';
+    },
+
+    // Kárdex: compras, ventas, regulaciones y cambios manuales, con la existencia que dejó cada uno
+    async verKardex(articuloId) {
+        const articulo = this.state.articulos.find(a => String(a.id) === String(articuloId));
+        if (!articulo) return;
+        const e = (v) => escapeHtml(v ?? '');
+        const TIPOS = {
+            inicial: 'Existencia inicial', ingreso_compra: 'Compra recibida', reversion_compra: 'Compra revertida',
+            venta: 'Venta', devolucion_venta: 'Devolución de venta', consumo_interno: 'Consumo interno', ajuste: 'Ajuste'
+        };
+        let contenido;
+        try {
+            const response = await authManager.fetchWithAuth(`/api/codigos-articulos/${encodeURIComponent(articuloId)}/movimientos`);
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.error || `Error ${response.status}`);
+            const filas = (data.movimientos || []).map(m => `
+                <tr>
+                    <td>${e(formatFecha(m.fecha))}<small class="cot-sub">${e(m.usuario_nombre)}</small></td>
+                    <td>${e(TIPOS[m.tipo] || m.tipo)}${m.referencia ? `<small class="cot-sub">${e(m.referencia)}</small>` : ''}</td>
+                    <td class="text-right reg-mov reg-mov-${m.cantidad < 0 ? 'salida' : 'entrada'}">${m.cantidad > 0 ? '+' : '−'}${Math.abs(m.cantidad)}</td>
+                    <td class="text-right">${m.existencia_resultante}</td>
+                    <td><small class="cot-sub">${e(m.motivo)}</small></td>
+                </tr>`).join('');
+            contenido = filas
+                ? `<p>Existencia actual: <strong>${Number(articulo.cantidadDisponible) || 0} ${e(articulo.unidadMedida || '')}</strong></p>
+                   <div class="table-responsive"><table class="data-table">
+                       <thead><tr><th>Fecha</th><th>Movimiento</th><th class="text-right">Cantidad</th><th class="text-right">Queda</th><th>Detalle</th></tr></thead>
+                       <tbody>${filas}</tbody></table></div>`
+                : '<p class="cot-sub">Este artículo aún no tiene movimientos.</p>';
+        } catch (error) {
+            contenido = `<p class="inv-error">${e(error.message)}</p>`;
+        }
+        this.showDetailsModal(`Kárdex · ${e(articulo.concepto)}`, contenido);
+        document.querySelector('.modal-overlay:last-of-type .modal-dialog')?.classList.add('req-detalle');
     },
 
     // Editar artículo

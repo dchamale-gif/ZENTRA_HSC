@@ -28,6 +28,9 @@ router.put('/:id', codigosArticulosController.updateArticulo);
 // PUT - Actualizar cantidad
 router.put('/:id/cantidad', codigosArticulosController.actualizarCantidad);
 
+// Kárdex del artículo
+router.get('/:id/movimientos', codigosArticulosController.getMovimientos);
+
 // DELETE - Eliminar artículo
 router.delete('/:id', codigosArticulosController.deleteArticulo);
 

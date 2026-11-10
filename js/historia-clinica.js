@@ -1245,7 +1245,7 @@ const HistoriaClinicaModule = {
         modal.className = 'modal';
         modal.style.display = 'flex';
         modal.innerHTML = `
-            <div class="modal-content" style="max-width: 480px;">
+            <div class="modal-content dialogo-sm">
                 <div class="modal-header">
                     <h2><i class="fas fa-pills" aria-hidden="true"></i> Editar medicamento</h2>
                     <button type="button" class="modal-close" aria-label="Cerrar" onclick="document.getElementById('hcMedicamentoModal').remove()">&times;</button>
@@ -2415,7 +2415,7 @@ const HistoriaClinicaModule = {
         modal.className = 'modal';
         modal.style.display = 'flex';
         modal.innerHTML = `
-            <div class="modal-content" style="max-width: 460px;">
+            <div class="modal-content dialogo-sm">
                 <div class="modal-header">
                     <h2><i class="fas fa-ban" aria-hidden="true"></i> Suspender medicamento</h2>
                     <button type="button" class="modal-close" aria-label="Cerrar" onclick="document.getElementById('hcSuspenderModal').remove()">&times;</button>

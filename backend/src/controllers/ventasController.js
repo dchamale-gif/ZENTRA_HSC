@@ -1,5 +1,6 @@
 const pool = require('../db/connection');
 const inventario = require('../services/inventarioMedicinas');
+const inventarioArticulos = require('../services/inventarioArticulos');
 
 const ventaSelect = (conInventario) => `
   SELECT v.id, v.numero_venta, v.paciente_id, v.cliente_id, v.user_id,
@@ -83,7 +84,7 @@ const getNextNumeroVenta = async (client) => {
 };
 
 // Medicinas: se descuenta la presentación vendida convertida a unidades base y queda en el kárdex.
-// Artículos: se descuenta la cantidad tal cual.
+// Artículos: se descuenta la cantidad tal cual y queda en su kárdex.
 const validateAndDiscountStock = async (client, items, { req, referencia, motivo = 'Venta' }) => {
   for (const item of items) {
     if (item.tipo === 'medicina') {
@@ -101,24 +102,14 @@ const validateAndDiscountStock = async (client, items, { req, referencia, motivo
       });
       continue;
     }
-    const result = await client.query(
-      'SELECT cantidad_disponible AS stock FROM codigos_articulos WHERE id = $1 FOR UPDATE',
-      [item.conceptoId]
-    );
-    if (result.rows.length === 0) {
-      const error = new Error(`El concepto ${item.conceptoId} no existe`);
-      error.status = 400;
-      throw error;
-    }
-    if (Number(result.rows[0].stock) < item.cantidad) {
-      const error = new Error(`Existencia insuficiente para ${item.conceptoId}`);
-      error.status = 409;
-      throw error;
-    }
-    await client.query(
-      'UPDATE codigos_articulos SET cantidad_disponible = cantidad_disponible - $1, updated_at = NOW() WHERE id = $2',
-      [item.cantidad, item.conceptoId]
-    );
+    await inventarioArticulos.mover(client, {
+      articuloId: item.conceptoId,
+      cantidad: -item.cantidad,
+      tipo: 'venta',
+      referencia,
+      motivo,
+      req
+    });
   }
 };
 
@@ -144,11 +135,15 @@ const restoreStock = async (client, ventaId, { req, motivo }) => {
         motivo,
         req
       });
-    } else {
-      await client.query(
-        'UPDATE codigos_articulos SET cantidad_disponible = cantidad_disponible + $1, updated_at = NOW() WHERE id = $2',
-        [item.cantidad, item.articulo_id]
-      );
+    } else if (item.articulo_id) {
+      await inventarioArticulos.mover(client, {
+        articuloId: item.articulo_id,
+        cantidad: item.cantidad,
+        tipo: 'devolucion_venta',
+        referencia: venta.rows[0]?.numero_venta,
+        motivo,
+        req
+      });
     }
   }
 };

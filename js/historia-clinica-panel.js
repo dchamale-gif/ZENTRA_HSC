@@ -291,11 +291,36 @@ const HistoriaPanelModule = {
         this.cargarResumen().then(() => this.renderLista());
     },
 
+    // Desde Gestión de Pacientes: la pantalla se abre filtrada por ese paciente y con su
+    // historia abierta (se completa en alCargarPacientes, cuando la lista ya está cargada)
+    prepararPaciente(p) {
+        this.init();
+        const inactivo = p.estado && p.estado !== 'activo';
+        this.state.filtros = {
+            texto: [p.nombre, p.apellidoPaterno || p.apellido_paterno, p.apellidoMaterno || p.apellido_materno].filter(Boolean).join(' '),
+            estado: inactivo ? 'todos' : 'activos', tipo: '', medico: '', desde: '', hasta: ''
+        };
+        const valores = { hc2Buscar: this.state.filtros.texto, hc2Estado: this.state.filtros.estado, hc2Tipo: '', hc2Medico: '', hc2Desde: '', hc2Hasta: '' };
+        Object.entries(valores).forEach(([id, valor]) => {
+            const el = document.getElementById(id);
+            if (el) el.value = valor;
+        });
+        this.state.abrirPendiente = String(p.id);
+    },
+
     // Lo llama HistoriaClinicaModule al cargar los pacientes
     alCargarPacientes() {
         this.init();
         this.cargarResumen().then(() => {
             this.renderLista();
+            if (this.state.abrirPendiente) {
+                const id = this.state.abrirPendiente;
+                this.state.abrirPendiente = null;
+                if (this.paciente(id)) {
+                    this.seleccionar(id);
+                    return;
+                }
+            }
             if (!this.state.pacienteId) return this.renderSinSeleccion();
             // Al volver a la pantalla: lo que cambió mientras tanto en órdenes, notas o historias
             this.renderDatos();
@@ -1331,7 +1356,7 @@ const HistoriaPanelModule = {
             const capa = document.createElement('div');
             capa.className = 'modal-overlay hc2-dialogo';
             capa.innerHTML = `
-                <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="hc2MotivoTitulo" style="max-width: 480px;">
+                <div class="modal-dialog dialogo-sm" role="dialog" aria-modal="true" aria-labelledby="hc2MotivoTitulo">
                     <div class="modal-header"><h2 id="hc2MotivoTitulo">${this.e(titulo)}</h2></div>
                     <div class="modal-body">
                         <p>${this.e(texto)}</p>
@@ -1376,7 +1401,7 @@ const HistoriaPanelModule = {
             const capa = document.createElement('div');
             capa.className = 'modal-overlay hc2-dialogo';
             capa.innerHTML = `
-                <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="hc2DialogoTitulo" style="max-width: 520px;">
+                <div class="modal-dialog dialogo-sm" role="dialog" aria-modal="true" aria-labelledby="hc2DialogoTitulo">
                     <div class="modal-header"><h2 id="hc2DialogoTitulo">Órdenes pendientes</h2></div>
                     <div class="modal-body">
                         <p>Antes de cerrar la historia, indique cómo quedan ${pendientes.length === 1 ? 'esta orden pendiente' : `estas ${pendientes.length} órdenes pendientes`}:</p>
