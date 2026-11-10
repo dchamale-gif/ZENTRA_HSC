@@ -5239,22 +5239,42 @@ body {
     background: var(--primary-color);
 }
 
-/* Escritorio: menú fijo siempre visible */
+/* Escritorio: el menú empuja el contenido; al elegir un módulo se oculta (body.menu-oculto)
+   y el botón ☰ del encabezado lo vuelve a mostrar */
 @media (min-width: 1024px) {
     .sidebar {
         transform: none;
-        transition: none;
+        transition: transform 220ms var(--ease-drawer);
     }
 
     .sidebar-close,
-    .sidebar-backdrop,
-    .btn-menu {
+    .sidebar-backdrop {
         display: none;
     }
 
     .main-content {
         margin-left: var(--sidebar-width);
         width: calc(100% - var(--sidebar-width));
+        transition: margin-left 220ms var(--ease-drawer), width 220ms var(--ease-drawer);
+    }
+
+    body.menu-oculto .sidebar {
+        transform: translateX(-100%);
+        visibility: hidden;
+        transition: transform 220ms var(--ease-drawer), visibility 0s linear 220ms;
+    }
+
+    body.menu-oculto .main-content {
+        margin-left: 0;
+        width: 100%;
+    }
+}
+
+@media (min-width: 1024px) and (prefers-reduced-motion: reduce) {
+    .sidebar,
+    .main-content,
+    body.menu-oculto .sidebar {
+        transition: none;
     }
 }
 

@@ -230,6 +230,8 @@ function setupNavigation() {
             e.preventDefault();
             const page = this.getAttribute('data-page');
             navigateToPage(page);
+            // Al elegir un módulo el menú se oculta (también en escritorio) para dar espacio
+            setSidebarOpen(false);
         });
     });
 }
@@ -1799,7 +1801,7 @@ function setupResponsive() {
 
     if (toggleBtn && sidebar) {
         toggleBtn.addEventListener('click', function() {
-            setSidebarOpen(!sidebar.classList.contains('active'));
+            setSidebarOpen(!sidebarAbierto());
         });
     }
 
@@ -1830,8 +1832,14 @@ function setupResponsive() {
 
     // Solo al cruzar a escritorio: en el celular, abrir el teclado o la barra del navegador
     // también dispara "resize" y no debe cerrar el menú
-    DESKTOP_SIDEBAR_QUERY.addEventListener('change', () => setSidebarOpen(false));
-    setSidebarOpen(false);
+    // En escritorio arranca visible; en celular, cerrado
+    DESKTOP_SIDEBAR_QUERY.addEventListener('change', () => setSidebarOpen(DESKTOP_SIDEBAR_QUERY.matches));
+    setSidebarOpen(DESKTOP_SIDEBAR_QUERY.matches);
+}
+
+function sidebarAbierto() {
+    if (DESKTOP_SIDEBAR_QUERY.matches) return !document.body.classList.contains('menu-oculto');
+    return Boolean(document.getElementById('mainSidebar')?.classList.contains('active'));
 }
 
 const DESKTOP_SIDEBAR_QUERY = window.matchMedia('(min-width: 1024px)');
@@ -1842,16 +1850,16 @@ function setSidebarOpen(open) {
     const backdrop = document.getElementById('sidebarBackdrop');
     if (!sidebar || !toggleBtn || !backdrop) return;
 
-    // En escritorio el menú siempre está visible y no usa backdrop
+    // En escritorio el menú empuja el contenido (sin backdrop) y se oculta con body.menu-oculto
     if (DESKTOP_SIDEBAR_QUERY.matches) {
         sidebar.classList.remove('active');
         backdrop.classList.remove('active');
-        sidebar.removeAttribute('aria-hidden');
-        return;
+        document.body.classList.toggle('menu-oculto', !open);
+    } else {
+        document.body.classList.remove('menu-oculto');
+        sidebar.classList.toggle('active', open);
+        backdrop.classList.toggle('active', open);
     }
-
-    sidebar.classList.toggle('active', open);
-    backdrop.classList.toggle('active', open);
     sidebar.setAttribute('aria-hidden', String(!open));
     toggleBtn.setAttribute('aria-expanded', String(open));
     toggleBtn.setAttribute('aria-label', open ? 'Cerrar menú' : 'Abrir menú');
