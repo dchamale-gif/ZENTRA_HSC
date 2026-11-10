@@ -25,6 +25,9 @@ router.put('/:id', medicinasController.updateMedicina);
 // PUT - Actualizar stock
 router.put('/:id/stock', medicinasController.actualizarStock);
 
+// Agregar una presentación (caja, blíster…) sin reemplazar las demás
+router.post('/:id/presentaciones', medicinasController.agregarPresentacion);
+
 // Kárdex: movimientos de inventario, consumo interno y ajustes
 router.get('/:id/movimientos', medicinasController.getMovimientos);
 router.post('/:id/movimientos', medicinasController.registrarMovimiento);

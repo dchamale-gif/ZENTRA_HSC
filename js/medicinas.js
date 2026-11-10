@@ -396,8 +396,25 @@ const MedicinasModule = {
         document.body.style.overflow = 'hidden';
     },
 
+    // Presentación y unidad de dosis son listas fijas: se agregan los valores que ya usan las
+    // medicinas (p. ej. cargadas desde Excel) para que al editarlas no queden vacías
+    completarOpciones() {
+        const agregar = (id, valores) => {
+            const select = document.getElementById(id);
+            if (!select) return;
+            const existentes = new Set([...select.options].map(o => o.value));
+            [...new Set(valores.filter(Boolean).map(String))]
+                .filter(v => !existentes.has(v))
+                .sort((a, b) => a.localeCompare(b))
+                .forEach(v => select.add(new Option(v, v)));
+        };
+        agregar('medicinePresentacion', this.state.medicinas.map(m => m.presentacion || m.forma_farmaceutica));
+        agregar('medicineUnidadDosis', this.state.medicinas.map(m => m.unidadDosis || m.unidad_dosis));
+    },
+
     // Llenar selectores de familia y subfamilia
     populateFamilySelectors() {
+        this.completarOpciones();
         const sectionSelect = document.getElementById('medicineSection');
         const familySelect = document.getElementById('medicineFamily');
         if (!sectionSelect || !familySelect) return;

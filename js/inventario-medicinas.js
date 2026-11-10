@@ -6,7 +6,7 @@
 // Lo usan Medicinas, Ventas y Compras.
 
 const InventarioMedicinas = {
-    UNIDADES: ['Tableta', 'Cápsula', 'Ampolla', 'Vial', 'Frasco', 'Sobre', 'Supositorio', 'Parche', 'ml', 'Unidad'],
+    UNIDADES: ['Tableta', 'Cápsula', 'Ampolla', 'Vial', 'Frasco', 'Tubo', 'Sobre', 'Supositorio', 'Óvulo', 'Parche', 'Pluma', 'Inhalador', 'Bolsa', 'ml', 'Unidad'],
 
     MOVIMIENTOS: {
         inicial: 'Existencia inicial',

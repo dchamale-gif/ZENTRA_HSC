@@ -1,5 +1,6 @@
 const express = require('express');
 const comprasController = require('../controllers/comprasController');
+const medicinasController = require('../controllers/medicinasController');
 const { authMiddleware } = require('../middleware/auth');
 const { recibirArchivo } = require('../services/archivos');
 
@@ -11,6 +12,8 @@ router.get('/vouchers/:voucherId', comprasController.verVoucher);
 router.delete('/vouchers/:voucherId', comprasController.eliminarVoucher);
 router.delete('/abonos/:abonoId', comprasController.eliminarAbono);
 router.post('/:id/vouchers', recibirArchivo(express), comprasController.subirVoucher);
+// Cómo viene una medicina (caja de 100 tabletas…), registrado al hacer la compra
+router.post('/medicinas/:id/presentaciones', medicinasController.agregarPresentacion);
 
 router.get('/', comprasController.getCompras);
 router.get('/:id', comprasController.getCompraById);

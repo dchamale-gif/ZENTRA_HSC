@@ -107,6 +107,19 @@ const ComprasModule = {
         return typeof Permisos === 'undefined' || Permisos.puede('compras', accion);
     },
 
+    medicinaDeCatalogo(medicina) {
+        return {
+            ...medicina,
+            id: String(medicina.id),
+            nombre: medicina.nombre,
+            codigo: medicina.codigo_interno || medicina.codigo_externo || medicina.codigo_barra || '',
+            precio: Number(medicina.precio_costo ?? medicina.precio ?? 0),
+            seccion: medicina.seccion || medicina.categoria || '',
+            familia: medicina.familia || '',
+            subfamilia: medicina.subfamilia || ''
+        };
+    },
+
     async loadData() {
         try {
             const vacio = (clave) => Promise.resolve({ [clave]: [] });
@@ -126,16 +139,7 @@ const ComprasModule = {
             this.state.compras = comprasData.compras || [];
             this.state.pagos = Boolean(comprasData.pagos);
             this.state.proveedores = proveedoresData.proveedores || [];
-            this.state.medicinas = (medicinasData.medicinas || []).map(medicina => ({
-                ...medicina,
-                id: String(medicina.id),
-                nombre: medicina.nombre,
-                codigo: medicina.codigo_interno || medicina.codigo_externo || medicina.codigo_barra || '',
-                precio: Number(medicina.precio_costo ?? medicina.precio ?? 0),
-                seccion: medicina.seccion || medicina.categoria || '',
-                familia: medicina.familia || '',
-                subfamilia: medicina.subfamilia || ''
-            }));
+            this.state.medicinas = (medicinasData.medicinas || []).map(medicina => this.medicinaDeCatalogo(medicina));
             this.state.articulos = (articulosData.articulos || []).map(articulo => ({
                 id: String(articulo.id),
                 nombre: articulo.nombre_articulo,
@@ -1100,21 +1104,159 @@ const ComprasModule = {
         if (resultados.length === 1) resultados[0].click();
     },
 
-    // Medicina elegida: presentación comprada y cuántas unidades base suma al recibirse
+    // Medicina elegida: cómo viene (la presentación comprada), cómo se vende (su unidad base)
+    // y cuántas unidades suma al inventario al recibirse
     htmlPresentacion(item, index) {
         if (item.tipo !== 'medicina' || !item.concepto_id) return '';
         const medicina = this.state.medicinas.find(entry => entry.id === String(item.concepto_id));
         if (!medicina) return '';
         const presentaciones = InventarioMedicinas.presentaciones(medicina);
         const elegida = InventarioMedicinas.presentacion(medicina, item.presentacion_id);
+        const unidad = InventarioMedicinas.unidadBase(medicina);
         const total = (Number(item.cantidad) || 0) * elegida.factor;
+        // Quien solo hace requerimientos elige entre las que ya existen
+        const puedeAgregar = this.state.modo !== 'requerimiento' && this.puedeComprar('edit');
         return `<div class="inv-presentacion">
-            ${presentaciones.length > 1 ? `<label class="sr-only" for="purchasePresentation-${index}">Presentación</label>
-            <select id="purchasePresentation-${index}" class="form-input" onchange="ComprasModule.updateItem(${index}, 'presentacion_id', this.value)">
-                ${presentaciones.map(p => `<option value="${this.escapeHtml(p.id)}" ${String(p.id) === String(elegida.id) ? 'selected' : ''}>${this.escapeHtml(InventarioMedicinas.nombrePresentacion(medicina, p))}</option>`).join('')}
-            </select>` : ''}
-            <small>Al recibirse suma ${this.escapeHtml(InventarioMedicinas.texto(total, InventarioMedicinas.unidadBase(medicina)))}</small>
+            <label class="inv-presentacion-etiqueta" for="purchasePresentation-${index}">Viene en</label>
+            <div class="inv-presentacion-control">
+                <select id="purchasePresentation-${index}" class="form-input" onchange="ComprasModule.updateItem(${index}, 'presentacion_id', this.value)">
+                    ${presentaciones.map(p => `<option value="${this.escapeHtml(p.id)}" ${String(p.id) === String(elegida.id) ? 'selected' : ''}>${this.escapeHtml(p.factor > 1 ? InventarioMedicinas.nombrePresentacion(medicina, p) : `${p.nombre} (suelta)`)}</option>`).join('')}
+                </select>
+                ${puedeAgregar ? `<button type="button" class="btn btn-secondary btn-small" onclick="ComprasModule.nuevaPresentacion(${index})"
+                    title="Agregar cómo viene: caja, blíster, frasco…"><i class="fas fa-plus" aria-hidden="true"></i> Nueva</button>` : ''}
+            </div>
+            <small>Se vende por ${this.escapeHtml(unidad.toLowerCase())} · al recibirse suma ${this.escapeHtml(InventarioMedicinas.texto(total, unidad))}</small>
         </div>`;
+    },
+
+    // Registra cómo viene una medicina (caja de 100 tabletas…) sin salir de la compra y la deja elegida
+    nuevaPresentacion(index) {
+        const item = this.state.items[index];
+        const medicina = this.state.medicinas.find(entry => entry.id === String(item?.concepto_id));
+        if (!medicina) return;
+        const e = (v) => this.escapeHtml(v);
+        const unidadActual = InventarioMedicinas.unidadBase(medicina);
+        const precioUnidad = Number(medicina.precio_venta) || 0;
+        const envases = ['Caja', 'Blíster', 'Frasco', 'Paquete', 'Sobre', 'Bolsa', 'Galón'];
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay compra-sobre-modal';
+        overlay.innerHTML = `
+            <div class="modal-dialog inv-dialogo" role="dialog" aria-modal="true" aria-labelledby="compraPresTitulo">
+                <div class="modal-header">
+                    <h2 id="compraPresTitulo">¿Cómo viene ${e(medicina.nombre)}?</h2>
+                    <button type="button" class="close-btn" aria-label="Cerrar">&times;</button>
+                </div>
+                <form class="modal-body" novalidate>
+                    <div class="form-group">
+                        <label for="compraPresUnidad">Se vende y se cuenta por <span class="required">*</span></label>
+                        <input id="compraPresUnidad" class="form-input" list="compraPresUnidades" maxlength="30" required value="${e(unidadActual)}" autocomplete="off">
+                        <datalist id="compraPresUnidades">${InventarioMedicinas.UNIDADES.map(u => `<option value="${e(u)}">`).join('')}</datalist>
+                        <small class="form-hint">La unidad suelta: el inventario y las ventas por unidad van en ella.</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="compraPresNombre">Viene en <span class="required">*</span></label>
+                        <input id="compraPresNombre" class="form-input" list="compraPresEnvases" maxlength="40" required placeholder="Caja" autocomplete="off">
+                        <datalist id="compraPresEnvases">${envases.map(v => `<option value="${e(v)}">`).join('')}</datalist>
+                    </div>
+                    <div class="form-group">
+                        <label for="compraPresFactor">Cada una trae <span class="required">*</span></label>
+                        <div class="inv-presentacion-control">
+                            <input id="compraPresFactor" class="form-input" type="number" min="2" step="1" required inputmode="numeric">
+                            <span data-unidades></span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="compraPresPrecio">Precio de venta de la presentación completa (opcional)</label>
+                        <input id="compraPresPrecio" class="form-input" type="number" min="0" step="0.01">
+                        <small class="form-hint" data-precio-hint></small>
+                    </div>
+                    <div class="form-group">
+                        <label for="compraPresCodigo">Código de barras de la presentación (opcional)</label>
+                        <input id="compraPresCodigo" class="form-input" maxlength="60" autocomplete="off">
+                    </div>
+                    <p class="inv-error" data-error hidden></p>
+                    <div class="inv-dialogo-acciones">
+                        <button type="button" class="btn btn-secondary" data-cerrar>Cancelar</button>
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-plus" aria-hidden="true"></i> <span data-boton>Agregar presentación</span></button>
+                    </div>
+                </form>
+            </div>`;
+        document.body.appendChild(overlay);
+        const $ = (sel) => overlay.querySelector(sel);
+        const cerrar = () => {
+            overlay.remove();
+            document.removeEventListener('keydown', alTeclear);
+        };
+        const alTeclear = (ev) => { if (ev.key === 'Escape') cerrar(); };
+        document.addEventListener('keydown', alTeclear);
+        $('.close-btn').addEventListener('click', cerrar);
+        $('[data-cerrar]').addEventListener('click', cerrar);
+        overlay.addEventListener('click', ev => { if (ev.target === overlay) cerrar(); });
+
+        // Vista previa: "Agregar Caja de 100 tabletas" y el precio que tendría sin uno propio
+        const actualizar = () => {
+            const unidad = $('#compraPresUnidad').value.trim() || 'Unidad';
+            const factor = Number($('#compraPresFactor').value);
+            const nombre = $('#compraPresNombre').value.trim();
+            const plural = InventarioMedicinas.texto(2, unidad).replace(/^2 /, '');
+            $('[data-unidades]').textContent = plural;
+            const valido = Number.isInteger(factor) && factor >= 2;
+            $('[data-boton]').textContent = nombre && valido
+                ? `Agregar ${nombre} de ${InventarioMedicinas.texto(factor, unidad)}`
+                : 'Agregar presentación';
+            $('[data-precio-hint]').textContent = precioUnidad > 0
+                ? `Vacío: ${formatQ(precioUnidad)} por ${unidad.toLowerCase()}${valido ? ` × ${factor} = ${formatQ(precioUnidad * factor)}` : ''}.`
+                : `Vacío: se vende al precio por ${unidad.toLowerCase()} de la medicina.`;
+        };
+        overlay.querySelectorAll('input').forEach(input => input.addEventListener('input', actualizar));
+        actualizar();
+
+        const form = $('form');
+        form.addEventListener('submit', async (ev) => {
+            ev.preventDefault();
+            const error = $('[data-error]');
+            const unidad = $('#compraPresUnidad').value.trim();
+            const nombre = $('#compraPresNombre').value.trim();
+            const factor = Number($('#compraPresFactor').value);
+            const falta = !unidad ? 'Indique cómo se vende (tableta, frasco…)'
+                : !nombre ? 'Indique en qué viene (caja, blíster…)'
+                : !(Number.isInteger(factor) && factor >= 2) ? 'Cada presentación debe traer al menos 2 unidades'
+                : '';
+            if (falta) {
+                error.textContent = falta;
+                error.hidden = false;
+                return;
+            }
+            const boton = form.querySelector('button[type="submit"]');
+            boton.disabled = true;
+            error.hidden = true;
+            try {
+                const precio = $('#compraPresPrecio').value;
+                const data = await this.apiRequest(`/api/compras/medicinas/${encodeURIComponent(medicina.id)}/presentaciones`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        unidad_base: unidad,
+                        nombre,
+                        factor,
+                        precio_venta: precio === '' ? null : Number(precio),
+                        codigo_barra: $('#compraPresCodigo').value.trim()
+                    })
+                });
+                const actualizada = this.medicinaDeCatalogo(data.medicina);
+                const pos = this.state.medicinas.findIndex(m => m.id === actualizada.id);
+                if (pos >= 0) this.state.medicinas[pos] = actualizada;
+                item.presentacion_id = String(data.presentacion_id);
+                item.precio_unitario = this.costoPresentacion(item);
+                cerrar();
+                this.renderItems();
+                this.notify(`${nombre} de ${InventarioMedicinas.texto(factor, unidad)} agregada a ${medicina.nombre}`, 'success');
+            } catch (err) {
+                error.textContent = err.message;
+                error.hidden = false;
+                boton.disabled = false;
+            }
+        });
+        setTimeout(() => $('#compraPresNombre').focus(), 0);
     },
 
     getCatalog(tipo) {

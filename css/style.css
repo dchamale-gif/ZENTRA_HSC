@@ -1211,6 +1211,11 @@ select:disabled {
     z-index: 10000;
 }
 
+/* Cuadro que se abre encima del formulario de compra (p. ej. nueva presentación) */
+.modal-overlay.compra-sobre-modal {
+    z-index: 10001;
+}
+
 .provider-field-header {
     display: flex;
     align-items: center;
@@ -10114,6 +10119,30 @@ body.chat-abierto {
 .inv-presentacion small {
     color: var(--text-gray);
     font-size: 12px;
+}
+
+.inv-presentacion-etiqueta {
+    color: var(--text-gray);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Selector de presentación con su botón "Nueva" (o número con su unidad) en una línea */
+.inv-presentacion-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.inv-presentacion-control .form-input {
+    flex: 1;
+    min-width: 0;
+}
+
+.inv-presentacion-control .btn,
+.inv-presentacion-control span {
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .inv-presentaciones {

@@ -159,34 +159,41 @@ const errorConEstado = inventario.errorConEstado;
 
 // Valida y reemplaza las presentaciones de una medicina. Los códigos de barras no se pueden repetir
 // entre medicinas ni presentaciones (el lector debe encontrar un solo producto).
+const limpiarPresentacion = (p, i) => {
+  const nombre = String(p?.nombre || '').trim().slice(0, 40);
+  const factor = Number(p?.factor);
+  const precio = Number(p?.precio_venta ?? 0);
+  const codigo = String(p?.codigo_barra || '').trim().slice(0, 60) || null;
+  if (!nombre) throw errorConEstado(`Escriba el nombre de la presentación ${i + 1}`);
+  if (!Number.isInteger(factor) || factor < 2) throw errorConEstado(`"${nombre}" debe contener al menos 2 unidades`);
+  if (!Number.isFinite(precio) || precio < 0) throw errorConEstado(`El precio de "${nombre}" no es válido`);
+  return { nombre, factor, precio, codigo };
+};
+
+// El código no puede estar en otra medicina ni en sus presentaciones
+const validarCodigoLibre = async (client, codigo, medicinaId) => {
+  const usado = await client.query(
+    `SELECT m.nombre FROM medicinas m WHERE m.codigo_barra = $1 AND m.id::text <> $2::text
+     UNION ALL
+     SELECT m.nombre FROM medicina_presentaciones p JOIN medicinas m ON m.id = p.medicina_id
+     WHERE p.codigo_barra = $1 AND p.medicina_id::text <> $2::text
+     LIMIT 1`,
+    [codigo, String(medicinaId)]
+  );
+  if (usado.rowCount) throw errorConEstado(`El código de barras ${codigo} ya lo usa ${usado.rows[0].nombre}`);
+};
+
 const guardarPresentaciones = async (client, medicinaId, lista, codigoMedicina) => {
   if (!Array.isArray(lista)) return;
   if (lista.length > 10) throw errorConEstado('Puede registrar hasta 10 presentaciones por medicina');
-  const limpias = lista.map((p, i) => {
-    const nombre = String(p?.nombre || '').trim().slice(0, 40);
-    const factor = Number(p?.factor);
-    const precio = Number(p?.precio_venta ?? 0);
-    const codigo = String(p?.codigo_barra || '').trim().slice(0, 60) || null;
-    if (!nombre) throw errorConEstado(`Escriba el nombre de la presentación ${i + 1}`);
-    if (!Number.isInteger(factor) || factor < 2) throw errorConEstado(`"${nombre}" debe contener al menos 2 unidades`);
-    if (!Number.isFinite(precio) || precio < 0) throw errorConEstado(`El precio de "${nombre}" no es válido`);
-    return { nombre, factor, precio, codigo };
-  });
+  const limpias = lista.map(limpiarPresentacion);
   const nombres = limpias.map(p => p.nombre.toLowerCase());
   if (new Set(nombres).size !== nombres.length) throw errorConEstado('Hay presentaciones con el mismo nombre');
   const codigos = limpias.map(p => p.codigo).filter(Boolean);
   if (codigoMedicina) codigos.push(codigoMedicina);
   if (new Set(codigos).size !== codigos.length) throw errorConEstado('Hay códigos de barras repetidos en esta medicina');
   for (const codigo of limpias.map(p => p.codigo).filter(Boolean)) {
-    const usado = await client.query(
-      `SELECT m.nombre FROM medicinas m WHERE m.codigo_barra = $1 AND m.id::text <> $2::text
-       UNION ALL
-       SELECT m.nombre FROM medicina_presentaciones p JOIN medicinas m ON m.id = p.medicina_id
-       WHERE p.codigo_barra = $1 AND p.medicina_id::text <> $2::text
-       LIMIT 1`,
-      [codigo, String(medicinaId)]
-    );
-    if (usado.rowCount) throw errorConEstado(`El código de barras ${codigo} ya lo usa ${usado.rows[0].nombre}`);
+    await validarCodigoLibre(client, codigo, medicinaId);
   }
   await client.query('DELETE FROM medicina_presentaciones WHERE medicina_id = $1', [medicinaId]);
   for (const p of limpias) {
@@ -332,6 +339,69 @@ const updateMedicina = async (req, res) => {
     if (client) await client.query('ROLLBACK').catch(() => {});
     console.error('Error en updateMedicina:', error);
     res.status(error.status || 500).json({ error: error.status ? error.message : `Error actualizando medicina: ${error.message}` });
+  } finally {
+    if (client) client.release();
+  }
+};
+
+/**
+ * POST /api/medicinas/:id/presentaciones (y /api/compras/medicinas/:id/presentaciones)
+ * { nombre, factor, precio_venta?, codigo_barra?, unidad_base? }
+ * Agrega cómo viene una medicina (caja de 100…) sin tocar sus otras presentaciones. Se usa al
+ * registrar una compra; unidad_base es cómo se vende y cuenta en inventario (tableta, frasco…).
+ */
+const agregarPresentacion = async (req, res) => {
+  let client;
+  try {
+    if (!(await inventario.disponible())) {
+      throw errorConEstado('Las presentaciones necesitan npm run migrate:inventario-medicinas', 503);
+    }
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const medicina = await client.query(
+      'SELECT id, codigo_barra, precio_venta FROM medicinas WHERE id::text = $1 FOR UPDATE', [String(req.params.id)]);
+    if (!medicina.rowCount) throw errorConEstado('Medicina no encontrada', 404);
+    const { id, codigo_barra: codigoMedicina, precio_venta: precioUnidad } = medicina.rows[0];
+
+    const unidad = String(req.body.unidad_base ?? '').trim().slice(0, 30);
+    if (unidad) await client.query('UPDATE medicinas SET unidad_base = $2, updated_at = NOW() WHERE id = $1', [id, unidad]);
+
+    // Sin precio propio: la presentación se vende al precio de sus unidades
+    const sinPrecio = req.body.precio_venta === undefined || req.body.precio_venta === null || req.body.precio_venta === '';
+    const p = limpiarPresentacion({
+      ...req.body,
+      precio_venta: sinPrecio ? Math.round(Number(precioUnidad || 0) * Number(req.body.factor) * 100) / 100 : req.body.precio_venta
+    }, 0);
+
+    const existentes = (await client.query(
+      'SELECT nombre, codigo_barra FROM medicina_presentaciones WHERE medicina_id = $1', [id])).rows;
+    if (existentes.length >= 10) throw errorConEstado('Puede registrar hasta 10 presentaciones por medicina');
+    if (existentes.some(e => e.nombre.toLowerCase() === p.nombre.toLowerCase())) {
+      throw errorConEstado(`Esta medicina ya tiene la presentación "${p.nombre}"`, 409);
+    }
+    if (p.codigo) {
+      if (p.codigo === codigoMedicina || existentes.some(e => e.codigo_barra === p.codigo)) {
+        throw errorConEstado('Ese código de barras ya lo tiene esta medicina', 409);
+      }
+      await validarCodigoLibre(client, p.codigo, id);
+    }
+    const nueva = await client.query(
+      `INSERT INTO medicina_presentaciones (medicina_id, nombre, factor, precio_venta, codigo_barra)
+       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+      [id, p.nombre, p.factor, p.precio, p.codigo]
+    );
+    await client.query('COMMIT');
+
+    res.status(201).json({
+      success: true,
+      message: 'Presentación agregada',
+      presentacion_id: nueva.rows[0].id,
+      medicina: await medicinaCompleta(pool, id)
+    });
+  } catch (error) {
+    if (client) await client.query('ROLLBACK').catch(() => {});
+    if (!error.status) console.error('Error en agregarPresentacion:', error);
+    res.status(error.status || 500).json({ error: error.status ? error.message : 'No se pudo agregar la presentación' });
   } finally {
     if (client) client.release();
   }
@@ -512,6 +582,7 @@ module.exports = {
   getMedicinaById,
   createMedicina,
   updateMedicina,
+  agregarPresentacion,
   deleteMedicina,
   getMedicinasStockBajo,
   actualizarStock,

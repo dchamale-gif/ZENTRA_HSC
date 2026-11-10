@@ -12,6 +12,14 @@
  *    y en ese caso queda el ajuste en el kárdex.
  *  - Las medicinas que no están en el Excel se eliminan; si ya tienen ventas, compras,
  *    requerimientos, kárdex u otros registros, se desactivan para no romper el historial.
+ *  - Presentación y unidad de dosis se pasan a los valores del formulario de medicinas
+ *    ("TABLETAS" -> "Tabletas", "Miligramos (mg)" -> "mg"); la concentración queda "500 mg".
+ *  - Unidad base (cómo se vende y se cuenta): si la columna dice UNIDAD o viene vacía, se deduce
+ *    de la presentación (Tabletas -> Tableta, Jarabe -> Frasco, Crema -> Tubo…).
+ *  - Factores de conversión (opcional): columnas VIENE EN, UNIDADES POR PRESENTACIÓN,
+ *    PRECIO PRESENTACIÓN (Q) y CÓDIGO BARRAS PRESENTACIÓN. Para más de una presentación por
+ *    medicina se repiten con número: VIENE EN 2, UNIDADES POR PRESENTACIÓN 2… Una presentación
+ *    con el mismo nombre se actualiza; las demás de la medicina se respetan.
  *  - Antes de guardar copia la tabla completa a medicinas_respaldo_AAAAMMDD_HHMMSS.
  * Todo corre en una transacción: si algo falla no queda nada a medias.
  * No usa librerías extra: lee el .xlsx (zip + xml) con lo que trae Node.
@@ -104,7 +112,7 @@ const MAPA = [
   ['DESCRIPCION', 'descripcion', 'texto'],
   ['PRINCIPIO ACTIVO', 'principio_activo', 'texto'],
   ['CONCENTRACION', 'concentracion', 'texto'],
-  ['FORMA FARMACEUTICA', 'forma_farmaceutica', 'texto'],
+  ['FORMA FARMACEUTICA', 'forma_farmaceutica', 'presentacion'],
   ['EXISTENCIA', 'cantidad', 'entero'],
   ['EXISTENCIA MINIMA', 'cantidad_minima', 'entero'],
   ['PRECIO DE COSTO', 'precio_costo', 'dinero'],
@@ -118,18 +126,45 @@ const MAPA = [
   ['SECCION', 'seccion', 'texto'],
   ['FAMILIA', 'familia', 'texto'],
   ['SUBFAMILIA', 'subfamilia', 'texto'],
-  ['PRESENTACION', 'presentacion', 'texto'],
+  ['PRESENTACION', 'presentacion', 'presentacion'],
   ['CODIGO DE BARRAS', 'codigo_barra', 'texto'],
   ['DOSIS', 'dosis', 'texto'],
-  ['UNIDAD DOSIS', 'unidad_dosis', 'texto'],
+  ['UNIDAD DOSIS', 'unidad_dosis', 'unidadDosis'],
   ['PROVEEDOR', 'proveedor', 'texto'],
   ['CONTRAINDICACIONES', 'contraindicaciones', 'texto'],
   ['EFECTOS SECUNDARIOS', 'efectos_secundarios', 'texto'],
   ['UNIDAD BASE', 'unidad_base', 'unidad']
 ];
 
-// Las mismas unidades que ofrece el formulario de medicinas
-const UNIDADES = ['Tableta', 'Cápsula', 'Ampolla', 'Vial', 'Frasco', 'Sobre', 'Supositorio', 'Parche', 'ml', 'Unidad'];
+// Las mismas unidades que ofrece el formulario de medicinas (js/inventario-medicinas.js)
+const UNIDADES = ['Tableta', 'Cápsula', 'Ampolla', 'Vial', 'Frasco', 'Tubo', 'Sobre', 'Supositorio', 'Óvulo',
+  'Parche', 'Pluma', 'Inhalador', 'Bolsa', 'ml', 'Unidad'];
+
+// Presentación (sin acentos, mayúsculas) -> unidad en que se vende y se cuenta; la primera que coincide
+const UNIDAD_POR_PRESENTACION = [
+  [/^(TABLETA|GRAGEA|COMPRIMIDO)/, 'Tableta'],
+  [/^CAPSULA/, 'Cápsula'],
+  [/^(AMPOLLA|SOLUCION INYECTABLE)/, 'Ampolla'],
+  [/^VIAL/, 'Vial'],
+  [/^PLUMA/, 'Pluma'],
+  [/^(INHALADOR|AEROSOL)/, 'Inhalador'],
+  [/^PARCHE/, 'Parche'],
+  [/^OVULO/, 'Óvulo'],
+  [/^SUPOSITORIO/, 'Supositorio'],
+  [/^SOBRE/, 'Sobre'],
+  [/^(CREMA|GEL|UNGUENTO|POMADA)/, 'Tubo'],
+  [/^(SOLUCION|JARABE|SUSPENSION|GOTAS|LOCION|CHAMPU|SPRAY|POLVO|ELIXIR|EMULSION)/, 'Frasco']
+];
+
+// Unidades de dosis como las guarda el formulario: "Miligramos (mg)" o "MG" -> "mg"
+const UNIDADES_DOSIS = { MG: 'mg', G: 'g', MCG: 'mcg', ML: 'ml', UI: 'UI', MEQ: 'mEq', '%': '%' };
+
+// "SOLUCIÓN PARA INFUSIÓN" -> "Solución para Infusión"; "TABLETA" -> "Tabletas" (como el formulario)
+const MENORES = new Set(['de', 'del', 'para', 'por', 'y', 'o', 'en', 'con', 'a', 'la', 'el', 'al']);
+const comoTitulo = (texto) => texto.toLocaleLowerCase('es')
+  .split(/(\s+|\/)/)
+  .map((p, i) => (i > 0 && MENORES.has(p)) ? p : p.charAt(0).toLocaleUpperCase('es') + p.slice(1))
+  .join('');
 
 // Excel guarda fechas como días desde 1899-12-30
 const fechaExcel = (n) => new Date(Date.UTC(1899, 11, 30) + n * 86400000);
@@ -158,7 +193,16 @@ const convertir = (valor, tipo) => {
       if (Number.isFinite(numero)) return fechaExcel(numero).toISOString().replace('T', ' ').slice(0, 19);
       return null;
     case 'unidad':
-      return UNIDADES.find(u => u.toLowerCase() === texto.toLowerCase()) || texto;
+      return UNIDADES.find(u => normalizar(u) === normalizar(texto)) || comoTitulo(texto);
+    case 'presentacion': {
+      if (/^NO ESPECIFICAD/.test(normalizar(texto))) return null;
+      const singular = { TABLETA: 'TABLETAS', CAPSULA: 'CÁPSULAS', GRAGEA: 'GRAGEAS' }[normalizar(texto)];
+      return comoTitulo(singular || texto);
+    }
+    case 'unidadDosis': {
+      const codigo = (texto.match(/\(([^)]+)\)\s*$/) || [null, texto])[1].trim();
+      return UNIDADES_DOSIS[codigo.toUpperCase()] || (/^[A-Z/%]+$/.test(codigo) ? codigo.toLowerCase() : codigo);
+    }
     default:
       return texto;
   }
@@ -175,6 +219,16 @@ const leerMedicinas = (archivo) => {
       throw new Error(`El Excel no tiene la columna ${requerida.toUpperCase()}`);
     }
   }
+
+  // Columnas opcionales de presentaciones, agrupadas por su número ("" para la primera)
+  const gruposPresentacion = new Map();
+  encabezados.forEach((encabezado, i) => {
+    const m = encabezado.match(/^(VIENE EN|UNIDADES POR PRESENTACION|PRECIO PRESENTACION|CODIGO (?:DE )?BARRAS PRESENTACION)\s*(\d*)$/);
+    if (!m) return;
+    const campo = { 'VIENE EN': 'nombre', 'UNIDADES POR PRESENTACION': 'factor', 'PRECIO PRESENTACION': 'precio' }[m[1]] || 'codigo';
+    if (!gruposPresentacion.has(m[2])) gruposPresentacion.set(m[2], {});
+    gruposPresentacion.get(m[2])[campo] = i;
+  });
 
   const errores = [];
   const vistos = new Map();
@@ -194,9 +248,52 @@ const leerMedicinas = (archivo) => {
     if (!m.nombre) errores.push(`Fila ${numeroFila}: no tiene NOMBRE`);
     if (m.id && vistos.has(m.id)) errores.push(`Fila ${numeroFila}: el ID ${m.id} ya está en la fila ${vistos.get(m.id)}`);
     if (m.id) vistos.set(m.id, numeroFila);
+
+    // Cómo se vende: "UNIDAD" es el valor genérico del sistema, se deduce de la presentación
+    if (!m.unidad_base || m.unidad_base === 'Unidad') {
+      const forma = normalizar(m.presentacion || m.forma_farmaceutica || '');
+      m.unidad_base = (UNIDAD_POR_PRESENTACION.find(([regla]) => regla.test(forma)) || [null, 'Unidad'])[1];
+      m.unidadDeducida = true;
+    }
+    // Igual que el formulario: concentración = dosis + unidad ("500 mg")
+    if (m.dosis && (!m.concentracion || m.concentracion === m.dosis)) {
+      m.concentracion = [m.dosis, m.unidad_dosis].filter(Boolean).join(' ');
+    }
+
+    // Factores de conversión: cada grupo VIENE EN / UNIDADES POR PRESENTACIÓN / PRECIO / CÓDIGO
+    m.presentaciones = [];
+    for (const [sufijo, grupo] of gruposPresentacion) {
+      const nombre = grupo.nombre === undefined ? '' : String(fila[grupo.nombre] ?? '').trim();
+      const factorTexto = grupo.factor === undefined ? '' : String(fila[grupo.factor] ?? '').trim();
+      if (!nombre && !factorTexto) continue;
+      const etiqueta = `Fila ${numeroFila}, presentación${sufijo ? ` ${sufijo}` : ''}`;
+      const factor = Number(factorTexto);
+      if (!nombre) { errores.push(`${etiqueta}: falta VIENE EN (caja, blíster…)`); continue; }
+      if (!Number.isInteger(factor) || factor < 2) {
+        errores.push(`${etiqueta}: UNIDADES POR PRESENTACIÓN debe ser un entero de 2 o más ("${factorTexto}")`);
+        continue;
+      }
+      let precio = null;
+      try {
+        precio = grupo.precio === undefined ? null : convertir(fila[grupo.precio], 'dinero');
+      } catch (e) {
+        errores.push(`${etiqueta}: ${e.message}`);
+      }
+      const codigo = grupo.codigo === undefined ? null : (String(fila[grupo.codigo] ?? '').trim().slice(0, 60) || null);
+      m.presentaciones.push({ nombre: comoTitulo(nombre).slice(0, 40), factor, precio, codigo });
+    }
+    const nombresPres = m.presentaciones.map(p => normalizar(p.nombre));
+    if (new Set(nombresPres).size !== nombresPres.length) {
+      errores.push(`Fila ${numeroFila}: tiene dos presentaciones con el mismo nombre`);
+    }
     medicinas.push(m);
   });
-  return { medicinas, columnasExcel: posiciones.map(c => c.columna), errores };
+
+  const columnasExcel = posiciones.map(c => c.columna);
+  for (const derivada of ['unidad_base', 'concentracion']) {
+    if (!columnasExcel.includes(derivada)) columnasExcel.push(derivada);
+  }
+  return { medicinas, columnasExcel, errores, conPresentaciones: gruposPresentacion.size > 0 };
 };
 
 // ---------- Carga ----------
@@ -221,7 +318,7 @@ const run = async () => {
     process.exit(1);
   }
 
-  const { medicinas, columnasExcel, errores } = leerMedicinas(path.resolve(archivo));
+  const { medicinas, columnasExcel, errores, conPresentaciones } = leerMedicinas(path.resolve(archivo));
   console.log(`📄 ${path.basename(archivo)}: ${medicinas.length} medicinas`);
   if (errores.length) {
     console.error(`❌ El Excel tiene ${errores.length} error(es); no se cargó nada:`);
@@ -246,6 +343,10 @@ const run = async () => {
       console.log('    (corre npm run migrate:medicinas y migrate:inventario-medicinas si las necesitas)');
     }
     const kardex = (await client.query(`SELECT to_regclass('medicina_movimientos') AS t`)).rows[0].t !== null;
+    const tablaPresentaciones = (await client.query(`SELECT to_regclass('medicina_presentaciones') AS t`)).rows[0].t !== null;
+    if (conPresentaciones && !tablaPresentaciones) {
+      console.log('⚠️  El Excel trae presentaciones pero falta npm run migrate:inventario-medicinas; se omiten');
+    }
 
     // Textos más largos que la columna: se amplía la columna en vez de cortar el dato
     const ampliadas = [];
@@ -275,7 +376,10 @@ const run = async () => {
     // Columnas que se escriben: las del Excel que existen en la tabla (la existencia va aparte)
     const escribir = columnasExcel.filter(c => columnasTabla.has(c) && !['id', 'cantidad'].includes(c));
     const conUpdatedAt = columnasTabla.has('updated_at');
-    const resumen = { actualizadas: 0, nuevas: 0, ajustesExistencia: 0, eliminadas: [], desactivadas: [] };
+    const resumen = {
+      actualizadas: 0, nuevas: 0, ajustesExistencia: 0, eliminadas: [], desactivadas: [],
+      presentacionesNuevas: 0, presentacionesActualizadas: 0, unidades: new Map()
+    };
 
     for (const m of medicinas) {
       const nueva = !existencia.has(m.id);
@@ -316,6 +420,45 @@ const run = async () => {
           );
         }
         resumen.ajustesExistencia++;
+      }
+
+      // Factores de conversión: la presentación con el mismo nombre se actualiza, si no se crea
+      if (m.presentaciones.length && tablaPresentaciones) {
+        const { rows: existentes } = await client.query(
+          'SELECT id, nombre FROM medicina_presentaciones WHERE medicina_id::text = $1', [m.id]);
+        for (const p of m.presentaciones) {
+          // Sin precio en el Excel: una existente conserva el suyo; una nueva vale lo que sus unidades
+          const precioNueva = p.precio ?? Math.round((m.precio_venta || 0) * p.factor * 100) / 100;
+          if (p.codigo) {
+            const { rows: [usado] } = await client.query(
+              `SELECT m.nombre FROM medicinas m WHERE m.codigo_barra = $1 AND m.id::text <> $2
+               UNION ALL
+               SELECT m.nombre FROM medicina_presentaciones x JOIN medicinas m ON m.id = x.medicina_id
+               WHERE x.codigo_barra = $1 AND x.medicina_id::text <> $2
+               LIMIT 1`, [p.codigo, m.id]);
+            if (usado || p.codigo === m.codigo_barra) {
+              throw new Error(`${m.nombre}: el código de barras ${p.codigo} de "${p.nombre}" ya lo usa ${usado ? usado.nombre : 'la misma medicina'}`);
+            }
+          }
+          const misma = existentes.find(e => normalizar(e.nombre) === normalizar(p.nombre));
+          if (misma) {
+            await client.query(
+              `UPDATE medicina_presentaciones SET factor = $2, precio_venta = COALESCE($3, precio_venta),
+                 codigo_barra = COALESCE($4, codigo_barra), updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+              [misma.id, p.factor, p.precio, p.codigo]);
+            resumen.presentacionesActualizadas++;
+          } else {
+            if (existentes.length >= 10) throw new Error(`${m.nombre}: ya tiene 10 presentaciones, no se pueden agregar más`);
+            await client.query(
+              `INSERT INTO medicina_presentaciones (medicina_id, nombre, factor, precio_venta, codigo_barra)
+               SELECT id, $2, $3, $4, $5 FROM medicinas WHERE id::text = $1`, [m.id, p.nombre, p.factor, precioNueva, p.codigo]);
+            existentes.push({ id: null, nombre: p.nombre });
+            resumen.presentacionesNuevas++;
+          }
+        }
+      }
+      if (m.unidadDeducida) {
+        resumen.unidades.set(m.unidad_base, (resumen.unidades.get(m.unidad_base) || 0) + 1);
       }
     }
 
@@ -361,6 +504,14 @@ const run = async () => {
     console.log(`➕ Nuevas: ${resumen.nuevas}`);
     console.log(`📦 Existencias ajustadas: ${resumen.ajustesExistencia}`
       + (resumen.ajustesExistencia ? '' : ' (el Excel no trae existencias; se dejó la actual)'));
+    if (resumen.unidades.size) {
+      console.log('🧮 Se venden y cuentan por (deducido de la presentación porque el Excel dice UNIDAD):');
+      [...resumen.unidades].sort((a, b) => b[1] - a[1]).forEach(([u, n]) => console.log(`     ${u}: ${n}`));
+    }
+    console.log(conPresentaciones
+      ? `📐 Presentaciones (factores de conversión): ${resumen.presentacionesNuevas} nuevas, ${resumen.presentacionesActualizadas} actualizadas`
+      : '📐 Presentaciones (factores de conversión): el Excel no trae las columnas VIENE EN / UNIDADES POR PRESENTACIÓN;'
+        + ' se respetan las que ya existen');
     console.log(`🗑️  Eliminadas (no estaban en el Excel): ${resumen.eliminadas.length}`);
     resumen.eliminadas.slice(0, 30).forEach(r => console.log(`     ${r.id}  ${r.nombre}`));
     if (resumen.eliminadas.length > 30) console.log(`     … y ${resumen.eliminadas.length - 30} más`);
