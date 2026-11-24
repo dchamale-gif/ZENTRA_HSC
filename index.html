@@ -4,15 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
     <meta name="theme-color" content="#0f3d3e">
-    <title>Zentra MED</title>
+    <title>BotEngine MED</title>
+    <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-    <link rel="stylesheet" href="css/style.css?v=20261124-1">
+    <link rel="stylesheet" href="css/style.css?v=20261124-3">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="css/tema-botengine.css?v=20261018-2">
-    <link rel="stylesheet" href="css/tema-oscuro-auto.css?v=20261124-1">
-    <link rel="stylesheet" href="css/tema-oscuro.css?v=20261024-1">
+    <link rel="stylesheet" href="css/tema-botengine.css?v=20261124-3">
+    <link rel="stylesheet" href="css/tema-oscuro-auto.css?v=20261124-3">
+    <link rel="stylesheet" href="css/tema-oscuro.css?v=20261124-3">
     <script>
         // Tema del perfil antes de pintar, para que no destelle en claro (js/tema.js hace el resto)
         (function () {
@@ -31,7 +33,7 @@
                 <i class="fas fa-xmark" aria-hidden="true"></i>
             </button>
             <div class="logo-container">
-                <div class="brand" aria-label="Zentra MED"><span class="brand-mark" aria-hidden="true"><i class="fas fa-plus"></i></span><span class="brand-name">ZENTRA <span>MED</span></span></div>
+                <div class="brand" aria-label="BotEngine MED"><img src="img/botengine-mark.svg" alt="" class="brand-mark" width="32" height="32"><span class="brand-name">BotEngine <span class="brand-sub">MED</span></span></div>
             </div>
             <p class="sidebar-region">Guatemala · Quetzales (GTQ)</p>
             <nav class="nav-menu">
@@ -244,7 +246,7 @@
                     <div class="page-header inicio-header">
                         <div>
                             <p class="inicio-eyebrow" id="inicioClinicaDetalle"></p>
-                            <h1 id="inicioClinicaNombre">Zentra MED</h1>
+                            <h1 id="inicioClinicaNombre">BotEngine MED</h1>
                             <p class="date-info"><i class="fas fa-calendar-alt" aria-hidden="true"></i> <span id="currentDate"></span> · <span id="inicioActualizado">Cargando…</span></p>
                         </div>
                         <button type="button" class="btn btn-secondary" id="inicioRefreshBtn">
@@ -6089,26 +6091,26 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="js/config.js?v=20261018-2"></script>
+    <script src="js/config.js?v=20261124-3"></script>
     <script src="js/data-normalizer.js?v=20261124-1"></script>
     <script src="js/file-utils.js?v=20261015-21"></script>
     <script src="data/demo-data.js?v=20261015-21"></script>
-    <script src="js/api-helper.js?v=20261015-21"></script>
+    <script src="js/api-helper.js?v=20261124-3"></script>
     
     <!-- Autenticación (DEBE SER ANTES DE LOS MÓDULOS) -->
-    <script src="js/auth-utils.js?v=20261023-1"></script>
+    <script src="js/auth-utils.js?v=20261124-3"></script>
     <script src="js/tema.js?v=20261023-1"></script>
     
     <!-- Módulos Administrativos -->
     <script src="js/live-search.js?v=20261023-1"></script>
     <script src="js/pacientes.js?v=20261124-2"></script>
     <script src="js/exportar-excel.js?v=20261024-3"></script>
-    <script src="js/pacientes-file-manager.js?v=20261110-1"></script>
+    <script src="js/pacientes-file-manager.js?v=20261124-3"></script>
     <script src="js/inventario-medicinas.js?v=20261110-1"></script>
     <script src="js/medicinas.js?v=20261110-1"></script>
     <script src="js/sincronizacion.js?v=20261023-2"></script>
-    <script src="js/historia-clinica-panel.js?v=20261124-2"></script>
-    <script src="js/historia-clinica.js?v=20261110-1"></script>
+    <script src="js/historia-clinica-panel.js?v=20261124-3"></script>
+    <script src="js/historia-clinica.js?v=20261124-3"></script>
     <script src="js/saldo-paciente.js?v=20261018-2"></script>
     <script src="js/saldo-paciente-facturacion-integrado.js?v=20261019-2"></script>
     <script src="js/hospitalizaciones.js?v=20261110-1"></script>
@@ -6125,7 +6127,7 @@
     <script src="js/inventario-activos.js?v=20261023-1"></script>
     <script src="js/alertas.js?v=20261015-21"></script>
     <script src="js/ventas.js?v=20261023-1"></script>
-    <script src="js/cotizaciones.js?v=20261110-1"></script>
+    <script src="js/cotizaciones.js?v=20261124-3"></script>
     <script src="js/paciente-acciones.js?v=20261110-1"></script>
     <script src="js/caja.js?v=20261015-21"></script>
     <script src="js/cuentas-por-cobrar.js?v=20261015-21"></script>
@@ -6142,9 +6144,9 @@
     <script src="js/gastos.js?v=20261029-1"></script>
     
     <!-- App Principal -->
-    <script src="js/app.js?v=20261124-1"></script>
+    <script src="js/app.js?v=20261124-3"></script>
     <script src="js/permisos.js?v=20261110-1"></script>
     <script src="js/comunicacion.js?v=20261019-1"></script>
-    <script src="js/inicio.js?v=20261018-1"></script>
+    <script src="js/inicio.js?v=20261124-3"></script>
 </body>
 </html>

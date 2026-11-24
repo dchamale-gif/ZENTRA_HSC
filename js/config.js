@@ -1,5 +1,5 @@
 // ============================================
-// CONFIGURACIÓN CENTRAL DE ZENTRA MED
+// CONFIGURACIÓN CENTRAL DE BOTENGINE MED
 // Única fuente de verdad para región, moneda, impuestos y datos de la clínica.
 // ============================================
 
@@ -8,10 +8,10 @@ const CONFIG = {
     // INFORMACIÓN DE LA APLICACIÓN
     // ============================================
     APP: {
-        name: 'Zentra MED',
+        name: 'BotEngine MED',
         version: '1.1.0',
-        description: 'Zentra MED - Sistema Médico Integral',
-        author: 'Zentra MED',
+        description: 'BotEngine MED - Sistema Médico Integral',
+        author: 'BotEngine MED',
         releaseDate: '2026-03-23'
     },
 
@@ -40,7 +40,7 @@ const CONFIG = {
     // DATOS DE LA CLÍNICA (editables en Configuración)
     // ============================================
     CLINICA: {
-        nombre: 'Zentra MED',
+        nombre: 'BotEngine MED',
         razonSocial: '',
         nit: 'CF',
         telefono: '+502 ',
@@ -69,8 +69,10 @@ const CONFIG = {
         // Cambiar a true cuando se implemente el backend
         useAPI: true,
         
-        // URL base del servidor (ajustar cuando tengas backend)
-        baseURL: 'http://178.128.72.110:3011/api',
+        // URL base del servidor: con HTTPS el mismo dominio (nginx pasa /api al backend)
+        baseURL: (typeof window !== 'undefined' && window.location.protocol === 'https:')
+            ? `${window.location.origin}/api`
+            : 'http://178.128.72.110:3011/api',
         
         // Endpoints de la API
         endpoints: {
@@ -394,6 +396,8 @@ function cargarDatosClinica() {
     try {
         const guardado = JSON.parse(localStorage.getItem(CLINICA_STORAGE_KEY) || 'null');
         if (guardado && typeof guardado === 'object') {
+            // El nombre por defecto anterior del sistema no es un nombre de clínica: se usa el nuevo
+            if (guardado.nombre === 'Zentra MED') delete guardado.nombre;
             Object.assign(CONFIG.CLINICA, guardado);
         }
     } catch (error) {
@@ -548,4 +552,4 @@ window.desglosarIVA = desglosarIVA;
 window.cargarDatosClinica = cargarDatosClinica;
 window.guardarDatosClinica = guardarDatosClinica;
 
-console.log('✅ Configuración de Zentra MED cargada (Guatemala · GTQ)');
+console.log('✅ Configuración de BotEngine MED cargada (Guatemala · GTQ)');

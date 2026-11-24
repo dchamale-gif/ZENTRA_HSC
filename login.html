@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
     <meta name="theme-color" content="#ffffff">
-    <title>Login - Zentra MED</title>
+    <title>Iniciar sesión · BotEngine MED</title>
+    <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
@@ -88,19 +90,24 @@
             color: var(--ink);
         }
 
+        /* Marca BotEngine MED, igual que el inicio de sesión de BotEngine ERP */
         .brand-mark {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 32px;
-            height: 32px;
-            border-radius: var(--radius-sm);
-            background: var(--primary);
-            color: #fff;
-            font-size: 15px;
+            width: 34px;
+            height: 34px;
+            flex: none;
         }
 
-        .brand-acento { color: var(--primary); }
+        .brand { font-size: 19px; letter-spacing: -0.01em; }
+
+        .brand-tag {
+            padding: 2px 8px;
+            border-radius: 6px;
+            background: #eff6ff;
+            color: #1d4ed8;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+        }
 
         .logo-section h1 {
             margin: 0;
@@ -264,7 +271,7 @@
 <body>
     <main class="login-container">
         <div class="logo-section">
-            <div class="brand"><span class="brand-mark" aria-hidden="true"><i class="fas fa-plus"></i></span><span>ZENTRA <span class="brand-acento">MED</span></span></div>
+            <div class="brand" aria-label="BotEngine MED"><img src="img/botengine-mark.svg" alt="" class="brand-mark" width="34" height="34"><span>BotEngine</span><span class="brand-tag">MED</span></div>
             <h1>Iniciar sesión</h1>
             <p>Ingresa con tu correo y contraseña.</p>
         </div>
@@ -312,7 +319,7 @@
         <p class="login-ayuda">¿No tienes cuenta? Pídele al administrador del sistema que te cree un usuario.</p>
     </main>
 
-    <script src="js/auth-utils.js?v=20261018-1"></script>
+    <script src="js/auth-utils.js?v=20261124-3"></script>
     <script src="js/login.js?v=20261018-1"></script>
 </body>
 </html>

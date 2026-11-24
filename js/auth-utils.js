@@ -17,9 +17,9 @@ class AuthManager {
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
             return 'http://localhost:3011';
         }
-        // Si estamos en producción (HTTPS)
+        // Con HTTPS (p. ej. hsc.med.botengine-erp.com) el mismo dominio: nginx pasa /api al backend
         if (window.location.protocol === 'https:') {
-            return `${window.location.protocol}//${window.location.hostname}:3011`;
+            return window.location.origin;
         }
         // Si estamos en producción (HTTP)
         return `http://${window.location.hostname}:3011`;

@@ -271,7 +271,7 @@ const PacientesFileManager = {
 
         contenido += `
                 <div class="footer">
-                    <p>Documento generado automáticamente por Zentra MED - ${fecha}</p>
+                    <p>Documento generado automáticamente por BotEngine MED - ${fecha}</p>
                     <p>Sistema Médico Integral</p>
                 </div>
             </body>
@@ -368,7 +368,7 @@ const PacientesFileManager = {
 
             <div class="info-box">
                 <p><strong>Fecha:</strong> ${fecha}</p>
-                <p><strong>De:</strong> Zentra MED - Sistema Médico Integral</p>
+                <p><strong>De:</strong> BotEngine MED - Sistema Médico Integral</p>
                 <p><strong>Para:</strong> Médico Especialista</p>
             </div>
 

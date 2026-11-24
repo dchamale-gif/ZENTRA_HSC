@@ -1048,7 +1048,7 @@ const CotizacionesModule = {
 
     imprimir(c) {
         const e = v => this.e(v);
-        const clinica = (typeof CONFIG !== 'undefined' && CONFIG.CLINICA) || { nombre: 'Zentra MED' };
+        const clinica = (typeof CONFIG !== 'undefined' && CONFIG.CLINICA) || { nombre: 'BotEngine MED' };
         const tipos = Object.fromEntries(this.TIPOS);
         const total = this.redondear(c.total);
         const porcentaje = this.ivaDe(c);
@@ -1063,7 +1063,7 @@ const CotizacionesModule = {
         const fecha = formatFecha(c.fecha_generada || c.created_at);
         // Logo propio en img/logo-clinica.png; si no existe se usa el de Zentra
         const logo = new URL('img/logo-clinica.png', location.href).href;
-        const logoRespaldo = new URL('img/zentra-logo.png', location.href).href;
+        const logoRespaldo = new URL('img/botengine-mark.svg', location.href).href;
 
         const filas = this.agruparPorTipo(c.items).map(([tipo, items]) => items.map((i, n) => {
             const lineas = String(i.contenido || '').split('\n').map(l => l.trim()).filter(Boolean);

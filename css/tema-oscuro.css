@@ -206,6 +206,16 @@
     font-size: 14px;
 }
 
+/* Marca BotEngine MED en la barra oscura: robot claro y etiqueta como en BotEngine ERP */
+:root[data-theme="dark"] .sidebar .brand-mark {
+    content: url("../img/botengine-mark-light.svg");
+}
+
+:root[data-theme="dark"] .brand-name .brand-sub {
+    background: rgba(96, 165, 250, 0.16);
+    color: #93c5fd;
+}
+
 @media print {
     :root[data-theme="dark"] {
         color-scheme: light;

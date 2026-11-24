@@ -1847,7 +1847,7 @@ const HistoriaPanelModule = {
             showNotification('El navegador bloqueó la ventana de impresión. Permita ventanas emergentes para este sitio.', 'warning');
             return;
         }
-        const clinica = (typeof CONFIG !== 'undefined' && CONFIG.CLINICA) || { nombre: 'Zentra MED' };
+        const clinica = (typeof CONFIG !== 'undefined' && CONFIG.CLINICA) || { nombre: 'BotEngine MED' };
         const antecedentes = h.estado === 'abierta' ? (this.state.antecedentes || {}) : (h.antecedentes_al_cierre || {});
         const vacio = mensaje => `<p class="vacio">${mensaje}</p>`;
         const turno = valor => this.TURNOS.find(t => t.valor === valor)?.texto || valor;
@@ -1950,7 +1950,7 @@ ${anteriores.length ? `<div class="campo"><b>Finalizados o suspendidos</b>${list
   @page :first { margin-top: 0; }
   @media print { body { padding: 0 20mm; } .membrete { margin: 0 -20mm 10px; } .membrete img, .ficha th { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style></head><body><div class="doc">
-<div class="membrete"><img src="${e(membrete)}" alt="" onerror="this.parentNode.classList.add('sin-imagen'); this.remove();"><div class="membrete-texto">${e(clinica.nombre || 'Zentra MED')}</div></div>
+<div class="membrete"><img src="${e(membrete)}" alt="" onerror="this.parentNode.classList.add('sin-imagen'); this.remove();"><div class="membrete-texto">${e(clinica.nombre || 'BotEngine MED')}</div></div>
 <div class="subtitulo"><span>${secciones.has('datos') ? '' : `<b>${e(this.nombre(p))}</b> · `}Historia clínica de ${e(this.tipoTexto(h.tipo).toLowerCase())} · ${e(this.fecha(h.fecha))}</span><span>${h.estado === 'abierta' ? 'Abierta' : 'Cerrada'}</span></div>
 ${cuerpo}
 <footer><span>Impreso el ${e(formatFechaHora(new Date()))}</span><div class="firma">${e(h.medico_nombre || 'Médico tratante')}</div></footer>

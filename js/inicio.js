@@ -70,7 +70,7 @@ const InicioModule = {
 
     renderClinica() {
         const c = CONFIG.CLINICA;
-        this.setValor('inicioClinicaNombre', c.nombre || 'Zentra MED');
+        this.setValor('inicioClinicaNombre', c.nombre || 'BotEngine MED');
         const detalle = [c.nit && `NIT ${c.nit}`, [c.municipio, c.departamento].filter(Boolean).join(', ')]
             .filter(Boolean).join(' · ');
         this.setValor('inicioClinicaDetalle', detalle);

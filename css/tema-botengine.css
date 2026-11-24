@@ -65,13 +65,14 @@ h1, h2, h3, h4 {
     color: var(--text-dark);
 }
 
-.brand-name span {
+/* Marca BotEngine MED: robot oscuro sobre la barra clara y la etiqueta como en el ERP */
+.brand-name .brand-sub {
+    background: var(--primary-soft);
     color: var(--primary-color);
 }
 
 .brand-mark {
-    background: var(--primary-color);
-    color: #fff;
+    background: none;
 }
 
 .sidebar-close {

@@ -9,7 +9,8 @@ const APIHelper = {
         if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
             return 'http://localhost:3011/api';
         }
-        // Usar IP del servidor en producción
+        // Con HTTPS, el mismo dominio (nginx pasa /api al backend); por IP, el puerto del backend
+        if (window.location.protocol === 'https:') return `${window.location.origin}/api`;
         return `http://${currentHost}:3011/api`;
     })(),
 

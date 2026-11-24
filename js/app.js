@@ -1,5 +1,5 @@
 // ============================================
-// ZENTRA MED - APLICACIÓN PRINCIPAL
+// BOTENGINE MED - APLICACIÓN PRINCIPAL
 // ============================================
 
 // Global state
@@ -2492,5 +2492,5 @@ async function refreshUserProfile() {
 }
 
 // Initialize the application
-console.log('Zentra MED v1.0');
+console.log('BotEngine MED v1.0');
 console.log('Demo Mode - All transactions are simulated');

@@ -2505,7 +2505,7 @@ const HistoriaClinicaModule = {
         const prescripciones = [...(historia.prescripciones || [])].sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
         const notas = [...(historia.notas || [])].sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
         const asignaciones = this.state.medicamentosAsignados.filter(a => String(a.pacienteId) === String(paciente.id));
-        const clinica = (typeof CONFIG !== 'undefined' && CONFIG.CLINICA) || { nombre: 'Zentra MED' };
+        const clinica = (typeof CONFIG !== 'undefined' && CONFIG.CLINICA) || { nombre: 'BotEngine MED' };
         const nombreMedico = id => {
             const m = (this.state.medicos || []).find(item => String(item.id) === String(id));
             return m ? [m.nombre, m.apellidoPaterno, m.apellidoMaterno].filter(Boolean).join(' ') : '';
@@ -2563,7 +2563,7 @@ const HistoriaClinicaModule = {
 </head>
 <body><div class="doc">
 <header>
-    <div class="clinica">${e(clinica.nombre || 'Zentra MED')}
+    <div class="clinica">${e(clinica.nombre || 'BotEngine MED')}
         <small>${e([clinica.nit && `NIT ${clinica.nit}`, clinica.direccion, clinica.municipio, clinica.telefono].filter(x => x && String(x).trim() && String(x).trim() !== '+502').join(' · '))}</small>
     </div>
     <div><h1>HISTORIA CLÍNICA</h1><div class="fecha">Impresa el ${e(formatFechaHora())}</div></div>
@@ -2616,7 +2616,7 @@ ${seccion('Evolución y notas médicas', notas.length ? notas.map(n => `<div cla
     <p>${e(n.contenido)}</p></div>`).join('') : vacio('Sin notas registradas'))}
 
 <div class="firmas"><div>Médico tratante</div><div>Firma y sello</div></div>
-<footer>Documento generado por ${e(clinica.nombre || 'Zentra MED')} · ${e(formatFechaHora())}</footer>
+<footer>Documento generado por ${e(clinica.nombre || 'BotEngine MED')} · ${e(formatFechaHora())}</footer>
 </div></body></html>`;
 
         const ventana = window.open('', '_blank', 'width=900,height=900');
