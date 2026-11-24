@@ -35,9 +35,9 @@ class GastosServiciosModule {
         this.setDefaultPeriod();
     }
 
+    // Sin datos guardados en este navegador (primera vez, otro equipo u otro dominio):
+    // no es un error, las pestañas de pagos, cuentas por pagar y proveedores empiezan vacías
     loadDemoData() {
-        console.error('❌ ERROR: No hay datos de gastos disponibles en localStorage');
-        showNotification('❌ Error: No se puede acceder a los datos de gastos. Verifica la base de datos.', 'error');
         this.state.conceptos = [];
         this.state.proveedores = [];
         this.state.pagos = [];
