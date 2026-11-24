@@ -48,6 +48,25 @@ const server = http.createServer((req, res) => {
     pathname = '/index.html';
   }
 
+  // Seguridad: solo se entregan las páginas de la raíz y las carpetas públicas.
+  // Nunca backend/ (.env con las claves), database/, scripts/, .git ni archivos ocultos.
+  let ruta;
+  try {
+    ruta = decodeURIComponent(pathname);
+  } catch (e) {
+    ruta = '';
+  }
+  const partes = ruta.split('/').filter(Boolean);
+  const publico = !ruta.includes('..') && !partes.some(p => p.startsWith('.')) && (
+    (partes.length === 1 && /\.(html|ico)$/i.test(partes[0])) ||
+    (partes.length > 1 && ['css', 'js', 'img', 'data'].includes(partes[0]))
+  );
+  if (!publico) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('No encontrado');
+    return;
+  }
+
   // Construir ruta completa
   let filePath = path.join(ROOT_DIR, pathname);
 
