@@ -993,17 +993,15 @@ const PacientesModule = {
             }
             
             // Información Laboral y Educativa
-            const profesionSelect = document.getElementById('profesion');
-            if (profesionSelect) {
-                profesionSelect.value = pacient.profesion || '';
-                console.log(`✓ profesion = ${pacient.profesion || '(vacío)'}`);
-            }
+            // Valores que no están en la lista (p. ej. cargados desde Excel) se agregan para no perderlos al guardar
+            const elegirOpcion = (select, valor) => {
+                if (!select) return;
+                if (valor && ![...select.options].some(o => o.value === valor)) select.add(new Option(valor, valor));
+                select.value = valor || '';
+            };
+            elegirOpcion(document.getElementById('profesion'), pacient.profesion);
             fillField('ocupacion', pacient.ocupacion);
-            const gradoAcademicoSelect = document.getElementById('gradoAcademico');
-            if (gradoAcademicoSelect) {
-                gradoAcademicoSelect.value = pacient.gradoAcademico || '';
-                console.log(`✓ gradoAcademico = ${pacient.gradoAcademico || '(vacío)'}`);
-            }
+            elegirOpcion(document.getElementById('gradoAcademico'), pacient.gradoAcademico);
             
             // Datos de Consulta
             fillField('fechaPrimerConsulta', pacient.fechaPrimerConsulta);
