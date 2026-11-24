@@ -9546,6 +9546,58 @@ body.chat-abierto {
     font-size: 12.5px;
 }
 
+/* Ficha de ingreso (formato del hospital): datos del paciente y los propios de la historia */
+.hc2-ficha {
+    display: grid;
+    gap: 10px;
+    padding: 14px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm, 8px);
+}
+
+.hc2-ficha h4 {
+    margin: 0;
+    font-size: 14px;
+}
+
+.hc2-ficha .hc2-antecedentes-nota {
+    margin: 0;
+}
+
+.hc2-ficha-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 10px 16px;
+    margin: 0;
+}
+
+.hc2-ficha-fila {
+    display: grid;
+    gap: 2px;
+    align-content: start;
+    min-width: 0;
+}
+
+.hc2-ficha-fila dt {
+    color: var(--text-gray);
+    font-size: 12px;
+}
+
+.hc2-ficha-fila dd {
+    margin: 0;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.hc2-ficha-fila dd em {
+    font-weight: 400;
+    color: var(--text-gray);
+}
+
+.hc2-ficha-fila.propia dd .form-input {
+    font-weight: 400;
+}
+
 .hc2-acciones,
 .hc2-barra {
     display: flex;

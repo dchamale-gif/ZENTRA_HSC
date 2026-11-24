@@ -294,6 +294,9 @@ const PacientesModule = {
             }
         }
         
+        // Fecha de primer consulta / de internamiento / de reingreso según el tipo de servicio
+        if (typeof actualizarDatosIngreso === 'function') actualizarDatosIngreso();
+
         // Configurar event listeners para documentos (cada vez que se abre el modal)
         this.setupDocumentListeners();
         
@@ -516,6 +519,12 @@ const PacientesModule = {
                 clasificacion: document.getElementById('pacientClasificacion').value || null,
                 segmentoCOEX: document.getElementById('pacientCOEXSegmento').value || null,
                 fechaPrimerConsulta: document.getElementById('fechaPrimerConsulta').value || null,
+                // Solo con internamiento: primer internamiento o reingreso (con su fecha)
+                ...(() => {
+                    const esReingreso = document.getElementById('pacientTipoServicio').value === 'internamiento'
+                        && document.getElementById('pacientTipoIngreso')?.value === 'reingreso';
+                    return { esReingreso, fechaReingreso: esReingreso ? (document.getElementById('fechaReingreso').value || null) : null };
+                })(),
                 motivoConsulta: document.getElementById('motivoConsulta').value.trim() || null,
                 referencia: document.getElementById('referencia').value || null,
                 foto: document.getElementById('pacientFoto').value || null,
@@ -1005,6 +1014,8 @@ const PacientesModule = {
             
             // Datos de Consulta
             fillField('fechaPrimerConsulta', pacient.fechaPrimerConsulta);
+            fillField('fechaReingreso', pacient.fechaReingreso);
+            fillField('pacientTipoIngreso', pacient.esReingreso ? 'reingreso' : 'primer');
             fillField('motivoConsulta', pacient.motivoConsulta);
             const referenciaSelect = document.getElementById('referencia');
             if (referenciaSelect) {
@@ -1889,7 +1900,8 @@ const PacientesModule = {
 
                     <div>
                         <h4 style="border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 10px;">Información de Consulta</h4>
-                        <p><strong>Fecha Primera Consulta:</strong> ${pacient.fechaPrimerConsulta || 'N/A'}</p>
+                        <p><strong>${pacient.tipoServicio === 'internamiento' ? (pacient.esReingreso ? 'Fecha del primer internamiento' : 'Fecha de internamiento') : 'Fecha Primera Consulta'}:</strong> ${pacient.fechaPrimerConsulta || 'N/A'}</p>
+                        ${pacient.tipoServicio === 'internamiento' && pacient.esReingreso ? `<p><strong>Fecha de reingreso:</strong> ${pacient.fechaReingreso || 'N/A'}</p>` : ''}
                         <p><strong>Motivo de Consulta:</strong> ${pacient.motivoConsulta || 'N/A'}</p>
                         <p><strong>Referencia:</strong> ${pacient.referencia || 'N/A'}</p>
                         <p><strong>Registrado:</strong> ${pacient.fechaRegistro || 'N/A'}</p>

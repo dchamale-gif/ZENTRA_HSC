@@ -1,5 +1,25 @@
 const pool = require('../db/connection');
 
+// ¿pacientes.id tiene valor por defecto (secuencia)? Se consulta una vez.
+let idConSecuencia = null;
+const idAutomatico = async () => {
+  if (idConSecuencia === null) {
+    const r = await pool.query(
+      `SELECT column_default IS NOT NULL AS hay FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = 'pacientes' AND column_name = 'id'`);
+    idConSecuencia = Boolean(r.rows[0]?.hay);
+  }
+  return idConSecuencia;
+};
+
+// Internamiento: si es reingreso y su fecha. Sin el dato (formularios viejos) no se toca nada.
+const reingreso = (body) => {
+  if (body.es_reingreso === undefined || body.es_reingreso === null) return { esReingreso: null, fechaReingreso: null };
+  const esReingreso = body.es_reingreso === true || body.es_reingreso === 'true';
+  const fecha = String(body.fecha_reingreso || '').slice(0, 10);
+  return { esReingreso, fechaReingreso: esReingreso && /^\d{4}-\d{2}-\d{2}$/.test(fecha) ? fecha : null };
+};
+
 // OBTENER todos los pacientes
 const getPacientes = async (req, res) => {
   try {
@@ -10,7 +30,8 @@ const getPacientes = async (req, res) => {
               dpi, tipo_servicio, clasificacion, segmento_coex, 
               nacionalidad, grado_academico, estado_civil, profesion, ocupacion, tiene_hijos,
               fecha_nacimiento, foto, notas, direccion, colonia, zona, municipio, departamento,
-              is_cliente, fecha_registro, fecha_primer_consulta, motivo_consulta, referencia
+              is_cliente, fecha_registro, fecha_primer_consulta, motivo_consulta, referencia,
+              es_reingreso, to_char(fecha_reingreso, 'YYYY-MM-DD') AS fecha_reingreso
        FROM pacientes 
        WHERE estado = 'activo'
        ORDER BY apellido_paterno, nombre`
@@ -43,6 +64,7 @@ const getPacienteById = async (req, res) => {
               estado_civil, profesion, ocupacion, nacionalidad, grado_academico,
               tipo_servicio, clasificacion, segmento_coex, foto, notas,
               tiene_hijos, fecha_primer_consulta, motivo_consulta, referencia,
+              es_reingreso, to_char(fecha_reingreso, 'YYYY-MM-DD') AS fecha_reingreso,
               estado, created_at, updated_at
        FROM pacientes 
        WHERE id = $1`,
@@ -70,6 +92,7 @@ const createPaciente = async (req, res) => {
             municipio, departamento, nacionalidad, estado_civil, profesion, ocupacion, grado_academico, tiene_hijos,
             clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas,
             fecha_primer_consulta, motivo_consulta, referencia } = req.body;
+    const { esReingreso, fechaReingreso } = reingreso(req.body);
 
     // Validar campos requeridos
     if (!nombre || !apellido_paterno) {
@@ -87,9 +110,6 @@ const createPaciente = async (req, res) => {
       }
     }
 
-    // Generar ID único
-    const paciente_id = `PAC_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-
     // Calcular edad si se proporciona fecha_nacimiento
     let edadCalculada = edad;
     if (fecha_nacimiento && !edad) {
@@ -98,20 +118,30 @@ const createPaciente = async (req, res) => {
       edadCalculada = Math.floor((today - birthDate) / (365.25 * 24 * 60 * 60 * 1000));
     }
 
+    // Columna y valor juntos: así nunca quedan más columnas que valores
+    const fechaONulo = (valor) => (/^\d{4}-\d{2}-\d{2}/.test(String(valor || '')) ? String(valor).slice(0, 10) : null);
+    const campos = [
+      ['nombre', nombre], ['apellido_paterno', apellido_paterno], ['apellido_materno', apellido_materno || null],
+      ['edad', edadCalculada || null], ['fecha_nacimiento', fechaONulo(fecha_nacimiento), 'date'],
+      ['genero', genero || null], ['dpi', dpi || null], ['telefono', telefono || null], ['email', email || null],
+      ['direccion', direccion || null], ['colonia', colonia || null], ['zona', zona || null],
+      ['municipio', municipio || null], ['departamento', departamento || null], ['nacionalidad', nacionalidad || null],
+      ['estado_civil', estado_civil || null], ['profesion', profesion || null], ['ocupacion', ocupacion || null],
+      ['grado_academico', grado_academico || null], ['tiene_hijos', tiene_hijos ?? null],
+      ['clasificacion', clasificacion || null], ['segmento_coex', segmento_coex || null], ['is_cliente', is_cliente || false],
+      ['tipo_servicio', tipo_servicio || null], ['foto', foto || null], ['notas', notas || null],
+      ['fecha_primer_consulta', fechaONulo(fecha_primer_consulta), 'date'], ['motivo_consulta', motivo_consulta || null],
+      ['referencia', referencia || null],
+      ['es_reingreso', esReingreso === true], ['fecha_reingreso', esReingreso ? fechaReingreso : null, 'date']
+    ];
+    // El ID lo pone la base si la columna tiene secuencia (producción: número); si no, se genera uno de texto
+    if (!(await idAutomatico())) campos.unshift(['id', `PAC_${Date.now()}_${Math.floor(Math.random() * 1000)}`]);
+
     const result = await pool.query(
-      `INSERT INTO pacientes 
-       (id, nombre, apellido_paterno, apellido_materno, edad, fecha_nacimiento,
-        genero, dpi, telefono, email, direccion, colonia, zona, 
-        municipio, departamento, nacionalidad, estado_civil, profesion, ocupacion, grado_academico, tiene_hijos,
-        clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas, fecha_primer_consulta, motivo_consulta, referencia, estado, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, CASE WHEN $6::text != '' THEN $6::date ELSE NULL END, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, 'activo', NOW(), NOW())
+      `INSERT INTO pacientes (${campos.map(([c]) => c).join(', ')}, estado, created_at, updated_at)
+       VALUES (${campos.map(([, , tipo], i) => `$${i + 1}${tipo ? `::${tipo}` : ''}`).join(', ')}, 'activo', NOW(), NOW())
        RETURNING *`,
-      [paciente_id, nombre, apellido_paterno, apellido_materno || null, edadCalculada || null, 
-       fecha_nacimiento || null, genero || null, dpi || null, telefono || null, 
-       email || null, direccion || null, colonia || null, zona || null, 
-       municipio || null, departamento || null, nacionalidad || null, estado_civil || null, 
-       profesion || null, ocupacion || null, grado_academico || null, tiene_hijos || null, clasificacion || null, segmento_coex || null,
-       is_cliente || false, tipo_servicio || null, foto || null, notas || null, fecha_primer_consulta || null, motivo_consulta || null, referencia || null]
+      campos.map(([, valor]) => valor)
     );
 
     res.status(201).json({
@@ -147,6 +177,7 @@ const updatePaciente = async (req, res) => {
             municipio, departamento, nacionalidad, estado_civil, profesion, ocupacion, grado_academico, tiene_hijos,
             clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas,
             fecha_primer_consulta, motivo_consulta, referencia } = req.body;
+    const { esReingreso, fechaReingreso } = reingreso(req.body);
 
     console.log('\n✅ updatePaciente() iniciado para ID:', id);
 
@@ -195,13 +226,16 @@ const updatePaciente = async (req, res) => {
            fecha_primer_consulta = COALESCE(CASE WHEN $28::text != '' THEN $28::date ELSE NULL END, fecha_primer_consulta),
            motivo_consulta = COALESCE($29, motivo_consulta),
            referencia = COALESCE($30, referencia),
+           es_reingreso = COALESCE($31::boolean, es_reingreso),
+           fecha_reingreso = CASE WHEN $31::boolean IS NULL THEN fecha_reingreso WHEN $31::boolean THEN $32::date ELSE NULL END,
            updated_at = NOW()
        WHERE id = $1
        RETURNING *`,
       [id, nombre, apellido_paterno, apellido_materno, edadCalculada, 
        fecha_nacimiento, genero, dpi, telefono, email, direccion, colonia, 
        zona, municipio, departamento, nacionalidad, estado_civil, profesion, ocupacion, grado_academico, tiene_hijos,
-       clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas, fecha_primer_consulta, motivo_consulta, referencia]
+       clasificacion, segmento_coex, is_cliente, tipo_servicio, foto, notas, fecha_primer_consulta, motivo_consulta, referencia,
+       esReingreso, fechaReingreso]
     );
 
     console.log('✅ Paciente actualizado:', id);

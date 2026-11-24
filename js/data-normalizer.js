@@ -54,6 +54,8 @@ const DataNormalizer = {
             
             // Datos de consulta
             fechaPrimerConsulta: formatDateForInput(paciente.fecha_primer_consulta),
+            esReingreso: paciente.es_reingreso === true,
+            fechaReingreso: formatDateForInput(paciente.fecha_reingreso),
             motivoConsulta: paciente.motivo_consulta || '',
             referencia: paciente.referencia || '',
             pacienteRefierenombre: paciente.paciente_refiere_nombre || '',
@@ -133,6 +135,8 @@ const DataNormalizer = {
             grado_academico: paciente.gradoAcademico,
             tiene_hijos: paciente.tieneHijos === 'si' ? true : (paciente.tieneHijos === 'no' ? false : null),
             fecha_primer_consulta: paciente.fechaPrimerConsulta,
+            es_reingreso: paciente.esReingreso,
+            fecha_reingreso: paciente.fechaReingreso,
             motivo_consulta: paciente.motivoConsulta,
             referencia: paciente.referencia,
             estado: paciente.estado,

@@ -2062,7 +2062,22 @@ function switchPacientTab(tabName) {
     }
 }
 
+// Ficha del paciente: con internamiento la fecha es "de internamiento"; si es reingreso,
+// la fecha del primer internamiento se conserva y se pide además la fecha de reingreso.
+function actualizarDatosIngreso() {
+    const internamiento = document.getElementById('pacientTipoServicio')?.value === 'internamiento';
+    const reingreso = internamiento && document.getElementById('pacientTipoIngreso')?.value === 'reingreso';
+    const poner = (id, texto) => { const el = document.getElementById(id); if (el) el.textContent = texto; };
+    const mostrar = (id, visible) => { const el = document.getElementById(id); if (el) el.style.display = visible ? '' : 'none'; };
+    mostrar('tipoIngresoGroup', internamiento);
+    mostrar('fechaReingresoGroup', reingreso);
+    poner('datosConsultaTitulo', internamiento ? 'Datos de Internamiento' : 'Datos de Consulta');
+    poner('fechaPrimerConsultaLabel', reingreso ? 'Fecha del Primer Internamiento' : internamiento ? 'Fecha de Internamiento' : 'Fecha de Primer Consulta');
+    poner('motivoConsultaLabel', reingreso ? 'Motivo de Reingreso' : internamiento ? 'Motivo de Internamiento' : 'Motivo de Consulta');
+}
+
 function toggleClasificacionPaciente() {
+    actualizarDatosIngreso();
     const tipoServicio = document.getElementById('pacientTipoServicio').value;
     const clasificacionGroup = document.getElementById('clasificacionAguoCronicoGroup');
     const coexGroup = document.getElementById('coexSegmentoGroup');

@@ -5,10 +5,16 @@ const sync = require('../services/historiaSincronizada');
 // Historias clínicas: una por consulta o ingreso. Mientras está abierta se edita;
 // al cerrarla queda en solo lectura con una copia de los antecedentes de ese momento.
 
-const TIPOS = ['consulta', 'ingreso', 'emergencia', 'control'];
-const CAMPOS_TEXTO = ['motivo_consulta', 'enfermedad_actual', 'revision_sistemas', 'examen_fisico', 'impresion_clinica', 'plan'];
+const TIPOS = ['consulta', 'ingreso', 'reingreso', 'emergencia', 'control'];
+// Formato de ingreso del hospital; revision_sistemas y examen_fisico quedan de historias anteriores
+const CAMPOS_TEXTO = ['motivo_consulta', 'enfermedad_actual', 'examen_mental', 'datos_complementarios',
+  'impresion_clinica', 'plan', 'revision_sistemas', 'examen_fisico'];
 const SIGNOS = ['pa', 'fc', 'fr', 'temp', 'sat', 'peso', 'talla'];
-const ANTECEDENTES = ['personales', 'quirurgicos', 'traumaticos', 'alergicos', 'familiares', 'habitos', 'gineco_obstetricos', 'medicamentos_habituales'];
+const ANTECEDENTES = ['personales', 'quirurgicos', 'traumaticos', 'alergicos', 'gineco_obstetricos',
+  'psiquiatricos_personales', 'psiquiatricos_familiares', 'toxicologicos',
+  'familiares', 'habitos', 'medicamentos_habituales'];
+// Ficha de ingreso que no está en los datos del paciente
+const DATOS_GENERALES = ['nombre_preferido', 'religion', 'lateralidad', 'idioma'];
 const MAX_TEXTO = 20000;
 
 const MIGRACION_PENDIENTE = 'Falta preparar la base de datos para las historias clínicas (npm run migrate:historias-clinicas).';
@@ -46,6 +52,16 @@ const fechaValida = (valor) => {
   if (valor === undefined || valor === null || valor === '') return null;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(valor))) throw errorConEstado('Fecha no válida');
   return String(valor);
+};
+
+const datosGenerales = (valor) => {
+  const datos = {};
+  for (const clave of DATOS_GENERALES) {
+    const v = String(valor?.[clave] ?? '').trim();
+    if (v.length > 150) throw errorConEstado('Un dato de la ficha de ingreso es demasiado largo');
+    if (v) datos[clave] = v;
+  }
+  return datos;
 };
 
 const signosVitales = (valor) => {
@@ -137,9 +153,12 @@ const crear = async (req, res) => {
     if (!paciente.rowCount) throw errorConEstado('Paciente no encontrado', 404);
 
     const autor = nombreUsuario(req);
+    // La ficha de ingreso (religión, idioma…) se toma de la historia anterior del paciente
     const result = await pool.query(
-      `INSERT INTO historias_clinicas (paciente_id, tipo, fecha, medico_id, medico_nombre, actualizado_por_nombre)
-       VALUES ($1, $2, COALESCE($3::date, CURRENT_DATE), $4, $5, $5)
+      `INSERT INTO historias_clinicas (paciente_id, tipo, fecha, medico_id, medico_nombre, actualizado_por_nombre, datos_generales)
+       VALUES ($1, $2, COALESCE($3::date, CURRENT_DATE), $4, $5, $5,
+         COALESCE((SELECT datos_generales FROM historias_clinicas WHERE paciente_id = $1
+                   ORDER BY fecha DESC, id DESC LIMIT 1), '{}'::jsonb))
        RETURNING ${COLUMNAS_COMPLETAS}`,
       [paciente.rows[0].id, tipo, fecha, req.user.id, autor]
     );
@@ -157,21 +176,28 @@ const actualizar = async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) throw errorConEstado('Historia no válida');
-    const valores = CAMPOS_TEXTO.map(campo => texto(req.body[campo], campo.replace('_', ' ')));
-    const tipo = TIPOS.includes(req.body.tipo) ? req.body.tipo : null;
+    // Solo cambian los campos que vienen: un campo que la pantalla no muestra no se borra
+    const asignaciones = [];
+    const parametros = [id];
+    const asignar = (columna, valor, conversion = '') => {
+      parametros.push(valor);
+      asignaciones.push(`${columna} = $${parametros.length}${conversion}`);
+    };
+    CAMPOS_TEXTO.filter(campo => req.body[campo] !== undefined)
+      .forEach(campo => asignar(campo, texto(req.body[campo], campo.replace(/_/g, ' '))));
+    if (TIPOS.includes(req.body.tipo)) asignar('tipo', req.body.tipo);
     const fecha = fechaValida(req.body.fecha);
+    if (fecha) asignar('fecha', fecha, '::date');
     // Los signos vitales se registran por toma (/api/signos-vitales); solo se aceptan aquí si vienen
-    const signos = req.body.signos_vitales === undefined ? null : signosVitales(req.body.signos_vitales);
+    if (req.body.signos_vitales !== undefined) asignar('signos_vitales', JSON.stringify(signosVitales(req.body.signos_vitales)), '::jsonb');
+    if (req.body.datos_generales !== undefined) asignar('datos_generales', JSON.stringify(datosGenerales(req.body.datos_generales)), '::jsonb');
+    asignar('actualizado_por_nombre', nombreUsuario(req));
 
     const result = await pool.query(
-      `UPDATE historias_clinicas SET
-         motivo_consulta = $2, enfermedad_actual = $3, revision_sistemas = $4,
-         examen_fisico = $5, impresion_clinica = $6, plan = $7,
-         signos_vitales = COALESCE($8::jsonb, signos_vitales), tipo = COALESCE($9, tipo), fecha = COALESCE($10::date, fecha),
-         actualizado_por_nombre = $11, updated_at = NOW()
+      `UPDATE historias_clinicas SET ${asignaciones.join(', ')}, updated_at = NOW()
        WHERE id = $1 AND estado = 'abierta'
        RETURNING ${COLUMNAS_COMPLETAS}`,
-      [id, ...valores, signos === null ? null : JSON.stringify(signos), tipo, fecha, nombreUsuario(req)]
+      parametros
     );
     if (!result.rowCount) {
       const existe = await pool.query('SELECT estado FROM historias_clinicas WHERE id = $1', [id]);
@@ -198,7 +224,7 @@ const cerrar = async (req, res) => {
     const historia = actual.rows[0];
     if (historia.estado === 'cerrada') throw errorConEstado('Esta historia ya está cerrada', 409);
     if (!historia.motivo_consulta.trim() || !historia.impresion_clinica.trim()) {
-      throw errorConEstado('Para cerrar la historia escriba y guarde el motivo de consulta y la impresión clínica');
+      throw errorConEstado('Para cerrar la historia escriba y guarde el motivo de consulta y la impresión diagnóstica');
     }
 
     const conOrdenes = await sync.disponible();
@@ -300,13 +326,14 @@ const obtenerAntecedentes = async (req, res) => {
 // PUT /api/historias-clinicas/antecedentes/:pacienteId
 const guardarAntecedentes = async (req, res) => {
   try {
-    const valores = ANTECEDENTES.map(campo => texto(req.body[campo], campo.replace('_', ' ')));
+    // Un antecedente que no viene (la pantalla no lo muestra) conserva lo que tenía
+    const valores = ANTECEDENTES.map(campo => (req.body[campo] === undefined ? null : texto(req.body[campo], campo.replace(/_/g, ' '))));
     const paciente = await pool.query('SELECT id FROM pacientes WHERE id::text = $1', [String(req.params.pacienteId)]);
     if (!paciente.rowCount) throw errorConEstado('Paciente no encontrado', 404);
 
     const columnas = ANTECEDENTES.join(', ');
-    const parametros = ANTECEDENTES.map((_, i) => `$${i + 2}`).join(', ');
-    const actualizaciones = ANTECEDENTES.map(c => `${c} = EXCLUDED.${c}`).join(', ');
+    const parametros = ANTECEDENTES.map((_, i) => `COALESCE($${i + 2}, '')`).join(', ');
+    const actualizaciones = ANTECEDENTES.map((c, i) => `${c} = COALESCE($${i + 2}, antecedentes_paciente.${c})`).join(', ');
     const result = await pool.query(
       `INSERT INTO antecedentes_paciente (paciente_id, ${columnas}, actualizado_por_nombre)
        VALUES ($1, ${parametros}, $${ANTECEDENTES.length + 2})

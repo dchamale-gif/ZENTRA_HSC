@@ -13,18 +13,34 @@ const HistoriaPanelModule = {
     TIPOS: [
         { valor: 'consulta', texto: 'Consulta' },
         { valor: 'ingreso', texto: 'Ingreso' },
+        { valor: 'reingreso', texto: 'Reingreso' },
         { valor: 'emergencia', texto: 'Emergencia' },
         { valor: 'control', texto: 'Control' }
     ],
 
+    // Formato "Historia Clínica Ingreso" del hospital. Los campos "anterior" son del formato
+    // previo: solo aparecen si la historia ya los trae llenos.
     CAMPOS_HISTORIA: [
-        { clave: 'motivo_consulta', texto: 'Motivo de consulta', filas: 2, requerido: true },
-        { clave: 'enfermedad_actual', texto: 'Historia de la enfermedad actual', filas: 4 },
-        { clave: 'revision_sistemas', texto: 'Revisión por sistemas', filas: 3 },
-        { clave: 'examen_fisico', texto: 'Examen físico', filas: 4 },
-        { clave: 'impresion_clinica', texto: 'Impresión clínica / diagnóstico', filas: 2, requerido: true },
-        { clave: 'plan', texto: 'Plan', filas: 3 }
+        { clave: 'motivo_consulta', texto: 'Motivo de consulta', filas: 3, requerido: true },
+        { clave: 'enfermedad_actual', texto: 'Historia de la enfermedad actual', filas: 5 },
+        { clave: 'examen_mental', texto: 'Examen mental', filas: 5 },
+        { clave: 'datos_complementarios', texto: 'Datos complementarios', filas: 3 },
+        { clave: 'impresion_clinica', texto: 'Impresión diagnóstica', filas: 3, requerido: true },
+        { clave: 'plan', texto: 'Plan terapéutico', filas: 3 },
+        { clave: 'revision_sistemas', texto: 'Revisión por sistemas', filas: 3, anterior: true },
+        { clave: 'examen_fisico', texto: 'Examen físico', filas: 3, anterior: true }
     ],
+
+    // Ficha de ingreso: lo que no está en los datos del paciente se guarda con la historia
+    DATOS_INGRESO: [
+        { clave: 'nombre_preferido', texto: 'Nombre preferido' },
+        { clave: 'religion', texto: 'Religión' },
+        { clave: 'lateralidad', texto: 'Lateralidad', opciones: ['Diestro', 'Zurdo', 'Ambidiestro'] },
+        { clave: 'idioma', texto: 'Idioma', sugerencias: ['Español', 'Inglés', "K'iche'", 'Kaqchikel', "Q'eqchi'", 'Mam'] }
+    ],
+
+    ESTADOS_CIVILES: { soltero: 'Soltero(a)', casado: 'Casado(a)', divorciado: 'Divorciado(a)', viudo: 'Viudo(a)', union: 'Unión estable' },
+    ESCOLARIDAD: { primaria: 'Primaria', secundaria: 'Secundaria (básicos)', preparatoria: 'Diversificado', tecnico: 'Técnico', licenciatura: 'Universitario', postgrado: 'Postgrado' },
 
     SIGNOS: [
         { clave: 'pa', texto: 'PA', unidad: 'mmHg', ejemplo: '120/80' },
@@ -37,14 +53,17 @@ const HistoriaPanelModule = {
     ],
 
     ANTECEDENTES: [
-        { clave: 'personales', texto: 'Personales patológicos' },
+        { clave: 'personales', texto: 'Médicos' },
         { clave: 'quirurgicos', texto: 'Quirúrgicos' },
         { clave: 'traumaticos', texto: 'Traumáticos' },
         { clave: 'alergicos', texto: 'Alérgicos' },
-        { clave: 'familiares', texto: 'Familiares' },
-        { clave: 'habitos', texto: 'Hábitos' },
-        { clave: 'gineco_obstetricos', texto: 'Gineco-obstétricos' },
-        { clave: 'medicamentos_habituales', texto: 'Medicamentos habituales' }
+        { clave: 'gineco_obstetricos', texto: 'Ginecológicos' },
+        { clave: 'psiquiatricos_personales', texto: 'Psiquiátricos personales' },
+        { clave: 'psiquiatricos_familiares', texto: 'Psiquiátricos familiares' },
+        { clave: 'toxicologicos', texto: 'Toxicológicos', filas: 3 },
+        { clave: 'familiares', texto: 'Familiares (formato anterior)', anterior: true },
+        { clave: 'habitos', texto: 'Hábitos (formato anterior)', anterior: true },
+        { clave: 'medicamentos_habituales', texto: 'Medicamentos habituales (formato anterior)', anterior: true }
     ],
 
     TURNOS: [
@@ -165,6 +184,74 @@ const HistoriaPanelModule = {
 
     tipoServicio(p) {
         return { agudo: 'Agudo', cronico: 'Crónico', coex: 'COEX' }[p.tipoServicio] || '';
+    },
+
+    // Edad cumplida a la fecha de la historia (no a hoy): una historia vieja muestra la edad de entonces
+    edadAl(p, fecha) {
+        const nac = String(p.fechaNacimiento || '').slice(0, 10);
+        const ref = String(fecha || this.hoy()).slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(nac) || !/^\d{4}-\d{2}-\d{2}$/.test(ref)) return p.edad ? `${p.edad} años` : '';
+        const [an, mn, dn] = nac.split('-').map(Number);
+        const [ar, mr, dr] = ref.split('-').map(Number);
+        const edad = ar - an - (mr < mn || (mr === mn && dr < dn) ? 1 : 0);
+        return edad >= 0 ? `${edad} años` : '';
+    },
+
+    // Dirección, zona, municipio y departamento sin repetir lo que la dirección ya dice
+    residencia(p) {
+        const partes = [];
+        const sinAcentosMinus = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+        const yaDice = texto => partes.some(x => sinAcentosMinus(x).includes(sinAcentosMinus(texto)));
+        [p.direccion, p.zona ? `zona ${p.zona}` : '', p.municipio, p.departamento].forEach(parte => {
+            if (parte && !yaDice(parte)) partes.push(String(parte).trim());
+        });
+        return partes.join(', ');
+    },
+
+    // Filas de la ficha de ingreso en el orden del formato del hospital.
+    // Las que tienen "clave" se escriben en la historia; las demás salen de los datos del paciente.
+    fichaIngreso(p, h) {
+        const datos = h?.datos_generales || {};
+        const ingreso = clave => ({ ...this.DATOS_INGRESO.find(d => d.clave === clave), valor: datos[clave] || '' });
+        const hijos = { si: 'Sí', no: 'No' }[p.tieneHijos] || '';
+        return [
+            { texto: 'Nombre', valor: this.nombre(p) },
+            ingreso('nombre_preferido'),
+            { texto: 'Edad', valor: this.edadAl(p, h?.fecha) },
+            { texto: 'Fecha de nacimiento', valor: p.fechaNacimiento ? this.fecha(p.fechaNacimiento) : '' },
+            { texto: 'Residencia', valor: this.residencia(p) },
+            { texto: 'Ocupación', valor: p.ocupacion || '' },
+            { texto: 'Escolaridad', valor: this.ESCOLARIDAD[p.gradoAcademico] || p.gradoAcademico || '' },
+            ingreso('religion'),
+            ingreso('lateralidad'),
+            ingreso('idioma'),
+            { texto: 'Estado civil', valor: this.ESTADOS_CIVILES[p.estadoCivil] || p.estadoCivil || '' },
+            { texto: 'Hijos', valor: hijos },
+            { texto: h?.tipo === 'reingreso' ? 'Fecha de reingreso' : 'Fecha de ingreso', valor: h?.fecha ? this.fecha(h.fecha) : '' }
+        ];
+    },
+
+    htmlFichaIngreso(p, h, editable) {
+        const celda = fila => {
+            if (!fila.clave || !editable) return `<dd>${fila.valor ? this.e(fila.valor) : '<em>Sin registrar</em>'}</dd>`;
+            if (fila.opciones) {
+                return `<dd><select class="form-input" data-dato="${fila.clave}" aria-label="${fila.texto}">
+                    <option value="">—</option>
+                    ${[...new Set([...fila.opciones, fila.valor].filter(Boolean))].map(o => `<option${o === fila.valor ? ' selected' : ''}>${this.e(o)}</option>`).join('')}
+                </select></dd>`;
+            }
+            const lista = fila.sugerencias ? `hc2Sug-${fila.clave}` : '';
+            return `<dd><input type="text" class="form-input" maxlength="150" data-dato="${fila.clave}" aria-label="${fila.texto}" value="${this.e(fila.valor)}"${lista ? ` list="${lista}"` : ''}>
+                ${lista ? `<datalist id="${lista}">${fila.sugerencias.map(s => `<option value="${this.e(s)}">`).join('')}</datalist>` : ''}</dd>`;
+        };
+        return `
+            <section class="hc2-ficha" aria-label="Ficha de ingreso">
+                <h4>Ficha de ingreso</h4>
+                <dl class="hc2-ficha-grid">
+                    ${this.fichaIngreso(p, h).map(fila => `<div class="hc2-ficha-fila${fila.clave ? ' propia' : ''}"><dt>${fila.texto}</dt>${celda(fila)}</div>`).join('')}
+                </dl>
+                ${editable ? '<p class="hc2-antecedentes-nota">Nombre, edad, residencia, ocupación, escolaridad, estado civil e hijos se corrigen en la ficha del paciente.</p>' : ''}
+            </section>`;
     },
 
     hoy() {
@@ -592,6 +679,7 @@ const HistoriaPanelModule = {
 
             <div class="hc2-cuerpo">
                 <div class="hc2-formulario" data-hc2-seccion="historia">
+                    ${this.htmlFichaIngreso(this.paciente() || {}, h, editable)}
                     ${editable ? `
                     <div class="hc2-fila-dos">
                         <label class="hc2-campo"><span>Tipo</span>
@@ -617,6 +705,7 @@ const HistoriaPanelModule = {
 
     htmlCampo(campo, h, editable) {
         const valor = h[campo.clave] || '';
+        if (campo.anterior && !valor.trim()) return '';
         if (editable) {
             return `
                 <label class="hc2-campo"><span>${campo.texto}${campo.requerido ? ' <small>(necesario para cerrar)</small>' : ''}</span>
@@ -830,8 +919,8 @@ const HistoriaPanelModule = {
                 <p class="hc2-antecedentes-nota">${alCierre
                     ? 'Como estaban al cerrar esta historia.'
                     : (a.updated_at ? `Actualizados por ${this.e(a.actualizado_por_nombre || '—')} · ${this.e(formatFechaHora(a.updated_at))}` : 'Del paciente; se comparten con todas sus historias.')}</p>
-                ${this.ANTECEDENTES.map(c => editable
-                    ? `<label class="hc2-campo"><span>${c.texto}</span><textarea class="form-input" rows="2" data-antecedente="${c.clave}">${this.e(a[c.clave] || '')}</textarea></label>`
+                ${this.ANTECEDENTES.filter(c => !c.anterior || String(a[c.clave] || '').trim()).map(c => editable
+                    ? `<label class="hc2-campo"><span>${c.texto}</span><textarea class="form-input" rows="${c.filas || 2}" data-antecedente="${c.clave}">${this.e(a[c.clave] || '')}</textarea></label>`
                     : `<div class="hc2-campo hc2-lectura"><span>${c.texto}</span><p>${a[c.clave] ? this.e(a[c.clave]) : '<em>Sin registrar</em>'}</p></div>`).join('')}
             </aside>`;
     },
@@ -1498,6 +1587,8 @@ const HistoriaPanelModule = {
         const datos = { tipo: h.tipo, fecha: String(h.fecha || '').slice(0, 10) || undefined };
         this.CAMPOS_HISTORIA.forEach(c => { datos[c.clave] = h[c.clave] ?? ''; });
         document.querySelectorAll('#hc2Contenido [data-hc2-seccion="historia"] [data-campo]').forEach(el => { datos[el.dataset.campo] = el.value; });
+        datos.datos_generales = { ...(h.datos_generales || {}) };
+        document.querySelectorAll('#hc2Contenido [data-hc2-seccion="historia"] [data-dato]').forEach(el => { datos.datos_generales[el.dataset.dato] = el.value; });
         return datos;
     },
 
@@ -1543,10 +1634,19 @@ const HistoriaPanelModule = {
         this.renderLista();
     },
 
+    // Tipo de la historia nueva: si ya tuvo un ingreso es reingreso; con internamiento, ingreso
+    // (o reingreso si así está en su ficha); si no, consulta. El médico lo puede cambiar.
+    tipoSugerido() {
+        const p = this.paciente() || {};
+        if (this.state.historias.some(h => ['ingreso', 'reingreso'].includes(h.tipo))) return 'reingreso';
+        if (p.tipoServicio === 'internamiento') return p.esReingreso ? 'reingreso' : 'ingreso';
+        return 'consulta';
+    },
+
     async nueva() {
         if (!this.confirmarDescartar()) return;
         try {
-            const { data } = await this.api('', { method: 'POST', body: JSON.stringify({ paciente_id: this.state.pacienteId, tipo: 'consulta', fecha: this.hoy() }) });
+            const { data } = await this.api('', { method: 'POST', body: JSON.stringify({ paciente_id: this.state.pacienteId, tipo: this.tipoSugerido(), fecha: this.hoy() }) });
             this.state.historia = data;
             this.state.cambios = { historia: false, antecedentes: false };
             await this.recargarLista();
@@ -1617,9 +1717,9 @@ const HistoriaPanelModule = {
     // ---------- Impresión ----------
     // Secciones que se pueden imprimir (las pestañas de la historia); la selección se recuerda
     SECCIONES_IMPRESION: [
-        { clave: 'datos', texto: 'Datos generales del paciente' },
-        { clave: 'historia', texto: 'Historia clínica', detalle: 'Motivo, enfermedad actual, examen físico, impresión y plan' },
+        { clave: 'datos', texto: 'Ficha de ingreso', detalle: 'Nombre, edad, residencia, escolaridad, religión, idioma…' },
         { clave: 'antecedentes', texto: 'Antecedentes' },
+        { clave: 'historia', texto: 'Historia clínica', detalle: 'Motivo, enfermedad actual, examen mental, impresión diagnóstica y plan' },
         { clave: 'signos', texto: 'Signos vitales' },
         { clave: 'ordenes', texto: 'Órdenes médicas', detalle: 'Con la transcripción de enfermería' },
         { clave: 'notas', texto: 'Notas de enfermería' },
@@ -1749,24 +1849,30 @@ const HistoriaPanelModule = {
         }
         const clinica = (typeof CONFIG !== 'undefined' && CONFIG.CLINICA) || { nombre: 'Zentra MED' };
         const antecedentes = h.estado === 'abierta' ? (this.state.antecedentes || {}) : (h.antecedentes_al_cierre || {});
-        const texto = valor => valor ? `<p>${e(valor)}</p>` : '<p class="vacio">Sin registrar</p>';
         const vacio = mensaje => `<p class="vacio">${mensaje}</p>`;
         const turno = valor => this.TURNOS.find(t => t.valor === valor)?.texto || valor;
         const detalleMed = item => ['dosis', 'via', 'frecuencia', 'horario'].map(c => item[c]).filter(Boolean).join(' · ');
 
+        // Formato "Historia Clínica Ingreso": ficha y antecedentes en tabla de dos columnas,
+        // y cada sección con su título en negrita y el texto debajo
+        const valorCelda = valor => valor ? e(valor) : '';
+        const conTitulo = !secciones.has('datos') && !secciones.has('antecedentes');
         const html = {
             datos: () => `
-<h2>Datos generales</h2>
-<div class="datos">
-  <div><b>Paciente:</b> ${e(this.nombre(p))}</div><div><b>DPI:</b> ${e(p.dpi || p.pasaporte || '—')}</div><div><b>Edad:</b> ${e(this.edad(p) || '—')}</div>
-  <div><b>Género:</b> ${e(p.genero || '—')}</div><div><b>Teléfono:</b> ${e(p.telefono || '—')}</div><div><b>Médico:</b> ${e(h.medico_nombre || '—')}</div>
-</div>`,
-            historia: () => `
-<h2>Historia clínica</h2>
-${this.CAMPOS_HISTORIA.map(c => `<div class="campo"><b>${c.texto}</b>${texto(h[c.clave])}</div>`).join('')}`,
+<table class="ficha"><tbody>
+${this.fichaIngreso(p, h).map(f => `<tr><th>${f.texto}</th><td>${valorCelda(f.valor)}</td></tr>`).join('')}
+</tbody></table>`,
             antecedentes: () => `
-<h2>Antecedentes${h.estado === 'cerrada' ? ' (al cierre de esta historia)' : ''}</h2>
-<div class="ant">${this.ANTECEDENTES.map(c => `<div class="campo"><b>${c.texto}</b>${texto(antecedentes[c.clave])}</div>`).join('')}</div>`,
+<h2 class="titulo-hc">Historia Clínica</h2>
+<table class="ficha antecedentes"><tbody>
+<tr><th colspan="2" class="encabezado">Antecedentes${h.estado === 'cerrada' ? ' <small>(al cierre de esta historia)</small>' : ''}</th></tr>
+${this.ANTECEDENTES.filter(c => !c.anterior || String(antecedentes[c.clave] || '').trim())
+    .map(c => `<tr><th>${c.texto.replace(' (formato anterior)', '')}</th><td>${valorCelda(antecedentes[c.clave])}</td></tr>`).join('')}
+</tbody></table>`,
+            historia: () => `
+${conTitulo ? '<h2 class="titulo-hc">Historia Clínica</h2>' : ''}
+${this.CAMPOS_HISTORIA.filter(c => !c.anterior || String(h[c.clave] || '').trim())
+    .map(c => `<div class="seccion"><h3>${c.texto}</h3>${h[c.clave] ? `<p>${e(h[c.clave])}</p>` : '<p class="espacio"></p>'}</div>`).join('')}`,
             signos: () => `
 <h2>Signos vitales</h2>
 ${tomas.length ? `<table class="tabla"><thead><tr><th>Fecha y hora</th>${this.SIGNOS.map(s => `<th>${s.texto} (${s.unidad})</th>`).join('')}<th>IMC</th><th>Registró</th></tr></thead>
@@ -1798,20 +1904,35 @@ ${anteriores.length ? `<div class="campo"><b>Finalizados o suspendidos</b>${list
             }
         };
         const cuerpo = this.SECCIONES_IMPRESION.filter(s => secciones.has(s.clave)).map(s => html[s.clave]()).join('\n');
+        // Membrete del hospital (encabezado de la plantilla de Word); si no carga, el nombre de la clínica
+        const membrete = new URL('img/membrete-hospital.png', location.href).href;
 
         ventana.document.open();
         ventana.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
 <title>Historia clínica - ${e(this.nombre(p))} - ${e(this.fecha(h.fecha))}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Segoe UI', Arial, sans-serif; color: #1f2933; font-size: 12px; line-height: 1.45; padding: 28px; }
-  .doc { max-width: 900px; margin: 0 auto; }
-  header { display: flex; justify-content: space-between; border-bottom: 2px solid #1d5bd8; padding-bottom: 10px; margin-bottom: 14px; }
-  header strong { font-size: 15px; color: #1d5bd8; }
+  body { font-family: Calibri, Carlito, 'Segoe UI', Arial, sans-serif; color: #1f2933; font-size: 12.5px; line-height: 1.45; padding: 0 28px 28px; }
+  .doc { max-width: 816px; margin: 0 auto; }
+  /* La franja superior del membrete (Word recorta el 41 % de abajo de la imagen) */
+  .membrete { margin: 0 -28px 10px; aspect-ratio: 2000 / 359; overflow: hidden; position: relative; }
+  .membrete img { position: absolute; top: 0; left: 0; width: 100%; }
+  .membrete-texto { display: none; font-size: 15px; font-weight: 700; color: #2c8fcc; padding: 18px 0 10px; }
+  .membrete.sin-imagen { aspect-ratio: auto; overflow: visible; margin: 0 0 10px; }
+  .membrete.sin-imagen .membrete-texto { display: block; }
+  .subtitulo { display: flex; justify-content: space-between; font-size: 11px; color: #52606d; margin-bottom: 10px; }
+  .ficha { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 12.5px; }
+  .ficha th, .ficha td { border: 1px solid #1f2933; padding: 4px 8px; vertical-align: top; text-align: left; }
+  .ficha th { width: 34%; font-weight: 700; }
+  .ficha td { white-space: pre-wrap; }
+  .ficha th.encabezado { width: auto; text-align: center; }
+  .ficha th.encabezado small { font-weight: 400; }
+  .titulo-hc { font-size: 14px; font-weight: 700; color: #1f2933; text-transform: none; letter-spacing: 0; border: 0; margin: 14px 0 8px; padding: 0; }
+  .seccion { margin-bottom: 12px; page-break-inside: avoid; }
+  .seccion h3 { font-size: 13px; font-weight: 700; margin-bottom: 3px; }
+  .seccion .espacio { min-height: 48px; }
   h1 { font-size: 17px; text-align: right; }
   h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: #52606d; margin: 14px 0 6px; border-bottom: 1px solid #e4e8ef; padding-bottom: 3px; }
-  .datos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 16px; }
-  .datos b { color: #52606d; font-weight: 600; }
   .tabla { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 4px; }
   .tabla th, .tabla td { border: 1px solid #e4e8ef; padding: 3px 5px; text-align: center; vertical-align: top; }
   .tabla.izquierda th, .tabla.izquierda td { text-align: left; }
@@ -1821,20 +1942,27 @@ ${anteriores.length ? `<div class="campo"><b>Finalizados o suspendidos</b>${list
   .campo { margin-bottom: 8px; } .campo b { display: block; color: #52606d; }
   .meds { margin: 2px 0 0 18px; } .meds li b { display: inline; color: #1f2933; }
   p { white-space: pre-wrap; } .vacio { color: #8a94a6; font-style: italic; }
-  .ant { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; }
   .orden { border: 1px solid #e4e8ef; border-radius: 4px; padding: 6px 8px; margin-bottom: 6px; page-break-inside: avoid; }
   .orden ul { margin: 4px 0 4px 18px; } .orden small { color: #52606d; }
   footer { margin-top: 30px; display: flex; justify-content: space-between; font-size: 11px; color: #52606d; }
   .firma { border-top: 1px solid #1f2933; padding-top: 4px; width: 240px; text-align: center; margin-top: 40px; }
-  @media print { body { padding: 0; } }
+  @page { size: letter; margin: 14mm 0; }
+  @page :first { margin-top: 0; }
+  @media print { body { padding: 0 20mm; } .membrete { margin: 0 -20mm 10px; } .membrete img, .ficha th { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style></head><body><div class="doc">
-<header><div><strong>${e(clinica.nombre || 'Zentra MED')}</strong>${secciones.has('datos') ? '' : `<div>${e(this.nombre(p))}</div>`}</div>
-<div><h1>HISTORIA CLÍNICA</h1><div style="text-align:right">${e(this.tipoTexto(h.tipo))} · ${e(this.fecha(h.fecha))} · ${h.estado === 'abierta' ? 'Abierta' : 'Cerrada'}</div></div></header>
+<div class="membrete"><img src="${e(membrete)}" alt="" onerror="this.parentNode.classList.add('sin-imagen'); this.remove();"><div class="membrete-texto">${e(clinica.nombre || 'Zentra MED')}</div></div>
+<div class="subtitulo"><span>${secciones.has('datos') ? '' : `<b>${e(this.nombre(p))}</b> · `}Historia clínica de ${e(this.tipoTexto(h.tipo).toLowerCase())} · ${e(this.fecha(h.fecha))}</span><span>${h.estado === 'abierta' ? 'Abierta' : 'Cerrada'}</span></div>
 ${cuerpo}
 <footer><span>Impreso el ${e(formatFechaHora(new Date()))}</span><div class="firma">${e(h.medico_nombre || 'Médico tratante')}</div></footer>
-</div></body></html>`);
+</div>
+<script>
+  // Imprime cuando el membrete ya cargó (o falló)
+  var listo = false;
+  function imprimir() { if (listo) return; listo = true; setTimeout(function () { window.print(); }, 100); }
+  window.addEventListener('load', imprimir);
+  setTimeout(imprimir, 2500);
+</script></body></html>`);
         ventana.document.close();
-        setTimeout(() => ventana.print(), 250);
     }
 };
 
